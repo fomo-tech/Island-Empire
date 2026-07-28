@@ -2,6 +2,7 @@ import { config } from "./config.js";
 import { closeDb } from "./db/client.js";
 import { ensureIndexes } from "./db/collections.js";
 import { createApp } from "./http/app.js";
+import { attachRealtime } from "./realtime/socket.js";
 
 async function main() {
   await ensureIndexes();
@@ -9,6 +10,7 @@ async function main() {
   const server = app.listen(config.PORT, () => {
     console.log(`API listening on http://127.0.0.1:${config.PORT}`);
   });
+  attachRealtime(server);
 
   const shutdown = async () => {
     server.close();

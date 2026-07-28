@@ -6,6 +6,14 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5173,
+    watch: {
+      // Use polling so macOS file system events don't get missed
+      usePolling: true,
+      interval: 100,
+    },
+    hmr: {
+      overlay: true,
+    },
   },
   preview: {
     host: "127.0.0.1",
