@@ -12,6 +12,7 @@ export type GameEngineHandle = {
   getSourceTown: () => any;
   getPlayerOwnedTowns: () => any[];
   getTownRegionId: (town: any) => number;
+  getRegion: (id: number) => any;
   getRegionCenter: (id: number) => { x: number; y: number } | null;
   getTerritorySpecialResources: (id: number) => string[];
   getActiveBattleForRegion: (id: number) => any;
@@ -257,6 +258,15 @@ export function createIslandEmpireGame(
   const regions = allGenerated.filter(t => !t.isIslet);
   const islets = allGenerated.filter(t => t.isIslet);
 
+  const allLandsById = new Map<number, any>();
+  allGenerated.forEach((r) => {
+    allLandsById.set(r.id, r);
+  });
+
+  function landById(id: number) {
+    return allLandsById.get(id) || null;
+  }
+
   const routes = [
     [130, 379, 287, 348, 438, 315, 608, 352, 788, 318, 940, 256],
     [178, 743, 367, 664, 558, 612, 728, 564, 1000, 498],
@@ -494,11 +504,6 @@ export function createIslandEmpireGame(
     return params.has("newbie") || localStorage.getItem(ONBOARDING_KEY) === "1";
   }
 
-  function landById(id) {
-    if (id >= 1000) return islets[id - 1000];
-    return regions[id];
-  }
-
   function resetStarterTownsForNewbie() {
     if (!isNewbieOnboarding()) return;
     towns.forEach((t, i) => {
@@ -552,7 +557,7 @@ export function createIslandEmpireGame(
     const r = landById(regionId);
     const y = BIOME_YIELDS[r?.biome ?? 0] || BIOME_YIELDS[0];
     const areaFactor = territoryAreaFactor(r);
-    const isIslet = regionId >= 1000 || r?.isIslet;
+    const isIslet = Boolean(r?.isIslet);
     const mult = {
       gold: isIslet ? 1.25 : 1,
       wood: isIslet ? 0.3 : 1,
@@ -579,7 +584,7 @@ export function createIslandEmpireGame(
     const r = landById(regionId);
     if (!r) return ownerCode === 1 ? 32 : 64;
     const biomePopMult = [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][r.biome ?? 0] || 1;
-    const isletPenalty = regionId >= 1000 || r.isIslet ? 0.55 : 1;
+    const isletPenalty = r?.isIslet ? 0.55 : 1;
     const base = ownerCode === 1 ? 24 : 48;
     return Math.round(base + territoryAreaFactor(r) * 28 * biomePopMult * isletPenalty);
   }
@@ -3211,10 +3216,10 @@ export function createIslandEmpireGame(
     // ─── SMOKE PUFFS ────────────────────────────────────────────────────────
     for (let i = 0; i < 4; i++) {
       const angle = (i / 4) * Math.PI * 2 + state.tick * 0.35;
-      const t = (state.tick * 0.85 + i * 0.25) % 1;
+      const t = Math.max(0, ((state.tick * 0.85 + i * 0.25) % 1 + 1) % 1);
       ctx.fillStyle = `rgba(200, 200, 210, ${(1 - t) * 0.5})`;
       ctx.beginPath();
-      ctx.arc(CX + Math.cos(angle) * t * 36, by - 20 + Math.sin(angle) * t * 30, 6 + t * 18, 0, Math.PI * 2);
+      ctx.arc(CX + Math.cos(angle) * t * 36, by - 20 + Math.sin(angle) * t * 30, Math.max(0, 6 + t * 18), 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -3235,18 +3240,18 @@ export function createIslandEmpireGame(
     // ─── SPARK PARTICLES ─────────────────────────────────────────────────────
     for (let i = 0; i < 6; i++) {
       const angle = (i / 6) * Math.PI * 2 - state.tick * 1.6;
-      const t = (state.tick * 2.6 + i * 0.17) % 1;
+      const t = Math.max(0, ((state.tick * 2.6 + i * 0.17) % 1 + 1) % 1);
       const sz = Math.max(1, (1 - t) * 7);
       const col = t < 0.25 ? "#fff" : t < 0.55 ? "#ffd700" : t < 0.8 ? "#f97316" : "#ef4444";
       pxRect(CX + Math.cos(angle) * t * 48 - sz / 2, by - 20 + Math.sin(angle) * t * 40 - sz / 2, sz, sz, col);
     }
 
     // ─── SHOCKWAVE RING ───────────────────────────────────────────────────────
-    const wT = (state.tick * 1.4) % 1;
+    const wT = Math.max(0, ((state.tick * 1.4) % 1 + 1) % 1);
     ctx.strokeStyle = `rgba(255, 224, 80, ${(1 - wT) * 0.85})`;
-    ctx.lineWidth = 4 * (1 - wT);
+    ctx.lineWidth = Math.max(0.1, 4 * (1 - wT));
     ctx.beginPath();
-    ctx.arc(CX, by - 20, wT * 58, 0, Math.PI * 2);
+    ctx.arc(CX, by - 20, Math.max(0, wT * 58), 0, Math.PI * 2);
     ctx.stroke();
 
     // ─── FLAG PANELS (attacker LEFT, defender RIGHT) ──────────────────────────
@@ -3928,7 +3933,7 @@ export function createIslandEmpireGame(
     const y = pt.y;
 
     const relation = getRegionAllianceRelation(regionId, ownerCode, ownerName);
-    const sc = regionId >= 1000 ? 0.35 : 0.52;
+    const sc = r.isIslet ? 0.35 : 0.52;
     const color = ownerCode === 1 
       ? (state.newbieFlagColor || "#2563eb") 
       : relation === "ally"
@@ -5577,10 +5582,9 @@ export function createIslandEmpireGame(
   function landTravelAllowed(sourceRegionId: number, targetRegionId: number) {
     if (sourceRegionId < 0 || targetRegionId < 0) return false;
     if (sourceRegionId === targetRegionId) return true;
-    if (sourceRegionId >= 1000 || targetRegionId >= 1000) return false;
     const a = landById(sourceRegionId);
     const b = landById(targetRegionId);
-    if (!a || !b) return false;
+    if (!a || !b || a.isIslet || b.isIslet) return false;
 
     // Any path crossing ocean water MUST require a ship!
     if (segmentTouchesSea(a, b)) return false;
@@ -6203,9 +6207,7 @@ export function createIslandEmpireGame(
     });
     const ip = state.regionInProgress;
     if (ip >= 0) {
-      const isIslet = ip >= 1000;
-      const idx = isIslet ? ip - 1000 : ip;
-      const r = isIslet ? islets[idx] : regions[idx];
+      const r = landById(ip);
       if (r) {
         const serverTiming = state.activeClearingTimings[ip];
         if (serverTiming?.startedAt && serverTiming?.completesAt) {
@@ -6630,7 +6632,7 @@ export function createIslandEmpireGame(
         state.panX = W / 2 - r.x * state.zoom - (1 - state.zoom) * W * 0.48;
         state.panY = H / 2 - r.y * state.zoom - (1 - state.zoom) * H * 0.48;
         state.selected = null;
-        state.selectedRegion = regionId;
+        state.selectedRegion = null;
         state.newbieSelectedRegion = regionId;
         clampPan();
         toast(`GỢI Ý VÙNG KHỞI ĐẦU: LÃNH THỔ ${regionId + 1}`);

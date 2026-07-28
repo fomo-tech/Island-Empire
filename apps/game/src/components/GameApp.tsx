@@ -243,7 +243,7 @@ function stableHash(input: string) {
 }
 
 function pickStarterTerritoryId(playerId: string, territories: Array<{ id: number; ownerCode: number; isIslet?: boolean }>) {
-  const wild = territories.filter((territory) => territory.ownerCode === 0 && !territory.isIslet && territory.id < 1000);
+  const wild = territories.filter((territory) => territory.ownerCode === 0 && !territory.isIslet);
   const pool = wild.length > 0 ? wild : territories.filter((territory) => territory.ownerCode === 0);
   if (pool.length === 0) return null;
   return pool[stableHash(playerId) % pool.length].id;
@@ -798,7 +798,8 @@ export function GameApp() {
         // Handle region selection
         if (engineState.selectedRegion !== null && engineState.selectedRegion !== undefined) {
           const id = engineState.selectedRegion;
-          const isIslet = id >= 1000;
+          const regObj = engineRef.current?.getRegion?.(id);
+          const isIslet = Boolean(regObj?.isIslet);
           const ownership = engineRef.current?.getRegionOwnership?.(id) ?? engineState.regionOwnership?.[id] ?? 0;
           const regionSnapshot = `${id}|${isIslet ? 1 : 0}|${ownership}`;
           if (regionSnapshot !== snapshots.selectedRegion) {

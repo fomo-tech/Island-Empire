@@ -140,7 +140,7 @@ export function TerritoryTooltip({
   const engineState = engine.getState();
   const effectiveOwnership = engine.getRegionOwnership?.(id) ?? ownership;
 
-  const r = engine.getRegion?.(id) || (isIslet ? engine.getIslets()?.[id - 1000] : engine.getRegions()?.[id]);
+  const r = engine.getRegion?.(id);
   const specialResources = engine.getTerritorySpecialResources?.(id) || [];
 
   if (!r) return null;
@@ -487,7 +487,7 @@ export function TerritoryTooltip({
             <BannerFlagIcon />
             <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 2 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id - 1000 + 1}` : `LÃNH THỔ #${id + 1}`}</div>
+                <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id + 1}` : `LÃNH THỔ #${id + 1}`}</div>
                 {onClose && (
                   <button
                     type="button"
