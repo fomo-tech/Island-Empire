@@ -4,6 +4,7 @@ import type {
   ClaimTerritoryResult,
   CompleteClearingResult,
   CreateMarchResult,
+  GameConfig,
   GameStateResult,
   ServerStatus,
   SaveSnapshot,
@@ -35,6 +36,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getServerStatus() {
   return request<ServerStatus>("/api/health");
+}
+
+export function getGameConfig(): Promise<GameConfig> {
+  return request<GameConfig>("/api/config");
 }
 
 export function loginPlayer(username: string, password: string): Promise<AuthResponse> {

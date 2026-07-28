@@ -56,10 +56,11 @@ export function TroopDeploymentModal({
     infantryTroopsValue: 18,
     cavalryTroopsValue: 34,
     artilleryTroopsValue: 58,
-    infantrySpeed: 200,
-    cavalrySpeed: 350,
-    artillerySpeed: 100,
-    shipSpeed: 150,
+    infantrySpeed: 24,
+    cavalrySpeed: 42,
+    artillerySpeed: 14,
+    shipSpeed: 12,
+    gameHourSeconds: 60,
   };
   const infantryPower = config.infantryTroopsValue || 18;
   const cavalryPower = config.cavalryTroopsValue || 34;
@@ -178,7 +179,8 @@ export function TroopDeploymentModal({
         : cavalry > 0 && marchSpeed === config.cavalrySpeed
           ? "Kị binh"
           : "Chưa chọn quân";
-  const travelSeconds = distanceKm !== null && marchSpeed > 0 ? Math.max(6, Math.round((distanceKm / marchSpeed) * 60)) : null;
+  const gameHourSeconds = config.gameHourSeconds || 60;
+  const travelSeconds = distanceKm !== null && marchSpeed > 0 ? Math.max(6, Math.round((distanceKm / marchSpeed) * gameHourSeconds)) : null;
   const travelText = travelSeconds === null
     ? "?"
     : travelSeconds >= 60
@@ -391,7 +393,7 @@ export function TroopDeploymentModal({
             </div>
             <p style={{ margin: "4px 0 0 0", fontSize: 10, color: "#64748b", lineHeight: 1.45 }}>
               Khoảng cách: {distanceKm ?? "?"} km | Tốc độ hiệu dụng: {marchSpeed} km/h | Chậm nhất: {slowestUnit}.
-              {isAttack && <span style={{ display: "block", marginTop: 2 }}>* Nếu vượt biển sẽ dùng thuyền ({config.shipSpeed} km/h), 1 giờ game = 60 giây thật.</span>}
+              {isAttack && <span style={{ display: "block", marginTop: 2 }}>* Nếu vượt biển sẽ dùng thuyền ({config.shipSpeed} km/h), 1 giờ game = {gameHourSeconds} giây thật.</span>}
             </p>
           </div>
         )}

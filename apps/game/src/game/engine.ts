@@ -53,7 +53,7 @@ export function createIslandEmpireGame(
   };
   ctx.imageSmoothingEnabled = false;
 
-  const minimapCtx = minimapCanvas?.getContext("2d");
+  let minimapCtx = minimapCanvas?.getContext("2d");
 
   let destroyed = false;
   let raf = 0;
@@ -94,14 +94,20 @@ export function createIslandEmpireGame(
     artilleryCostGold: 240,
     artilleryCostStone: 120,
     artilleryTroopsValue: 58,
+    infantryCostFood: 55,
+    cavalryCostFood: 90,
+    cavalryCostIron: 12,
+    artilleryCostIron: 85,
+    artilleryCostSulfur: 25,
+    settlerSpeed: 18,
     infantrySpeed: 24,
     cavalrySpeed: 42,
     artillerySpeed: 14,
-    shipSpeed: 32,
+    shipSpeed: 12,
+    gameHourSeconds: 60,
     maxBattleDuration: 12,
   };
   const MAP_UNITS_TO_KM = 0.18;
-  const GAME_HOUR_SECONDS = 60;
 
   const COLORS = {
     blue: "#2f70d7",
@@ -115,14 +121,14 @@ export function createIslandEmpireGame(
   };
 
   const BIOMES = [
-    { id: "grass", a: "#7fbd45", b: "#5f9f36", hi: "#9fd25a", dark: "#427a32", edge: "#2e6b35" },
-    { id: "sand", a: "#d8ad36", b: "#c38f26", hi: "#efc75a", dark: "#906b25", edge: "#795925" },
-    { id: "snow", a: "#ece5d3", b: "#cdd3d8", hi: "#fff7e6", dark: "#879aaa", edge: "#748897" },
-    { id: "ember", a: "#cf6337", b: "#a7482e", hi: "#e78348", dark: "#793126", edge: "#65302a" },
-    { id: "violet", a: "#3cc5f0", b: "#1fa0cc", hi: "#80ebff", dark: "#11688c", edge: "#084d6b" }, // Bright Turquoise / Sky Blue magic land
-    { id: "rose", a: "#ff9736", b: "#d9751e", hi: "#ffc385", dark: "#9e4e0b", edge: "#733704" }, // Bright Vibrant Autumn Orange land
-    { id: "pine", a: "#66aa42", b: "#428a3f", hi: "#86c252", dark: "#2d6935", edge: "#24552e" },
-    { id: "mint", a: "#a4d28b", b: "#75b869", hi: "#bee3a2", dark: "#5d8f55", edge: "#4c7447" },
+    { id: "grass", a: "#5fa038", b: "#4a8228", hi: "#7ecc47", dark: "#36611c", edge: "#274714" }, // Rich Meadow Green
+    { id: "sand", a: "#e68a35", b: "#c47023", hi: "#fca34d", dark: "#945115", edge: "#733d0d" }, // Warm Terracotta Orange (Screenshot 14)
+    { id: "snow", a: "#dedad4", b: "#bfb9b0", hi: "#f7f5f0", dark: "#8c8477", edge: "#6e675b" }, // Alpine Snow White (Screenshot 14)
+    { id: "ember", a: "#4c8c30", b: "#386b22", hi: "#6bb346", dark: "#254d16", edge: "#1a380e" }, // Pine Forest Green (NO RED)
+    { id: "violet", a: "#529642", b: "#3f7832", hi: "#77be65", dark: "#2a5921", edge: "#1d4217" }, // Emerald Forest Green (NO CYAN BLUE)
+    { id: "rose", a: "#e68a35", b: "#c47023", hi: "#fca34d", dark: "#945115", edge: "#733d0d" }, // Vibrant Amber Orange
+    { id: "pine", a: "#4c8c30", b: "#386b22", hi: "#6bb346", dark: "#254d16", edge: "#1a380e" }, // Pine Forest Green
+    { id: "mint", a: "#7cb84d", b: "#609638", hi: "#9de36b", dark: "#436e25", edge: "#305219" }, // Light Meadow Green
   ];
 
   const OWNER_BIOMES = [
@@ -130,8 +136,8 @@ export function createIslandEmpireGame(
     { a: "#d74635", b: "#b83526", hi: "#f76957", dark: "#8a2419", edge: "#631711" }, // Red (1)
     { a: "#44a13d", b: "#358a30", hi: "#6be263", dark: "#205c1c", edge: "#154212" }, // Green (2)
     { a: "#d89b21", b: "#b88017", hi: "#f9bc48", dark: "#8a5e0f", edge: "#634208" }, // Gold (3)
-    { a: "#3cc5f0", b: "#1fa0cc", hi: "#80ebff", dark: "#11688c", edge: "#084d6b" }, // Purple (4) - bright turquoise overlay
-    { a: "#ff9736", b: "#d9751e", hi: "#ffc385", dark: "#9e4e0b", edge: "#733704" }, // Pink (5) - bright orange overlay
+    { a: "#529642", b: "#3f7832", hi: "#77be65", dark: "#2a5921", edge: "#1d4217" }, // Forest Green (4)
+    { a: "#ff9736", b: "#d9751e", hi: "#ffc385", dark: "#9e4e0b", edge: "#733704" }, // Vibrant Orange (5)
     { a: "#48a88e", b: "#3c8d76", hi: "#6ecfb5", dark: "#276855", edge: "#1e5141" }, // Teal (6)
     { a: "#8d95a1", b: "#747c87", hi: "#aeb6c2", dark: "#4a515a", edge: "#373c43" }, // Gray (7)
   ];
@@ -524,15 +530,59 @@ export function createIslandEmpireGame(
 
   // Biome resource yield rates per second (per owned territory)
   const BIOME_YIELDS = [
-    { gold: 0.005, wood: 0.008, stone: 0.002, food: 0.014, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0003 },
-    { gold: 0.012, wood: 0.001, stone: 0.007, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.001, gems: 0.0030 },
-    { gold: 0.002, wood: 0.002, stone: 0.011, food: 0.002, iron: 0.008, coal: 0.005, sulfur: 0.0005, gems: 0.0022 },
-    { gold: 0.003, wood: 0.000, stone: 0.012, food: 0.001, iron: 0.011, coal: 0.009, sulfur: 0.008, gems: 0.0012 },
-    { gold: 0.003, wood: 0.002, stone: 0.004, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.002, gems: 0.0075 },
-    { gold: 0.006, wood: 0.005, stone: 0.002, food: 0.011, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0030 },
-    { gold: 0.002, wood: 0.016, stone: 0.004, food: 0.008, iron: 0.002, coal: 0.002, sulfur: 0.000, gems: 0.0000 },
-    { gold: 0.004, wood: 0.012, stone: 0.001, food: 0.010, iron: 0.001, coal: 0.003, sulfur: 0.002, gems: 0.0012 },
+    { gold: 0.003, wood: 0.010, stone: 0.006, food: 0.030, iron: 0.0015, coal: 0.0008, sulfur: 0.0004, gems: 0.0002 },
+    { gold: 0.018, wood: 0.001, stone: 0.012, food: 0.003, iron: 0.0030, coal: 0.0010, sulfur: 0.0010, gems: 0.0040 },
+    { gold: 0.002, wood: 0.003, stone: 0.020, food: 0.003, iron: 0.0160, coal: 0.0080, sulfur: 0.0010, gems: 0.0020 },
+    { gold: 0.004, wood: 0.001, stone: 0.018, food: 0.001, iron: 0.0200, coal: 0.0180, sulfur: 0.0140, gems: 0.0020 },
+    { gold: 0.005, wood: 0.003, stone: 0.010, food: 0.003, iron: 0.0050, coal: 0.0010, sulfur: 0.0020, gems: 0.0140 },
+    { gold: 0.010, wood: 0.008, stone: 0.004, food: 0.022, iron: 0.0020, coal: 0.0010, sulfur: 0.0005, gems: 0.0020 },
+    { gold: 0.002, wood: 0.026, stone: 0.012, food: 0.010, iron: 0.0040, coal: 0.0030, sulfur: 0.0005, gems: 0.0005 },
+    { gold: 0.003, wood: 0.016, stone: 0.003, food: 0.018, iron: 0.0020, coal: 0.0060, sulfur: 0.0040, gems: 0.0010 },
   ];
+
+  function territoryAreaFactor(regionOrId: any) {
+    const r = typeof regionOrId === "number" ? landById(regionOrId) : regionOrId;
+    if (!r) return 1;
+    const rx = r.rx || r.r || 100;
+    const ry = r.ry || (r.r || 100) * 0.78;
+    return Math.max(0.35, Math.min(6, (rx * ry) / 10000));
+  }
+
+  function territoryYield(regionId: number) {
+    const r = landById(regionId);
+    const y = BIOME_YIELDS[r?.biome ?? 0] || BIOME_YIELDS[0];
+    const areaFactor = territoryAreaFactor(r);
+    const isIslet = regionId >= 1000 || r?.isIslet;
+    const mult = {
+      gold: isIslet ? 1.25 : 1,
+      wood: isIslet ? 0.3 : 1,
+      stone: isIslet ? 0.5 : 1,
+      food: isIslet ? 0.45 : 1,
+      iron: isIslet ? 0.55 : 1,
+      coal: isIslet ? 0.35 : 1,
+      sulfur: isIslet ? 1.25 : 1,
+      gems: isIslet ? 2.8 : 1,
+    };
+    return {
+      gold: y.gold * areaFactor * mult.gold,
+      wood: y.wood * areaFactor * mult.wood,
+      stone: y.stone * areaFactor * mult.stone,
+      food: y.food * areaFactor * mult.food,
+      iron: y.iron * areaFactor * mult.iron,
+      coal: y.coal * areaFactor * mult.coal,
+      sulfur: y.sulfur * areaFactor * mult.sulfur,
+      gems: y.gems * areaFactor * mult.gems,
+    };
+  }
+
+  function territoryStartingPopulation(regionId: number, ownerCode = 1) {
+    const r = landById(regionId);
+    if (!r) return ownerCode === 1 ? 32 : 64;
+    const biomePopMult = [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][r.biome ?? 0] || 1;
+    const isletPenalty = regionId >= 1000 || r.isIslet ? 0.55 : 1;
+    const base = ownerCode === 1 ? 24 : 48;
+    return Math.round(base + territoryAreaFactor(r) * 28 * biomePopMult * isletPenalty);
+  }
 
   function clearingDuration(rOrId?: any) {
     const r = typeof rOrId === "number" ? landById(rOrId) : rOrId;
@@ -552,11 +602,13 @@ export function createIslandEmpireGame(
   }
 
   const SETTLER_POPULATION_COST = 4;
-  const UNIT_EXTRA_COSTS = {
-    infantry: { food: 55 },
-    cavalry: { food: 90, iron: 12 },
-    artillery: { iron: 85, sulfur: 25 },
-  };
+  function unitExtraCosts() {
+    return {
+      infantry: { food: gameConfig.infantryCostFood },
+      cavalry: { food: gameConfig.cavalryCostFood, iron: gameConfig.cavalryCostIron },
+      artillery: { iron: gameConfig.artilleryCostIron, sulfur: gameConfig.artilleryCostSulfur },
+    };
+  }
 
   function normalizeTown(town: any) {
     if (!town) return town;
@@ -574,7 +626,9 @@ export function createIslandEmpireGame(
     const lvl = town?.lvl || 1;
     const fort = town?.buildings?.fort || 0;
     const warehouse = town?.buildings?.warehouse || 0;
-    return 64 + lvl * 36 + fort * 24 + warehouse * 8;
+    const regionId = town ? regionAtCoords(town.x, town.y) : -1;
+    const areaBonus = regionId >= 0 ? Math.round(territoryAreaFactor(regionId) * 18) : 0;
+    return 64 + lvl * 36 + fort * 24 + warehouse * 8 + areaBonus;
   }
 
   function townPopulationGrowthPerSecond(town: any) {
@@ -681,34 +735,17 @@ export function createIslandEmpireGame(
   function territoryBuildCost(regionId: number) {
     const r = landById(regionId);
     if (!r) return { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 };
-    const isIslet = regionId >= 1000;
     const rx = r.rx || r.r || 100;
     const ry = r.ry || (r.r || 100) * 0.78;
     const areaFactor = Math.max(0.85, (rx * ry) / 10000);
-    const y = BIOME_YIELDS[r.biome ?? 0] || BIOME_YIELDS[0];
-    const mult = {
-      gold: isIslet ? 1.25 : 1,
-      wood: isIslet ? 0.3 : 1,
-      stone: isIslet ? 0.5 : 1,
-      food: isIslet ? 0.45 : 1,
-      iron: isIslet ? 0.55 : 1,
-      sulfur: isIslet ? 1.25 : 1,
-      gems: isIslet ? 2.8 : 1,
-    };
-    const yieldGold = y.gold * areaFactor * mult.gold;
-    const yieldWood = y.wood * areaFactor * mult.wood;
-    const yieldStone = y.stone * areaFactor * mult.stone;
-    const yieldFood = y.food * areaFactor * mult.food;
-    const yieldIron = y.iron * areaFactor * mult.iron;
-    const yieldSulfur = y.sulfur * areaFactor * mult.sulfur;
-    const yieldGems = y.gems * areaFactor * mult.gems;
+    const y = territoryYield(regionId);
     return {
-      gold: Math.round(180 + areaFactor * 32 + yieldGold * 92 + yieldGems * 70),
-      wood: Math.round(130 + areaFactor * 28 + yieldWood * 66),
-      stone: Math.round(125 + areaFactor * 34 + yieldStone * 76 + yieldIron * 28),
-      food: Math.round(80 + areaFactor * 18 + yieldFood * 42),
-      iron: Math.round(20 + yieldIron * 95 + yieldSulfur * 30),
-      gems: Math.round(Math.max(0, yieldGems - 0.28) * 22),
+      gold: Math.round(180 + areaFactor * 32 + y.gold * 92 + y.gems * 70),
+      wood: Math.round(130 + areaFactor * 28 + y.wood * 66),
+      stone: Math.round(125 + areaFactor * 34 + y.stone * 76 + y.iron * 28),
+      food: Math.round(80 + areaFactor * 18 + y.food * 42),
+      iron: Math.round(20 + y.iron * 95 + y.sulfur * 30),
+      gems: Math.round(Math.max(0, y.gems - 0.28) * 22),
     };
   }
 
@@ -731,7 +768,9 @@ export function createIslandEmpireGame(
   function storageCapacity(town: any) {
     const warehouse = town?.buildings?.warehouse || 0;
     const fort = town?.buildings?.fort || 0;
-    return 250 + warehouse * 650 + fort * 180 + (town?.lvl || 1) * 120;
+    const regionId = town ? regionAtCoords(town.x, town.y) : -1;
+    const areaBonus = regionId >= 0 ? Math.round(territoryAreaFactor(regionId) * 90) : 0;
+    return 250 + warehouse * 650 + fort * 180 + (town?.lvl || 1) * 120 + areaBonus;
   }
 
   function addTownStorage(town: any, gained: Record<string, number>) {
@@ -765,10 +804,14 @@ export function createIslandEmpireGame(
     if (!r) return [];
     const area = (r.rx || r.r || 100) * (r.ry || (r.r || 100) * 0.78);
     const specials: string[] = [];
-    if ((r.biome === 0 || r.biome === 5 || r.biome === 6) && area >= 11000 && regionId % 4 !== 0) specials.push("Bãi ngựa");
+    if ((r.biome === 0 || r.biome === 5) && area >= 18000 && regionId % 3 !== 0) specials.push("Bãi ngựa");
     if (r.isIslet || regionId % 5 === 0 || regionId % 7 === 0) specials.push("Bến tàu tự nhiên");
-    if (r.biome === 3) specials.push("Mỏ lưu huỳnh");
-    if (r.biome === 2 || r.biome === 3) specials.push("Mạch sắt");
+    if ((r.biome === 2 || r.biome === 3 || r.biome === 4 || r.biome === 6) && regionId % 2 === 0) specials.push("Mỏ sắt");
+    if ((r.biome === 1 || r.biome === 2 || r.biome === 3 || r.biome === 6) && area >= 16000) specials.push("Mỏ đá");
+    if ((r.biome === 1 || r.biome === 5 || r.biome === 3) && regionId % 4 === 1) specials.push("Mạch vàng");
+    if ((r.biome === 1 || r.biome === 4 || r.isIslet) && regionId % 5 === 2) specials.push("Mỏ đá quý");
+    if ((r.biome === 2 || r.biome === 3 || r.biome === 7) && regionId % 3 === 0) specials.push("Vỉa than");
+    if (r.biome === 3 || (r.biome === 7 && regionId % 6 === 0)) specials.push("Mỏ lưu huỳnh");
     return specials;
   }
 
@@ -868,8 +911,8 @@ export function createIslandEmpireGame(
       state.targetZoom = FIXED_FAR_ZOOM;
       if (Number.isFinite(saved.panX)) state.panX = saved.panX;
       if (Number.isFinite(saved.panY)) state.panY = saved.panY;
-      if (saved.selected !== undefined) state.selected = saved.selected;
-      if (saved.selectedRegion !== undefined) state.selectedRegion = saved.selectedRegion;
+      state.selected = null;
+      state.selectedRegion = null;
       clampPan();
       if (!cameraSeesLand()) centerCameraOnWorldContent();
       state.cameraRestored = true;
@@ -1238,12 +1281,12 @@ export function createIslandEmpireGame(
   }
 
   function organicPath(cx, cy, rx, ry, seed) {
-    const pts = [];
+    const pts: Array<[number, number]> = [];
     const count = 36;
     for (let i = 0; i < count; i++) {
       const a = (i / count) * TAU;
-      const chip = hash(seed * 97 + i * 13) * 0.18 - 0.09;
-      const wave = 1 + Math.sin(a * 4 + seed) * 0.12 + Math.cos(a * 8 - seed * 0.5) * 0.08 + chip;
+      const chip = hash(seed * 97 + i * 13) * 0.12 - 0.06;
+      const wave = 1 + Math.sin(a * 4 + seed) * 0.08 + Math.cos(a * 8 - seed * 0.5) * 0.05 + chip;
       const x = Math.round((cx + Math.cos(a) * rx * wave) / 4) * 4;
       const y = Math.round((cy + Math.sin(a) * ry * wave) / 4) * 4;
       pts.push([x, y]);
@@ -1262,25 +1305,192 @@ export function createIslandEmpireGame(
     return pts;
   }
 
+  // --- SHARED EDGE MESH ALGORITHM (NO OVERLAPPING, ORGANIC CURVED SHARED BORDERS) ---
+  const sharedEdgeCache = new Map<string, Array<[number, number]>>();
+  const sharedRegionPolygonCache = new Map<string, Array<[number, number]>>();
+
+  function getSharedEdge(r1: any, r2: any): Array<[number, number]> {
+    const idA = Math.min(r1.id ?? 0, r2.id ?? 0);
+    const idB = Math.max(r1.id ?? 0, r2.id ?? 0);
+    const edgeKey = `${idA}_${idB}`;
+
+    let cached = sharedEdgeCache.get(edgeKey);
+    if (cached) return cached;
+
+    const mx = (r1.x + r2.x) / 2;
+    const my = (r1.y + r2.y) / 2;
+    const dx = r2.x - r1.x;
+    const dy = r2.y - r1.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = -dy / dist;
+    const ny = dx / dist;
+
+    const seed = idA * 7919 + idB * 104729;
+    const numPts = 9;
+    const halfLen = Math.min(r1.rx || 180, r2.rx || 180) * 0.45;
+
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i <= numPts; i++) {
+      const t = i / numPts - 0.5;
+      const px = mx + nx * (t * halfLen * 2);
+      const py = my + ny * (t * halfLen * 2);
+
+      // Organic smooth sine wave displacement perpendicular to boundary (no straight lines!)
+      const wave = Math.sin((i / numPts) * Math.PI) * ((hash(seed + i * 23) - 0.5) * 16);
+      const finalX = Math.round((px + (dx / dist) * wave) / 4) * 4;
+      const finalY = Math.round((py + (dy / dist) * wave) / 4) * 4;
+      pts.push([finalX, finalY]);
+    }
+
+    sharedEdgeCache.set(edgeKey, pts);
+    return pts;
+  }
+
+  function getSharedRegionPolygon(r: any, idx: number, isIslet: boolean): Array<[number, number]> {
+    if (isIslet) {
+      return getOrganicPath(r.x, r.y, (r.rx || r.r) * 0.82, (r.ry || r.r * 0.78) * 0.82, r.seed || idx + 1, `islet_${idx}_poly`);
+    }
+
+    const polyKey = `shared_poly_${idx}_${Math.round(r.x)}_${Math.round(r.y)}`;
+    let cached = sharedRegionPolygonCache.get(polyKey);
+    if (cached) return cached;
+
+    // Find neighboring regions within 450px radius
+    const allRegions = regions || [];
+    const neighbors: Array<{ r2: any; angle: number; dist: number }> = [];
+
+    allRegions.forEach((r2: any) => {
+      if (r2.id === r.id) return;
+      const dist = Math.hypot(r2.x - r.x, r2.y - r.y);
+      if (dist < 450) {
+        const angle = Math.atan2(r2.y - r.y, r2.x - r.x);
+        neighbors.push({ r2, angle, dist });
+      }
+    });
+
+    // Vary territory sizes naturally using seed (Nhỏ, Vừa, Bự)
+    const seed = r.seed || idx * 101 + 17;
+    const sizeFactor = 0.92 + hash(seed * 31) * 0.35; // 0.92x ~ 1.27x size variation
+    const baseRx = (r.rx || 230) * sizeFactor;
+
+    // Generate 7-9 distinct polygonal corners (Hình dáng chuẩn mảnh đất tự nhiên)
+    const numCorners = 7 + Math.floor(hash(seed * 17) * 3);
+    const cornerAngles: number[] = [];
+
+    for (let c = 0; c < numCorners; c++) {
+      const baseA = (c / numCorners) * TAU;
+      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.45;
+      cornerAngles.push(baseA + jiggle);
+    }
+    cornerAngles.sort((a, b) => a - b);
+
+    // Calculate exact coordinates for each polygonal corner
+    const cornerPts: Array<{ x: number; y: number; angle: number }> = [];
+    cornerAngles.forEach((a, i) => {
+      const cornerRadiusMult = 0.92 + hash(seed * 41 + i * 19) * 0.25;
+      let maxDistInAngle = baseRx * cornerRadiusMult;
+
+      for (let j = 0; j < neighbors.length; j++) {
+        const nbr = neighbors[j];
+        let diff = Math.abs(a - nbr.angle);
+        if (diff > Math.PI) diff = TAU - diff;
+
+        if (diff < Math.PI / 3) {
+          const allowedDist = (nbr.dist * 0.68) / Math.max(0.5, Math.cos(diff));
+          if (allowedDist < maxDistInAngle) {
+            maxDistInAngle = allowedDist;
+          }
+        }
+      }
+
+      const px = Math.round((r.x + Math.cos(a) * maxDistInAngle) / 4) * 4;
+      const py = Math.round((r.y + Math.sin(a) * maxDistInAngle * 0.78) / 4) * 4;
+      cornerPts.push({ x: px, y: py, angle: a });
+    });
+
+    // Interpolate points along polygonal edges with slight organic wobble
+    const rawPts: Array<{ x: number; y: number; angle: number }> = [];
+    for (let c = 0; c < numCorners; c++) {
+      const p1 = cornerPts[c];
+      const p2 = cornerPts[(c + 1) % numCorners];
+
+      // 6 sub-steps per edge for ultra-smooth organic territory borders
+      const subSteps = 6;
+      for (let s = 0; s < subSteps; s++) {
+        const t = s / subSteps;
+        const ix = p1.x + (p2.x - p1.x) * t;
+        const iy = p1.y + (p2.y - p1.y) * t;
+
+        // Subtle mid-edge outward bulge (low wobble) for organic feel
+        const wob = Math.sin(t * Math.PI) * (hash(seed * 73 + c * 29 + s * 7) * 5 - 2.5);
+        const normalX = -(p2.y - p1.y);
+        const normalY = p2.x - p1.x;
+        const edgeLen = Math.hypot(normalX, normalY) || 1;
+
+        const finalX = ix + (normalX / edgeLen) * wob;
+        const finalY = iy + (normalY / edgeLen) * wob;
+        const angle = Math.atan2(finalY - r.y, finalX - r.x);
+        rawPts.push({ x: finalX, y: finalY, angle });
+      }
+    }
+
+    // Sort strictly by angle to guarantee clean simple non-intersecting polygon
+    rawPts.sort((a, b) => a.angle - b.angle);
+
+    const pts: Array<[number, number]> = rawPts.map((p) => [p.x, p.y]);
+    sharedRegionPolygonCache.set(polyKey, pts);
+    return pts;
+  }
+
   function fillPath(points, color) {
+    if (!points || points.length === 0) return;
     ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+
+    const len = points.length;
+    const p0 = points[len - 1];
+    const p1 = points[0];
+    const midX = (p0[0] + p1[0]) / 2;
+    const midY = (p0[1] + p1[1]) / 2;
+    ctx.moveTo(midX, midY);
+
+    for (let i = 0; i < len; i++) {
+      const curr = points[i];
+      const next = points[(i + 1) % len];
+      const nMidX = (curr[0] + next[0]) / 2;
+      const nMidY = (curr[1] + next[1]) / 2;
+      ctx.quadraticCurveTo(curr[0], curr[1], nMidX, nMidY);
+    }
+
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
   }
 
-  function pathFromPoints(points, dx, dy, wobbleSeed, wobble) {
+  function strokePath(points, strokeStyle, lineWidth) {
+    if (!points || points.length === 0) return;
     ctx.beginPath();
-    points.forEach(([x, y], i) => {
-      const wob = wobble ? (hash(wobbleSeed + i * 19) - 0.5) * wobble : 0;
-      const px = Math.round((x + (dx || 0) + wob) / 4) * 4;
-      const py = Math.round((y + (dy || 0) + wob * 0.35) / 4) * 4;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    });
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    const len = points.length;
+    const p0 = points[len - 1];
+    const p1 = points[0];
+    const midX = (p0[0] + p1[0]) / 2;
+    const midY = (p0[1] + p1[1]) / 2;
+    ctx.moveTo(midX, midY);
+
+    for (let i = 0; i < len; i++) {
+      const curr = points[i];
+      const next = points[(i + 1) % len];
+      const nMidX = (curr[0] + next[0]) / 2;
+      const nMidY = (curr[1] + next[1]) / 2;
+      ctx.quadraticCurveTo(curr[0], curr[1], nMidX, nMidY);
+    }
+
     ctx.closePath();
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
   }
 
   function regionOwner(r) {
@@ -1472,19 +1682,19 @@ export function createIslandEmpireGame(
   }
 
   function drawLakeInRegion(r, seed, rx, ry) {
-    if (hash(seed * 43) < 0.65) return; // Increased probability of lakes from 22% to 35%!
+    if (hash(seed * 43) < 0.92) return; // Significantly reduced tiny lake frequency to 8%!
     const lx = r.x + (hash(seed * 47) - 0.5) * rx * 0.72;
     const ly = r.y + (hash(seed * 53) - 0.5) * ry * 0.58;
     const lrx = Math.max(16, rx * (0.12 + hash(seed * 59) * 0.07));
     const lry = Math.max(10, ry * (0.08 + hash(seed * 61) * 0.05));
     const lake = organicPath(lx, ly, lrx, lry, seed * 2.1);
-    
+
     // Draw shadow/depth underneath the lake
     fillPath(organicPath(lx + 2, ly + 3, lrx + 5, lry + 4, seed * 2.1 + 1), "rgba(24,38,30,0.48)");
-    
+
     // Lake water color - deeper blue/cyan
     fillPath(lake, "#1d6c8f");
-    
+
     // Draw lighter inner water highlight for transparency depth
     const innerLake = organicPath(lx, ly, lrx * 0.72, lry * 0.72, seed * 2.1 + 0.3);
     fillPath(innerLake, "#2d8ab5");
@@ -1512,7 +1722,7 @@ export function createIslandEmpireGame(
   }
 
   function drawRiverInRegion(r, seed, rx, ry) {
-    if (hash(seed * 19) < 0.60) return; // Increased probability of rivers from 28% to 40%!
+    if (hash(seed * 19) < 0.88) return; // Reduced river frequency to 12%!
     ctx.save();
     ctx.globalAlpha = 0.72;
     ctx.setLineDash([]);
@@ -1729,52 +1939,120 @@ export function createIslandEmpireGame(
   function drawRegion(r, idx, pass, isIslet) {
     const biome = BIOMES[r.biome] || BIOMES[0];
     const seed = r.seed || idx + 1;
-    const scale = isIslet ? 0.82 : 1.02;
-    const rx = (r.rx || r.r) * scale;
-    const ry = (r.ry || r.r * 0.78) * scale;
+    const scale = isIslet ? 0.82 : 0.975;
+
+    // Use the exact same baseRx/baseRy as getSharedRegionPolygon for perfect coastal alignment
+    const sizeFactor = 0.92 + hash(seed * 31) * 0.35;
+    const rx = (r.rx || 230) * sizeFactor * scale;
+    const ry = rx * 0.78;
 
     const cachePrefix = isIslet ? `islet_${idx}` : `region_${idx}`;
 
+    // Detect whether this region is an outer coastal region / sea bay or an interior land region
+    const allRegs = regions || [];
+    let nbrCount = 0;
+    let hasWaterNbr = false;
+    for (let i = 0; i < allRegs.length; i++) {
+      const r2 = allRegs[i];
+      if (r2.id !== r.id) {
+        const d = Math.hypot(r2.x - r.x, r2.y - r.y);
+        if (d < 380) {
+          nbrCount++;
+          if (r2.isWater) hasWaterNbr = true;
+        }
+      }
+    }
+    // A region is coastal/bay if it's an islet, water region, faces a water slot, or has open water sea gaps (nbrCount < 6)
+    const isCoastal = isIslet || r.isWater || hasWaterNbr || nbrCount < 6;
+
     if (pass === 0) {
-      // 1. Static base shallow water outline (foam rim) - kept static to maximize performance
-      const shallow = getOrganicPath(r.x, r.y, rx + 4, ry + 3.5, seed * 1.7, `${cachePrefix}_shallow_base`);
-      fillPath(shallow, "rgba(56, 189, 248, 0.75)"); // bright sky blue foam
+      // Pass 0: Animated Sky Blue Ocean Foam (Only for outer coastal facing edges!)
+      if (isCoastal) {
+        const wavePulse = Math.sin(state.tick * 3.2 + seed * 0.5) * 3.2;
+        const shallow = getOrganicPath(r.x, r.y, rx + 38 + wavePulse, ry + 29 + wavePulse, seed * 1.7, `${cachePrefix}_shallow_cont`);
+        fillPath(shallow, "rgba(56, 189, 248, 0.85)");
+
+        const waveCrest = getOrganicPath(r.x, r.y, rx + 30 + wavePulse * 0.8, ry + 23 + wavePulse * 0.8, seed * 1.7 + 0.1, `${cachePrefix}_wave_crest_cont`);
+        fillPath(waveCrest, "rgba(255, 255, 255, 0.70)");
+      } else {
+        // Interior land regions merge seamlessly with zero sea gaps or brown cracks
+        const continentBase = getOrganicPath(r.x, r.y, rx + 8, ry + 6, seed * 1.7, `${cachePrefix}_cont_base`);
+        fillPath(continentBase, biome.a);
+      }
       return;
     }
 
     if (pass === 1) {
-      // Dark shoreline base & Sand rim
-      const coast = getOrganicPath(r.x + 1.5, r.y + 2, rx + 7, ry + 7, seed * 1.7 + 0.15, `${cachePrefix}_coast`);
-      fillPath(coast, "#393529");
+      // Pass 1: Tall 3D Sand Cliff Base & Vibrant Golden Beach Rim
+      if (isCoastal) {
+        // Deepest shadow base (+12px down for max 3D elevation depth)
+        const cliffDeep = getOrganicPath(r.x + 5, r.y + 12, rx + 26, ry + 20, seed * 1.7 + 0.05, `${cachePrefix}_cliff_deep`);
+        fillPath(cliffDeep, "#0f0a05");
 
-      const sandRim = getOrganicPath(r.x, r.y, rx + 3, ry + 3, seed * 1.7 + 0.25, `${cachePrefix}_sand`);
-      fillPath(sandRim, "#d5a549");
+        // Mid cliff dark earth shadow
+        const cliffBase = getOrganicPath(r.x + 3, r.y + 8, rx + 20, ry + 15, seed * 1.7 + 0.1, `${cachePrefix}_cont_cliff_base`);
+        fillPath(cliffBase, "#1e1409");
+
+        // Upper rocky cliff face
+        const coast = getOrganicPath(r.x + 2, r.y + 4.5, rx + 14, ry + 10.5, seed * 1.7 + 0.15, `${cachePrefix}_cont_coast`);
+        fillPath(coast, "#3e2e18");
+
+        // Golden sand rim top face (wide & vivid)
+        const sandRim = getOrganicPath(r.x, r.y, rx + 8, ry + 6, seed * 1.7 + 0.25, `${cachePrefix}_cont_sand`);
+        fillPath(sandRim, "#e8b94a");
+      }
       return;
     }
 
-    // Pass 2: Main land body and details
-    const land = getOrganicPath(r.x, r.y, rx, ry, seed * 1.7 + 0.4, `${cachePrefix}_land`);
+    if (r.isWater) {
+      if (pass === 0) {
+        const wavePulse = Math.sin(state.tick * 2.8 + seed) * 2.2;
+        const waterPoly = getOrganicPath(r.x, r.y, rx + 14, ry + 11, seed * 1.7, `${cachePrefix}_water_poly`);
+        fillPath(waterPoly, "#0369a1"); // Deep lake blue
+
+        const waveFoam = getOrganicPath(r.x, r.y, rx + 10 + wavePulse, ry + 8 + wavePulse, seed * 1.7 + 0.1, `${cachePrefix}_water_foam`);
+        fillPath(waveFoam, "rgba(56, 189, 248, 0.75)"); // Cyan lake foam
+      } else if (pass === 1) {
+        const sandRim = getOrganicPath(r.x, r.y, rx + 4, ry + 3, seed * 1.7 + 0.25, `${cachePrefix}_water_sand`);
+        fillPath(sandRim, "#e0b257"); // Golden lake sand rim
+      }
+      return;
+    }
+
+    // Pass 2: Main land body using Shared Edge Mesh (Flat and unified)
+    const land = getSharedRegionPolygon(r, idx, isIslet);
+
+    // Draw Main Province Body
     fillPath(land, biome.a);
 
-    // Define land path
+    // Define land path (smooth Bezier spline path for clip region)
     ctx.beginPath();
-    ctx.moveTo(land[0][0], land[0][1]);
-    for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
+    const landLen = land.length;
+    const startMidX = (land[landLen - 1][0] + land[0][0]) / 2;
+    const startMidY = (land[landLen - 1][1] + land[0][1]) / 2;
+    ctx.moveTo(startMidX, startMidY);
+    for (let i = 0; i < landLen; i++) {
+      const curr = land[i];
+      const next = land[(i + 1) % landLen];
+      ctx.quadraticCurveTo(curr[0], curr[1], (curr[0] + next[0]) / 2, (curr[1] + next[1]) / 2);
+    }
     ctx.closePath();
 
-    // 1. Draw textures (clipped inside territory)
+    // 1. Draw textures & Terrain Color Gradient (clipped inside territory)
     ctx.save();
     ctx.clip();
 
-    // Top-left light highlight & bottom-right depth gradient
-    const vg = ctx.createLinearGradient(r.x - rx, r.y - ry, r.x + rx, r.y + ry);
-    vg.addColorStop(0, "rgba(255, 255, 255, 0.18)");
-    vg.addColorStop(0.5, "rgba(0, 0, 0, 0)");
-    vg.addColorStop(1, "rgba(0, 0, 0, 0.25)");
-    ctx.fillStyle = vg;
-    ctx.fillRect(r.x - rx - 16, r.y - ry - 16, rx * 2 + 32, ry * 2 + 32);
+    // Dark outer rim → bright mid-tone highlight → dark inner vignette
+    // Creates a natural "hill" look: dark at edges, light in center, subtle depth
+    const rg = ctx.createRadialGradient(r.x, r.y, rx * 0.08, r.x, r.y, rx * 1.05);
+    rg.addColorStop(0,    "rgba(255, 255, 255, 0.12)"); // slightly bright center
+    rg.addColorStop(0.38, "rgba(255, 255, 255, 0.06)"); // midfield open
+    rg.addColorStop(0.72, "rgba(0, 0, 0, 0)");           // transparent mid
+    rg.addColorStop(1,    "rgba(0, 0, 0, 0.38)");        // dark edge vignette
+    ctx.fillStyle = rg;
+    ctx.fillRect(r.x - rx - 20, r.y - ry - 20, rx * 2 + 40, ry * 2 + 40);
 
-    // Sparse soft pixel grain, not a full noisy blanket.
+    // Sparse soft pixel grain
     for (let y = r.y - ry - 10; y < r.y + ry + 10; y += 16) {
       for (let x = r.x - rx - 10; x < r.x + rx + 10; x += 16) {
         const val = Math.sin(x * 0.05 + seed) + Math.cos(y * 0.06 - seed);
@@ -1821,25 +2099,21 @@ export function createIslandEmpireGame(
       ctx.restore();
     } else if (isClearing) {
       ctx.save();
-      // Pulsing emerald-gold construction aura fill for pioneering territory
       ctx.globalAlpha = 0.30 + Math.sin(state.tick * 5) * 0.08;
       fillPath(land, "#10b981");
       ctx.restore();
     } else if (rel === "own") {
       ctx.save();
-      // Soft pulsing cyan royal empire aura fill for user's territory
       ctx.globalAlpha = 0.24 + Math.sin(state.tick * 4) * 0.05;
       fillPath(land, "#0284c7");
       ctx.restore();
     } else if (rel === "ally") {
       ctx.save();
-      // Subtle gold-yellow aura fill for alliance members
       ctx.globalAlpha = 0.14;
       fillPath(land, "#eab308");
       ctx.restore();
     } else if (rel === "enemy" && ownerCode > 1) {
       ctx.save();
-      // Subtle crimson red aura fill for non-alliance / enemy players
       ctx.globalAlpha = 0.12;
       fillPath(land, "#ef4444");
       ctx.restore();
@@ -1847,25 +2121,13 @@ export function createIslandEmpireGame(
 
     if (state.selectedRegion === idx) {
       ctx.save();
-      // Draw bright transparent gold highlight matching exactly the land path shape
       ctx.globalAlpha = 0.38 + Math.sin(state.tick * 6) * 0.08;
       fillPath(land, isClearing ? "#34d399" : "#ffe85a");
       ctx.restore();
     }
 
-    // Recreate land path for border stroke outside the clipped context
-    ctx.beginPath();
-    ctx.moveTo(land[0][0], land[0][1]);
-    for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
-    ctx.closePath();
-
-    // Dark outer province line + soft bright inner line.
-    ctx.strokeStyle = "rgba(38, 45, 30, 0.82)";
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(218, 220, 178, 0.38)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // Draw silky-smooth thin black organic border lines using Bezier Spline
+    strokePath(land, "#000000", 0.95);
 
     // 1. RED DANGER BORDER FOR TERRITORY IN ATTACK OR BATTLE!
     if (conflict) {
@@ -3890,11 +4152,11 @@ export function createIslandEmpireGame(
     const visibleRegions = [];
     for (let i = 0; i < islets.length; i++) {
       const r = islets[i];
-      if (isRegionInViewport(r, vp)) visibleIslets.push([r, i + 1000]);
+      if (isRegionInViewport(r, vp)) visibleIslets.push([r, r.id]);
     }
     for (let i = 0; i < regions.length; i++) {
       const r = regions[i];
-      if (isRegionInViewport(r, vp)) visibleRegions.push([r, i]);
+      if (isRegionInViewport(r, vp)) visibleRegions.push([r, r.id]);
     }
 
     // Pass 0: Draw shallow water foam cho các đảo trong viewport
@@ -3920,36 +4182,104 @@ export function createIslandEmpireGame(
   }
 
   function drawResourceIcon(type, x, y) {
-    const s = 1.65; // 1.65x size scale factor for even larger and clearer resource icons on territories
-    if (type === "gold") drawCoin(x, y, 1.5);
-    if (type === "wood") {
-      if (y < 50) {
+    const s = 1.65;
+    if (y < 50) {
+      // HUD top bar icons (remain compact and simple)
+      if (type === "gold") drawCoin(x, y, 0.95);
+      if (type === "wood") {
         pxRect(x - 18 * s, y - 5 * s, 36 * s, 11 * s, "#a8662c");
         pxRect(x - 10 * s, y - 15 * s, 36 * s, 11 * s, "#c7813a");
         pxRect(x + 13 * s, y - 16 * s, 9 * s, 9 * s, "#6c3b1e");
-      } else {
-        drawOakTree(x, y, 0.85);
       }
-    }
-    if (type === "stone") {
-      if (y < 50) {
+      if (type === "stone") {
         pxRect(x - 17 * s, y - 4 * s, 22 * s, 18 * s, "#aeb7c0");
         pxRect(x + 2 * s, y - 14 * s, 22 * s, 23 * s, "#78858f");
         pxRect(x - 4 * s, y - 18 * s, 15 * s, 12 * s, "#d3d9de");
-      } else {
-        drawRockPile(x, y, 1.25);
       }
-    }
-    if (type === "gems") {
-      if (y < 50) {
-        // Top Bar HUD compact Gem icon
+      if (type === "gems") {
         pxRect(x - 8, y - 10, 16, 14, "#06b6d4");
         pxRect(x - 4, y - 14, 8, 8, "#a5f3fc");
-      } else {
-        // World Map: Replace cyan block shapes with beautiful natural rock piles!
-        drawRockPile(x, y, 1.1);
       }
+      return;
     }
+
+    // World Map Premium 3D Resource Sprites
+    ctx.save();
+    if (type === "gold") {
+      // 3D Gold Ore Nuggets with sparkles
+      // Base shadow
+      pxRect(x - 12, y + 2, 24, 6, "rgba(0,0,0,0.22)");
+      // Nugget 1
+      pxRect(x - 10, y - 6, 12, 10, "#92400e");
+      pxRect(x - 8, y - 8, 8, 10, "#d97706");
+      pxRect(x - 6, y - 7, 4, 6, "#fbbf24");
+      // Nugget 2
+      pxRect(x + 1, y - 8, 10, 12, "#78350f");
+      pxRect(x + 2, y - 10, 8, 10, "#f59e0b");
+      pxRect(x + 3, y - 9, 5, 6, "#fef08a");
+      // Nugget 3 (front center)
+      pxRect(x - 4, y - 3, 10, 8, "#92400e");
+      pxRect(x - 3, y - 4, 8, 8, "#fbbf24");
+      pxRect(x - 1, y - 3, 4, 4, "#ffffff");
+      // Sparkles
+      pxRect(x - 14, y - 12, 2, 2, "#fef08a");
+      pxRect(x + 14, y - 5, 2, 2, "#ffffff");
+    }
+    if (type === "wood") {
+      // 3D Pile of logs tied with rope
+      pxRect(x - 14, y + 2, 28, 5, "rgba(0,0,0,0.22)");
+      // Log 1 (bottom left)
+      pxRect(x - 12, y - 5, 12, 8, "#78350f");
+      pxRect(x - 12, y - 5, 3, 8, "#fde68a"); // ring face
+      pxRect(x - 11, y - 3, 1, 4, "#92400e");
+      // Log 2 (bottom right)
+      pxRect(x + 1, y - 5, 12, 8, "#78350f");
+      pxRect(x + 10, y - 5, 3, 8, "#fde68a"); // ring face
+      pxRect(x + 11, y - 3, 1, 4, "#92400e");
+      // Log 3 (top middle)
+      pxRect(x - 5, y - 11, 11, 8, "#92400e");
+      pxRect(x - 5, y - 11, 3, 8, "#fef3c7"); // ring face
+      pxRect(x - 4, y - 9, 1, 4, "#78350f");
+      // Rope tie wraps
+      pxRect(x - 4, y - 6, 2, 9, "#fbbf24");
+      pxRect(x + 3, y - 6, 2, 9, "#fbbf24");
+    }
+    if (type === "stone") {
+      // Layered Granite & Slate Stone Boulders with Crystal Veins
+      pxRect(x - 13, y + 2, 26, 6, "rgba(0,0,0,0.22)");
+      // Boulder 1
+      pxRect(x - 11, y - 8, 12, 11, "#374151");
+      pxRect(x - 9, y - 10, 8, 10, "#6b7280");
+      pxRect(x - 7, y - 9, 4, 6, "#9ca3af");
+      // Boulder 2
+      pxRect(x + 1, y - 10, 11, 13, "#1f2937");
+      pxRect(x + 2, y - 12, 9, 11, "#4b5563");
+      pxRect(x + 4, y - 11, 5, 8, "#9ca3af");
+      // Crystal Vein highlights
+      pxRect(x - 3, y - 6, 8, 2, "#e5e7eb");
+      pxRect(x + 5, y - 8, 4, 2, "#ffffff");
+    }
+    if (type === "gems") {
+      // 3D Emerald Crystal Cluster
+      pxRect(x - 10, y + 2, 20, 5, "rgba(0,0,0,0.25)");
+      // Base obsidian rock
+      pxRect(x - 8, y - 4, 16, 7, "#111827");
+      // Crystal 1 (left pointing)
+      pxRect(x - 7, y - 11, 6, 9, "#047857");
+      pxRect(x - 6, y - 13, 4, 10, "#10b981");
+      pxRect(x - 5, y - 12, 2, 6, "#a7f3d0");
+      // Crystal 2 (main center vertical)
+      pxRect(x - 2, y - 15, 6, 13, "#065f46");
+      pxRect(x - 1, y - 18, 4, 15, "#10b981");
+      pxRect(x, y - 17, 2, 10, "#ffffff");
+      // Crystal 3 (right pointing)
+      pxRect(x + 3, y - 9, 5, 8, "#047857");
+      pxRect(x + 4, y - 11, 3, 9, "#34d399");
+      // Glow sparkles
+      pxRect(x - 11, y - 16, 2, 2, "#a7f3d0");
+      pxRect(x + 10, y - 12, 2, 2, "#ffffff");
+    }
+    ctx.restore();
   }
 
   function drawTopBar() {
@@ -4289,16 +4619,16 @@ export function createIslandEmpireGame(
     ctx.scale(state.zoom, state.zoom);
 
     // Pass 0: Draw shallow water foam for all islands
-    islets.forEach((r, i) => drawRegion(r, i + 1000, 0, true));
-    regions.forEach((r, i) => drawRegion(r, i, 0, false));
+    islets.forEach((r) => drawRegion(r, r.id, 0, true));
+    regions.forEach((r) => drawRegion(r, r.id, 0, false));
 
     // Pass 1: Draw sand rims and coast lines for all islands
-    islets.forEach((r, i) => drawRegion(r, i + 1000, 1, true));
-    regions.forEach((r, i) => drawRegion(r, i, 1, false));
+    islets.forEach((r) => drawRegion(r, r.id, 1, true));
+    regions.forEach((r) => drawRegion(r, r.id, 1, false));
 
     // Pass 2: Draw main land bodies, terrain details and borders
-    islets.forEach((r, i) => drawRegion(r, i + 1000, 2, true));
-    regions.forEach((r, i) => drawRegion(r, i, 2, false));
+    islets.forEach((r) => drawRegion(r, r.id, 2, true));
+    regions.forEach((r) => drawRegion(r, r.id, 2, false));
 
     drawDecoration();
     drawVoyages();
@@ -4326,14 +4656,14 @@ export function createIslandEmpireGame(
   }
 
   const BIOME_COLORS = {
-    0: "#557a46", // grass
-    1: "#dfd19f", // sand
-    2: "#e2ebf0", // snow
-    3: "#a03c28", // ember
-    4: "#884ea0", // violet
-    5: "#f48fb1", // rose
-    6: "#2d5a27", // pine
-    7: "#70db93", // mint
+    0: "#5fa038", // grass
+    1: "#e68a35", // sand
+    2: "#dedad4", // snow
+    3: "#4c8c30", // ember
+    4: "#529642", // violet
+    5: "#e68a35", // rose
+    6: "#4c8c30", // pine
+    7: "#7cb84d", // mint
   };
 
   let minimapDragging = false;
@@ -4344,10 +4674,9 @@ export function createIslandEmpireGame(
     const rect = minimapCanvas.getBoundingClientRect();
     const mx = (e.clientX - rect.left) * (160 / rect.width);
     const my = (e.clientY - rect.top) * (120 / rect.height);
-    
-    // Map to world coordinates (0 to 12000, 0 to 9000)
-    const worldX = Math.max(0, Math.min(12000, mx * 75));
-    const worldY = Math.max(0, Math.min(9000, my * 75));
+    // Map to world coordinates (0 to 16000, 0 to 12000)
+    const worldX = Math.max(0, Math.min(16000, mx * 100));
+    const worldY = Math.max(0, Math.min(12000, my * 100));
     
     // Center camera on this world coordinate
     state.panX = -worldX * state.zoom + W * 0.5 - (1 - state.zoom) * W * 0.48;
@@ -4407,10 +4736,10 @@ export function createIslandEmpireGame(
     regions.forEach((r) => {
       minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
       minimapCtx.beginPath();
-      const mx = r.x / 75;
-      const my = r.y / 75;
-      const mrx = (r.rx || r.r) / 75 * 1.02;
-      const mry = (r.ry || r.r * 0.78) / 75 * 1.02;
+      const mx = r.x / 100;
+      const my = r.y / 100;
+      const mrx = (r.rx || r.r) / 100 * 1.02;
+      const mry = (r.ry || r.r * 0.78) / 100 * 1.02;
       minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
       minimapCtx.fill();
     });
@@ -4419,10 +4748,10 @@ export function createIslandEmpireGame(
     islets.forEach((r) => {
       minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
       minimapCtx.beginPath();
-      const mx = r.x / 75;
-      const my = r.y / 75;
-      const mrx = (r.rx || r.r) / 75 * 0.82;
-      const mry = (r.ry || r.r * 0.78) / 75 * 0.82;
+      const mx = r.x / 100;
+      const my = r.y / 100;
+      const mrx = (r.rx || r.r) / 100 * 0.82;
+      const mry = (r.ry || r.r * 0.78) / 100 * 0.82;
       minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
       minimapCtx.fill();
     });
@@ -4437,8 +4766,8 @@ export function createIslandEmpireGame(
         color = isAlly ? "#3b82f6" : "#ef4444";
       }
 
-      const tx = t.x / 75;
-      const ty = t.y / 75;
+      const tx = t.x / 100;
+      const ty = t.y / 100;
 
       if (isPlayer) {
         // Draw pulsing green radar halo for player's capital / towns
@@ -4466,10 +4795,10 @@ export function createIslandEmpireGame(
     const viewX = -(state.panX + (1 - state.zoom) * W * 0.48) / state.zoom;
     const viewY = -(state.panY + (1 - state.zoom) * H * 0.48) / state.zoom;
 
-    const vx = viewX / 75;
-    const vy = viewY / 75;
-    const vw = viewW / 75;
-    const vh = viewH / 75;
+    const vx = viewX / 100;
+    const vy = viewY / 100;
+    const vw = viewW / 100;
+    const vh = viewH / 100;
 
     minimapCtx.strokeStyle = "#ffd34d"; // bright gold viewport boundary box
     minimapCtx.lineWidth = 1.5;
@@ -4566,7 +4895,7 @@ export function createIslandEmpireGame(
     // Pick closest center when multiple match
 
     let bestRegion: { id: number; d: number } | null = null;
-    regions.forEach((r, i) => {
+    regions.forEach((r) => {
       // Match drawRegion scale exactly: scale = 1.02 for regions
       const rx = (r.rx || r.r) * 1.10;
       const ry = (r.ry || r.r * 0.78) * 1.10;
@@ -4574,7 +4903,7 @@ export function createIslandEmpireGame(
       const ny = (y - r.y) / ry;
       if (nx * nx + ny * ny <= 1) {
         const d = Math.hypot(x - r.x, y - r.y);
-        if (!bestRegion || d < bestRegion.d) bestRegion = { id: i, d };
+        if (!bestRegion || d < bestRegion.d) bestRegion = { id: r.id, d };
       }
     });
 
@@ -4582,7 +4911,7 @@ export function createIslandEmpireGame(
     if (bestRegion !== null) return bestRegion.id;
 
     let bestIslet: { id: number; d: number } | null = null;
-    islets.forEach((r, i) => {
+    islets.forEach((r) => {
       // Match drawRegion scale exactly: scale = 0.82 for islets
       const rx = (r.rx || r.r) * 0.95;
       const ry = (r.ry || r.r * 0.78) * 0.95;
@@ -4590,7 +4919,7 @@ export function createIslandEmpireGame(
       const ny = (y - r.y) / ry;
       if (nx * nx + ny * ny <= 1) {
         const d = Math.hypot(x - r.x, y - r.y);
-        if (!bestIslet || d < bestIslet.d) bestIslet = { id: i + 1000, d };
+        if (!bestIslet || d < bestIslet.d) bestIslet = { id: r.id, d };
       }
     });
 
@@ -4631,7 +4960,7 @@ export function createIslandEmpireGame(
 
       const otherLands = [...regions, ...islets];
       for (let i = 0; i < otherLands.length; i++) {
-        const otherId = i >= regions.length ? (i - regions.length + 1000) : i;
+        const otherId = otherLands[i].id;
         if (otherId === regionId) continue;
         const o = otherLands[i];
         const dist = Math.hypot(px - o.x, py - o.y);
@@ -4658,7 +4987,7 @@ export function createIslandEmpireGame(
           let minNeighborDist = Infinity;
           const otherLands = [...regions, ...islets];
           for (let i = 0; i < otherLands.length; i++) {
-            const otherId = i >= regions.length ? (i - regions.length + 1000) : i;
+            const otherId = otherLands[i].id;
             if (otherId === regionId) continue;
             const o = otherLands[i];
             const d = Math.hypot(testX - o.x, testY - o.y);
@@ -4707,7 +5036,7 @@ export function createIslandEmpireGame(
         if (ownerCode === 1) {
           town.owner = 0;
           town.troops = Math.max(town.troops || 0, 24);
-          town.population = Math.max(town.population || 0, 32);
+          town.population = Math.max(town.population || 0, territoryStartingPopulation(regionId, 1));
         } else if (ownerCode > 1 && town.owner === 0) {
           town.owner = ownerCode;
         }
@@ -4809,7 +5138,7 @@ export function createIslandEmpireGame(
         lvl: 1,
         owner: 0,
         troops: 24,
-        population: 32,
+        population: territoryStartingPopulation(canvasId, 1),
         buildings: defaultBuildings(),
         storage: defaultStorage(),
       };
@@ -4835,7 +5164,7 @@ export function createIslandEmpireGame(
       centerTownInRegion(town, regionId);
       town.owner = ownerCode === 1 ? 0 : Math.max(1, ownerCode || 2);
       town.troops = Math.max(town.troops || 0, ownerCode === 1 ? 24 : 72);
-      town.population = Math.max(town.population || 0, ownerCode === 1 ? 32 : 64);
+      town.population = Math.max(town.population || 0, territoryStartingPopulation(regionId, ownerCode));
       return town;
     }
     const pt = getOptimalTownCenter(regionId);
@@ -4846,7 +5175,7 @@ export function createIslandEmpireGame(
       lvl: ownerCode === 0 ? 1 : 2,
       owner: ownerCode === 1 ? 0 : Math.max(1, ownerCode || 2),
       troops: ownerCode === 1 ? 24 : 72,
-      population: ownerCode === 1 ? 32 : 64,
+      population: territoryStartingPopulation(regionId, ownerCode),
       buildings: defaultBuildings(),
       storage: defaultStorage(),
       virtual: true,
@@ -4921,7 +5250,7 @@ export function createIslandEmpireGame(
       if (t.troops + gameConfig.infantryTroopsValue > maxDefending) {
         return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
       }
-      if (spend({ gold: gameConfig.infantryCostGold, wood: gameConfig.infantryCostWood, ...UNIT_EXTRA_COSTS.infantry })) {
+      if (spend({ gold: gameConfig.infantryCostGold, wood: gameConfig.infantryCostWood, ...unitExtraCosts().infantry })) {
         t.population = Math.max(0, t.population - popCost);
         t.infantryCount = (t.infantryCount || 0) + 1;
         t.troops += gameConfig.infantryTroopsValue;
@@ -4940,7 +5269,7 @@ export function createIslandEmpireGame(
       if (t.troops + gameConfig.cavalryTroopsValue > maxDefending) {
         return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
       }
-      if (spend({ gold: gameConfig.cavalryCostGold, wood: gameConfig.cavalryCostWood, stone: gameConfig.cavalryCostStone, ...UNIT_EXTRA_COSTS.cavalry })) {
+      if (spend({ gold: gameConfig.cavalryCostGold, wood: gameConfig.cavalryCostWood, stone: gameConfig.cavalryCostStone, ...unitExtraCosts().cavalry })) {
         t.population = Math.max(0, t.population - popCost);
         t.cavalryCount = (t.cavalryCount || 0) + 1;
         t.troops += gameConfig.cavalryTroopsValue;
@@ -4959,7 +5288,7 @@ export function createIslandEmpireGame(
       if (t.troops + gameConfig.artilleryTroopsValue > maxDefending) {
         return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
       }
-      if (spend({ gold: gameConfig.artilleryCostGold, stone: gameConfig.artilleryCostStone, ...UNIT_EXTRA_COSTS.artillery })) {
+      if (spend({ gold: gameConfig.artilleryCostGold, stone: gameConfig.artilleryCostStone, ...unitExtraCosts().artillery })) {
         t.population = Math.max(0, t.population - popCost);
         t.artilleryCount = (t.artilleryCount || 0) + 1;
         t.troops += gameConfig.artilleryTroopsValue;
@@ -5381,7 +5710,7 @@ export function createIslandEmpireGame(
 
     const dist = Math.hypot(source.x - target.x, source.y - target.y);
     const distanceKm = Math.max(1, Math.round(dist * MAP_UNITS_TO_KM));
-    const localDuration = Math.max(6, Math.round((distanceKm / speed) * GAME_HOUR_SECONDS));
+    const localDuration = Math.max(6, Math.round((distanceKm / speed) * gameConfig.gameHourSeconds));
     const duration = backendTiming?.duration ?? localDuration;
     const elapsed = backendTiming?.elapsed ?? 0;
 
@@ -5529,8 +5858,17 @@ export function createIslandEmpireGame(
     );
   }
 
+  let toastTimeout: any = null;
   function toast(msg) {
     state.toast = msg;
+    if (toastTimeout) clearTimeout(toastTimeout);
+    if (msg && msg !== "TÂN THỦ: CHỌN MẢNH ĐẤT HOANG ĐỂ XÂY THÀNH" && msg !== "CHỌN CỜ VÀ BIỂU TƯỢNG RỒI XÁC NHẬN XÂY THÀNH") {
+      toastTimeout = setTimeout(() => {
+        if (state.toast === msg) {
+          state.toast = "CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH";
+        }
+      }, 3000);
+    }
   }
 
   function pushLog(msg) {
@@ -5893,14 +6231,12 @@ export function createIslandEmpireGame(
 
     // ── Biome-based per-territory resource yield ──────────────────────────
     const allTerritories: { r: any; idx: number }[] = [
-      ...regions.map((r, i) => ({ r, idx: i })),
-      ...islets.map((r, i) => ({ r, idx: i + 1000 })),
+      ...regions.map((r) => ({ r, idx: r.id })),
+      ...islets.map((r) => ({ r, idx: r.id })),
     ];
     allTerritories.forEach(({ r, idx }) => {
       if (state.regionOwnership[idx] !== 1) return;
-      const biome = r.biome ?? 0;
-      const y = BIOME_YIELDS[biome] || BIOME_YIELDS[0];
-
+      const y = territoryYield(idx);
       let goldGen = y.gold;
       let woodGen = y.wood;
       let stoneGen = y.stone;
@@ -5909,17 +6245,6 @@ export function createIslandEmpireGame(
       let coalGen = y.coal;
       let sulfurGen = y.sulfur;
       let gemsGen = y.gems;
-
-      if (idx >= 1000) {
-        goldGen *= 1.25;
-        woodGen *= 0.3;
-        stoneGen *= 0.5;
-        foodGen *= 0.45;
-        ironGen *= 0.55;
-        coalGen *= 0.35;
-        sulfurGen *= 1.25;
-        gemsGen *= 2.8;
-      }
 
       // Add passive buildings production if there's a player town in this territory
       const town = towns.find((t) => t.owner === 0 && regionAtCoords(t.x, t.y) === idx);
@@ -6062,6 +6387,14 @@ export function createIslandEmpireGame(
       }, 1500);
     },
     handleAction: (id: string, payload?: any) => {
+      if (id === "setMinimapCanvas") {
+        minimapCanvas = payload;
+        minimapCtx = minimapCanvas?.getContext("2d") || null;
+        if (minimapCanvas) {
+          minimapCanvas.addEventListener("mousedown", onMinimapMouseDown);
+        }
+        return;
+      }
       if (id === "setToast") {
         toast(payload?.message || "KHÔNG THỂ THỰC HIỆN LỆNH");
         return;
@@ -6073,6 +6406,30 @@ export function createIslandEmpireGame(
       }
       if (id === "syncResources") {
         if (payload?.resources) state.resources = { ...state.resources, ...payload.resources };
+        return;
+      }
+      if (id === "applyConfig") {
+        if (payload?.config) Object.assign(gameConfig, payload.config);
+        return;
+      }
+      if (id === "prepareBackendWorld") {
+        state.hasAuthoritativeOwnership = true;
+        state.regionOwnership = [];
+        state.regionOwnerIds = {};
+        state.regionOwnerNames = {};
+        state.regionOwnerFlagColors = {};
+        state.regionOwnerEmblems = {};
+        state.regionOwnerAllianceTags = {};
+        state.regionOwnerAllianceEmblems = {};
+        state.regionClearing = [];
+        state.activeClearingTimings = {};
+        state.regionInProgress = -1;
+        state.selected = null;
+        state.selectedRegion = null;
+        state.settlerTravel = { active: false, targetRegionId: -1, originTownId: null, originX: 0, originY: 0 };
+        towns.splice(0, towns.length);
+        initTerritoryArrays();
+        state.toast = "ĐANG ĐỒNG BỘ DỮ LIỆU SERVER";
         return;
       }
       if (id === "applyGameState") {

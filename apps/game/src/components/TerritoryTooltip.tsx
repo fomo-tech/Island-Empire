@@ -172,14 +172,14 @@ export function TerritoryTooltip({
   // Balancing yields
   const areaFactor = area / 10000;
   const BIOME_BASE_YIELDS = [
-    { gold: 0.005, wood: 0.008, stone: 0.002, food: 0.014, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0003 },
-    { gold: 0.012, wood: 0.001, stone: 0.007, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.001, gems: 0.0030 },
-    { gold: 0.002, wood: 0.002, stone: 0.011, food: 0.002, iron: 0.008, coal: 0.005, sulfur: 0.0005, gems: 0.0022 },
-    { gold: 0.003, wood: 0.000, stone: 0.012, food: 0.001, iron: 0.011, coal: 0.009, sulfur: 0.008, gems: 0.0012 },
-    { gold: 0.003, wood: 0.002, stone: 0.004, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.002, gems: 0.0075 },
-    { gold: 0.006, wood: 0.005, stone: 0.002, food: 0.011, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0030 },
-    { gold: 0.002, wood: 0.016, stone: 0.004, food: 0.008, iron: 0.002, coal: 0.002, sulfur: 0.000, gems: 0.0000 },
-    { gold: 0.004, wood: 0.012, stone: 0.001, food: 0.010, iron: 0.001, coal: 0.003, sulfur: 0.002, gems: 0.0012 },
+    { gold: 0.003, wood: 0.010, stone: 0.006, food: 0.030, iron: 0.0015, coal: 0.0008, sulfur: 0.0004, gems: 0.0002 },
+    { gold: 0.018, wood: 0.001, stone: 0.012, food: 0.003, iron: 0.0030, coal: 0.0010, sulfur: 0.0010, gems: 0.0040 },
+    { gold: 0.002, wood: 0.003, stone: 0.020, food: 0.003, iron: 0.0160, coal: 0.0080, sulfur: 0.0010, gems: 0.0020 },
+    { gold: 0.004, wood: 0.001, stone: 0.018, food: 0.001, iron: 0.0200, coal: 0.0180, sulfur: 0.0140, gems: 0.0020 },
+    { gold: 0.005, wood: 0.003, stone: 0.010, food: 0.003, iron: 0.0050, coal: 0.0010, sulfur: 0.0020, gems: 0.0140 },
+    { gold: 0.010, wood: 0.008, stone: 0.004, food: 0.022, iron: 0.0020, coal: 0.0010, sulfur: 0.0005, gems: 0.0020 },
+    { gold: 0.002, wood: 0.026, stone: 0.012, food: 0.010, iron: 0.0040, coal: 0.0030, sulfur: 0.0005, gems: 0.0005 },
+    { gold: 0.003, wood: 0.016, stone: 0.003, food: 0.018, iron: 0.0020, coal: 0.0060, sulfur: 0.0040, gems: 0.0010 },
   ];
   const bYield = BIOME_BASE_YIELDS[biome] || BIOME_BASE_YIELDS[0];
 
@@ -202,6 +202,24 @@ export function TerritoryTooltip({
     sulfur *= 1.25;
     gem *= 2.8;
   }
+
+  const formatYield = (value: number) => value >= 1 ? value.toFixed(1) : value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  const resourceLevel = (value: number) => {
+    if (value >= 0.08) return "Nhiều";
+    if (value >= 0.03) return "Vừa";
+    if (value >= 0.006) return "Ít";
+    return "Hiếm";
+  };
+  const resourceRows = [
+    { key: "food", label: "Lương", value: food, className: "food", icon: <span className="rt-yield-emoji">L</span> },
+    { key: "wood", label: "Gỗ", value: w, className: "wood", icon: <WoodIcon /> },
+    { key: "stone", label: "Đá", value: s, className: "stone", icon: <StoneIcon /> },
+    { key: "gold", label: "Vàng", value: g, className: "gold", icon: <CoinIcon /> },
+    { key: "iron", label: "Sắt", value: iron, className: "iron", icon: <span className="rt-yield-emoji">S</span> },
+    { key: "coal", label: "Than", value: coal, className: "coal", icon: <span className="rt-yield-emoji">T</span> },
+    { key: "sulfur", label: "Lưu huỳnh", value: sulfur, className: "sulfur", icon: <span className="rt-yield-emoji">LH</span> },
+    { key: "gems", label: "Đá quý", value: gem, className: "gems", icon: <GemIcon /> },
+  ].sort((a, b) => b.value - a.value);
 
   const buildCost = {
     gold: Math.round(180 + Math.max(0.85, areaFactor) * 32 + g * 92 + gem * 70),
@@ -266,7 +284,7 @@ export function TerritoryTooltip({
   // Position relative to screen (placed to the right of the selected region)
   const zoom = engineState.zoom || 1;
   const cardW = 275;
-  const cardH = 290;
+  const cardH = 360;
 
   let left = coords.x + rx * zoom + 16;
   let top = coords.y - cardH / 2;
@@ -540,46 +558,14 @@ export function TerritoryTooltip({
         </div>
         
         <div className="rt-yield-grid">
-          {g > 0.05 && (
-            <div className="rt-yield-pill gold">
-              <CoinIcon /> {g.toFixed(1)}/s
-          </div>
-          )}
-          {w > 0.05 && (
-            <div className="rt-yield-pill wood">
-              <WoodIcon /> {w.toFixed(1)}/s
+          {resourceRows.map((row) => (
+            <div key={row.key} className={`rt-yield-pill ${row.className}`}>
+              {row.icon}
+              <span className="rt-yield-label">{row.label}</span>
+              <b>{resourceLevel(row.value)}</b>
+              <small>{formatYield(row.value)}/s</small>
             </div>
-          )}
-          {s > 0.05 && (
-            <div className="rt-yield-pill stone">
-              <StoneIcon /> {s.toFixed(1)}/s
-            </div>
-          )}
-          {food > 0.05 && (
-            <div className="rt-yield-pill food">
-              <span className="rt-yield-emoji">🌾</span> {food.toFixed(1)}/s
-            </div>
-          )}
-          {iron > 0.05 && (
-            <div className="rt-yield-pill iron">
-              <span className="rt-yield-emoji">▣</span> {iron.toFixed(1)}/s
-            </div>
-          )}
-          {coal > 0.05 && (
-            <div className="rt-yield-pill coal">
-              <span className="rt-yield-emoji">◆</span> {coal.toFixed(1)}/s
-            </div>
-          )}
-          {sulfur > 0.05 && (
-            <div className="rt-yield-pill sulfur">
-              <span className="rt-yield-emoji">✹</span> {sulfur.toFixed(1)}/s
-            </div>
-          )}
-          {gem > 0.01 && (
-            <div className="rt-yield-pill gems">
-              <GemIcon /> {gem.toFixed(1)}/s
-            </div>
-          )}
+          ))}
         </div>
 
         {specialResources.length > 0 && (

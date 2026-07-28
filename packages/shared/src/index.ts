@@ -13,12 +13,18 @@ export type GameConfig = {
   cavalryTroopsValue: number;
   artilleryCostGold: number;
   artilleryCostStone: number;
+  infantryCostFood: number;
+  cavalryCostFood: number;
+  cavalryCostIron: number;
+  artilleryCostIron: number;
+  artilleryCostSulfur: number;
   artilleryTroopsValue: number;
   settlerSpeed: number;
   infantrySpeed: number;
   cavalrySpeed: number;
   artillerySpeed: number;
   shipSpeed: number;
+  gameHourSeconds: number;
 };
 
 export type PlayerRole = "player" | "admin";
@@ -254,6 +260,7 @@ export interface BaseTerritory {
   biome: number;
   seed: number;
   isIslet: boolean;
+  isWater?: boolean;
 }
 
 function mulberry32(a: number) {
@@ -747,27 +754,33 @@ export function generateWorldTerritories(): BaseTerritory[] {
   const random = mulberry32(12345);
 
   const centers = [
-    { cx: 9500, cy: 1000, name: "THƯỢNG CỔ ĐẢO" },
-    { cx: 9800, cy: 2200, name: "VẠN AN ĐẢO" },
-    { cx: 10200, cy: 3500, name: "BẠCH HỔ LỤC ĐỊA" },
-    { cx: 10500, cy: 4800, name: "LINH QUY ĐẢO" },
-    { cx: 10800, cy: 6200, name: "THIÊN LONG LỤC ĐỊA" },
-    { cx: 10500, cy: 7800, name: "BĂNG LONG ĐẢO" },
-    { cx: 7500, cy: 7800, name: "CHU TƯỚC ĐẢO" },
-    { cx: 4800, cy: 7800, name: "KỲ LÂN BĂNG SƠN" },
-    { cx: 2000, cy: 7800, name: "HỎA LONG MA THỔ" },
-    { cx: 800, cy: 7500, name: "TỬ PHONG ĐẢO" },
-    // CÁC LỤC ĐỊA MỚI MỞ RỘNG BẢN ĐỒ BẮC VÀ TÂY (MỞ RỘNG ĐỀU SANG 2 BÊN VÀ TRÊN DƯỚI)
-    { cx: 1200, cy: 1000, name: "THÁI BÌNH QUẦN ĐẢO" },
-    { cx: 1500, cy: 2500, name: "HOÀNG KIM THỔ" },
-    { cx: 5000, cy: 1000, name: "BẮC ĐẨU LỤC ĐỊA" },
-    { cx: 8500, cy: 1500, name: "VƯƠNG QUỐC PHA LÊ" },
-    { cx: 11200, cy: 2500, name: "ĐÔNG HẢI LONG CUNG" },
-    { cx: 11200, cy: 5000, name: "SAN HÔ ĐẠI LỤC" },
+    // Row 1 (y ~ 1400 - 1600)
+    { cx: 2000, cy: 1500, name: "THÁI BÌNH QUẦN ĐẢO" },
+    { cx: 6000, cy: 1600, name: "BẮC ĐẨU LỤC ĐỊA" },
+    { cx: 10000, cy: 1500, name: "VƯƠNG QUỐC PHA LÊ" },
+    { cx: 14000, cy: 1400, name: "THƯỢNG CỔ ĐẢO" },
+
+    // Row 2 (y ~ 4400 - 4600)
+    { cx: 2100, cy: 4500, name: "HOÀNG KIM THỔ" },
+    { cx: 5900, cy: 4600, name: "BẠCH HỔ LỤC ĐỊA" },
+    { cx: 9900, cy: 4400, name: "LINH QUY ĐẢO" },
+    { cx: 13900, cy: 4500, name: "ĐÔNG HẢI LONG CUNG" },
+
+    // Row 3 (y ~ 7400 - 7700)
+    { cx: 2000, cy: 7500, name: "TỬ PHONG ĐẢO" },
+    { cx: 6000, cy: 7700, name: "THIÊN LONG LỤC ĐỊA" },
+    { cx: 10000, cy: 7500, name: "SAN HÔ ĐẠI LỤC" },
+    { cx: 14000, cy: 7600, name: "VẠN AN ĐẢO" },
+
+    // Row 4 (y ~ 10400 - 10600)
+    { cx: 2200, cy: 10500, name: "HỎA LONG MA THỔ" },
+    { cx: 6100, cy: 10600, name: "KỲ LÂN BĂNG SƠN" },
+    { cx: 10100, cy: 10400, name: "CHU TƯỚC ĐẢO" },
+    { cx: 14100, cy: 10500, name: "BĂNG LONG ĐẢO" },
   ];
 
-  // Tăng tổng số vùng khu vực từ 458 -> 810 vùng để đạt mốc ~1150 regions đất liền
-  const totalAutoRegions = 810;
+  // Tăng tổng số vùng khu vực lục địa lên 1400 vùng để tổng cộng đạt mốc 2000 vùng lãnh thổ
+  const totalAutoRegions = 1400;
   const regionsPerContinent = Math.floor(totalAutoRegions / centers.length);
   const remainingRegions = totalAutoRegions % centers.length;
 
@@ -777,23 +790,50 @@ export function generateWorldTerritories(): BaseTerritory[] {
     const numRegions = regionsPerContinent + (cIdx < remainingRegions ? 1 : 0);
     let themeBiome = 0;
     if (center.name.includes("BĂNG")) themeBiome = 2;
-    else if (center.name.includes("HỎA")) themeBiome = 3;
+    else if (center.name.includes("HỎA")) themeBiome = 1;
     else if (center.name.includes("SA MẠC") || center.name.includes("HOÀNG KIM")) themeBiome = 1;
     else if (center.name.includes("QUY") || center.name.includes("SAN HÔ")) themeBiome = 5;
     else if (center.name.includes("LONG") || center.name.includes("HỔ")) themeBiome = 6;
-    else themeBiome = Math.floor(random() * 8);
+    else {
+      // Exclude red (3) from random picks
+      const allowedBiomes = [0, 1, 2, 4, 5, 6, 7];
+      themeBiome = allowedBiomes[Math.floor(random() * allowedBiomes.length)];
+    }
+
+    // Define a unique organic growth direction and stretch factor for each continent to prevent round clumps
+    const growthAngle = (cIdx * 1.73) % (Math.PI * 2);
+    const stretch = 1.4 + ((cIdx * 7) % 5) * 0.25; // 1.4x ~ 2.4x stretching factor
 
     for (let rIdx = 0; rIdx < numRegions; rIdx++) {
-      const angle = (rIdx / numRegions) * Math.PI * 2 + (random() * 0.5);
-      const dist = 200 + (rIdx % 8) * 190 + random() * 140;
-      const x = Math.round(center.cx + Math.cos(angle) * dist);
-      const y = Math.round(center.cy + Math.sin(angle) * dist * 0.75);
+      // Golden angle rotation for uniform spacing density (Fermat's Spiral)
+      const angle = rIdx * 2.39996 + (random() * 0.1);
+      
+      // Multi-frequency wave modulation for organic coastlines (peninsulas and bays)
+      const waveMod = 1.0 + Math.sin(angle * 3 + cIdx * 1.9) * 0.42 + Math.cos(angle * 5 - cIdx * 0.7) * 0.22;
+      
+      // Fermat's spiral radius formula to keep spacing density uniform across the entire continent
+      const baseDist = 180 + Math.sqrt(rIdx) * 125;
+      const dist = baseDist * waveMod;
 
-      const rx = Math.round(180 + random() * 60);
+      // Project with anisotropic stretch along growth direction
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist * 0.75;
+      
+      const rotX = dx * Math.cos(growthAngle) - dy * Math.sin(growthAngle) * stretch;
+      const rotY = dx * Math.sin(growthAngle) + dy * Math.cos(growthAngle);
+
+      const x = Math.round(center.cx + rotX);
+      const y = Math.round(center.cy + rotY);
+
+      // Restored region size so they look wide and bold instead of shrunken
+      const rx = Math.round(185 + random() * 45);
       const ry = Math.round(rx * 0.75);
 
-      const biome = random() < 0.75 ? themeBiome : Math.floor(random() * 8);
+      // Enforce 100% theme consistency per continent (no messy mixed biomes)
+      const biome = themeBiome;
       const seed = Math.floor(random() * 1000);
+      // Designate ~12% of slots in dense clusters as natural inland lakes / sea gulf openings
+      const isWater = (rIdx % 7 === 3 && random() < 0.65);
 
       territories.push({
         id: nextRegionId++,
@@ -801,19 +841,20 @@ export function generateWorldTerritories(): BaseTerritory[] {
         rx, ry,
         biome,
         seed,
-        isIslet: false
+        isIslet: false,
+        isWater: isWater
       });
     }
   });
 
   let nextIsletId = 1100;
-  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương từ 200 lên 230
-  for (let i = 0; i < 230; i++) {
-    const angle = (i / 230) * Math.PI * 2;
-    const radiusX = 3200 + (i % 10) * 320 + random() * 250;
-    const radiusY = 2400 + (i % 10) * 240 + random() * 180;
-    const x = Math.round(6000 + Math.cos(angle) * radiusX);
-    const y = Math.round(4500 + Math.sin(angle) * radiusY);
+  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương lên 360 (scaled to 16000x12000)
+  for (let i = 0; i < 360; i++) {
+    const angle = (i / 360) * Math.PI * 2;
+    const radiusX = 4200 + (i % 10) * 420 + random() * 300;
+    const radiusY = 3200 + (i % 10) * 320 + random() * 240;
+    const x = Math.round(8000 + Math.cos(angle) * radiusX);
+    const y = Math.round(6000 + Math.sin(angle) * radiusY);
 
     const rx = Math.round(45 + random() * 25);
     const ry = Math.round(rx * 0.78);
@@ -835,27 +876,27 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   }
 
-  // Generate 120 border islets (left, right, top, bottom edges)
-  for (let i = 0; i < 120; i++) {
+  // Generate 240 border islets scaled to 16000x12000
+  for (let i = 0; i < 240; i++) {
     let x = 0;
     let y = 0;
     const edge = i % 4; // 0 = Left, 1 = Right, 2 = Top, 3 = Bottom
     if (edge === 0) {
-      // Left edge: x = 150..550, y = 200..8800
+      // Left edge: x = 150..550, y = 200..11800
       x = Math.round(150 + random() * 400);
-      y = Math.round(200 + (i / 120) * 8600);
+      y = Math.round(200 + (i / 240) * 11600);
     } else if (edge === 1) {
-      // Right edge: x = 11450..11850, y = 200..8800
-      x = Math.round(11450 + random() * 400);
-      y = Math.round(200 + (i / 120) * 8600);
+      // Right edge: x = 15450..15850, y = 200..11800
+      x = Math.round(15450 + random() * 400);
+      y = Math.round(200 + (i / 240) * 11600);
     } else if (edge === 2) {
-      // Top edge: x = 200..11800, y = 150..550
-      x = Math.round(200 + (i / 120) * 11600);
+      // Top edge: x = 200..15800, y = 150..550
+      x = Math.round(200 + (i / 240) * 15600);
       y = Math.round(150 + random() * 400);
     } else {
-      // Bottom edge: x = 200..11800, y = 8450..8850
-      x = Math.round(200 + (i / 120) * 11600);
-      y = Math.round(8450 + random() * 400);
+      // Bottom edge: x = 200..15800, y = 11450..11850
+      x = Math.round(200 + (i / 240) * 15600);
+      y = Math.round(11450 + random() * 400);
     }
 
     const rx = Math.round(40 + random() * 20);
@@ -867,6 +908,39 @@ export function generateWorldTerritories(): BaseTerritory[] {
       const rareBiomes = [2, 4, 5];
       biome = rareBiomes[Math.floor(random() * rareBiomes.length)];
     }
+    const seed = Math.floor(random() * 1000);
+
+    territories.push({
+      id: nextIsletId++,
+      x, y,
+      rx, ry,
+      biome,
+      seed,
+      isIslet: true
+    });
+  }
+
+  // Generate 500 additional North/South islets to fulfill 2500 total territories
+  for (let i = 0; i < 500; i++) {
+    let x = 0;
+    let y = 0;
+    const isNorth = i % 2 === 0;
+    if (isNorth) {
+      // North edge: x = 200..15800, y = 150..1200
+      x = Math.round(200 + (i / 500) * 15600 + random() * 100);
+      y = Math.round(150 + random() * 1050);
+    } else {
+      // South edge: x = 200..15800, y = 10800..11850
+      x = Math.round(200 + (i / 500) * 15600 + random() * 100);
+      y = Math.round(10800 + random() * 1050);
+    }
+
+    const rx = Math.round(40 + random() * 25);
+    const ry = Math.round(rx * 0.78);
+
+    // Keep biome distribution green, sand, snow, violet or rose. Avoid red (biome 3).
+    let biome = Math.floor(random() * 8);
+    if (biome === 3) biome = 6; // map red/ember to pine green
     const seed = Math.floor(random() * 1000);
 
     territories.push({

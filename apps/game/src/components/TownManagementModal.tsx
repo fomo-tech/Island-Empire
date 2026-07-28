@@ -31,11 +31,6 @@ interface TownManagementModalProps {
 }
 
 const UPGRADE_COST = { wood: 160, stone: 120 };
-const UNIT_EXTRA_COSTS = {
-  infantry: { food: 55 },
-  cavalry: { food: 90, iron: 12 },
-  artillery: { iron: 85, sulfur: 25 },
-};
 
 function populationCost(troopValue: number) {
   return Math.max(1, Math.ceil((troopValue || 0) / 5));
@@ -346,14 +341,24 @@ export function TownManagementModal({
   const config = gameConfig || {
     infantryCostGold: 100,
     infantryCostWood: 30,
-    infantryTroopsValue: 15,
+    infantryCostFood: 55,
+    infantryTroopsValue: 18,
     cavalryCostGold: 170,
     cavalryCostWood: 40,
     cavalryCostStone: 45,
-    cavalryTroopsValue: 40,
+    cavalryCostFood: 90,
+    cavalryCostIron: 12,
+    cavalryTroopsValue: 34,
     artilleryCostGold: 240,
     artilleryCostStone: 120,
-    artilleryTroopsValue: 80,
+    artilleryCostIron: 85,
+    artilleryCostSulfur: 25,
+    artilleryTroopsValue: 58,
+  };
+  const extraCosts = {
+    infantry: { food: config.infantryCostFood || 0 },
+    cavalry: { food: config.cavalryCostFood || 0, iron: config.cavalryCostIron || 0 },
+    artillery: { iron: config.artilleryCostIron || 0, sulfur: config.artilleryCostSulfur || 0 },
   };
 
   const population = Math.max(0, Math.floor(town.population || 32));
@@ -379,7 +384,7 @@ export function TownManagementModal({
   const canAffordInfantry =
     resources.gold >= config.infantryCostGold &&
     resources.wood >= config.infantryCostWood &&
-    resources.food >= UNIT_EXTRA_COSTS.infantry.food;
+    resources.food >= extraCosts.infantry.food;
   const canTrainInfantry =
     canAffordInfantry && population >= infantryPop && town.troops + config.infantryTroopsValue <= maxDefending;
 
@@ -387,8 +392,8 @@ export function TownManagementModal({
     resources.gold >= config.cavalryCostGold &&
     resources.wood >= config.cavalryCostWood &&
     resources.stone >= config.cavalryCostStone &&
-    resources.food >= UNIT_EXTRA_COSTS.cavalry.food &&
-    resources.iron >= UNIT_EXTRA_COSTS.cavalry.iron;
+    resources.food >= extraCosts.cavalry.food &&
+    resources.iron >= extraCosts.cavalry.iron;
   const canTrainCavalry =
     hasHorsePasture &&
     canAffordCavalry &&
@@ -398,8 +403,8 @@ export function TownManagementModal({
   const canAffordArtillery =
     resources.gold >= config.artilleryCostGold &&
     resources.stone >= config.artilleryCostStone &&
-    resources.iron >= UNIT_EXTRA_COSTS.artillery.iron &&
-    resources.sulfur >= UNIT_EXTRA_COSTS.artillery.sulfur;
+    resources.iron >= extraCosts.artillery.iron &&
+    resources.sulfur >= extraCosts.artillery.sulfur;
   const canTrainArtillery =
     hasSiegeWorkshop &&
     canAffordArtillery &&
@@ -491,7 +496,7 @@ export function TownManagementModal({
               <div className="cost-row">
                 <ResourceCost label="Vàng" value={config.infantryCostGold} enough={resources.gold >= config.infantryCostGold} />
                 <ResourceCost label="Gỗ" value={config.infantryCostWood} enough={resources.wood >= config.infantryCostWood} />
-                <ResourceCost label="Lương" value={UNIT_EXTRA_COSTS.infantry.food} enough={resources.food >= UNIT_EXTRA_COSTS.infantry.food} />
+                <ResourceCost label="Lương" value={extraCosts.infantry.food} enough={resources.food >= extraCosts.infantry.food} />
               </div>
             </div>
             <div className="recruit-action-col">
@@ -512,8 +517,8 @@ export function TownManagementModal({
                 <ResourceCost label="Vàng" value={config.cavalryCostGold} enough={resources.gold >= config.cavalryCostGold} />
                 <ResourceCost label="Gỗ" value={config.cavalryCostWood} enough={resources.wood >= config.cavalryCostWood} />
                 <ResourceCost label="Đá" value={config.cavalryCostStone} enough={resources.stone >= config.cavalryCostStone} />
-                <ResourceCost label="Lương" value={UNIT_EXTRA_COSTS.cavalry.food} enough={resources.food >= UNIT_EXTRA_COSTS.cavalry.food} />
-                <ResourceCost label="Sắt" value={UNIT_EXTRA_COSTS.cavalry.iron} enough={resources.iron >= UNIT_EXTRA_COSTS.cavalry.iron} />
+                <ResourceCost label="Lương" value={extraCosts.cavalry.food} enough={resources.food >= extraCosts.cavalry.food} />
+                <ResourceCost label="Sắt" value={extraCosts.cavalry.iron} enough={resources.iron >= extraCosts.cavalry.iron} />
               </div>
             </div>
             <div className="recruit-action-col">
@@ -533,8 +538,8 @@ export function TownManagementModal({
               <div className="cost-row">
                 <ResourceCost label="Vàng" value={config.artilleryCostGold} enough={resources.gold >= config.artilleryCostGold} />
                 <ResourceCost label="Đá" value={config.artilleryCostStone} enough={resources.stone >= config.artilleryCostStone} />
-                <ResourceCost label="Sắt" value={UNIT_EXTRA_COSTS.artillery.iron} enough={resources.iron >= UNIT_EXTRA_COSTS.artillery.iron} />
-                <ResourceCost label="Lưu huỳnh" value={UNIT_EXTRA_COSTS.artillery.sulfur} enough={resources.sulfur >= UNIT_EXTRA_COSTS.artillery.sulfur} />
+                <ResourceCost label="Sắt" value={extraCosts.artillery.iron} enough={resources.iron >= extraCosts.artillery.iron} />
+                <ResourceCost label="Lưu huỳnh" value={extraCosts.artillery.sulfur} enough={resources.sulfur >= extraCosts.artillery.sulfur} />
               </div>
             </div>
             <div className="recruit-action-col">

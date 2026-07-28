@@ -26,6 +26,7 @@ import type {
   StartClearingResult,
   CompleteClearingResult,
   CreateMarchResult,
+  GameConfig,
 } from "@island/shared";
 import { collections } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
@@ -195,14 +196,14 @@ const BIOME_NAMES: Record<number, string> = {
  * Islets gain a ×2.5 rare-resource bonus on gems (they are harder to reach).
  */
 const BIOME_BASE_YIELDS: Record<number, { gold: number; wood: number; stone: number; food: number; iron: number; coal: number; sulfur: number; gems: number }> = {
-  0: { gold: 0.005, wood: 0.008, stone: 0.002, food: 0.014, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0003 }, // Cỏ xanh
-  1: { gold: 0.012, wood: 0.001, stone: 0.007, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.001, gems: 0.0030 }, // Sa mạc
-  2: { gold: 0.002, wood: 0.002, stone: 0.011, food: 0.002, iron: 0.008, coal: 0.005, sulfur: 0.0005, gems: 0.0022 }, // Tuyết
-  3: { gold: 0.003, wood: 0.000, stone: 0.012, food: 0.001, iron: 0.011, coal: 0.009, sulfur: 0.008, gems: 0.0012 }, // Núi lửa
-  4: { gold: 0.003, wood: 0.002, stone: 0.004, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.002, gems: 0.0075 }, // Lục lam/hiếm
-  5: { gold: 0.006, wood: 0.005, stone: 0.002, food: 0.011, iron: 0.002, coal: 0.000, sulfur: 0.000, gems: 0.0030 }, // Vàng cam
-  6: { gold: 0.002, wood: 0.016, stone: 0.004, food: 0.008, iron: 0.002, coal: 0.002, sulfur: 0.000, gems: 0.0000 }, // Rừng thông
-  7: { gold: 0.004, wood: 0.012, stone: 0.001, food: 0.010, iron: 0.001, coal: 0.003, sulfur: 0.002, gems: 0.0012 }, // Đầm lầy
+  0: { gold: 0.003, wood: 0.010, stone: 0.006, food: 0.030, iron: 0.0015, coal: 0.0008, sulfur: 0.0004, gems: 0.0002 }, // Đồng bằng: lương nhiều, gỗ/đá ít
+  1: { gold: 0.018, wood: 0.001, stone: 0.012, food: 0.003, iron: 0.0030, coal: 0.0010, sulfur: 0.0010, gems: 0.0040 }, // Sa mạc: vàng/đá quý, thiếu gỗ/lương
+  2: { gold: 0.002, wood: 0.003, stone: 0.020, food: 0.003, iron: 0.0160, coal: 0.0080, sulfur: 0.0010, gems: 0.0020 }, // Núi tuyết: đá, sắt, than
+  3: { gold: 0.004, wood: 0.001, stone: 0.018, food: 0.001, iron: 0.0200, coal: 0.0180, sulfur: 0.0140, gems: 0.0020 }, // Núi lửa: khoáng sản nặng
+  4: { gold: 0.005, wood: 0.003, stone: 0.010, food: 0.003, iron: 0.0050, coal: 0.0010, sulfur: 0.0020, gems: 0.0140 }, // Mỏ ngọc: đá quý
+  5: { gold: 0.010, wood: 0.008, stone: 0.004, food: 0.022, iron: 0.0020, coal: 0.0010, sulfur: 0.0005, gems: 0.0020 }, // Vùng màu mỡ: lương + vàng
+  6: { gold: 0.002, wood: 0.026, stone: 0.012, food: 0.010, iron: 0.0040, coal: 0.0030, sulfur: 0.0005, gems: 0.0005 }, // Rừng/vùng cao: gỗ nhiều, đá vừa
+  7: { gold: 0.003, wood: 0.016, stone: 0.003, food: 0.018, iron: 0.0020, coal: 0.0060, sulfur: 0.0040, gems: 0.0010 }, // Đầm lầy: lương/gỗ, than/lưu huỳnh ít
 };
 
 // Biome clearing difficulty multipliers (applied on top of area-based time)
@@ -223,9 +224,9 @@ const BIOME_PRIMARY: Record<number, string> = {
   1: "Vàng + Đá quý",
   2: "Sắt + Đá + Than",
   3: "Sắt + Lưu huỳnh + Than",
-  4: "Đá quý",
+  4: "Đá quý + Đá",
   5: "Lương thực + Vàng",
-  6: "Gỗ",
+  6: "Gỗ + Đá",
   7: "Gỗ + Lương thực + Than",
 };
 
@@ -276,30 +277,30 @@ function calcYields(rx: number, ry: number, biome: number, isIslet: boolean) {
     gems  *= 2.8;
   }
 
-  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const round3 = (n: number) => Math.round(n * 1000) / 1000;
   return {
-    yieldGold:  round2(gold),
-    yieldWood:  round2(wood),
-    yieldStone: round2(stone),
-    yieldFood: round2(food),
-    yieldIron: round2(iron),
-    yieldCoal: round2(coal),
-    yieldSulfur: round2(sulfur),
-    yieldGems:  round2(gems),
+    yieldGold: round3(gold),
+    yieldWood: round3(wood),
+    yieldStone: round3(stone),
+    yieldFood: round3(food),
+    yieldIron: round3(iron),
+    yieldCoal: round3(coal),
+    yieldSulfur: round3(sulfur),
+    yieldGems: round3(gems),
   };
 }
 
 function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; rx: number; ry: number }) {
   const specials: string[] = [];
   const area = t.rx * t.ry;
-  if ((t.biome === 0 || t.biome === 5 || t.biome === 6) && area >= 11000 && t.id % 4 !== 0) {
-    specials.push("Bãi ngựa");
-  }
-  if (t.isIslet || t.id % 5 === 0 || t.id % 7 === 0) {
-    specials.push("Bến tàu tự nhiên");
-  }
-  if (t.biome === 3) specials.push("Mỏ lưu huỳnh");
-  if (t.biome === 2 || t.biome === 3) specials.push("Mạch sắt");
+  if ((t.biome === 0 || t.biome === 5) && area >= 18000 && t.id % 3 !== 0) specials.push("Bãi ngựa");
+  if (t.isIslet || t.id % 5 === 0 || t.id % 7 === 0) specials.push("Bến tàu tự nhiên");
+  if ((t.biome === 2 || t.biome === 3 || t.biome === 4 || t.biome === 6) && t.id % 2 === 0) specials.push("Mỏ sắt");
+  if ((t.biome === 1 || t.biome === 2 || t.biome === 3 || t.biome === 6) && area >= 16000) specials.push("Mỏ đá");
+  if ((t.biome === 1 || t.biome === 5 || t.biome === 3) && t.id % 4 === 1) specials.push("Mạch vàng");
+  if ((t.biome === 1 || t.biome === 4 || t.isIslet) && t.id % 5 === 2) specials.push("Mỏ đá quý");
+  if ((t.biome === 2 || t.biome === 3 || t.biome === 7) && t.id % 3 === 0) specials.push("Vỉa than");
+  if (t.biome === 3 || (t.biome === 7 && t.id % 6 === 0)) specials.push("Mỏ lưu huỳnh");
   return specials;
 }
 
@@ -627,37 +628,73 @@ async function cachedWorldTerritoriesPayload() {
 }
 
 const MAP_UNITS_TO_KM = 0.18;
-const GAME_HOUR_SECONDS = 60;
 const DEFAULT_MARCH_CONFIG = {
   infantrySpeed: 24,
   cavalrySpeed: 42,
   artillerySpeed: 14,
-  shipSpeed: 32,
+  shipSpeed: 12,
+  gameHourSeconds: 60,
 };
+
+const DEFAULT_CONFIG: GameConfig = {
+  maxBattleDuration: 12,
+  infantryCostGold: 100,
+  infantryCostWood: 30,
+  infantryCostFood: 55,
+  infantryTroopsValue: 18,
+  cavalryCostGold: 170,
+  cavalryCostWood: 40,
+  cavalryCostStone: 45,
+  cavalryCostFood: 90,
+  cavalryCostIron: 12,
+  cavalryTroopsValue: 34,
+  artilleryCostGold: 240,
+  artilleryCostStone: 120,
+  artilleryCostIron: 85,
+  artilleryCostSulfur: 25,
+  artilleryTroopsValue: 58,
+  settlerSpeed: 18,
+  infantrySpeed: DEFAULT_MARCH_CONFIG.infantrySpeed,
+  cavalrySpeed: DEFAULT_MARCH_CONFIG.cavalrySpeed,
+  artillerySpeed: DEFAULT_MARCH_CONFIG.artillerySpeed,
+  shipSpeed: DEFAULT_MARCH_CONFIG.shipSpeed,
+  gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
+};
+
+function normalizeGameConfig(doc?: Partial<GameConfig> | null): GameConfig {
+  return { ...DEFAULT_CONFIG, ...(doc || {}) };
+}
 
 function calcTravelMetrics(
   from: Pick<TerritoryInfo, "x" | "y" | "isIslet">,
   to: Pick<TerritoryInfo, "x" | "y" | "isIslet">,
   units: { infantry: number; cavalry: number; artillery: number },
+  marchConfig: Pick<GameConfig, "infantrySpeed" | "cavalrySpeed" | "artillerySpeed" | "shipSpeed" | "gameHourSeconds"> = DEFAULT_MARCH_CONFIG,
 ) {
   const dist = Math.hypot(from.x - to.x, from.y - to.y);
   const distanceKm = Math.max(1, Math.round(dist * MAP_UNITS_TO_KM));
   const usesShip = from.isIslet || to.isIslet;
   const speeds: number[] = [];
   if (usesShip) {
-    speeds.push(DEFAULT_MARCH_CONFIG.shipSpeed);
+    speeds.push(marchConfig.shipSpeed);
   } else {
-    if (units.infantry > 0) speeds.push(DEFAULT_MARCH_CONFIG.infantrySpeed);
-    if (units.cavalry > 0) speeds.push(DEFAULT_MARCH_CONFIG.cavalrySpeed);
-    if (units.artillery > 0) speeds.push(DEFAULT_MARCH_CONFIG.artillerySpeed);
+    if (units.infantry > 0) speeds.push(marchConfig.infantrySpeed);
+    if (units.cavalry > 0) speeds.push(marchConfig.cavalrySpeed);
+    if (units.artillery > 0) speeds.push(marchConfig.artillerySpeed);
   }
-  const speedKmh = speeds.length > 0 ? Math.min(...speeds) : DEFAULT_MARCH_CONFIG.infantrySpeed;
-  const travelSeconds = Math.max(6, Math.round((distanceKm / speedKmh) * GAME_HOUR_SECONDS));
+  const speedKmh = speeds.length > 0 ? Math.min(...speeds) : marchConfig.infantrySpeed;
+  const travelSeconds = Math.max(6, Math.round((distanceKm / speedKmh) * marchConfig.gameHourSeconds));
   return { distanceKm, speedKmh, travelSeconds, usesShip };
 }
 
 export function createApp() {
   const app = express();
+
+  async function loadGameConfig(): Promise<GameConfig> {
+    const { configs } = await collections();
+    const doc = await configs.findOne({ _id: "game_settings" });
+    return normalizeGameConfig(doc || null);
+  }
 
   app.disable("x-powered-by");
   app.use(helmet());
@@ -1128,13 +1165,16 @@ export function createApp() {
       return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu lãnh thổ xuất phát" });
     }
     const now = new Date();
-    const unitPower = parsed.data.infantry * 18 + parsed.data.cavalry * 34 + parsed.data.artillery * 58;
+    const gameSettings = await loadGameConfig();
+    const unitPower = parsed.data.infantry * gameSettings.infantryTroopsValue +
+      parsed.data.cavalry * gameSettings.cavalryTroopsValue +
+      parsed.data.artillery * gameSettings.artilleryTroopsValue;
     const troops = unitPower > 0 ? unitPower : parsed.data.troops;
     const travel = calcTravelMetrics(from, to, {
       infantry: parsed.data.infantry,
       cavalry: parsed.data.cavalry,
       artillery: parsed.data.artillery,
-    });
+    }, gameSettings);
     const order = {
       _id: `march:${req.user!.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
       ownerId: req.user!.id,
@@ -1225,62 +1265,30 @@ export function createApp() {
     maxBattleDuration: z.number().positive(),
     infantryCostGold: z.number().nonnegative(),
     infantryCostWood: z.number().nonnegative(),
+    infantryCostFood: z.number().nonnegative(),
     infantryTroopsValue: z.number().positive(),
     cavalryCostGold: z.number().nonnegative(),
     cavalryCostWood: z.number().nonnegative(),
     cavalryCostStone: z.number().nonnegative(),
+    cavalryCostFood: z.number().nonnegative(),
+    cavalryCostIron: z.number().nonnegative(),
     cavalryTroopsValue: z.number().positive(),
     artilleryCostGold: z.number().nonnegative(),
     artilleryCostStone: z.number().nonnegative(),
+    artilleryCostIron: z.number().nonnegative(),
+    artilleryCostSulfur: z.number().nonnegative(),
     artilleryTroopsValue: z.number().positive(),
     settlerSpeed: z.number().positive(),
     infantrySpeed: z.number().positive(),
     cavalrySpeed: z.number().positive(),
     artillerySpeed: z.number().positive(),
     shipSpeed: z.number().positive(),
+    gameHourSeconds: z.number().positive(),
   });
-
-  const DEFAULT_CONFIG = {
-    maxBattleDuration: 12,
-    infantryCostGold: 100,
-    infantryCostWood: 30,
-    infantryTroopsValue: 18,
-    cavalryCostGold: 170,
-    cavalryCostWood: 40,
-    cavalryCostStone: 45,
-    cavalryTroopsValue: 34,
-    artilleryCostGold: 240,
-    artilleryCostStone: 120,
-    artilleryTroopsValue: 58,
-    settlerSpeed: 18,
-    infantrySpeed: DEFAULT_MARCH_CONFIG.infantrySpeed,
-    cavalrySpeed: DEFAULT_MARCH_CONFIG.cavalrySpeed,
-    artillerySpeed: DEFAULT_MARCH_CONFIG.artillerySpeed,
-    shipSpeed: DEFAULT_MARCH_CONFIG.shipSpeed,
-  };
 
   app.get("/api/config", async (_req, res) => {
     try {
-      const { configs } = await collections();
-      const doc = await configs.findOne({ _id: "game_settings" });
-      res.json(doc ? {
-        maxBattleDuration: doc.maxBattleDuration,
-        infantryCostGold: doc.infantryCostGold,
-        infantryCostWood: doc.infantryCostWood,
-        infantryTroopsValue: doc.infantryTroopsValue,
-        cavalryCostGold: doc.cavalryCostGold,
-        cavalryCostWood: doc.cavalryCostWood,
-        cavalryCostStone: doc.cavalryCostStone,
-        cavalryTroopsValue: doc.cavalryTroopsValue,
-        artilleryCostGold: doc.artilleryCostGold,
-        artilleryCostStone: doc.artilleryCostStone,
-        artilleryTroopsValue: doc.artilleryTroopsValue,
-        settlerSpeed: doc.settlerSpeed,
-        infantrySpeed: doc.infantrySpeed,
-        cavalrySpeed: doc.cavalrySpeed,
-        artillerySpeed: doc.artillerySpeed,
-        shipSpeed: doc.shipSpeed,
-      } : DEFAULT_CONFIG);
+      res.json(await loadGameConfig());
     } catch {
       res.json(DEFAULT_CONFIG);
     }
@@ -1388,11 +1396,12 @@ export function createApp() {
 
   // ─── ADMIN: Reset All Territory Runtime Data ─────────────────────────────
   app.post("/api/admin/territories/reset-all", requireAuth, requireAdmin, async (_req, res) => {
-    const { players, saves, territoryClaims, territoryClearings, marchOrders } = await collections();
+    const { players, saves, territoryClaims, territoryClearings, marchOrders, allianceAids } = await collections();
     await Promise.all([
       territoryClaims.deleteMany({}),
       territoryClearings.deleteMany({}),
       marchOrders.deleteMany({}),
+      allianceAids.deleteMany({}),
       saves.deleteMany({}),
       players.updateMany({ role: "player" }, { $set: { onboardingState: "needs_claim" }, $unset: { starterLandId: "" } }),
     ]);

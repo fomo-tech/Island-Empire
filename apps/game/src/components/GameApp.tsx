@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
-import { cancelClearing, completeClearing, createMarch, getGameState, getServerStatus, getWorldTerritories, startClearing, updatePlayerProfile } from "../game/api";
+import { cancelClearing, completeClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, startClearing, updatePlayerProfile } from "../game/api";
 import { connectGameSocket } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
@@ -15,6 +15,7 @@ import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
 import { EventModal } from "./EventModal";
 import { ChatInputModal } from "./ChatInputModal";
+import { SettingsModal } from "./SettingsModal";
 
 const CAMERA_KEY = "island_empire_camera_v1";
 const TOKEN_KEY = "island_empire_token";
@@ -388,6 +389,53 @@ function stableJson(value: unknown) {
   return JSON.stringify(value);
 }
 
+function CastleArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
+      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
+      <rect x="35" y="45" width="30" height="30" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
+      <path d="M 44,75 L 44,60 Q 50,55 56,60 L 56,75 Z" fill="#020617" stroke="#ffd34d" strokeWidth="1.5" />
+      <rect x="25" y="35" width="12" height="40" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
+      <polygon points="23,35 31,20 39,35" fill="#ef4444" stroke="#ffd34d" strokeWidth="1" />
+      <rect x="63" y="35" width="12" height="40" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
+      <polygon points="61,35 69,20 77,35" fill="#ef4444" stroke="#ffd34d" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function ArmyArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
+      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
+      <path d="M25 75 L75 25 M30 80 L80 30 M70 20 L80 30 M20 70 L30 80" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+      <path d="M75 75 L25 25 M70 80 L20 30 M30 20 L20 30 M80 70 L70 80" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="50" cy="50" r="10" fill="#ef4444" stroke="#ffd34d" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function ResourceArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
+      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
+      <polygon points="35,60 45,45 60,48 55,68 40,65" fill="#facc15" stroke="#ca8a04" strokeWidth="1.5" />
+      <polygon points="50,30 65,30 72,42 50,60 28,42" fill="#10b981" stroke="#047857" strokeWidth="1.5" />
+      <rect x="25" y="48" width="22" height="6" rx="2" fill="#b45309" stroke="#78350f" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function DiplomacyArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
+      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
+      <path d="M 25,50 C 35,40 45,40 55,50 C 65,60 75,50 75,50" stroke="#ffd34d" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <path d="M 35,50 Q 50,60 65,50" stroke="#3b82f6" strokeWidth="2" fill="none" />
+      <circle cx="50" cy="45" r="8" fill="#ffd700" opacity="0.8" />
+    </svg>
+  );
+}
+
 export function GameApp() {
   applyNewbieResetOnce();
 
@@ -405,6 +453,7 @@ export function GameApp() {
     meta: "",
     research: "",
     events: "",
+    prevToast: "",
   });
   
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
@@ -434,6 +483,8 @@ export function GameApp() {
   const [xp, setXp] = useState(68);
   const [level, setLevel] = useState(25);
   const [toastMessage, setToastMessage] = useState("CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH");
+  const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [selectedTown, setSelectedTown] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
@@ -553,6 +604,18 @@ export function GameApp() {
       engineRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (gameReady) {
+      if (engineRef.current && minimapCanvasRef.current) {
+        engineRef.current.handleAction("setMinimapCanvas", minimapCanvasRef.current);
+      }
+      const completed = localStorage.getItem("island_empire_tutorial_completed");
+      if (completed !== "1") {
+        setShowTutorial(true);
+      }
+    }
+  }, [gameReady]);
 
   // 1. Fetch API Health
   useEffect(() => {
@@ -764,10 +827,12 @@ export function GameApp() {
     engineRef.current?.handleAction?.("setLocalPlayer", { playerId, playerName: "Bạn" });
 
     if (token && playerId) {
+      engineRef.current?.handleAction?.("prepareBackendWorld");
       setLoadingText("ĐANG TẢI LÃNH THỔ, TÀI NGUYÊN VÀ HÀNH QUÂN");
       setLoadingProgress(82);
-      getGameState(token)
-        .then((world) => {
+      Promise.all([getGameState(token), getGameConfig()])
+        .then(([world, config]) => {
+          engineRef.current?.handleAction("applyConfig", { config });
           const territories = world.territories.map((territory) => ({
             id: serverToEngineTerritoryId(territory.id),
             ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
@@ -1139,11 +1204,17 @@ export function GameApp() {
 
   return (
     <main className="game-shell">
-      {/* Background Interactive Game Canvas */}
       <canvas 
         ref={canvasRef} 
         id="game" 
-        style={{ width: "100vw", height: "100dvh", position: "absolute", inset: 0, zIndex: 1 }} 
+        style={{ 
+          width: "100vw", 
+          height: "100dvh", 
+          position: "absolute", 
+          inset: 0, 
+          zIndex: 1,
+          pointerEvents: gameReady ? "auto" : "none"
+        }} 
         aria-label={t("appName")} 
       />
 
@@ -1175,7 +1246,8 @@ export function GameApp() {
       )}
       
       {/* High Fidelity HTML Overlay HUD */}
-      <div className="hud-wrapper" style={{ visibility: gameReady ? "visible" : "hidden" }}>
+      {gameReady && (
+        <div className="hud-wrapper">
         
         {/* TOP BAR */}
         <div className="hud-topbar hud-interactive">
@@ -1591,8 +1663,9 @@ export function GameApp() {
           </div>
         </div>
       </div>
+      )}
 
-      {selectedRegion && engineRef.current && (
+      {gameReady && selectedRegion && engineRef.current && (
         <TerritoryTooltip
           region={selectedRegion}
           engine={engineRef.current}
@@ -1976,19 +2049,11 @@ export function GameApp() {
       )}
 
       {activeModal === "settings" && (
-        <div className="modal-overlay war-report-overlay">
-          <div className="war-report-modal settings-modal">
-            <button type="button" className="war-report-close" onClick={() => setActiveModal("none")}>×</button>
-            <div className="war-report-title"><HudIcon name="gear" /> {t("settings")}</div>
-            <div className="settings-row">
-              <span>{t("language")}</span>
-              <div className="settings-lang-toggle">
-                <button type="button" className={language === "vi" ? "active" : ""} onClick={() => setGameLanguage("vi")}>VI</button>
-                <button type="button" className={language === "en" ? "active" : ""} onClick={() => setGameLanguage("en")}>EN</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SettingsModal
+          language={language}
+          onSetLanguage={(lang) => setGameLanguage(lang)}
+          onClose={() => setActiveModal("none")}
+        />
       )}
 
       {activeModal === "chat" && engineRef.current && (
@@ -1998,6 +2063,162 @@ export function GameApp() {
           }}
           onClose={() => setActiveModal("none")}
         />
+      )}
+
+      {/* Newbie Tutorial Modal Overlay */}
+      {showTutorial && (
+        <div className="ob-modal-overlay">
+          <div className="ob-modal-container" style={{ maxWidth: "560px", padding: "28px" }}>
+            <div className="ob-modal-glow" style={{ background: "linear-gradient(90deg, transparent, #ffd34d, transparent)" }} />
+            
+            {/* Header matching TownManagementModal */}
+            <div className="ob-modal-header" style={{ marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: "6px", color: "#ffd34d", fontSize: "11px", fontWeight: "bold", textShadow: "0 0 10px rgba(255, 211, 77, 0.35)", marginBottom: "4px" }}>
+                <span className="star">★</span>
+                <span>BƯỚC HƯỚNG DẪN {currentSlide + 1} / 4</span>
+                <span className="star">★</span>
+              </div>
+              <h2 className="ob-modal-title" style={{ fontSize: "16px" }}>HƯỚNG DẪN TÂN VƯƠNG</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "6px 0" }}>
+                <span style={{ width: "6px", height: "6px", background: "#ffd34d", transform: "rotate(45deg)", display: "inline-block" }} />
+                <span style={{ width: "100px", height: "1px", background: "rgba(212, 175, 55, 0.45)", display: "inline-block" }} />
+                <span style={{ width: "6px", height: "6px", background: "#ffd34d", transform: "rotate(45deg)", display: "inline-block" }} />
+              </div>
+            </div>
+
+            {/* Content Section: Left Art, Right Description */}
+            <div className="ob-modal-content" style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "20px", alignItems: "center", minHeight: "180px", margin: "0 0 20px 0" }}>
+              {/* Left Column: Art matching the active slide */}
+              <div className="tutorial-art-col" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 16, 25, 0.6)", borderRadius: "8px", border: "1px solid rgba(212, 175, 55, 0.2)", height: "150px" }}>
+                {currentSlide === 0 && <CastleArt />}
+                {currentSlide === 1 && <ArmyArt />}
+                {currentSlide === 2 && <ResourceArt />}
+                {currentSlide === 3 && <DiplomacyArt />}
+              </div>
+
+              {/* Right Column: Descriptions & Details */}
+              <div className="tutorial-desc-col" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {currentSlide === 0 && (
+                  <>
+                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>1. XÂY DỰNG QUỐC GIA</h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
+                      Nhấp chọn mảnh đất hoang dã (chưa có chủ, màu vàng cát) có viền đen mảnh để khai hoang và dựng thành trì đầu tiên của bạn.
+                    </p>
+                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                      Mẹo: Vùng đất sở hữu sẽ lập tức chuyển sang màu xanh lá của vương quốc bạn.
+                    </p>
+                  </>
+                )}
+                {currentSlide === 1 && (
+                  <>
+                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>2. ĐIỀU BINH KHIỂN TƯỚNG</h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
+                      Nhấp vào thành trì đã sở hữu của bạn, sau đó chọn "Phát động tấn công" hoặc "Tiếp viện" sang các mảnh đất lân cận để chiếm giữ các vùng đất mới.
+                    </p>
+                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                      Mẹo: Bạn có thể huấn luyện Bộ binh, Kị binh hoặc Pháo binh để gia tăng thế lực.
+                    </p>
+                  </>
+                )}
+                {currentSlide === 2 && (
+                  <>
+                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>3. QUẢN LÝ TÀI NGUYÊN</h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
+                      Các loại tài nguyên Lương thực, Gỗ, Đá, Sắt và Ngọc sẽ được khai thác tự động và cộng trực tiếp vào ngân khố theo thời gian.
+                    </p>
+                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                      Mẹo: Càng sở hữu nhiều đất đai, tốc độ thu thập tài nguyên càng tăng nhanh.
+                    </p>
+                  </>
+                )}
+                {currentSlide === 3 && (
+                  <>
+                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>4. NGOẠI GIAO & LIÊN MINH</h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
+                      Nhấp biểu tượng "Ngoại giao" ở thanh công cụ góc phải trên cùng để liên lạc, kết giao liên minh cùng các lãnh chúa khác.
+                    </p>
+                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                      Mẹo: Liên minh sẽ cùng nhau chia sẻ thông tin, cứu trợ binh lính phòng thủ.
+                    </p>
+                  </>
+                )}
+
+                {/* Slide Dots Indicator */}
+                <div className="slide-dots" style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                  {[0, 1, 2, 3].map((idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentSlide(idx)}
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        border: "none",
+                        background: currentSlide === idx ? "#ffd34d" : "rgba(255, 255, 255, 0.2)",
+                        cursor: "pointer",
+                        padding: 0,
+                        transition: "background 0.2s"
+                      }}
+                      title={`Bước ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions matching ob-modal-actions / town-modal-actions */}
+            <div className="ob-modal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(212, 175, 55, 0.25)", paddingTop: "16px" }}>
+              <button
+                type="button"
+                className="ob-action-btn secondary"
+                onClick={() => {
+                  localStorage.setItem("island_empire_tutorial_completed", "1");
+                  setShowTutorial(false);
+                }}
+                style={{ padding: "8px 20px", fontSize: "11.5px" }}
+              >
+                BỎ QUA
+              </button>
+              
+              <div style={{ display: "flex", gap: "10px" }}>
+                {currentSlide > 0 && (
+                  <button
+                    type="button"
+                    className="ob-action-btn secondary"
+                    onClick={() => setCurrentSlide((prev) => prev - 1)}
+                    style={{ padding: "8px 16px", fontSize: "11.5px" }}
+                  >
+                    TRƯỚC
+                  </button>
+                )}
+                
+                {currentSlide < 3 ? (
+                  <button
+                    type="button"
+                    className="ob-action-btn primary"
+                    onClick={() => setCurrentSlide((prev) => prev + 1)}
+                    style={{ padding: "8px 24px", fontSize: "11.5px" }}
+                  >
+                    KẾ TIẾP
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="ob-action-btn primary"
+                    onClick={() => {
+                      localStorage.setItem("island_empire_tutorial_completed", "1");
+                      setShowTutorial(false);
+                    }}
+                    style={{ padding: "8px 24px", fontSize: "11.5px" }}
+                  >
+                    ĐÃ HIỂU
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
