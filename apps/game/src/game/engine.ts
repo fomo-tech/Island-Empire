@@ -490,6 +490,10 @@ export function createIslandEmpireGame(
     events: { goldRush: 0, harvestRush: 0 },
   };
 
+  const organicPathCache = new Map();
+  const sharedEdgeCache = new Map<string, Array<[number, number]>>();
+  const sharedRegionPolygonCache = new Map<string, Array<[number, number]>>();
+
   towns.forEach((town, i) => {
     normalizeTown(town);
     const regionId = i < regions.length ? i : (town.id - 1);
@@ -1000,47 +1004,53 @@ export function createIslandEmpireGame(
   }
 
   function drawOcean() {
-    // 1. Beautiful depth gradient (Midnight Sapphire)
+    // Layer 1: deep tactical sea base.
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#081b29");   // Deep blue-black
-    g.addColorStop(0.5, "#0b2e46"); // Dark sapphire
-    g.addColorStop(1, "#071e2c");   // Midnight blue
+    g.addColorStop(0, "#071825");
+    g.addColorStop(0.48, "#0a263b");
+    g.addColorStop(1, "#061521");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    // 2. Subtle light reflections / sun glint
     const lightG = ctx.createRadialGradient(W / 2, H / 3, 50, W / 2, H / 3, W);
-    lightG.addColorStop(0, "rgba(56, 189, 248, 0.12)"); // sky reflection center
+    lightG.addColorStop(0, "rgba(56, 189, 248, 0.10)");
     lightG.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = lightG;
     ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    for (let y = 0; y < H; y += 18) {
+      for (let x = 0; x < W; x += 18) {
+        const n = hash(x * 13 + y * 29 + 17);
+        if (n > 0.86) {
+          pxRect(x + (n > 0.94 ? 6 : 0), y + (n > 0.91 ? 4 : 0), n > 0.94 ? 8 : 4, 2, "rgba(43, 132, 168, 0.22)");
+        } else if (n < 0.055) {
+          pxRect(x + 4, y + 8, 3, 3, "rgba(2, 48, 72, 0.42)");
+        }
+      }
+    }
+    ctx.restore();
   }
 
   function drawWorldOceanTexture() {
-    // Rippling waves in world space (scrolls and zooms with the map)
-    const startY = -200;
-    const endY = H + 200;
-    const startX = -200;
-    const endX = W + 200;
+    const vp = getWorldViewport();
+    const startY = Math.floor(vp.minY / 128) * 128;
+    const endY = Math.ceil(vp.maxY / 128) * 128;
+    const startX = Math.floor(vp.minX / 160) * 160;
+    const endX = Math.ceil(vp.maxX / 160) * 160;
 
-    // Sparser waves (160x128 grid instead of 48x32 grid) to optimize performance significantly
     for (let y = startY; y < endY; y += 128) {
       for (let x = startX; x < endX; x += 160) {
-        // Slow water wave drifting
         const waveOffset = Math.sin((x * 0.015) + state.tick * 0.08) * 5;
         const py = y + waveOffset;
         const waveType = hash(x * 9 + y * 17);
         
-        // Beautiful sparse stylized waves
         if (waveType > 0.65) {
-          // Wave crest
-          pxRect(x + (y % 13), py, 24, 3, "rgba(14, 165, 233, 0.35)");
-          // Wave foam
-          pxRect(x + (y % 13) + 6, py - 1, 10, 1.5, "rgba(255, 255, 255, 0.45)");
-          // Wave shadow
-          pxRect(x + (y % 13) + 3, py + 3, 18, 2, "rgba(2, 44, 74, 0.5)");
+          pxRect(x + (y % 13), py, 28, 3, "rgba(14, 165, 233, 0.34)");
+          pxRect(x + (y % 13) + 6, py - 1, 12, 1.5, "rgba(223, 250, 255, 0.44)");
+          pxRect(x + (y % 13) + 3, py + 3, 20, 2, "rgba(2, 44, 74, 0.5)");
         } else if (waveType > 0.35) {
-          // Soft ripple
           pxRect(x, py, 12, 2, "rgba(56, 189, 248, 0.2)");
         }
       }
@@ -1299,7 +1309,6 @@ export function createIslandEmpireGame(
     return pts;
   }
 
-  const organicPathCache = new Map();
   function getOrganicPath(cx, cy, rx, ry, seed, key) {
     const cacheKey = `${key}_${Math.round(cx)}_${Math.round(cy)}_${Math.round(rx)}_${Math.round(ry)}`;
     let pts = organicPathCache.get(cacheKey);
@@ -1311,8 +1320,6 @@ export function createIslandEmpireGame(
   }
 
   // --- SHARED EDGE MESH ALGORITHM (NO OVERLAPPING, ORGANIC CURVED SHARED BORDERS) ---
-  const sharedEdgeCache = new Map<string, Array<[number, number]>>();
-  const sharedRegionPolygonCache = new Map<string, Array<[number, number]>>();
 
   function getSharedEdge(r1: any, r2: any): Array<[number, number]> {
     const idA = Math.min(r1.id ?? 0, r2.id ?? 0);
@@ -1377,20 +1384,19 @@ export function createIslandEmpireGame(
     const sizeFactor = 0.92 + hash(seed * 31) * 0.35;
     const baseRx = (r.rx || 230) * sizeFactor;
 
-    // Use 10-12 corners for smooth, gap-free border tile fit
-    const numCorners = 10 + Math.floor(hash(seed * 17) * 3);
+    const numCorners = 10 + Math.floor(hash(seed * 17) * 5);
     const cornerAngles: number[] = [];
 
     for (let c = 0; c < numCorners; c++) {
       const baseA = (c / numCorners) * TAU;
-      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.35;
+      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.42;
       cornerAngles.push(baseA + jiggle);
     }
     cornerAngles.sort((a, b) => a - b);
 
     const cornerPts: Array<{ x: number; y: number; angle: number }> = [];
     cornerAngles.forEach((a, i) => {
-      const cornerRadiusMult = 0.92 + hash(seed * 41 + i * 19) * 0.22;
+      const cornerRadiusMult = 0.86 + hash(seed * 41 + i * 19) * 0.26;
       let maxDistInAngle = baseRx * cornerRadiusMult;
       
       let hasNeighbor = false;
@@ -1411,7 +1417,7 @@ export function createIslandEmpireGame(
 
       // Ocean-facing edges: Add rugged, jagged coastline noise (no neighbor to align with!)
       if (!hasNeighbor) {
-        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.16 + Math.cos(a * 11.0 - seed * 0.5) * 0.08;
+        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.13 + Math.cos(a * 11.0 - seed * 0.5) * 0.08;
         maxDistInAngle = baseRx * cornerRadiusMult * oceanNoise;
       }
 
@@ -1426,13 +1432,28 @@ export function createIslandEmpireGame(
     for (let i = 0; i < nLen; i++) {
       const p0 = basePts[i];
       const p1 = basePts[(i + 1) % nLen];
-      // Smooth double-softening for gapless boundary alignment
-      const qx = Math.round((0.85 * p0[0] + 0.15 * p1[0]) / 2) * 2;
-      const qy = Math.round((0.85 * p0[1] + 0.15 * p1[1]) / 2) * 2;
-      const rx = Math.round((0.15 * p0[0] + 0.85 * p1[0]) / 2) * 2;
-      const ry = Math.round((0.15 * p0[1] + 0.85 * p1[1]) / 2) * 2;
-      softened.push([qx, qy]);
-      softened.push([rx, ry]);
+      const midSeed = seed * 101 + i * 37;
+      const mx = (p0[0] + p1[0]) / 2;
+      const my = (p0[1] + p1[1]) / 2;
+      const ex = p1[0] - p0[0];
+      const ey = p1[1] - p0[1];
+      const len = Math.hypot(ex, ey) || 1;
+      const notch = (hash(midSeed) - 0.5) * Math.min(16, len * 0.08);
+      const mid: [number, number] = [
+        Math.round((mx + (-ey / len) * notch) / 2) * 2,
+        Math.round((my + (ex / len) * notch) / 2) * 2,
+      ];
+      const q1: [number, number] = [
+        Math.round((p0[0] * 0.72 + p1[0] * 0.28) / 2) * 2,
+        Math.round((p0[1] * 0.72 + p1[1] * 0.28) / 2) * 2,
+      ];
+      const q2: [number, number] = [
+        Math.round((p0[0] * 0.28 + p1[0] * 0.72) / 2) * 2,
+        Math.round((p0[1] * 0.28 + p1[1] * 0.72) / 2) * 2,
+      ];
+      softened.push(q1);
+      if (len > 96 || hash(midSeed + 9) > 0.78) softened.push(mid);
+      softened.push(q2);
     }
 
     sharedRegionPolygonCache.set(polyKey, softened);
@@ -1464,6 +1485,41 @@ export function createIslandEmpireGame(
     ctx.strokeStyle = strokeStyle;
     ctx.lineWidth = lineWidth;
     ctx.stroke();
+  }
+
+  function drawStrategyContinentLayer(visibleRegions: Array<[any, number]>, visibleIslets: Array<[any, number]>) {
+    const makeOffset = (r: any, id: number, isIslet: boolean, amount: number, dx = 0, dy = 0) => {
+      const land = getSharedRegionPolygon(r, id, isIslet);
+      return land.map(([px, py]) => {
+        const vx = px - r.x;
+        const vy = py - r.y;
+        const dist = Math.hypot(vx, vy) || 1;
+        return [
+          Math.round(r.x + (vx / dist) * (dist + amount) + dx),
+          Math.round(r.y + (vy / dist) * (dist + amount * 0.78) + dy),
+        ] as [number, number];
+      });
+    };
+
+    const drawContinentPass = (lands: Array<[any, number]>, amount: number, dx: number, dy: number, color: string) => {
+      lands.forEach(([r, id]) => fillPath(makeOffset(r, id, false, amount, dx, dy), color));
+    };
+
+    // One continuous mainland underlay: draw the same expanded polygons in broad passes.
+    // Overlap between neighbors fills gaps, so provinces read as sitting on one land mass.
+    drawContinentPass(visibleRegions, 28, 10, 16, "rgba(0, 0, 0, 0.24)");
+    drawContinentPass(visibleRegions, 18, 3, 7, "rgba(92, 62, 26, 0.78)");
+    drawContinentPass(visibleRegions, 9, 0, 0, "#879c5d");
+
+    const drawIsletBase = (r: any, id: number) => {
+      const biome = BIOMES[r.biome] || BIOMES[0];
+      fillPath(makeOffset(r, id, true, 18, 8, 13), "rgba(0, 0, 0, 0.22)");
+      fillPath(makeOffset(r, id, true, 13, 3, 6), biome.cliffDeep || "rgba(30, 20, 9, 0.76)");
+      fillPath(makeOffset(r, id, true, 9), biome.beach || "#d9b45f");
+      fillPath(makeOffset(r, id, true, 4), biome.b);
+    };
+
+    visibleIslets.forEach(([r, id]) => drawIsletBase(r, id));
   }
 
   function regionOwner(r) {
@@ -1946,8 +2002,8 @@ export function createIslandEmpireGame(
         }
       }
     }
-    // A region is coastal/bay if it's an islet, water region, faces a water slot, or has open water sea gaps (nbrCount < 6)
-    const isCoastal = isIslet || r.isWater || hasWaterNbr || nbrCount < 6;
+    // Only true outside edges get foam/cliff. Interior territories stay flat on the shared land base.
+    const isCoastal = isIslet || r.isWater || hasWaterNbr || nbrCount < 3;
 
     if (pass === 0) {
       // Pass 0: Animated Sky Blue Ocean Foam (Only for outer coastal facing edges!)
@@ -2116,8 +2172,10 @@ export function createIslandEmpireGame(
       ctx.restore();
     }
 
-    // Draw crisp dark pixel polygon border lines separating territories
-    strokePath(land, "#142215", 1.8);
+    ctx.save();
+    ctx.globalAlpha = isCoastal ? 0.86 : 0.38;
+    strokePath(land, isCoastal ? "#142215" : "rgba(20, 34, 21, 0.62)", isCoastal ? 1.8 : 1.05);
+    ctx.restore();
 
     // 1. RED DANGER BORDER FOR TERRITORY IN ATTACK OR BATTLE!
     if (conflict) {
@@ -4203,13 +4261,14 @@ export function createIslandEmpireGame(
       if (isRegionInViewport(r, vp)) visibleRegions.push([r, r.id]);
     }
 
-    // Pass 0: Draw shallow water foam cho các đảo trong viewport
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 0, true));
-    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 0, false));
+    // Layer 2: continuous mainland foundation below all province polygons.
+    drawStrategyContinentLayer(visibleRegions, visibleIslets);
 
-    // Pass 1: Draw sand rims and coast lines
+    // Pass 0/1 only for standalone islets. Mainland territories sit on the shared land base,
+    // otherwise every province draws its own coastline and the continent looks broken apart.
+    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 0, true));
+
     visibleIslets.forEach(([r, id]) => drawRegion(r, id, 1, true));
-    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 1, false));
 
     // Pass 2: Draw main land bodies, terrain details and borders
     visibleIslets.forEach(([r, id]) => drawRegion(r, id, 2, true));
@@ -4934,34 +4993,27 @@ export function createIslandEmpireGame(
   }
 
   function regionAtCoords(x: number, y: number): number {
-    // Use simple ellipse hit testing — same formula as drawRegion scaling
-    // Priority: mainland regions > islets
-    // Pick closest center when multiple match
-
     let bestRegion: { id: number; d: number } | null = null;
     regions.forEach((r) => {
-      // Match drawRegion scale exactly: scale = 1.02 for regions
-      const rx = (r.rx || r.r) * 1.10;
-      const ry = (r.ry || r.r * 0.78) * 1.10;
-      const nx = (x - r.x) / rx;
-      const ny = (y - r.y) / ry;
-      if (nx * nx + ny * ny <= 1) {
+      const brx = (r.rx || r.r || 180) * 1.35;
+      const bry = (r.ry || (r.r || 180) * 0.78) * 1.35;
+      if (x < r.x - brx || x > r.x + brx || y < r.y - bry || y > r.y + bry) return;
+      const poly = getSharedRegionPolygon(r, r.id, false);
+      if (pointInPolygon(x, y, poly)) {
         const d = Math.hypot(x - r.x, y - r.y);
         if (!bestRegion || d < bestRegion.d) bestRegion = { id: r.id, d };
       }
     });
 
-    // Mainland found → always return, never check islets
     if (bestRegion !== null) return bestRegion.id;
 
     let bestIslet: { id: number; d: number } | null = null;
     islets.forEach((r) => {
-      // Match drawRegion scale exactly: scale = 0.82 for islets
-      const rx = (r.rx || r.r) * 0.95;
-      const ry = (r.ry || r.r * 0.78) * 0.95;
-      const nx = (x - r.x) / rx;
-      const ny = (y - r.y) / ry;
-      if (nx * nx + ny * ny <= 1) {
+      const brx = (r.rx || r.r || 120) * 1.05;
+      const bry = (r.ry || (r.r || 120) * 0.78) * 1.05;
+      if (x < r.x - brx || x > r.x + brx || y < r.y - bry || y > r.y + bry) return;
+      const poly = getSharedRegionPolygon(r, r.id, true);
+      if (pointInPolygon(x, y, poly)) {
         const d = Math.hypot(x - r.x, y - r.y);
         if (!bestIslet || d < bestIslet.d) bestIslet = { id: r.id, d };
       }
