@@ -13,6 +13,7 @@ import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
 import { ChatInputModal } from "./ChatInputModal";
 import { SettingsModal } from "./SettingsModal";
+import { useGameStore } from "../store/gameStore";
 
 const CAMERA_KEY = "island_empire_camera_v1";
 const TOKEN_KEY = "island_empire_token";
@@ -58,11 +59,13 @@ type HudIconName =
   | "target"
   | "clock"
   | "lightning"
-  | "fullscreen";
+  | "fullscreen"
+  | "logout";
 
 function HudIcon({ name }: { name: HudIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const paths: Record<HudIconName, ReactNode> = {
+    logout: <><path {...common} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline {...common} points="16 17 21 12 16 7"/><line {...common} x1="21" y1="12" x2="9" y2="12"/></>,
     scroll: <><path {...common} d="M6 4h10a2 2 0 0 1 2 2v13H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2Z"/><path {...common} d="M7 9h8M7 13h7M7 17h5"/></>,
     chart: <><path {...common} d="M4 19V5"/><path {...common} d="M8 19v-7"/><path {...common} d="M12 19V8"/><path {...common} d="M16 19v-4"/><path {...common} d="M3 19h18"/></>,
     swords: <><path {...common} d="M4 20 20 4M15 4h5v5M13 7l4 4"/><path {...common} d="M20 20 4 4M4 9V4h5M7 13l4 4"/></>,
@@ -270,6 +273,43 @@ function stableHash(input: string) {
   return hash >>> 0;
 }
 
+type UnitType = "infantry" | "cavalry" | "artillery";
+
+function recruitmentDelta(unitType: UnitType, config: any, count = 1) {
+  const resources: Record<string, number> = {};
+  const setCost = (key: string, value: number) => {
+    const amount = Math.max(0, Math.floor(Number(value || 0) * count));
+    if (amount > 0) resources[key] = amount;
+  };
+  if (unitType === "infantry") {
+    setCost("gold", config?.infantryCostGold ?? 24);
+    setCost("wood", config?.infantryCostWood ?? 12);
+    setCost("food", config?.infantryCostFood ?? 10);
+    return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.infantryTroopsValue ?? 18) * count)) };
+  }
+  if (unitType === "cavalry") {
+    setCost("gold", config?.cavalryCostGold ?? 48);
+    setCost("wood", config?.cavalryCostWood ?? 24);
+    setCost("stone", config?.cavalryCostStone ?? 18);
+    setCost("food", config?.cavalryCostFood ?? 20);
+    setCost("iron", config?.cavalryCostIron ?? 10);
+    return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.cavalryTroopsValue ?? 34) * count)) };
+  }
+  setCost("gold", config?.artilleryCostGold ?? 72);
+  setCost("stone", config?.artilleryCostStone ?? 36);
+  setCost("iron", config?.artilleryCostIron ?? 24);
+  setCost("sulfur", config?.artilleryCostSulfur ?? 12);
+  return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.artilleryTroopsValue ?? 58) * count)) };
+}
+
+function subtractResourceBag<T extends Record<string, number>>(bag: T, cost: Record<string, number>) {
+  const next = { ...bag };
+  Object.entries(cost).forEach(([key, amount]) => {
+    next[key as keyof T] = Math.max(0, Math.floor(Number(next[key as keyof T] || 0) - amount)) as T[keyof T];
+  });
+  return next;
+}
+
 function pickStarterTerritoryId(playerId: string, territories: Array<{ id: number; ownerCode: number; isIslet?: boolean }>) {
   const wild = territories.filter((territory) => territory.ownerCode === 0 && !territory.isIslet);
   const pool = wild.length > 0 ? wild : territories.filter((territory) => territory.ownerCode === 0);
@@ -472,6 +512,9 @@ export function GameApp() {
   const engineRef = useRef<GameEngineHandle | null>(null);
   const lastUpdateRef = useRef<number>(0);
   const backendClaimCompleteRef = useRef<Set<number>>(new Set());
+  const gameStateRefreshInFlightRef = useRef(false);
+  const gameStateRefreshQueuedRef = useRef(false);
+  const lastGameStateRefreshAtRef = useRef(0);
   const lastHudSnapshotRef = useRef({
     resources: "",
     missions: "",
@@ -497,7 +540,16 @@ export function GameApp() {
   const [loadingError, setLoadingError] = useState<string | null>(null);
   
   // Game states captured from Engine Loop
-  const [resources, setResources] = useState({ gold: 1250, wood: 830, stone: 670, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 420 });
+  const resources = useGameStore((state) => state.resources);
+  const setResources = useGameStore((state) => state.setResources);
+  const worldActivity = useGameStore((state) => state.worldActivity);
+  const setWorldActivity = useGameStore((state) => state.setWorldActivity);
+  const serverHud = useGameStore((state) => state.serverHud);
+  const setServerHud = useGameStore((state) => state.setServerHud);
+  const enqueueGameAction = useGameStore((state) => state.enqueueAction);
+  const confirmGameAction = useGameStore((state) => state.confirmAction);
+  const rollbackGameAction = useGameStore((state) => state.rollbackAction);
+  const resetGameStore = useGameStore((state) => state.resetGameStore);
   const [missions, setMissions] = useState<Array<{ text: string; value: number; goal: number }>>([
     { text: "CHIẾM 3 THÀNH PHỐ", value: 0, goal: 3 },
     { text: "GỬI 1 ĐẠO QUÂN HÀNH QUÂN", value: 0, goal: 1 },
@@ -555,26 +607,6 @@ export function GameApp() {
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(true);
   const [socketOnline, setSocketOnline] = useState(false);
   const [serverEventLog, setServerEventLog] = useState<string[]>([]);
-  const [worldActivity, setWorldActivity] = useState<{
-    marches: any[];
-    clearings: any[];
-    battles: any[];
-    territoryById: Record<number, any>;
-  }>({ marches: [], clearings: [], battles: [], territoryById: {} });
-  const [serverHud, setServerHud] = useState({
-    ownedTerritories: 0,
-    totalTerritories: 0,
-    enemyTerritories: 0,
-    activeMarches: 0,
-    ownMarches: 0,
-    activeClearings: 0,
-    ownClearings: 0,
-    outboundTroops: 0,
-    ownedTroops: 0,
-    strategicPower: 0,
-    lastSync: 0,
-  });
-
   const backendClearingStartRef = useRef<Set<number>>(new Set());
 
   const addWarReport = useCallback((report: Omit<WarReportRecord, "time"> & { time?: number }) => {
@@ -837,6 +869,7 @@ export function GameApp() {
       },
       minimapCanvasRef.current,
       (actionId, payload) => {
+        engineRef.current?.handleAction("setUiOverlayActive", { active: true });
         setActiveModal(actionId);
       }
     );
@@ -1037,31 +1070,7 @@ export function GameApp() {
         }));
       }
       if (event.type === "world_state_hint") {
-        getGameState(token)
-          .then((world) => {
-            const territories = world.territories.map((territory) => ({
-              id: serverToEngineTerritoryId(territory.id),
-              ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
-              ownerId: territory.ownerId,
-              ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
-            }));
-            engineRef.current?.handleAction("applyGameState", {
-              territories,
-              clearings: world.clearings,
-              marches: world.marches,
-              towns: world.towns,
-              resources: world.resources,
-            });
-            setResources({ ...world.resources });
-            setWorldActivity((prev) => ({
-              ...prev,
-              marches: world.marches,
-              clearings: world.clearings,
-              territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
-            }));
-            setServerHud(summarizeBackendHud(world, playerId, world.resources));
-          })
-          .catch((err) => console.warn("Realtime resync failed:", err));
+        refreshGameStateFromServer("socket-hint");
       }
     }, setSocketOnline);
   }, [isAuthenticated, token, playerId]);
@@ -1082,11 +1091,30 @@ export function GameApp() {
     setGameReady(false);
     setLoadingError(null);
     setLoadingText("ĐANG KIỂM TRA MÁY CHỦ");
+    resetGameStore();
     if (engineRef.current) {
       engineRef.current.destroy();
       engineRef.current = null;
     }
   };
+
+  const isUiOverlayVisible =
+    Boolean(deployTarget) ||
+    Boolean(selectedTown && selectedTown.owner === 0) ||
+    activeModal === "army" ||
+    activeModal === "treasure" ||
+    activeModal === "ally" ||
+    activeModal === "warReport" ||
+    activeModal === "mail" ||
+    activeModal === "settings" ||
+    activeModal === "chat" ||
+    activeModal === "tutorial" ||
+    showTutorial ||
+    (newbiePhase === "choose_banner" && newbieSelectedRegion !== null);
+
+  useEffect(() => {
+    engineRef.current?.handleAction("setUiOverlayActive", { active: isUiOverlayVisible });
+  }, [isUiOverlayVisible]);
 
   const handleFullscreenToggle = () => {
     if (!document.fullscreenElement) {
@@ -1099,6 +1127,16 @@ export function GameApp() {
   const handleAction = (actionId: string) => {
     engineRef.current?.handleAction(actionId);
   };
+
+  const openModal = useCallback((modalId: string) => {
+    engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+    setActiveModal(modalId);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+    setActiveModal("none");
+  }, []);
 
   const showGameError = (message: string) => {
     setToastMessage(message);
@@ -1113,48 +1151,118 @@ export function GameApp() {
     return engine.getSourceTown?.() || null;
   };
 
-  const refreshGameStateFromServer = () => {
-    if (!token || !playerId) return;
-    getGameState(token)
-      .then((world) => {
-        const territories = world.territories.map((territory) => ({
-          id: serverToEngineTerritoryId(territory.id),
-          ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
-          ownerId: territory.ownerId,
-          ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
-          ownerFlagColor: territory.ownerFlagColor,
-          ownerEmblem: territory.ownerEmblem,
-          ownerAllianceTag: territory.ownerAllianceTag,
-          ownerAllianceEmblem: territory.ownerAllianceEmblem,
-        }));
-        engineRef.current?.handleAction("applyGameState", {
-          territories,
-          clearings: world.clearings,
-          marches: world.marches,
-          towns: world.towns,
-          resources: world.resources,
-          newbieShieldUntil: world.newbieShieldUntil,
-          playerProfile: world.playerProfile,
+  const trainUnitServerFirst = async (unitType: UnitType, fallbackError: string) => {
+    if (!token) {
+      showGameError("Chưa kết nối server, không thể mộ binh");
+      return;
+    }
+    const town = selectedTown;
+    const territoryId = engineRef.current?.getTownRegionId?.(town);
+    if (!town || territoryId === undefined || territoryId === null || territoryId < 0) {
+      showGameError("Không xác định được lãnh thổ của thành");
+      return;
+    }
+    const previousResources = { ...resources };
+    const config = (engineRef.current as any)?.getConfig?.() || {};
+    const optimistic = recruitmentDelta(unitType, config, 1);
+    const actionId = `recruit:${town.id}:${unitType}:${Date.now()}`;
+    const optimisticPayload = {
+      townId: town.id,
+      unitType,
+      count: 1,
+      unitCountAdded: 1,
+      troopsAdded: optimistic.troopsAdded,
+      resources: subtractResourceBag(previousResources, optimistic.resources),
+      message: "ĐANG GỬI LỆNH MỘ BINH LÊN SERVER",
+    };
+
+    enqueueGameAction({
+      id: actionId,
+      type: "recruit",
+      rollback: () => {
+        setResources(previousResources);
+        engineRef.current?.handleAction("rollbackRecruitment", {
+          ...optimisticPayload,
+          resources: previousResources,
+          message: fallbackError,
         });
-        setResources({ ...world.resources });
-        setWorldActivity({
-          marches: world.marches,
-          clearings: world.clearings,
-          battles: [],
-          territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
-        });
-        setServerHud(summarizeBackendHud(world, playerId, world.resources));
-      })
-      .catch((err) => console.warn("Alliance resync failed:", err));
+      },
+    });
+    setResources(optimisticPayload.resources as any);
+    engineRef.current?.handleAction("applyRecruitment", optimisticPayload);
+
+    try {
+      const res = await recruitTroops(token, {
+        unitType,
+        townId: town.id,
+        territoryId: engineToServerTerritoryId(territoryId),
+      });
+      if (res.resources) {
+        setResources((prev) => ({ ...prev, ...res.resources }));
+        engineRef.current?.handleAction("syncResources", { resources: res.resources });
+      }
+      confirmGameAction(actionId);
+    } catch (err: any) {
+      rollbackGameAction(actionId);
+      showGameError(err.message || fallbackError);
+    }
   };
 
-  useEffect(() => {
-    if (!gameReady || !token || !playerId) return;
-    const timer = window.setInterval(() => {
-      refreshGameStateFromServer();
-    }, 10000);
-    return () => window.clearInterval(timer);
-  }, [gameReady, token, playerId]);
+  function applyBackendWorldState(world: any, resetBattles = false) {
+    if (!playerId) return;
+    const territories = world.territories.map((territory: any) => ({
+      id: serverToEngineTerritoryId(territory.id),
+      ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
+      ownerId: territory.ownerId,
+      ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
+      ownerFlagColor: territory.ownerFlagColor,
+      ownerEmblem: territory.ownerEmblem,
+      ownerAllianceTag: territory.ownerAllianceTag,
+      ownerAllianceEmblem: territory.ownerAllianceEmblem,
+    }));
+    engineRef.current?.handleAction("applyGameState", {
+      territories,
+      clearings: world.clearings,
+      marches: world.marches,
+      towns: world.towns,
+      resources: world.resources,
+      newbieShieldUntil: world.newbieShieldUntil,
+      playerProfile: world.playerProfile,
+    });
+    setResources({ ...world.resources });
+    setWorldActivity((prev) => ({
+      marches: world.marches,
+      clearings: world.clearings,
+      battles: resetBattles ? [] : prev.battles,
+      territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
+    }));
+    setServerHud(summarizeBackendHud(world, playerId, world.resources));
+  }
+
+  function refreshGameStateFromServer(reason = "manual", force = false) {
+    if (!token || !playerId) return;
+    const now = Date.now();
+    if (!force && now - lastGameStateRefreshAtRef.current < 1800) {
+      gameStateRefreshQueuedRef.current = true;
+      return;
+    }
+    if (gameStateRefreshInFlightRef.current) {
+      gameStateRefreshQueuedRef.current = true;
+      return;
+    }
+    gameStateRefreshInFlightRef.current = true;
+    lastGameStateRefreshAtRef.current = now;
+    getGameState(token)
+      .then((world) => applyBackendWorldState(world, reason !== "socket-hint"))
+      .catch((err) => console.warn("Game state resync failed:", err))
+      .finally(() => {
+        gameStateRefreshInFlightRef.current = false;
+        if (gameStateRefreshQueuedRef.current) {
+          gameStateRefreshQueuedRef.current = false;
+          window.setTimeout(() => refreshGameStateFromServer("queued"), 1800);
+        }
+      });
+  }
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1344,14 +1452,14 @@ export function GameApp() {
 
           {/* System Control Row (Top Right) */}
           <div className="hud-sys-controls">
-            <button type="button" className="hud-sys-btn" onClick={() => setActiveModal("mail")} title={t("mail")}>
+            <button type="button" className="hud-sys-btn" onClick={() => openModal("mail")} title={t("mail")}>
               <HudIcon name="mail" />
               {unreadMailCount > 0 && <span className="hud-sys-badge">4</span>}
             </button>
-            <button type="button" className="hud-sys-btn" onClick={() => setActiveModal("warReport")} title={t("notifications")}>
+            <button type="button" className="hud-sys-btn" onClick={() => openModal("warReport")} title={t("notifications")}>
               <HudIcon name="bell" />
             </button>
-            <button type="button" className="hud-sys-btn" onClick={() => setActiveModal("settings")} title={t("settings")}>
+            <button type="button" className="hud-sys-btn" onClick={() => openModal("settings")} title={t("settings")}>
               <HudIcon name="gear" />
             </button>
             <button type="button" className="hud-sys-btn" onClick={() => setGameLanguage(language === "vi" ? "en" : "vi")} title={t("language")}>
@@ -1365,6 +1473,19 @@ export function GameApp() {
               }
             }} title={t("fullscreen")}>
               <HudIcon name="fullscreen" />
+            </button>
+            <button
+              type="button"
+              className="hud-sys-btn hud-logout-btn"
+              onClick={() => {
+                if (window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản không?")) {
+                  handleLogout();
+                }
+              }}
+              title="Đăng xuất tài khoản"
+              style={{ color: "#ef4444" }}
+            >
+              <HudIcon name="logout" />
             </button>
           </div>
         </div>
@@ -1556,7 +1677,10 @@ export function GameApp() {
                     <h3 className="hud-town-name">THÀNH ELDORIA</h3>
                     <span className="hud-town-lvl">Lv. 12</span>
                   </div>
-                  <button type="button" className="hud-close-btn" onClick={() => setSelectedTown(null)}>✕</button>
+                  <button type="button" className="hud-close-btn" onClick={() => {
+                    engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+                    setSelectedTown(null);
+                  }}>✕</button>
                 </div>
                 
                 <div className="hud-town-card-body">
@@ -1584,7 +1708,7 @@ export function GameApp() {
                 </div>
 
                 <div className="hud-town-card-actions">
-                  <button type="button" className="hud-town-btn primary" onClick={() => handleAction("army")}>
+                  <button type="button" className="hud-town-btn primary" onClick={() => openModal("army")}>
                     <HudIcon name="swords" /> CHIẾM LÃNH THỔ
                   </button>
                   <button type="button" className="hud-town-btn secondary" onClick={() => handleAction("map")}>
@@ -1615,11 +1739,11 @@ export function GameApp() {
           <div className="hud-empire-dock-master">
             {/* Left Action Buttons */}
             <div className="hud-dock-group left">
-              <button type="button" className="hud-dock-tile" onClick={() => handleAction("army")} title={t("army")}>
+              <button type="button" className="hud-dock-tile" onClick={() => openModal("army")} title={t("army")}>
                 <span className="hud-tile-icon"><HudIcon name="swords" /></span>
                 <span className="hud-tile-label">{t("army")}</span>
               </button>
-              <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("treasure")} title="Kho Báu">
+              <button type="button" className="hud-dock-tile" onClick={() => openModal("treasure")} title="Kho Báu">
                 <span className="hud-tile-icon"><HudIcon name="book" /></span>
                 <span className="hud-tile-label">Kho Báu</span>
               </button>
@@ -1635,7 +1759,7 @@ export function GameApp() {
 
             {/* Right Action Buttons */}
             <div className="hud-dock-group right">
-              <button type="button" className="hud-dock-tile" onClick={() => handleAction("ally")} title={t("alliance")}>
+              <button type="button" className="hud-dock-tile" onClick={() => openModal("ally")} title={t("alliance")}>
                 <span className="hud-tile-icon"><HudIcon name="handshake" /></span>
                 <span className="hud-tile-label">{t("diplomacy")}</span>
               </button>
@@ -1643,7 +1767,7 @@ export function GameApp() {
                 <span className="hud-tile-icon"><HudIcon name="bag" /></span>
                 <span className="hud-tile-label">{t("inventory")}</span>
               </button>
-              <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("mail")} title={t("mail")}>
+              <button type="button" className="hud-dock-tile" onClick={() => openModal("mail")} title={t("mail")}>
                 <span className="hud-tile-icon"><HudIcon name="mail" /></span>
                 <span className="hud-tile-label">{t("personalMailShort")}</span>
                 {unreadMailCount > 0 && <span className="hud-menu-badge">2</span>}
@@ -1772,6 +1896,7 @@ export function GameApp() {
               showGameError("Thành phố không đủ quân để xuất binh!");
               return;
             }
+            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
             setDeployError(null);
             setDeployTarget({ targetRegionId: regionId, isAttack: true });
             setDeploySourceTown({ ...source });
@@ -1786,6 +1911,7 @@ export function GameApp() {
               showGameError("Thành phố không đủ quân để xuất binh!");
               return;
             }
+            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
             setDeployError(null);
             setDeployTarget({ targetRegionId: regionId, isAttack: false, battleSide: side });
             setDeploySourceTown({ ...source });
@@ -1796,15 +1922,20 @@ export function GameApp() {
       {(activeModal === "tutorial" || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null && engineRef.current)) && (
         <NewbieOnboardingModal
           onClose={() => {
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setActiveModal("");
             if (engineRef.current && newbiePhase === "choose_banner") {
               engineRef.current.cancelNewbieOnboarding();
             }
           }}
           onConfirm={() => {
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setActiveModal("");
             if (engineRef.current && newbiePhase === "choose_banner") {
               engineRef.current.startNewbieOnboarding("#f59e0b", "crown");
+              if (token) {
+                updatePlayerProfile(token, "#f59e0b", "crown").catch(console.warn);
+              }
             }
           }}
         />
@@ -1903,11 +2034,13 @@ export function GameApp() {
                 return;
               }
             }
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setDeployTarget(null);
             setDeploySourceTown(null);
             setDeployError(null);
           }}
           onClose={() => {
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setDeployTarget(null);
             setDeploySourceTown(null);
             setDeployError(null);
@@ -1923,60 +2056,17 @@ export function GameApp() {
           specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTown)) || []}
           playerColor={(engineRef.current as any).getState?.().newbieFlagColor || "#2563eb"}
           onTrainInfantry={async () => {
-            if (!token) {
-              showGameError("Chưa kết nối server, không thể mộ binh");
-              return;
-            }
-            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
-            if (territoryId === undefined || territoryId === null || territoryId < 0) {
-              showGameError("Không xác định được lãnh thổ của thành");
-              return;
-            }
-            try {
-              const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
-              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
-            } catch (err: any) {
-              showGameError(err.message || "Server từ chối mộ bộ binh");
-            }
+            await trainUnitServerFirst("infantry", "Server từ chối mộ bộ binh");
           }}
           onTrainCavalry={async () => {
-            if (!token) {
-              showGameError("Chưa kết nối server, không thể mộ kị binh");
-              return;
-            }
-            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
-            if (territoryId === undefined || territoryId === null || territoryId < 0) {
-              showGameError("Không xác định được lãnh thổ của thành");
-              return;
-            }
-            try {
-              const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
-              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
-            } catch (err: any) {
-              showGameError(err.message || "Server từ chối mộ kị binh");
-            }
+            await trainUnitServerFirst("cavalry", "Server từ chối mộ kị binh");
           }}
           onTrainArtillery={async () => {
-            if (!token) {
-              showGameError("Chưa kết nối server, không thể mộ pháo binh");
-              return;
-            }
-            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
-            if (territoryId === undefined || territoryId === null || territoryId < 0) {
-              showGameError("Không xác định được lãnh thổ của thành");
-              return;
-            }
-            try {
-              const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
-              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
-            } catch (err: any) {
-              showGameError(err.message || "Server từ chối mộ pháo binh");
-            }
+            await trainUnitServerFirst("artillery", "Server từ chối mộ pháo binh");
           }}
           onClose={() => {
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            setSelectedTown(null);
             engineRef.current?.handleAction("deselect");
           }}
         />
@@ -1988,7 +2078,7 @@ export function GameApp() {
           onCenterCamera={(town) => {
             engineRef.current?.handleAction("centerCamera", { townId: town.id, x: town.x, y: town.y });
           }}
-          onClose={() => setActiveModal("none")}
+          onClose={closeModal}
         />
       )}
 
@@ -1996,7 +2086,7 @@ export function GameApp() {
         <TreasureModal
           towns={engineRef.current.getTowns()}
           regionOwnership={(engineRef.current as any).getState().regionOwnership}
-          onClose={() => setActiveModal("none")}
+          onClose={closeModal}
         />
       )}
 
@@ -2015,14 +2105,14 @@ export function GameApp() {
             });
             refreshGameStateFromServer();
           }}
-          onClose={() => setActiveModal("none")}
+          onClose={closeModal}
         />
       )}
 
       {activeModal === "warReport" && (
         <div className="modal-overlay war-report-overlay">
           <div className="war-report-modal">
-            <button type="button" className="war-report-close" onClick={() => setActiveModal("none")}>×</button>
+            <button type="button" className="war-report-close" onClick={closeModal}>×</button>
             <div className="war-report-title"><HudIcon name="swords" /> {t("warReportTitle")}</div>
             <div className="war-report-stats">
               <div><span>{t("reports")}</span><strong>{warReports.length}</strong></div>
@@ -2063,7 +2153,7 @@ export function GameApp() {
       {activeModal === "mail" && (
         <div className="modal-overlay war-report-overlay">
           <div className="war-report-modal mail-modal">
-            <button type="button" className="war-report-close" onClick={() => setActiveModal("none")}>×</button>
+            <button type="button" className="war-report-close" onClick={closeModal}>×</button>
             <div className="war-report-title"><HudIcon name="mail" /> {t("personalMail")}</div>
             <div className="mail-layout">
               <div className="mail-compose">
@@ -2123,7 +2213,8 @@ export function GameApp() {
         <SettingsModal
           language={language}
           onSetLanguage={(lang) => setGameLanguage(lang)}
-          onClose={() => setActiveModal("none")}
+          onLogout={handleLogout}
+          onClose={closeModal}
         />
       )}
 
@@ -2132,7 +2223,7 @@ export function GameApp() {
           onSend={(msg) => {
             engineRef.current?.sendChat(msg);
           }}
-          onClose={() => setActiveModal("none")}
+          onClose={closeModal}
         />
       )}
 
@@ -2141,10 +2232,12 @@ export function GameApp() {
         <NewbieOnboardingModal
           onClose={() => {
             localStorage.setItem("island_empire_tutorial_completed", "1");
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setShowTutorial(false);
           }}
           onConfirm={() => {
             localStorage.setItem("island_empire_tutorial_completed", "1");
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setShowTutorial(false);
           }}
         />

@@ -3091,7 +3091,7 @@ export function createIslandEmpireGame(
       r(-80, 20, 4, 24, "#15803d"); r(-77, 26, 5, 18, "#16a34a");
       r(76, 16, 4, 28, "#15803d"); r(72, 22, 5, 22, "#16a34a");
     }
-    else if (emblem === "eagle") {
+    else if (emblem === "eagle" || emblem === "anchor") {
       // --- STYLE 2: ANCIENT GREEK/ROMAN TEMPLE (Eagle) ---
       // Crepidoma
       r(-76, 32, 152, 12, "#dfd8c4");
@@ -3189,7 +3189,7 @@ export function createIslandEmpireGame(
       roof([[0, -120], [0, -104], [24, -94]], roofHighlightColor);
       r(-2, -128, 4, 8, "#ffd700");
     }
-    else if (emblem === "lion") {
+    else if (emblem === "lion" || emblem === "tree") {
       // --- STYLE 4: NORDIC VIKING LONGHOUSE (Lion) ---
       r(-80, 36, 160, 14, "rgba(0,0,0,0.4)");
       
@@ -3234,7 +3234,7 @@ export function createIslandEmpireGame(
       roof([[16, -84], [29, -108], [42, -84]], "#8c6210");
       roof([[29, -108], [29, -84], [42, -84]], "#b48a30");
     }
-    else if (emblem === "swords") {
+    else if (emblem === "swords" || emblem === "mountain") {
       // --- STYLE 5: GOTHIC SPIRED CASTLE (Swords) ---
       r(-82, 44, 164, 18, "rgba(0,0,0,0.36)");
 
@@ -3391,7 +3391,7 @@ export function createIslandEmpireGame(
   }
 
   function resolveCastleEmblem(ownerName?: string, regionId?: number, explicitEmblem?: string): string {
-    const validStyles = ["crown", "eagle", "dragon", "lion", "swords"];
+    const validStyles = ["crown", "eagle", "dragon", "lion", "swords", "shield", "tree", "mountain", "anchor"];
     if (explicitEmblem && validStyles.includes(explicitEmblem)) {
       return explicitEmblem;
     }
@@ -3494,10 +3494,21 @@ export function createIslandEmpireGame(
       ctx.stroke();
       ctx.restore();
     }
-    const flagColor = t.owner === 0 ? (state.newbieFlagColor || "#2563eb") : owner.color;
-    const ownerName = t.owner === 0 ? (state.localPlayerName || "BẠN") : owner.name;
-    const rawEmblem = t.owner === 0 ? state.newbieEmblem : undefined;
-    const emblem = resolveCastleEmblem(ownerName, castleRegionId >= 0 ? castleRegionId : undefined, rawEmblem);
+    const regionId = castleRegionId;
+    let flagColor = owner.color || "#ef4444";
+    let ownerName = owner.name || "KẺ ĐỊCH";
+    let rawEmblem = undefined;
+
+    if (t.owner === 0) {
+      flagColor = state.newbieFlagColor || "#2563eb";
+      ownerName = state.localPlayerName || "BẠN";
+      rawEmblem = state.newbieEmblem;
+    } else if (regionId >= 0 && state.regionOwnerNames[regionId]) {
+      flagColor = state.regionOwnerFlagColors[regionId] || "#ef4444";
+      ownerName = state.regionOwnerNames[regionId];
+      rawEmblem = state.regionOwnerEmblems[regionId];
+    }
+    const emblem = resolveCastleEmblem(ownerName, regionId >= 0 ? regionId : undefined, rawEmblem);
     drawEmpireCastleSprite(drawX, drawY, flagColor, emblem, 0.7, relation);
 
     pxRect(drawX - 15, drawY + 32, 30, 24, "#121921");
@@ -3507,8 +3518,7 @@ export function createIslandEmpireGame(
     text(String(t.lvl), drawX, drawY + 35, 18, "#ffffff", "center");
 
     // Draw Castle Name Plate
-    const faction = factions[t.owner] || owner || factions[0];
-    const nameText = t.owner === 0 ? (state.localPlayerName || "BẠN") : faction.name;
+    const nameText = cleanOwnerName(ownerName, t.owner === 0 ? 1 : 2, regionId);
     const textSz = 34;
     
     ctx.save();
@@ -4240,12 +4250,14 @@ export function createIslandEmpireGame(
     if (!rawName) return `${tag}NGƯỜI CHƠI`.toUpperCase();
 
     let str = String(rawName).trim();
+    if (str.toLowerCase().startsWith("guest:")) str = str.slice(6);
+    if (str.toLowerCase().startsWith("player:")) str = str.slice(7);
 
     // Format raw Mongo DB IDs or numeric IDs nicely into readable player names (e.g. "USER 2121" instead of raw DB string)
-    if (/^[0-9a-fA-F]{24}$/.test(str)) {
-      str = `USER ${str.slice(0, 4)}`;
+    if (/^[0-9a-fA-F]{8,}$/.test(str)) {
+      str = `LÃNH CHÚA ${str.slice(0, 6).toUpperCase()}`;
     } else if (/^\d{8,}$/.test(str)) {
-      str = `USER ${str.slice(0, 4)}`;
+      str = `LÃNH CHÚA ${str.slice(0, 6)}`;
     }
 
     return `${tag}${str}`.toUpperCase();
@@ -4292,10 +4304,8 @@ export function createIslandEmpireGame(
     const relation = getRegionAllianceRelation(regionId, ownerCode, ownerName);
     const sc = r.isIslet ? 0.35 : 0.52;
     const color = ownerCode === 1 
-      ? (state.newbieFlagColor || "#2563eb") 
-      : relation === "ally"
-      ? "#f59e0b"
-      : "#ef4444";
+      ? (state.newbieFlagColor || "#2f70d7") 
+      : (state.regionOwnerFlagColors[regionId] || (relation === "ally" ? "#10b981" : "#ef4444"));
 
     const rawTag = state.regionOwnerAllianceTags[regionId];
     const allianceTag = rawTag && typeof rawTag === "string" && /^[A-Za-z0-9]{2,8}$/.test(rawTag) && !/^\d+$/.test(rawTag)
@@ -5056,6 +5066,9 @@ export function createIslandEmpireGame(
 
   let minimapDragging = false;
   let lastMinimapDrawAt = 0;
+  let uiOverlayActive = false;
+  let lastOverlayFrameAt = 0;
+  let lastOverlayUpdateAt = 0;
   
   function panToMinimapCoords(e) {
     if (!minimapCanvas) return;
@@ -6393,9 +6406,13 @@ export function createIslandEmpireGame(
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     sim(dt);
-    drawFrame();
+    if (!uiOverlayActive || now - lastOverlayFrameAt >= 250) {
+      drawFrame();
+      lastOverlayFrameAt = now;
+    }
     if (!isFastPanning() && cameraSavePending && now - lastCameraSaveAt >= 500) saveCamera();
-    if (onUpdate && !isFastPanning()) {
+    if (onUpdate && !isFastPanning() && (!uiOverlayActive || now - lastOverlayUpdateAt >= 250)) {
+      lastOverlayUpdateAt = now;
       onUpdate(state, towns);
     }
     raf = requestAnimationFrame(loop);
@@ -6470,6 +6487,14 @@ export function createIslandEmpireGame(
         }
         return;
       }
+      if (id === "setUiOverlayActive") {
+        uiOverlayActive = Boolean(payload?.active ?? payload);
+        if (!uiOverlayActive) {
+          lastOverlayFrameAt = 0;
+          lastOverlayUpdateAt = 0;
+        }
+        return;
+      }
       if (id === "setToast") {
         toast(payload?.message || "KHÔNG THỂ THỰC HIỆN LỆNH");
         return;
@@ -6495,6 +6520,21 @@ export function createIslandEmpireGame(
         else if (payload?.unitType === "artillery") targetTown.artilleryCount = (targetTown.artilleryCount || 0) + unitCount;
         targetTown.troops += troopsAdded;
         toast(payload?.message || `CHIÊU MỘ THÀNH CÔNG +${troopsAdded} QUÂN`);
+        save();
+        return true;
+      }
+      if (id === "rollbackRecruitment") {
+        const targetTown = towns.find((town) => town.id === payload?.townId);
+        if (!targetTown) return false;
+        normalizeTown(targetTown);
+        const unitCount = Math.max(0, Math.floor(payload?.unitCountAdded || payload?.count || 1));
+        const troopsAdded = Math.max(0, Math.floor(payload?.troopsAdded || 0));
+        if (payload?.resources) state.resources = { ...state.resources, ...payload.resources };
+        if (payload?.unitType === "infantry") targetTown.infantryCount = Math.max(0, (targetTown.infantryCount || 0) - unitCount);
+        else if (payload?.unitType === "cavalry") targetTown.cavalryCount = Math.max(0, (targetTown.cavalryCount || 0) - unitCount);
+        else if (payload?.unitType === "artillery") targetTown.artilleryCount = Math.max(0, (targetTown.artilleryCount || 0) - unitCount);
+        targetTown.troops = Math.max(0, (targetTown.troops || 0) - troopsAdded);
+        toast(payload?.message || "SERVER TỪ CHỐI MỘ BINH, ĐÃ HOÀN STATE");
         save();
         return true;
       }
@@ -6536,6 +6576,10 @@ export function createIslandEmpireGame(
           state.newbieShieldUntil = payload.newbieShieldUntil ? new Date(payload.newbieShieldUntil).getTime() : 0;
           localStorage.setItem("island_empire_newbie_shield_until", String(state.newbieShieldUntil));
         }
+        if (payload?.playerProfile) {
+          state.newbieFlagColor = payload.playerProfile.flagColor;
+          state.newbieEmblem = payload.playerProfile.emblem;
+        }
         const touchedRegionIds = [];
         state.hasAuthoritativeOwnership = true;
         state.regionOwnerIds = {};
@@ -6547,9 +6591,13 @@ export function createIslandEmpireGame(
         state.activeClearingTimings = {};
         state.regionInProgress = -1;
         state.settlerTravel = { active: false, targetRegionId: -1, originTownId: null, originX: 0, originY: 0 };
+        let hasOwnedTerritory = false;
         (payload?.territories || []).forEach((territory) => {
           const ownerId = territory.ownerId || null;
           const ownerCode = ownerId ? (ownerId === state.localPlayerId ? 1 : 2) : (territory.ownerCode || 0);
+          if (ownerCode === 1) {
+            hasOwnedTerritory = true;
+          }
           touchedRegionIds.push(territory.id);
           state.regionOwnership[territory.id] = ownerCode;
           if (ownerId) state.regionOwnerIds[territory.id] = ownerId;
@@ -6559,6 +6607,11 @@ export function createIslandEmpireGame(
           if (territory.ownerAllianceTag) state.regionOwnerAllianceTags[territory.id] = territory.ownerAllianceTag;
           if (territory.ownerAllianceEmblem) state.regionOwnerAllianceEmblems[territory.id] = territory.ownerAllianceEmblem;
         });
+        if (hasOwnedTerritory && state.newbieMode) {
+          state.newbieMode = false;
+          state.newbiePhase = "done";
+          localStorage.removeItem(ONBOARDING_KEY);
+        }
         syncTownOwnersForRegions(touchedRegionIds);
         applyBackendTownSnapshots(payload?.towns || []);
         cancelClearingIfTargetTaken(touchedRegionIds);

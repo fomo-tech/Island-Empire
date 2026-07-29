@@ -3,10 +3,11 @@ import React, { useState } from "react";
 interface SettingsModalProps {
   language: "vi" | "en";
   onSetLanguage: (lang: "vi" | "en") => void;
+  onLogout?: () => void;
   onClose: () => void;
 }
 
-export function SettingsModal({ language, onSetLanguage, onClose }: SettingsModalProps) {
+export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<"audio" | "display" | "account" | "info">("audio");
 
   // Audio settings state
@@ -291,6 +292,28 @@ export function SettingsModal({ language, onSetLanguage, onClose }: SettingsModa
                     <span>Trạng Thái Đồng Bộ:</span>
                     <strong className="text-green">Realtime Socket Ready</strong>
                   </div>
+                </div>
+
+                <div className="settings-control-row danger-zone">
+                  <div className="settings-label-block">
+                    <span className="settings-label text-danger">Đăng Xuất Tài Khoản</span>
+                    <span className="settings-subtext">Thoát tài khoản hiện tại và quay về màn hình đăng nhập</span>
+                  </div>
+                  {onLogout && (
+                    <button
+                      type="button"
+                      className="settings-danger-btn"
+                      style={{ backgroundColor: "#ef4444", borderColor: "#dc2626", color: "#ffffff" }}
+                      onClick={() => {
+                        if (window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản không?")) {
+                          onClose();
+                          onLogout();
+                        }
+                      }}
+                    >
+                      Đăng Xuất
+                    </button>
+                  )}
                 </div>
 
                 <div className="settings-control-row danger-zone">

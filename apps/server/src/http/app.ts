@@ -443,8 +443,8 @@ async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
       ...territory,
       ownerId,
       ownerName: ownerId ? nameByOwner.get(ownerId) ?? ownerId : null,
-      ownerFlagColor: ownerId ? flagColorByOwner.get(ownerId) ?? undefined : undefined,
-      ownerEmblem: ownerId ? emblemByOwner.get(ownerId) ?? undefined : undefined,
+      ownerFlagColor: ownerId ? flagColorByOwner.get(ownerId) ?? "#2f70d7" : undefined,
+      ownerEmblem: ownerId ? emblemByOwner.get(ownerId) ?? "shield" : undefined,
       ownerAllianceTag: ownerId ? allianceByOwner.get(ownerId)?.tag : undefined,
       ownerAllianceEmblem: ownerId ? allianceByOwner.get(ownerId)?.emblem : undefined,
     };
@@ -610,8 +610,8 @@ async function processArrivedMarches(now = new Date()) {
             ...territory,
             ownerId: march.ownerId,
             ownerName: player?.name ?? march.ownerId,
-            ownerFlagColor: player?.flagColor,
-            ownerEmblem: player?.emblem,
+            ownerFlagColor: player?.flagColor ?? "#2f70d7",
+            ownerEmblem: player?.emblem ?? "shield",
             ownerAllianceTag: alliance?.tag,
             ownerAllianceEmblem: alliance?.emblem,
           },
@@ -657,8 +657,8 @@ async function processCompletedClearings(now = new Date()) {
         ...territory,
         ownerId: clearing.playerId,
         ownerName: player?.name ?? clearing.playerId,
-        ownerFlagColor: player?.flagColor,
-        ownerEmblem: player?.emblem,
+        ownerFlagColor: player?.flagColor ?? "#2f70d7",
+        ownerEmblem: player?.emblem ?? "shield",
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
       },
@@ -958,6 +958,8 @@ export function createApp() {
       {
         $set: { name, role: "player", lastSeenAt: now },
         $setOnInsert: {
+          flagColor: "#2f70d7",
+          emblem: "shield",
           createdAt: now,
           onboardingState: "needs_claim",
           resources: DEFAULT_PLAYER_RESOURCES,
@@ -985,6 +987,7 @@ export function createApp() {
       { $set: { flagColor, emblem } }
     );
     await bumpWorldCacheVersion();
+    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
     res.json({ ok: true });
   });
 
