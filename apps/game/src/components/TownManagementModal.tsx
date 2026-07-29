@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ResourceBag } from "@island/shared";
 
 interface TownManagementModalProps {
@@ -19,6 +19,8 @@ interface TownManagementModalProps {
       warehouse?: number;
     };
     storage?: Partial<ResourceBag>;
+    storageCapacity?: number;
+    maxTroops?: number;
   };
   resources: ResourceBag;
   gameConfig?: any;
@@ -56,6 +58,20 @@ function ResourceCost({
       <span className={`res-dot res-dot-${dotClass[label] || "gold"}`} />
       {value} {label}
     </span>
+  );
+}
+
+function TrainingEffect({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <div className="training-rally-effect" aria-hidden="true">
+      <span className="training-progress" />
+      <span className="rally-plus">+1</span>
+      <span className="rally-spark spark-a" />
+      <span className="rally-spark spark-b" />
+      <span className="rally-spark spark-c" />
+      <span className="rally-spark spark-d" />
+    </div>
   );
 }
 
@@ -308,6 +324,21 @@ export function TownManagementModal({
   onTrainArtillery,
   onClose
 }: TownManagementModalProps) {
+  const [trainingUnit, setTrainingUnit] = useState<"infantry" | "cavalry" | "artillery" | null>(null);
+  const trainingTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (trainingTimerRef.current) window.clearTimeout(trainingTimerRef.current);
+    };
+  }, []);
+
+  const flashTraining = (unit: "infantry" | "cavalry" | "artillery", action: () => void) => {
+    setTrainingUnit(unit);
+    if (trainingTimerRef.current) window.clearTimeout(trainingTimerRef.current);
+    trainingTimerRef.current = window.setTimeout(() => setTrainingUnit(null), 450);
+    action();
+  };
+
   const config = gameConfig || {
     infantryCostGold: 100,
     infantryCostWood: 30,
@@ -332,12 +363,12 @@ export function TownManagementModal({
   };
 
   const population = Math.max(0, Math.floor(town.population || 32));
-  const maxDefending = population * 10;
   const buildings = town.buildings || {};
   const hasHorsePasture = specialResources.includes("Bãi ngựa");
-  const hasSiegeWorkshop = (buildings.siegeWorkshop || 0) > 0;
+  const hasSiegeWorkshop = (buildings.siegeWorkshop || 0) > 0 || specialResources.includes("Xưởng đúc pháo") || specialResources.includes("Xưởng pháo");
   const warehouseLevel = buildings.warehouse || 0;
-  const storageCap = 250 + warehouseLevel * 650 + (buildings.fort || 0) * 180 + (town.lvl || 1) * 120;
+  const maxDefending = Math.max(10, Math.floor(town.maxTroops ?? population * 10));
+  const storageCap = Math.max(1, Math.floor(town.storageCapacity ?? (250 + warehouseLevel * 650 + (buildings.fort || 0) * 180 + (town.lvl || 1) * 120)));
   const storedTotal = Object.values(town.storage || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
   const specialText = specialResources.length ? specialResources.join(" · ") : "Chưa có";
 
@@ -456,7 +487,7 @@ export function TownManagementModal({
           </div>
 
           {/* Row 1: Infantry */}
-          <div className="recruit-option">
+          <div className={`recruit-option ${trainingUnit === "infantry" ? "is-training" : ""}`}>
             <div className="unit-art-box"><InfantryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">BỘ BINH (INFANTRY)</span>
@@ -468,15 +499,16 @@ export function TownManagementModal({
               </div>
             </div>
             <div className="recruit-action-col">
-              <button type="button" className="recruit-btn primary-action" disabled={!canTrainInfantry} onClick={onTrainInfantry}>
-                MỘ BINH
+              <button type="button" className="recruit-btn primary-action" disabled={!canTrainInfantry} onClick={() => flashTraining("infantry", onTrainInfantry)}>
+                {trainingUnit === "infantry" ? "ĐANG HUẤN LUYỆN" : "MỘ BINH"}
               </button>
-              <span className="owned-count">Sở hữu: {infantryOwned}</span>
+              <span className="owned-count">Sở hữu: {infantryOwned}{trainingUnit === "infantry" ? "  +1" : ""}</span>
             </div>
+            <TrainingEffect active={trainingUnit === "infantry"} />
           </div>
 
           {/* Row 2: Cavalry */}
-          <div className="recruit-option">
+          <div className={`recruit-option ${trainingUnit === "cavalry" ? "is-training" : ""}`}>
             <div className="unit-art-box"><CavalryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">KỊ BINH (CAVALRY)</span>
@@ -490,19 +522,20 @@ export function TownManagementModal({
               </div>
             </div>
             <div className="recruit-action-col">
-              <button type="button" className="recruit-btn primary-action" disabled={!canTrainCavalry} onClick={onTrainCavalry}>
-                MỘ KỊ BINH
+              <button type="button" className="recruit-btn primary-action" disabled={!canTrainCavalry} onClick={() => flashTraining("cavalry", onTrainCavalry)}>
+                {trainingUnit === "cavalry" ? "ĐANG HUẤN LUYỆN" : "MỘ KỊ BINH"}
               </button>
-              <span className="owned-count">Sở hữu: {cavalryOwned}</span>
+              <span className="owned-count">Sở hữu: {cavalryOwned}{trainingUnit === "cavalry" ? "  +1" : ""}</span>
             </div>
+            <TrainingEffect active={trainingUnit === "cavalry"} />
           </div>
 
           {/* Row 3: Artillery */}
-          <div className="recruit-option">
+          <div className={`recruit-option ${trainingUnit === "artillery" ? "is-training" : ""}`}>
             <div className="unit-art-box"><ArtilleryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">PHÁO BINH (ARTILLERY)</span>
-              <span className="option-desc">{hasSiegeWorkshop ? "Càn quét tường thành xa trước" : "Cần xây Xưởng chiến xa trước"}</span>
+              <span className="option-desc">{hasSiegeWorkshop ? "Công thành tầm xa, hiệu quả để huấn luyện" : "Cần lãnh thổ có Xưởng đúc pháo để huấn luyện."}</span>
               <div className="cost-row">
                 <ResourceCost label="Vàng" value={config.artilleryCostGold} enough={resources.gold >= config.artilleryCostGold} />
                 <ResourceCost label="Đá" value={config.artilleryCostStone} enough={resources.stone >= config.artilleryCostStone} />
@@ -511,11 +544,12 @@ export function TownManagementModal({
               </div>
             </div>
             <div className="recruit-action-col">
-              <button type="button" className="recruit-btn primary-action" disabled={!canTrainArtillery} onClick={onTrainArtillery}>
-                MỘ PHÁO BINH
+              <button type="button" className="recruit-btn primary-action" disabled={!canTrainArtillery} onClick={() => flashTraining("artillery", onTrainArtillery)}>
+                {trainingUnit === "artillery" ? "ĐANG HUẤN LUYỆN" : "MỘ PHÁO BINH"}
               </button>
-              <span className="owned-count">Sở hữu: {artilleryOwned}</span>
+              <span className="owned-count">Sở hữu: {artilleryOwned}{trainingUnit === "artillery" ? "  +1" : ""}</span>
             </div>
+            <TrainingEffect active={trainingUnit === "artillery"} />
           </div>
 
         </div>

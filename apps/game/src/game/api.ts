@@ -12,7 +12,15 @@ import type {
   WorldTerritoriesResult,
 } from "@island/shared";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:4000";
+function getApiUrl() {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return "http://127.0.0.1:4000";
+}
+
+const API_URL = getApiUrl();
 
 export interface AuthResponse {
   token: string;
@@ -174,13 +182,13 @@ export function createMarch(
   });
 }
 
-export function updatePlayerProfile(token: string, flagColor: string, emblem: string): Promise<{ ok: boolean }> {
+export function updatePlayerProfile(token: string, flagColor: string, emblem: string, cityName?: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>("/api/player/profile", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ flagColor, emblem }),
+    body: JSON.stringify({ flagColor, emblem, cityName }),
   });
 }
 

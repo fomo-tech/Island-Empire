@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ResourceBag } from "@island/shared";
+import type { ResourceBag, TownSnapshot } from "@island/shared";
 
 type Updater<T> = T | ((prev: T) => T);
 
@@ -64,6 +64,19 @@ const initialServerHud: ServerHudState = {
   lastSync: 0,
 };
 
+function normalizeTownSnapshot(town: any) {
+  const level = Math.max(1, Math.floor(Number(town?.lvl ?? town?.level ?? 1) || 1));
+  return {
+    ...town,
+    level,
+    lvl: level,
+  };
+}
+
+function indexTowns(towns: any[]) {
+  return Object.fromEntries(towns.map((town) => [Number(town.id), town]).filter(([id]) => Number.isFinite(id)));
+}
+
 function resolve<T>(next: Updater<T>, prev: T): T {
   return typeof next === "function" ? (next as (prev: T) => T)(prev) : next;
 }
@@ -72,10 +85,14 @@ type GameStore = {
   resources: ResourceBag;
   worldActivity: WorldActivityState;
   serverHud: ServerHudState;
+  towns: Array<TownSnapshot & { lvl?: number; owner?: number }>;
+  townsById: Record<number, TownSnapshot & { lvl?: number; owner?: number }>;
   pendingActions: PendingGameAction[];
   setResources: (next: Updater<ResourceBag>) => void;
   setWorldActivity: (next: Updater<WorldActivityState>) => void;
   setServerHud: (next: Updater<ServerHudState>) => void;
+  setTowns: (next: Updater<any[]>) => void;
+  upsertTown: (town: any) => void;
   enqueueAction: (action: Omit<PendingGameAction, "createdAt" | "status">) => void;
   confirmAction: (id: string) => void;
   rollbackAction: (id: string) => void;
@@ -86,10 +103,25 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   resources: initialResources,
   worldActivity: initialWorldActivity,
   serverHud: initialServerHud,
+  towns: [],
+  townsById: {},
   pendingActions: [],
   setResources: (next) => set((state) => ({ resources: resolve(next, state.resources) })),
   setWorldActivity: (next) => set((state) => ({ worldActivity: resolve(next, state.worldActivity) })),
   setServerHud: (next) => set((state) => ({ serverHud: resolve(next, state.serverHud) })),
+  setTowns: (next) => set((state) => {
+    const towns = resolve(next, state.towns).map(normalizeTownSnapshot);
+    return { towns, townsById: indexTowns(towns) };
+  }),
+  upsertTown: (town) => set((state) => {
+    if (!town || !Number.isFinite(Number(town.id))) return state;
+    const normalized = normalizeTownSnapshot(town);
+    const towns = [
+      ...state.towns.filter((item) => Number(item.id) !== Number(normalized.id)),
+      normalized,
+    ];
+    return { towns, townsById: indexTowns(towns) };
+  }),
   enqueueAction: (action) => set((state) => ({
     pendingActions: [
       ...state.pendingActions.filter((item) => item.id !== action.id),
@@ -110,6 +142,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     resources: initialResources,
     worldActivity: initialWorldActivity,
     serverHud: initialServerHud,
+    towns: [],
+    townsById: {},
     pendingActions: [],
   }),
 }));

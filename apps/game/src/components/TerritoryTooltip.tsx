@@ -335,6 +335,15 @@ export function TerritoryTooltip({
   onReinforce
 }: TerritoryTooltipProps) {
   const [showGuide, setShowGuide] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 200);
+    return () => clearInterval(timer);
+  }, []);
+
   const { id, isIslet, ownership } = region;
   const engineState = engine.getState();
   const effectiveOwnership = engine.getRegionOwnership?.(id) ?? ownership;
@@ -397,10 +406,7 @@ export function TerritoryTooltip({
 
   const isCurrentlyClearing = isClearingInProgress || isSettlerTraveling || isRemoteClearing;
   const timing = engineState.activeClearingTimings?.[id];
-  let remainingSecs = 0;
-  if (timing?.completesAt) {
-    remainingSecs = Math.max(0, Math.round((new Date(timing.completesAt).getTime() - Date.now()) / 1000));
-  }
+  
   const formatTime = (secs: number) => {
     if (secs >= 60) {
       const m = Math.floor(secs / 60);
@@ -445,7 +451,7 @@ export function TerritoryTooltip({
         return (
           <>
             <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
-              <ShieldIcon /> <span className="text-gold-serif">TIẾP VIỆN PHÒNG THỦ</span>
+              <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
             </button>
             <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
           </>
@@ -454,7 +460,7 @@ export function TerritoryTooltip({
       return (
         <>
           <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
-            <SwordsIcon /> <span className="text-gold-serif">TIẾP VIỆN TẤN CÔNG</span>
+            <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
           </button>
           <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
         </>
@@ -472,8 +478,27 @@ export function TerritoryTooltip({
     }
     if (effectiveOwnership === 0) {
       if (isCurrentlyClearing) {
-        const p = Math.min(1, engineState.regionClearing?.[id] || 0);
-        const pctVal = Math.round(p * 100);
+        const startMs = timing?.startedAt ? new Date(timing.startedAt).getTime() : now;
+        const arrivesMs = timing?.arrivesAt ? new Date(timing.arrivesAt).getTime() : startMs;
+        const completesMs = timing?.completesAt ? new Date(timing.completesAt).getTime() : now + 30000;
+        
+        const inTravel = timing?.arrivesAt ? now < arrivesMs : false;
+        let pctVal = 0;
+        let remSecs = 0;
+
+        if (inTravel) {
+          const totalTravel = Math.max(1000, arrivesMs - startMs);
+          pctVal = Math.round(Math.max(0, Math.min(1, (now - startMs) / totalTravel)) * 100);
+          remSecs = Math.max(0, Math.round((arrivesMs - now) / 1000));
+        } else {
+          const totalClearing = Math.max(1000, completesMs - arrivesMs);
+          const elapsed = Math.max(0, now - arrivesMs);
+          const dynamicPct = Math.min(1, elapsed / totalClearing);
+          const p = Math.max(dynamicPct, engineState.regionClearing?.[id] || 0);
+          pctVal = Math.round(Math.min(1, p) * 100);
+          remSecs = timing?.completesAt ? Math.max(0, Math.round((completesMs - now) / 1000)) : 0;
+        }
+
         const isLocal = isClearingInProgress || isSettlerTraveling || (timing?.playerId === engineState.localPlayerId);
         
         return (
@@ -482,19 +507,19 @@ export function TerritoryTooltip({
               <div className="rt-clearing-header">
                 <span className="rt-clearing-title-text">
                   {isLocal ? (
-                    <><HammerIcon /> ĐANG XÂY THÀNH CỦA BẠN</>
+                    inTravel ? <><HammerIcon /> ĐANG DI CHUYỂN THỢ XÂY</> : <><HammerIcon /> ĐANG XÂY THÀNH CỦA BẠN</>
                   ) : (
-                    <><ShieldAlertIcon /> ĐỊCH ĐANG XÂY THÀNH</>
+                    inTravel ? <><ShieldAlertIcon /> ĐỊCH ĐANG DI CHUYỂN THỢ XÂY</> : <><ShieldAlertIcon /> ĐỊCH ĐANG XÂY THÀNH</>
                   )}
                 </span>
                 <span className="rt-clearing-pct-text">{pctVal}%</span>
               </div>
               <div className="rt-clearing-bar-track">
-                <div className="rt-clearing-bar-fill" style={{ width: `${pctVal}%` }} />
+                <div className="rt-clearing-bar-fill" style={{ width: `${pctVal}%`, backgroundColor: inTravel ? "#f59e0b" : "#10b981" }} />
               </div>
-              {remainingSecs > 0 && (
+              {remSecs > 0 && (
                 <div className="rt-clearing-timer">
-                  <HourglassMiniIcon /> Thời gian còn lại: <span className="time-val">{formatTime(remainingSecs)}</span>
+                  <HourglassMiniIcon /> {inTravel ? "Đến nơi sau:" : "Thời gian còn lại:"} <span className="time-val">{formatTime(remSecs)}</span>
                 </div>
               )}
             </div>
@@ -517,7 +542,7 @@ export function TerritoryTooltip({
       if (isStarterClaim) {
         return (
           <>
-            <button type="button" className="rt-main-action-btn build pulse" onClick={() => runAndClose(() => onKhaiHoang(id))}>
+            <button type="button" className="rt-main-action-btn build pulse" onClick={() => onKhaiHoang(id)}>
               <PickaxeIcon /> <span className="text-gold-serif">XÂY THÀNH TÂN THỦ</span>
             </button>
             <div className="rt-note-info" style={{ color: "#4ade80", fontWeight: 700 }}><span className="info-icon">ⓘ</span> Xây dựng miễn phí dành cho tân thủ!</div>

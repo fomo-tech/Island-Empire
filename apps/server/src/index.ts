@@ -7,8 +7,8 @@ import { attachRealtime } from "./realtime/socket.js";
 async function main() {
   await ensureIndexes();
   const app = createApp();
-  const server = app.listen(config.PORT, () => {
-    console.log(`API listening on http://127.0.0.1:${config.PORT}`);
+  const server = app.listen(config.PORT, "0.0.0.0", () => {
+    console.log(`API listening on http://0.0.0.0:${config.PORT}`);
   });
   attachRealtime(server);
 

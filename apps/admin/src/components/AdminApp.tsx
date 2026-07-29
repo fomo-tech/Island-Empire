@@ -42,7 +42,22 @@ export function AdminApp() {
   const [claimDialog, setClaimDialog] = useState<{ territoryId: number } | null>(null);
   const [claimTarget, setClaimTarget] = useState("");
   const [configData, setConfigData] = useState<any>({
-    maxBattleDuration: 15,
+    maxBattleDuration: 300,
+    minBattleDuration: 30,
+    baseBattleSeconds: 30,
+    battlePowerPerSecond: 80,
+    townBattleSeconds: 8,
+    fortBattleSeconds: 20,
+    infantryAttackPower: 10,
+    infantryDefensePower: 12,
+    cavalryAttackPower: 18,
+    cavalryDefensePower: 8,
+    artilleryAttackPower: 30,
+    artilleryDefensePower: 3,
+    townLevelDefense: 40,
+    fortLevelDefense: 120,
+    lootPercent: 20,
+    retreatPercent: 35,
     infantryCostGold: 100,
     infantryCostWood: 30,
     infantryCostFood: 55,
@@ -97,6 +112,21 @@ export function AdminApp() {
     const form = new FormData(e.currentTarget);
     const updated = {
       maxBattleDuration: Number(form.get("maxBattleDuration")),
+      minBattleDuration: Number(form.get("minBattleDuration")),
+      baseBattleSeconds: Number(form.get("baseBattleSeconds")),
+      battlePowerPerSecond: Number(form.get("battlePowerPerSecond")),
+      townBattleSeconds: Number(form.get("townBattleSeconds")),
+      fortBattleSeconds: Number(form.get("fortBattleSeconds")),
+      infantryAttackPower: Number(form.get("infantryAttackPower")),
+      infantryDefensePower: Number(form.get("infantryDefensePower")),
+      cavalryAttackPower: Number(form.get("cavalryAttackPower")),
+      cavalryDefensePower: Number(form.get("cavalryDefensePower")),
+      artilleryAttackPower: Number(form.get("artilleryAttackPower")),
+      artilleryDefensePower: Number(form.get("artilleryDefensePower")),
+      townLevelDefense: Number(form.get("townLevelDefense")),
+      fortLevelDefense: Number(form.get("fortLevelDefense")),
+      lootPercent: Number(form.get("lootPercent")),
+      retreatPercent: Number(form.get("retreatPercent")),
       infantryCostGold: Number(form.get("infantryCostGold")),
       infantryCostWood: Number(form.get("infantryCostWood")),
       infantryCostFood: Number(form.get("infantryCostFood")),
@@ -565,10 +595,46 @@ export function AdminApp() {
 
               <form onSubmit={handleConfigSubmit} style={{ maxWidth: 600, display: "grid", gap: 16, background: "rgba(13, 20, 31, 0.4)", padding: 24, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: 0 }}>CHIẾN ĐẤU & GIAO TRANH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Thời gian giao tranh tối đa (giây)
                     <input type="number" name="maxBattleDuration" defaultValue={configData.maxBattleDuration} min={5} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thời gian giao tranh tối thiểu
+                    <input type="number" name="minBattleDuration" defaultValue={configData.minBattleDuration} min={5} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thời gian nền mỗi trận
+                    <input type="number" name="baseBattleSeconds" defaultValue={configData.baseBattleSeconds} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Sức mạnh / giây giao tranh
+                    <input type="number" name="battlePowerPerSecond" defaultValue={configData.battlePowerPerSecond} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thời gian cộng theo cấp thành
+                    <input type="number" name="townBattleSeconds" defaultValue={configData.townBattleSeconds} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thời gian cộng theo pháo đài
+                    <input type="number" name="fortBattleSeconds" defaultValue={configData.fortBattleSeconds} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thủ cộng mỗi cấp thành
+                    <input type="number" name="townLevelDefense" defaultValue={configData.townLevelDefense} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Thủ cộng mỗi cấp pháo đài
+                    <input type="number" name="fortLevelDefense" defaultValue={configData.fortLevelDefense} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    % cướp kho khi thắng
+                    <input type="number" name="lootPercent" defaultValue={configData.lootPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    % quân rút khi thủ thắng
+                    <input type="number" name="retreatPercent" defaultValue={configData.retreatPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
                     Tốc độ di chuyển Nông dân
@@ -577,6 +643,34 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     1 giờ game bằng bao nhiêu giây thật
                     <input type="number" name="gameHourSeconds" defaultValue={configData.gameHourSeconds} min={10} max={3600} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHỈ SỐ CÔNG / THỦ QUÂN</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Bộ binh công thành
+                    <input type="number" name="infantryAttackPower" defaultValue={configData.infantryAttackPower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Bộ binh thủ thành
+                    <input type="number" name="infantryDefensePower" defaultValue={configData.infantryDefensePower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Kị binh công thành
+                    <input type="number" name="cavalryAttackPower" defaultValue={configData.cavalryAttackPower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Kị binh thủ thành
+                    <input type="number" name="cavalryDefensePower" defaultValue={configData.cavalryDefensePower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Pháo binh công thành
+                    <input type="number" name="artilleryAttackPower" defaultValue={configData.artilleryAttackPower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Pháo binh thủ thành
+                    <input type="number" name="artilleryDefensePower" defaultValue={configData.artilleryDefensePower} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 

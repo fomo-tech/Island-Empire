@@ -27,6 +27,8 @@ import type {
   CompleteClearingResult,
   CreateMarchResult,
   GameConfig,
+  ActiveClearing,
+  ActiveBattle,
 } from "@island/shared";
 import { collections } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
@@ -246,13 +248,13 @@ const BIOME_PRIMARY: Record<number, string> = {
  *   finalTime = baseTime * biomeMult
  *   Clamped between 8s (minimum) and 180s (maximum)
  */
-function calcClearingSeconds(rx: number, ry: number, biome: number, settlerSpeed = 18, gameHourSeconds = 60): number {
+function calcClearingSeconds(rx: number, ry: number, biome: number, settlerSpeed = 35, gameHourSeconds = 30): number {
   const area = rx * ry;
-  const baseTime = area / 650;
-  const speedScale = 18 / Math.max(1, settlerSpeed);
-  const clockScale = Math.max(1, gameHourSeconds) / 60;
+  const baseTime = (area / 650) * 1.8;
+  const speedScale = 35 / Math.max(1, settlerSpeed);
+  const clockScale = Math.max(1, gameHourSeconds) / 30;
   const finalTime = baseTime * (BIOME_CLEAR_MULT[biome] ?? 1.0) * speedScale * clockScale;
-  return Math.max(4, Math.min(600, Math.round(finalTime)));
+  return Math.max(15, Math.min(600, Math.round(finalTime)));
 }
 
 /**
@@ -302,15 +304,30 @@ function calcYields(rx: number, ry: number, biome: number, isIslet: boolean) {
 function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; rx: number; ry: number }) {
   const specials: string[] = [];
   const area = t.rx * t.ry;
-  if ((t.biome === 0 || t.biome === 5) && area >= 18000 && t.id % 3 !== 0) specials.push("Bãi ngựa");
-  if (t.isIslet || t.id % 5 === 0 || t.id % 7 === 0) specials.push("Bến tàu tự nhiên");
+
+  // Horse Pasture ("Bãi ngựa") - abundant (~40% of territories)
+  if ((t.biome === 0 || t.biome === 1 || t.biome === 5 || t.biome === 6) || t.id % 3 !== 0) {
+    if (area >= 6500) specials.push("Bãi ngựa");
+  }
+
+  // Siege Workshop ("Xưởng đúc pháo") - abundant (~40% of territories)
+  if ((t.biome === 2 || t.biome === 3 || t.biome === 4 || t.biome === 6 || t.biome === 7) || t.id % 2 === 1) {
+    specials.push("Xưởng đúc pháo");
+  }
+
+  // Natural Harbor ("Bến tàu tự nhiên")
+  if (t.isIslet || t.id % 3 === 0 || t.id % 5 === 0 || t.id % 7 === 0) {
+    specials.push("Bến tàu tự nhiên");
+  }
+
   if ((t.biome === 2 || t.biome === 3 || t.biome === 4 || t.biome === 6) && t.id % 2 === 0) specials.push("Mỏ sắt");
-  if ((t.biome === 1 || t.biome === 2 || t.biome === 3 || t.biome === 6) && area >= 16000) specials.push("Mỏ đá");
-  if ((t.biome === 1 || t.biome === 5 || t.biome === 3) && t.id % 4 === 1) specials.push("Mạch vàng");
-  if ((t.biome === 1 || t.biome === 4 || t.isIslet) && t.id % 5 === 2) specials.push("Mỏ đá quý");
+  if ((t.biome === 1 || t.biome === 2 || t.biome === 3 || t.biome === 6) && area >= 14000) specials.push("Mỏ đá");
+  if ((t.biome === 1 || t.biome === 5 || t.biome === 3) && t.id % 3 === 1) specials.push("Mạch vàng");
+  if ((t.biome === 1 || t.biome === 4 || t.isIslet) && t.id % 4 === 2) specials.push("Mỏ đá quý");
   if ((t.biome === 2 || t.biome === 3 || t.biome === 7) && t.id % 3 === 0) specials.push("Vỉa than");
-  if (t.biome === 3 || (t.biome === 7 && t.id % 6 === 0)) specials.push("Mỏ lưu huỳnh");
-  return specials;
+  if (t.biome === 3 || (t.biome === 7 && t.id % 4 === 0)) specials.push("Mỏ lưu huỳnh");
+
+  return Array.from(new Set(specials));
 }
 
 // Static territory list matching the game engine
@@ -347,13 +364,34 @@ function townIdForTerritory(territoryId: number, requestedTownId?: number) {
   return Number.isInteger(requestedTownId) && requestedTownId! >= 0 ? requestedTownId! : 9000 + territoryId;
 }
 
+function territoryAreaFactorForTown(territory: Pick<TerritoryInfo, "rx" | "ry">) {
+  return Math.max(0.7, Math.min(2.4, (territory.rx * territory.ry) / 10000));
+}
+
+function territoryStartingPopulationForTown(territory: Pick<TerritoryInfo, "rx" | "ry" | "biome" | "isIslet">, ownerCode = 1) {
+  const biomePopMult = [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][territory.biome ?? 0] || 1;
+  const isletPenalty = territory.isIslet ? 0.55 : 1;
+  const base = ownerCode === 1 ? 24 : 48;
+  return Math.round(base + territoryAreaFactorForTown(territory) * 28 * biomePopMult * isletPenalty);
+}
+
+function townStorageCapacityForTerritory(town: any, territory?: Pick<TerritoryInfo, "rx" | "ry">) {
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
+  const warehouse = Math.max(0, Math.floor(Number(town?.buildings?.warehouse || 0) || 0));
+  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
+  const areaBonus = territory ? Math.round(territoryAreaFactorForTown(territory) * 120) : 0;
+  return 250 + warehouse * 650 + fort * 180 + level * 120 + areaBonus;
+}
+
 function defaultTownSnapshotForTerritory(territory: NonNullable<ReturnType<typeof getStaticTerritory>>, playerId: string, townId?: number) {
+  const population = territoryStartingPopulationForTown(territory, 1);
   return {
     id: townIdForTerritory(territory.id, townId),
     level: 2,
+    lvl: 2,
     ownerId: playerId,
     troops: 24,
-    population: 32,
+    population,
     x: territory.x,
     y: territory.y,
     infantryCount: 24,
@@ -370,14 +408,114 @@ function defaultTownSnapshotForTerritory(territory: NonNullable<ReturnType<typeo
       warehouse: 0,
     },
     storage: {},
+    storageCapacity: townStorageCapacityForTerritory({ level: 2 }, territory),
+    maxTroops: population * 10,
   };
 }
 
-function toPublicClearing(clearing: { territoryId: number; playerId: string; startedAt: Date; completesAt: Date }) {
+function normalizeTownSnapshotForState(town: any, playerId: string, territory?: NonNullable<ReturnType<typeof getStaticTerritory>> | TerritoryInfo) {
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 2) || 2));
+  const startingPopulation = territory ? territoryStartingPopulationForTown(territory, 1) : 32;
+  const population = Math.max(startingPopulation, Math.floor(Number(town?.population ?? startingPopulation) || startingPopulation));
+  const buildings = {
+    barracks: 0,
+    lumberCamp: 0,
+    quarry: 0,
+    goldMine: 0,
+    gemCutter: 0,
+    fort: 0,
+    siegeWorkshop: 0,
+    warehouse: 0,
+    ...(town?.buildings || {}),
+  };
+  const normalized = {
+    ...town,
+    buildings,
+  };
+  const storageCapacity = townStorageCapacityForTerritory(normalized, territory);
+  return {
+    ...town,
+    level,
+    lvl: level,
+    ownerId: town?.ownerId || playerId,
+    population,
+    troops: Math.max(0, Math.floor(Number(town?.troops ?? 0) || 0)),
+    infantryCount: Math.max(0, Math.floor(Number(town?.infantryCount ?? town?.troops ?? 0) || 0)),
+    cavalryCount: Math.max(0, Math.floor(Number(town?.cavalryCount ?? 0) || 0)),
+    artilleryCount: Math.max(0, Math.floor(Number(town?.artilleryCount ?? 0) || 0)),
+    buildings,
+    storage: { ...(town?.storage || {}) },
+    storageCapacity,
+    maxTroops: population * 10,
+  };
+}
+
+function townSnapshotsForPlayer(
+  saveTowns: any[] | undefined,
+  territories: Array<NonNullable<ReturnType<typeof getStaticTerritory>> | TerritoryInfo>,
+  playerId: string,
+  resources?: ResourceBag,
+) {
+  const towns = Array.isArray(saveTowns)
+    ? saveTowns.map((town) => {
+      const territory = territories.find((item) => Math.hypot((town?.x ?? 0) - item.x, (town?.y ?? 0) - item.y) < 96);
+      return normalizeTownSnapshotForState(town, playerId, territory);
+    })
+    : [];
+  territories
+    .filter((territory) => (territory as any).ownerId === playerId)
+    .forEach((territory) => {
+      const townId = townIdForTerritory(territory.id);
+      const existingIndex = towns.findIndex((town: any) =>
+        town?.id === townId ||
+        Math.hypot((town?.x ?? 0) - territory.x, (town?.y ?? 0) - territory.y) < 96
+      );
+      const baseTown = existingIndex >= 0 ? towns[existingIndex] : defaultTownSnapshotForTerritory(territory, playerId, townId);
+      const normalized = normalizeTownSnapshotForState({
+        ...baseTown,
+        ownerId: playerId,
+        x: territory.x,
+        y: territory.y,
+      }, playerId, territory);
+      if (existingIndex >= 0) towns[existingIndex] = normalized;
+      else towns.push(normalized);
+    });
+  if (resources && towns.length > 0) {
+    const totalResources = RESOURCE_KEYS.reduce((sum, key) => sum + Math.max(0, Math.floor(resources[key] || 0)), 0);
+    const totalCapacity = towns.reduce((sum: number, town: any) => sum + Math.max(1, Math.floor(Number(town.storageCapacity || 1))), 0);
+    towns.forEach((town: any, townIndex: number) => {
+      const townCapacity = Math.max(1, Math.floor(Number(town.storageCapacity || 1)));
+      const townBudget = totalResources <= 0
+        ? 0
+        : Math.min(
+          townCapacity,
+          townIndex === towns.length - 1
+            ? Math.max(0, Math.min(totalResources, totalCapacity) - towns.slice(0, townIndex).reduce((sum: number, item: any) => sum + Object.values(item.storage || {}).reduce((innerSum: number, value: any) => innerSum + Math.max(0, Math.floor(Number(value) || 0)), 0), 0))
+            : Math.floor(Math.min(totalResources, totalCapacity) * townCapacity / Math.max(1, totalCapacity)),
+        );
+      let assigned = 0;
+      town.storage = {};
+      RESOURCE_KEYS.forEach((key, keyIndex) => {
+        const resourceTotal = Math.max(0, Math.floor(resources[key] || 0));
+        const share = totalResources <= 0
+          ? 0
+          : keyIndex === RESOURCE_KEYS.length - 1
+            ? Math.max(0, townBudget - assigned)
+            : Math.min(Math.floor(townBudget * resourceTotal / totalResources), townBudget - assigned);
+        town.storage[key] = share;
+        assigned += share;
+      });
+    });
+  }
+  return towns;
+}
+
+function toPublicClearing(clearing: { territoryId: number; playerId: string; startedAt: Date; arrivesAt?: Date; completesAt: Date }): ActiveClearing {
   return {
     territoryId: clearing.territoryId,
     playerId: clearing.playerId,
     startedAt: clearing.startedAt.toISOString(),
+    arrivesAt: clearing.arrivesAt ? clearing.arrivesAt.toISOString() : clearing.startedAt.toISOString(),
     completesAt: clearing.completesAt.toISOString(),
   };
 }
@@ -416,6 +554,97 @@ function toPublicMarch(order: {
     startedAt: order.startedAt.toISOString(),
     arrivesAt: order.arrivesAt.toISOString(),
   };
+}
+
+function toPublicBattle(battle: {
+  _id: string;
+  regionId: number;
+  townId?: number;
+  attackerId: string;
+  defenderId: string | null;
+  attackerPower: number;
+  defenderPower: number;
+  attackerInfantry: number;
+  attackerCavalry: number;
+  attackerArtillery: number;
+  defenderInfantry: number;
+  defenderCavalry: number;
+  defenderArtillery: number;
+  startedAt: Date;
+  resolvesAt: Date;
+  durationSeconds: number;
+}): ActiveBattle {
+  return {
+    id: battle._id,
+    regionId: battle.regionId,
+    townId: battle.townId,
+    attackerId: battle.attackerId,
+    defenderId: battle.defenderId,
+    attackerPower: battle.attackerPower,
+    defenderPower: battle.defenderPower,
+    attackerInfantry: battle.attackerInfantry,
+    attackerCavalry: battle.attackerCavalry,
+    attackerArtillery: battle.attackerArtillery,
+    defenderInfantry: battle.defenderInfantry,
+    defenderCavalry: battle.defenderCavalry,
+    defenderArtillery: battle.defenderArtillery,
+    startedAt: battle.startedAt.toISOString(),
+    resolvesAt: battle.resolvesAt.toISOString(),
+    durationSeconds: battle.durationSeconds,
+  };
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function battleAttackPower(units: { infantry?: number; cavalry?: number; artillery?: number }, gameConfig: GameConfig) {
+  return Math.max(0,
+    Math.floor(Number(units.infantry || 0)) * gameConfig.infantryAttackPower +
+    Math.floor(Number(units.cavalry || 0)) * gameConfig.cavalryAttackPower +
+    Math.floor(Number(units.artillery || 0)) * gameConfig.artilleryAttackPower
+  );
+}
+
+function battleDefensePower(units: { infantry?: number; cavalry?: number; artillery?: number }, town: any, gameConfig: GameConfig) {
+  const unitPower =
+    Math.floor(Number(units.infantry || 0)) * gameConfig.infantryDefensePower +
+    Math.floor(Number(units.cavalry || 0)) * gameConfig.cavalryDefensePower +
+    Math.floor(Number(units.artillery || 0)) * gameConfig.artilleryDefensePower;
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
+  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
+  return Math.max(0, unitPower + level * gameConfig.townLevelDefense + fort * gameConfig.fortLevelDefense);
+}
+
+function battleDurationSeconds(attackerPower: number, defenderPower: number, town: any, gameConfig: GameConfig) {
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
+  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
+  const seconds =
+    gameConfig.baseBattleSeconds +
+    (attackerPower + defenderPower) / Math.max(1, gameConfig.battlePowerPerSecond) +
+    level * gameConfig.townBattleSeconds +
+    fort * gameConfig.fortBattleSeconds;
+  return Math.round(clampNumber(seconds, gameConfig.minBattleDuration, gameConfig.maxBattleDuration));
+}
+
+function inferInfantryFromTroops(troops: number, gameConfig: GameConfig) {
+  return Math.max(0, Math.ceil(Math.max(0, troops) / Math.max(1, gameConfig.infantryTroopsValue)));
+}
+
+function findTownForTerritory(towns: any[], territory: Pick<TerritoryInfo, "id" | "x" | "y">) {
+  const townId = townIdForTerritory(territory.id);
+  return towns.find((town: any) =>
+    town?.id === townId ||
+    Math.hypot((town?.x ?? 0) - territory.x, (town?.y ?? 0) - territory.y) < 96
+  );
+}
+
+function removeTownForTerritory(towns: any[], territory: Pick<TerritoryInfo, "id" | "x" | "y">) {
+  const townId = townIdForTerritory(territory.id);
+  return towns.filter((town: any) =>
+    town?.id !== townId &&
+    Math.hypot((town?.x ?? 0) - territory.x, (town?.y ?? 0) - territory.y) >= 96
+  );
 }
 
 async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
@@ -458,14 +687,14 @@ function productionForClaims(claims: Array<{ territoryId: number }>): ResourceBa
   claims.forEach((claim) => {
     const territory = staticById.get(claim.territoryId);
     if (!territory) return;
-    production.gold += territory.yieldGold;
-    production.wood += territory.yieldWood;
-    production.stone += territory.yieldStone;
-    production.food += territory.yieldFood;
-    production.iron += territory.yieldIron;
-    production.coal += territory.yieldCoal;
-    production.sulfur += territory.yieldSulfur;
-    production.gems += territory.yieldGems;
+    production.gold += territory.yieldGold * 2.5;
+    production.wood += territory.yieldWood * 2.5;
+    production.stone += territory.yieldStone * 2.5;
+    production.food += territory.yieldFood * 2.5;
+    production.iron += territory.yieldIron * 2.5;
+    production.coal += territory.yieldCoal * 2.5;
+    production.sulfur += territory.yieldSulfur * 2.5;
+    production.gems += territory.yieldGems * 2.5;
   });
   RESOURCE_KEYS.forEach((key) => {
     production[key] = Math.round(production[key] * 100) / 100;
@@ -497,6 +726,14 @@ function subtractCost(resources: ResourceBag, cost: Partial<ResourceBag>) {
     next[key] = Math.max(0, Math.floor(next[key] - Math.floor(cost[key] || 0)));
   });
   return next;
+}
+
+function troopPopulationCost(troopValue: number) {
+  return Math.max(1, Math.ceil((troopValue || 0) / 5));
+}
+
+function maxDefendingTroopsForTown(town: any) {
+  return Math.max(10, Math.floor(Number(town?.maxTroops || 0) || ((Number(town?.population || 0) || 0) * 10)));
 }
 
 function resourceCostMessage(cost: Partial<ResourceBag>) {
@@ -567,12 +804,14 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
 
 async function buildGameStatePayload(playerId: string): Promise<GameStateResult> {
   await processArrivedMarches();
+  await processActiveBattles();
   await processCompletedClearings();
-  const { territoryClearings, marchOrders, players, saves } = await collections();
-  const [world, clearings, marches, resourceState, player, save] = await Promise.all([
+  const { territoryClearings, marchOrders, activeBattles, players, saves } = await collections();
+  const [world, clearings, marches, battles, resourceState, player, save] = await Promise.all([
     buildWorldTerritoriesPayload(),
     territoryClearings.find({}).toArray(),
     marchOrders.find({}).toArray(),
+    activeBattles.find({}).toArray(),
     collectPlayerResources(playerId),
     players.findOne({ _id: playerId }),
     saves.findOne({ playerId }),
@@ -581,46 +820,319 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
     territories: world.territories,
     clearings: clearings.map(toPublicClearing),
     marches: marches.map(toPublicMarch),
-    towns: Array.isArray(save?.towns) ? save.towns : [],
+    battles: battles.map(toPublicBattle),
+    towns: townSnapshotsForPlayer(save?.towns, world.territories, playerId, resourceState.resources),
     ...resourceState,
     playerProfile: player ? { flagColor: player.flagColor ?? "#2f70d7", emblem: player.emblem ?? "shield" } : null,
   };
 }
 
+const MAP_UNITS_TO_KM = 0.18;
+const DEFAULT_MARCH_CONFIG = {
+  infantrySpeed: 45,
+  cavalrySpeed: 75,
+  artillerySpeed: 30,
+  shipSpeed: 25,
+  gameHourSeconds: 30,
+};
+
+const DEFAULT_CONFIG: GameConfig = {
+  maxBattleDuration: 300,
+  minBattleDuration: 30,
+  baseBattleSeconds: 30,
+  battlePowerPerSecond: 80,
+  townBattleSeconds: 8,
+  fortBattleSeconds: 20,
+  infantryAttackPower: 10,
+  infantryDefensePower: 12,
+  cavalryAttackPower: 18,
+  cavalryDefensePower: 8,
+  artilleryAttackPower: 30,
+  artilleryDefensePower: 3,
+  townLevelDefense: 40,
+  fortLevelDefense: 120,
+  lootPercent: 20,
+  retreatPercent: 35,
+  infantryCostGold: 100,
+  infantryCostWood: 30,
+  infantryCostFood: 55,
+  infantryTroopsValue: 18,
+  cavalryCostGold: 170,
+  cavalryCostWood: 40,
+  cavalryCostStone: 45,
+  cavalryCostFood: 90,
+  cavalryCostIron: 12,
+  cavalryTroopsValue: 34,
+  artilleryCostGold: 240,
+  artilleryCostStone: 120,
+  artilleryCostIron: 85,
+  artilleryCostSulfur: 25,
+  artilleryTroopsValue: 58,
+  settlerSpeed: 35,
+  infantrySpeed: DEFAULT_MARCH_CONFIG.infantrySpeed,
+  cavalrySpeed: DEFAULT_MARCH_CONFIG.cavalrySpeed,
+  artillerySpeed: DEFAULT_MARCH_CONFIG.artillerySpeed,
+  shipSpeed: DEFAULT_MARCH_CONFIG.shipSpeed,
+  gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
+};
+
+function normalizeGameConfig(doc?: Partial<GameConfig> | null): GameConfig {
+  return { ...DEFAULT_CONFIG, ...(doc || {}) };
+}
+
+async function loadGameConfig(): Promise<GameConfig> {
+  const { configs } = await collections();
+  const doc = await configs.findOne({ _id: "game_settings" });
+  return normalizeGameConfig(doc || null);
+}
+
 async function processArrivedMarches(now = new Date()) {
-  const { players, territoryClaims, territoryClearings, marchOrders, alliances } = await collections();
+  const { players, territoryClaims, territoryClearings, marchOrders, activeBattles, saves, alliances } = await collections();
+  const gameConfig = await loadGameConfig();
   const arrived = await marchOrders.find({ arrivesAt: { $lte: now } }).toArray();
   for (const march of arrived) {
-    if (march.kind === "attack") {
-      const territory = getStaticTerritory(march.toTerritoryId);
-      if (territory) {
-        await territoryClaims.updateOne(
-          { territoryId: territory.id },
-          { $set: { playerId: march.ownerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
-          { upsert: true },
-        );
-        await territoryClearings.deleteMany({ territoryId: territory.id });
-        const [player, alliance] = await Promise.all([
-          players.findOne({ _id: march.ownerId }),
-          alliances.findOne({ memberIds: march.ownerId }),
-        ]);
-        publishRealtime({
-          type: "territory_claimed",
-          territory: {
-            ...territory,
-            ownerId: march.ownerId,
-            ownerName: player?.name ?? march.ownerId,
-            ownerFlagColor: player?.flagColor ?? "#2f70d7",
-            ownerEmblem: player?.emblem ?? "shield",
-            ownerAllianceTag: alliance?.tag,
-            ownerAllianceEmblem: alliance?.emblem,
-          },
-        });
-      }
+    const territory = getStaticTerritory(march.toTerritoryId);
+    if (!territory) {
+      await marchOrders.deleteOne({ _id: march._id });
+      continue;
     }
+    const targetClaim = await territoryClaims.findOne({ territoryId: territory.id });
+    if (march.kind !== "attack" || !targetClaim || targetClaim.playerId === march.ownerId) {
+      await marchOrders.deleteOne({ _id: march._id });
+      continue;
+    }
+    const existingBattle = await activeBattles.findOne({ regionId: territory.id });
+    if (existingBattle) {
+      await marchOrders.deleteOne({ _id: march._id });
+      continue;
+    }
+    const defenderSave = (await saves.findOne({ playerId: targetClaim.playerId })) as any;
+    const defenderTowns = Array.isArray(defenderSave?.towns) ? defenderSave.towns : [];
+    const defenderTown = normalizeTownSnapshotForState(
+      findTownForTerritory(defenderTowns, territory) || defaultTownSnapshotForTerritory(territory, targetClaim.playerId),
+      targetClaim.playerId,
+      territory,
+    );
+    const attackerInfantry = Math.max(0, Math.floor(Number(march.infantry || 0) || 0)) || inferInfantryFromTroops(march.troops || 0, gameConfig);
+    const attackerCavalry = Math.max(0, Math.floor(Number(march.cavalry || 0) || 0));
+    const attackerArtillery = Math.max(0, Math.floor(Number(march.artillery || 0) || 0));
+    const defenderInfantry = Math.max(0, Math.floor(Number(defenderTown.infantryCount || defenderTown.troops || 0) || 0));
+    const defenderCavalry = Math.max(0, Math.floor(Number(defenderTown.cavalryCount || 0) || 0));
+    const defenderArtillery = Math.max(0, Math.floor(Number(defenderTown.artilleryCount || 0) || 0));
+    const attackerPower = battleAttackPower({ infantry: attackerInfantry, cavalry: attackerCavalry, artillery: attackerArtillery }, gameConfig);
+    const defenderPower = battleDefensePower({ infantry: defenderInfantry, cavalry: defenderCavalry, artillery: defenderArtillery }, defenderTown, gameConfig);
+    const durationSeconds = battleDurationSeconds(attackerPower, defenderPower, defenderTown, gameConfig);
+    const battle = {
+      _id: `battle:${territory.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      regionId: territory.id,
+      townId: defenderTown.id,
+      fromTerritoryId: march.fromTerritoryId,
+      toTerritoryId: march.toTerritoryId,
+      marchId: march._id,
+      attackerId: march.ownerId,
+      defenderId: targetClaim.playerId,
+      attackerPower,
+      defenderPower,
+      attackerInfantry,
+      attackerCavalry,
+      attackerArtillery,
+      defenderInfantry,
+      defenderCavalry,
+      defenderArtillery,
+      startedAt: now,
+      resolvesAt: new Date(now.getTime() + durationSeconds * 1000),
+      durationSeconds,
+    };
+    await activeBattles.insertOne(battle);
     await marchOrders.deleteOne({ _id: march._id });
+    publishRealtime({ type: "battle_started", battle: toPublicBattle(battle) });
   }
   if (arrived.length > 0) {
+    await bumpWorldCacheVersion();
+    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+  }
+}
+
+async function processActiveBattles(now = new Date()) {
+  const { players, territoryClaims, territoryClearings, activeBattles, marchOrders, saves, alliances } = await collections();
+  const gameConfig = await loadGameConfig();
+  const resolved = await activeBattles.find({ resolvesAt: { $lte: now } }).toArray();
+  for (const battle of resolved) {
+    const battleStillActive = await activeBattles.findOne({ _id: battle._id });
+    if (!battleStillActive) continue;
+    const territory = getStaticTerritory(battle.regionId);
+    if (!territory) {
+      await activeBattles.deleteOne({ _id: battle._id });
+      continue;
+    }
+    const attackerWins = battle.attackerPower > battle.defenderPower;
+    const totalPower = Math.max(1, battle.attackerPower + battle.defenderPower);
+    const winnerRatio = attackerWins
+      ? clampNumber(battle.attackerPower / totalPower, 0.12, 0.82)
+      : clampNumber(battle.defenderPower / totalPower, 0.12, 0.88);
+    const troopValue = (infantry: number, cavalry: number, artillery: number) =>
+      infantry * gameConfig.infantryTroopsValue + cavalry * gameConfig.cavalryTroopsValue + artillery * gameConfig.artilleryTroopsValue;
+
+    if (attackerWins) {
+      const survivorRatio = winnerRatio;
+      const nextInfantry = Math.max(1, Math.floor(battle.attackerInfantry * survivorRatio));
+      const nextCavalry = Math.max(0, Math.floor(battle.attackerCavalry * survivorRatio));
+      const nextArtillery = Math.max(0, Math.floor(battle.attackerArtillery * survivorRatio));
+      const nextTroops = troopValue(nextInfantry, nextCavalry, nextArtillery);
+      const attackerSave = (await saves.findOne({ playerId: battle.attackerId })) as any;
+      const defenderSave = battle.defenderId ? (await saves.findOne({ playerId: battle.defenderId })) as any : null;
+      const attackerTowns = Array.isArray(attackerSave?.towns) ? removeTownForTerritory(attackerSave.towns, territory) : [];
+      const capturedTown = normalizeTownSnapshotForState({
+        ...defaultTownSnapshotForTerritory(territory, battle.attackerId),
+        id: battle.townId || townIdForTerritory(territory.id),
+        ownerId: battle.attackerId,
+        infantryCount: nextInfantry,
+        cavalryCount: nextCavalry,
+        artilleryCount: nextArtillery,
+        troops: nextTroops,
+      }, battle.attackerId, territory);
+      attackerTowns.push(capturedTown);
+      const defenderTowns = Array.isArray(defenderSave?.towns) ? removeTownForTerritory(defenderSave.towns, territory) : [];
+      const lootPercent = clampNumber(gameConfig.lootPercent, 0, 100) / 100;
+      const defenderPlayer = battle.defenderId ? await players.findOne({ _id: battle.defenderId }) : null;
+      const attackerPlayer = await players.findOne({ _id: battle.attackerId });
+      const defenderResources = normalizeResources(defenderPlayer?.resources);
+      const attackerResources = normalizeResources(attackerPlayer?.resources);
+      const lootedResources = emptyResources();
+      RESOURCE_KEYS.forEach((key) => {
+        lootedResources[key] = Math.floor((defenderResources[key] || 0) * lootPercent);
+        defenderResources[key] = Math.max(0, defenderResources[key] - lootedResources[key]);
+        attackerResources[key] = Math.max(0, attackerResources[key] + lootedResources[key]);
+      });
+      await Promise.all([
+        territoryClaims.updateOne(
+          { territoryId: territory.id },
+          { $set: { playerId: battle.attackerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
+          { upsert: true },
+        ),
+        territoryClearings.deleteMany({ territoryId: territory.id }),
+        saves.updateOne(
+          { playerId: battle.attackerId },
+          { $set: { towns: attackerTowns, updatedAt: now }, $setOnInsert: { _id: `save:${battle.attackerId}`, playerId: battle.attackerId, resources: DEFAULT_PLAYER_RESOURCES } },
+          { upsert: true },
+        ),
+        battle.defenderId ? saves.updateOne({ playerId: battle.defenderId }, { $set: { towns: defenderTowns, updatedAt: now } }) : Promise.resolve(),
+        players.updateOne({ _id: battle.attackerId }, { $set: { resources: attackerResources, lastResourceCollectedAt: now, lastSeenAt: now } }),
+        battle.defenderId ? players.updateOne({ _id: battle.defenderId }, { $set: { resources: defenderResources, lastResourceCollectedAt: now, lastSeenAt: now } }) : Promise.resolve(),
+      ]);
+      if (battle.defenderId) {
+        const defenderRemainingClaims = await territoryClaims.countDocuments({ playerId: battle.defenderId });
+        if (defenderRemainingClaims === 0) {
+          await Promise.all([
+            territoryClaims.deleteMany({ playerId: battle.defenderId }),
+            territoryClearings.deleteMany({ playerId: battle.defenderId }),
+            marchOrders.deleteMany({ ownerId: battle.defenderId }),
+            activeBattles.deleteMany({
+              _id: { $ne: battle._id },
+              $or: [{ attackerId: battle.defenderId }, { defenderId: battle.defenderId }],
+            }),
+            saves.updateOne(
+              { playerId: battle.defenderId },
+              {
+                $set: { towns: [], updatedAt: now },
+                $setOnInsert: { _id: `save:${battle.defenderId}`, playerId: battle.defenderId },
+              },
+              { upsert: true },
+            ),
+            players.updateOne(
+              { _id: battle.defenderId },
+              {
+                $set: {
+                  resources: emptyResources(),
+                  onboardingState: "needs_claim",
+                  lastResourceCollectedAt: now,
+                  lastSeenAt: now,
+                  newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
+                },
+              },
+            ),
+          ]);
+          publishRealtime({ type: "player_eliminated", playerId: battle.defenderId, reason: "all_towns_captured" });
+        }
+      }
+    } else if (battle.defenderId) {
+      const survivorRatio = winnerRatio;
+      const nextInfantry = Math.max(1, Math.floor(battle.defenderInfantry * survivorRatio));
+      const nextCavalry = Math.max(0, Math.floor(battle.defenderCavalry * survivorRatio));
+      const nextArtillery = Math.max(0, Math.floor(battle.defenderArtillery * survivorRatio));
+      const nextTroops = troopValue(nextInfantry, nextCavalry, nextArtillery);
+      const defenderSave = (await saves.findOne({ playerId: battle.defenderId })) as any;
+      const defenderTowns = Array.isArray(defenderSave?.towns) ? removeTownForTerritory(defenderSave.towns, territory) : [];
+      const keptTown = normalizeTownSnapshotForState({
+        ...defaultTownSnapshotForTerritory(territory, battle.defenderId, battle.townId),
+        ownerId: battle.defenderId,
+        infantryCount: nextInfantry,
+        cavalryCount: nextCavalry,
+        artilleryCount: nextArtillery,
+        troops: nextTroops,
+      }, battle.defenderId, territory);
+      defenderTowns.push(keptTown);
+      await saves.updateOne(
+        { playerId: battle.defenderId },
+        { $set: { towns: defenderTowns, updatedAt: now }, $setOnInsert: { _id: `save:${battle.defenderId}`, playerId: battle.defenderId, resources: DEFAULT_PLAYER_RESOURCES } },
+        { upsert: true },
+      );
+      const retreatRatio = clampNumber(gameConfig.retreatPercent, 0, 100) / 100;
+      if (retreatRatio > 0) {
+        const sourceTerritory = getStaticTerritory(battle.fromTerritoryId);
+        if (sourceTerritory) {
+          const retreatInfantry = Math.floor(battle.attackerInfantry * retreatRatio);
+          const retreatCavalry = Math.floor(battle.attackerCavalry * retreatRatio);
+          const retreatArtillery = Math.floor(battle.attackerArtillery * retreatRatio);
+          if (retreatInfantry + retreatCavalry + retreatArtillery > 0) {
+            const attackerSave = (await saves.findOne({ playerId: battle.attackerId })) as any;
+            const attackerTowns = Array.isArray(attackerSave?.towns) ? removeTownForTerritory(attackerSave.towns, sourceTerritory) : [];
+            const sourceTown = normalizeTownSnapshotForState(
+              findTownForTerritory(attackerSave?.towns || [], sourceTerritory) || defaultTownSnapshotForTerritory(sourceTerritory, battle.attackerId),
+              battle.attackerId,
+              sourceTerritory,
+            );
+            sourceTown.infantryCount = Math.max(0, (sourceTown.infantryCount || 0) + retreatInfantry);
+            sourceTown.cavalryCount = Math.max(0, (sourceTown.cavalryCount || 0) + retreatCavalry);
+            sourceTown.artilleryCount = Math.max(0, (sourceTown.artilleryCount || 0) + retreatArtillery);
+            sourceTown.troops = troopValue(sourceTown.infantryCount, sourceTown.cavalryCount, sourceTown.artilleryCount);
+            attackerTowns.push(sourceTown);
+            await saves.updateOne(
+              { playerId: battle.attackerId },
+              { $set: { towns: attackerTowns, updatedAt: now }, $setOnInsert: { _id: `save:${battle.attackerId}`, playerId: battle.attackerId, resources: DEFAULT_PLAYER_RESOURCES } },
+              { upsert: true },
+            );
+          }
+        }
+      }
+    }
+
+    await activeBattles.deleteOne({ _id: battle._id });
+    const claim = await territoryClaims.findOne({ territoryId: territory.id });
+    const [player, alliance] = claim?.playerId
+      ? await Promise.all([
+        players.findOne({ _id: claim.playerId }),
+        alliances.findOne({ memberIds: claim.playerId }),
+      ])
+      : [null, null];
+    const publicTerritory = {
+      ...territory,
+      ownerId: claim?.playerId ?? null,
+      ownerName: claim?.playerId ? player?.name ?? claim.playerId : null,
+      ownerFlagColor: claim?.playerId ? player?.flagColor ?? "#2f70d7" : undefined,
+      ownerEmblem: claim?.playerId ? player?.emblem ?? "shield" : undefined,
+      ownerAllianceTag: alliance?.tag,
+      ownerAllianceEmblem: alliance?.emblem,
+    };
+    publishRealtime({
+      type: "battle_resolved",
+      battleId: battle._id,
+      territory: publicTerritory,
+      winner: attackerWins ? "attacker" : "defender",
+    });
+    publishRealtime({ type: "territory_claimed", territory: publicTerritory });
+  }
+  if (resolved.length > 0) {
     await bumpWorldCacheVersion();
     publishRealtime({ type: "world_state_hint", reason: "server_resync" });
   }
@@ -758,43 +1270,9 @@ async function cachedWorldTerritoriesPayload() {
   return payload;
 }
 
-const MAP_UNITS_TO_KM = 0.18;
-const DEFAULT_MARCH_CONFIG = {
-  infantrySpeed: 24,
-  cavalrySpeed: 42,
-  artillerySpeed: 14,
-  shipSpeed: 12,
-  gameHourSeconds: 60,
-};
 
-const DEFAULT_CONFIG: GameConfig = {
-  maxBattleDuration: 12,
-  infantryCostGold: 100,
-  infantryCostWood: 30,
-  infantryCostFood: 55,
-  infantryTroopsValue: 18,
-  cavalryCostGold: 170,
-  cavalryCostWood: 40,
-  cavalryCostStone: 45,
-  cavalryCostFood: 90,
-  cavalryCostIron: 12,
-  cavalryTroopsValue: 34,
-  artilleryCostGold: 240,
-  artilleryCostStone: 120,
-  artilleryCostIron: 85,
-  artilleryCostSulfur: 25,
-  artilleryTroopsValue: 58,
-  settlerSpeed: 18,
-  infantrySpeed: DEFAULT_MARCH_CONFIG.infantrySpeed,
-  cavalrySpeed: DEFAULT_MARCH_CONFIG.cavalrySpeed,
-  artillerySpeed: DEFAULT_MARCH_CONFIG.artillerySpeed,
-  shipSpeed: DEFAULT_MARCH_CONFIG.shipSpeed,
-  gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
-};
 
-function normalizeGameConfig(doc?: Partial<GameConfig> | null): GameConfig {
-  return { ...DEFAULT_CONFIG, ...(doc || {}) };
-}
+
 
 function calcTravelMetrics(
   from: Pick<TerritoryInfo, "x" | "y" | "isIslet">,
@@ -820,12 +1298,6 @@ function calcTravelMetrics(
 
 export function createApp() {
   const app = express();
-
-  async function loadGameConfig(): Promise<GameConfig> {
-    const { configs } = await collections();
-    const doc = await configs.findOne({ _id: "game_settings" });
-    return normalizeGameConfig(doc || null);
-  }
 
   app.disable("x-powered-by");
   app.use(helmet());
@@ -872,40 +1344,13 @@ export function createApp() {
     const { username, password, flagColor, emblem, starterLandId } = parsed.data;
     const normalizedUsername = username.trim();
     const id = `player:${normalizedUsername.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-    const { players, territoryClaims } = await collections();
+    const { players } = await collections();
     const existingPlayer = await players.findOne({ _id: id });
     if (existingPlayer) {
       return res.status(400).json({ error: "username_taken", message: "Tên tài khoản đã tồn tại" });
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const now = new Date();
-
-    // Find and claim a territory dynamically in the chosen starting zone
-    const claimedList = await territoryClaims.find({}).toArray();
-    const claimedIds = new Set(claimedList.map((c) => c.territoryId));
-    const allStatic = buildStaticTerritoryList();
-    const targetBiomes = 
-      starterLandId === "north-forest" ? [2] :
-      starterLandId === "west-hills" ? [3] :
-      starterLandId === "east-coast" ? [1] :
-      [0, 6]; // south-river
-      
-    let chosenTerritory = allStatic.find((t) => !t.isIslet && targetBiomes.includes(t.biome) && !claimedIds.has(t.id));
-    if (!chosenTerritory) {
-      chosenTerritory = allStatic.find((t) => !t.isIslet && !claimedIds.has(t.id));
-    }
-    if (!chosenTerritory) {
-      chosenTerritory = allStatic.find((t) => !claimedIds.has(t.id));
-    }
-
-    if (chosenTerritory) {
-      await territoryClaims.insertOne({
-        _id: `territory:${chosenTerritory.id}`,
-        territoryId: chosenTerritory.id,
-        playerId: id,
-        claimedAt: now,
-      });
-    }
 
     await players.insertOne({
       _id: id,
@@ -914,7 +1359,7 @@ export function createApp() {
       flagColor,
       emblem,
       starterLandId,
-      onboardingState: chosenTerritory ? "settled" : "needs_claim",
+      onboardingState: "needs_claim",
       resources: DEFAULT_PLAYER_RESOURCES,
       lastResourceCollectedAt: now,
       role: "player",
@@ -974,18 +1419,26 @@ export function createApp() {
 
   app.post("/api/player/profile", requireAuth, async (req, res) => {
     const parsed = z.object({
-      flagColor: z.string().min(3).max(7),
-      emblem: z.string().min(2).max(20),
-    }).safeParse(req.body);
+      flagColor: z.string().min(3).max(20).optional(),
+      emblem: z.string().min(2).max(40).optional(),
+      cityName: z.string().max(60).optional(),
+    }).passthrough().safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "Màu cờ hoặc biểu tượng không hợp lệ" });
     }
-    const { flagColor, emblem } = parsed.data;
+    const { flagColor, emblem, cityName } = parsed.data;
     const { players } = await collections();
-    await players.updateOne(
-      { _id: req.user!.id },
-      { $set: { flagColor, emblem } }
-    );
+    const updateData: any = {};
+    if (flagColor) updateData.flagColor = flagColor;
+    if (emblem) updateData.emblem = emblem;
+    if (cityName) updateData.cityName = cityName;
+
+    if (Object.keys(updateData).length > 0 && req.user?.id) {
+      await players.updateOne(
+        { _id: req.user.id },
+        { $set: updateData }
+      );
+    }
     await bumpWorldCacheVersion();
     publishRealtime({ type: "world_state_hint", reason: "server_resync" });
     res.json({ ok: true });
@@ -1193,6 +1646,9 @@ export function createApp() {
     if (claim && claim.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
     }
+    if (claim && claim.playerId === req.user!.id) {
+      return res.status(409).json({ error: "already_owned", message: "Bạn đã sở hữu lãnh thổ này, hãy chọn vùng đất hoang khác để xây thành" });
+    }
     const existing = await territoryClearings.findOne({ territoryId: territory.id });
     if (existing && existing.playerId !== req.user!.id) {
       return res.status(409).json({ error: "already_clearing", message: "Đã có người khác đang xây thành trên lãnh thổ này" });
@@ -1226,12 +1682,48 @@ export function createApp() {
     }
     const gameSettings = await loadGameConfig();
     const clearingSeconds = calcClearingSeconds(territory.rx, territory.ry, territory.biome, gameSettings.settlerSpeed, gameSettings.gameHourSeconds);
+    
+    // Calculate settler travel time from nearest owned territory or port town
+    const ownedClaimsList = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    let originX = territory.x - Math.min(120, Math.max(45, territory.rx * 0.42));
+    let originY = territory.y + Math.min(70, Math.max(24, territory.ry * 0.18));
+    if (ownedClaimsList.length > 0) {
+      const candidates = ownedClaimsList.map((c) => {
+        const t = getStaticTerritory(c.territoryId);
+        const dist = t ? Math.hypot(t.x - territory.x, t.y - territory.y) : Infinity;
+        const isPort = Boolean(t && (t.isIslet || t.specialResources?.includes("Bến tàu tự nhiên")));
+        return { t, dist, isPort };
+      }).filter((item) => item.t !== undefined);
+
+      if (territory.isIslet || candidates.some((c) => c.isPort)) {
+        const portCandidates = candidates.filter((c) => c.isPort);
+        if (portCandidates.length > 0) {
+          portCandidates.sort((a, b) => a.dist - b.dist);
+          originX = portCandidates[0].t!.x;
+          originY = portCandidates[0].t!.y;
+        } else {
+          candidates.sort((a, b) => a.dist - b.dist);
+          originX = candidates[0].t!.x;
+          originY = candidates[0].t!.y;
+        }
+      } else if (candidates.length > 0) {
+        candidates.sort((a, b) => a.dist - b.dist);
+        originX = candidates[0].t!.x;
+        originY = candidates[0].t!.y;
+      }
+    }
+    const distanceKm = Math.hypot(originX - territory.x, originY - territory.y) * MAP_UNITS_TO_KM;
+    const travelSeconds = Math.max(4, Math.round((distanceKm / Math.max(1, gameSettings.settlerSpeed || 35)) * (gameSettings.gameHourSeconds || 30)));
+    const arrivesAt = new Date(now.getTime() + travelSeconds * 1000);
+    const completesAt = new Date(arrivesAt.getTime() + clearingSeconds * 1000);
+
     const clearing = existing ?? {
       _id: `clearing:${territory.id}`,
       territoryId: territory.id,
       playerId: req.user!.id,
       startedAt: now,
-      completesAt: new Date(now.getTime() + clearingSeconds * 1000),
+      arrivesAt,
+      completesAt,
     };
     if (!existing) {
       try {
@@ -1333,7 +1825,7 @@ export function createApp() {
     const from = getStaticTerritory(parsed.data.fromTerritoryId);
     const to = getStaticTerritory(parsed.data.toTerritoryId);
     if (!from || !to) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ hành quân" });
-    const { territoryClaims, marchOrders, players } = await collections();
+    const { territoryClaims, marchOrders, players, saves } = await collections();
     const sourceClaim = await territoryClaims.findOne({ territoryId: from.id });
     if (!sourceClaim || sourceClaim.playerId !== req.user!.id) {
       return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu lãnh thổ xuất phát" });
@@ -1363,14 +1855,52 @@ export function createApp() {
     }
 
     const gameSettings = await loadGameConfig();
-    const unitPower = parsed.data.infantry * gameSettings.infantryTroopsValue +
-      parsed.data.cavalry * gameSettings.cavalryTroopsValue +
-      parsed.data.artillery * gameSettings.artilleryTroopsValue;
+    let infantry = Math.max(0, Math.floor(Number(parsed.data.infantry || 0) || 0));
+    let cavalry = Math.max(0, Math.floor(Number(parsed.data.cavalry || 0) || 0));
+    let artillery = Math.max(0, Math.floor(Number(parsed.data.artillery || 0) || 0));
+    if (infantry + cavalry + artillery <= 0 && parsed.data.troops > 0) {
+      infantry = inferInfantryFromTroops(parsed.data.troops, gameSettings);
+    }
+    const unitPower = infantry * gameSettings.infantryTroopsValue +
+      cavalry * gameSettings.cavalryTroopsValue +
+      artillery * gameSettings.artilleryTroopsValue;
     const troops = unitPower > 0 ? unitPower : parsed.data.troops;
+    const save = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
+    const sourceTownIndex = towns.findIndex((town: any) =>
+      town?.id === townIdForTerritory(from.id) ||
+      Math.hypot((town?.x ?? 0) - from.x, (town?.y ?? 0) - from.y) < 96
+    );
+    const sourceTown = normalizeTownSnapshotForState(
+      sourceTownIndex >= 0 ? towns[sourceTownIndex] : defaultTownSnapshotForTerritory(from, req.user!.id),
+      req.user!.id,
+      from,
+    );
+    if (
+      sourceTown.infantryCount < infantry ||
+      sourceTown.cavalryCount < cavalry ||
+      sourceTown.artilleryCount < artillery
+    ) {
+      return res.status(409).json({
+        error: "not_enough_troops",
+        message: "Thành xuất phát không đủ quân để hành quân",
+        town: sourceTown,
+      });
+    }
+    sourceTown.infantryCount = Math.max(0, sourceTown.infantryCount - infantry);
+    sourceTown.cavalryCount = Math.max(0, sourceTown.cavalryCount - cavalry);
+    sourceTown.artilleryCount = Math.max(0, sourceTown.artilleryCount - artillery);
+    sourceTown.troops = Math.max(0,
+      sourceTown.infantryCount * gameSettings.infantryTroopsValue +
+      sourceTown.cavalryCount * gameSettings.cavalryTroopsValue +
+      sourceTown.artilleryCount * gameSettings.artilleryTroopsValue
+    );
+    if (sourceTownIndex >= 0) towns[sourceTownIndex] = sourceTown;
+    else towns.push(sourceTown);
     const travel = calcTravelMetrics(from, to, {
-      infantry: parsed.data.infantry,
-      cavalry: parsed.data.cavalry,
-      artillery: parsed.data.artillery,
+      infantry,
+      cavalry,
+      artillery,
     }, gameSettings);
     const order = {
       _id: `march:${req.user!.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
@@ -1378,9 +1908,9 @@ export function createApp() {
       fromTerritoryId: from.id,
       toTerritoryId: to.id,
       troops,
-      infantry: parsed.data.infantry,
-      cavalry: parsed.data.cavalry,
-      artillery: parsed.data.artillery,
+      infantry,
+      cavalry,
+      artillery,
       distanceKm: travel.distanceKm,
       travelSeconds: travel.travelSeconds,
       usesShip: travel.usesShip,
@@ -1389,7 +1919,17 @@ export function createApp() {
       startedAt: now,
       arrivesAt: new Date(now.getTime() + travel.travelSeconds * 1000),
     };
-    await marchOrders.insertOne(order);
+    await Promise.all([
+      marchOrders.insertOne(order),
+      saves.updateOne(
+        { playerId: req.user!.id },
+        {
+          $set: { towns, updatedAt: now },
+          $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES },
+        },
+        { upsert: true },
+      ),
+    ]);
     await bumpWorldCacheVersion();
     const payload: CreateMarchResult = { 
       ok: true, 
@@ -1469,22 +2009,69 @@ export function createApp() {
     const townId = townIdForTerritory(territory.id, parsed.data.townId);
     const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
     const townIndex = towns.findIndex((town: any) => town?.id === townId || Math.hypot((town?.x ?? 0) - territory.x, (town?.y ?? 0) - territory.y) < 96);
-    const town = townIndex >= 0 ? { ...towns[townIndex] } : defaultTownSnapshotForTerritory(territory, req.user!.id, townId);
-    town.id = townId;
-    town.ownerId = req.user!.id;
-    town.x = territory.x;
-    town.y = territory.y;
-    town.level = Math.max(1, Math.floor(Number(town.level ?? town.lvl ?? 2) || 2));
-    town.population = Math.max(0, Math.floor(Number(town.population ?? 32) || 32));
-    town.infantryCount = Math.max(0, Math.floor(Number(town.infantryCount ?? town.troops ?? 0) || 0));
-    town.cavalryCount = Math.max(0, Math.floor(Number(town.cavalryCount ?? 0) || 0));
-    town.artilleryCount = Math.max(0, Math.floor(Number(town.artilleryCount ?? 0) || 0));
+    const rawTown = townIndex >= 0 ? { ...towns[townIndex] } : defaultTownSnapshotForTerritory(territory, req.user!.id, townId);
+    const town = normalizeTownSnapshotForState({
+      ...rawTown,
+      id: townId,
+      ownerId: req.user!.id,
+      x: territory.x,
+      y: territory.y,
+    }, req.user!.id, territory);
+
+    const specialResources = calcSpecialResources(territory);
+    if (unitType === "cavalry" && !specialResources.includes("Bãi ngựa")) {
+      return res.status(409).json({
+        error: "missing_horse_pasture",
+        message: "Thành này cần lãnh thổ có Bãi ngựa để mộ kị binh",
+        town,
+        resources: currentRes,
+      });
+    }
+    if (
+      unitType === "artillery" &&
+      !specialResources.includes("Xưởng đúc pháo") &&
+      Math.floor(Number(town.buildings.siegeWorkshop || 0)) <= 0
+    ) {
+      return res.status(409).json({
+        error: "missing_siege_workshop",
+        message: "Thành này cần Xưởng đúc pháo hoặc công trình xưởng pháo để mộ pháo binh",
+        town,
+        resources: currentRes,
+      });
+    }
+    const populationNeeded = troopPopulationCost(unitValue) * count;
+    if (town.population < populationNeeded) {
+      return res.status(409).json({
+        error: "not_enough_population",
+        message: `Không đủ dân để mộ binh. Cần ${populationNeeded} dân khả dụng`,
+        town,
+        resources: currentRes,
+      });
+    }
+    const maxDefendingTroops = maxDefendingTroopsForTown(town);
+    if ((town.troops || 0) + troopsAdded > maxDefendingTroops) {
+      return res.status(409).json({
+        error: "town_troop_cap",
+        message: `Thành đã gần đầy quân đồn trú (${town.troops || 0}/${maxDefendingTroops})`,
+        town,
+        resources: currentRes,
+      });
+    }
     if (unitType === "infantry") town.infantryCount += count;
     else if (unitType === "cavalry") town.cavalryCount += count;
     else town.artilleryCount += count;
     town.troops = Math.max(0, Math.floor(Number(town.troops ?? 0) || 0)) + troopsAdded;
     if (townIndex >= 0) towns[townIndex] = town;
     else towns.push(town);
+    const ownedClaimsForTowns = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    const ownedTerritoriesForTowns = ownedClaimsForTowns
+      .map((ownedClaim) => {
+        const ownedTerritory = getStaticTerritory(ownedClaim.territoryId);
+        return ownedTerritory ? { ...ownedTerritory, ownerId: req.user!.id } : null;
+      })
+      .filter((ownedTerritory): ownedTerritory is NonNullable<ReturnType<typeof getStaticTerritory>> & { ownerId: string } => Boolean(ownedTerritory));
+    const hydratedTowns = townSnapshotsForPlayer(towns, ownedTerritoriesForTowns, req.user!.id, nextResources);
+    const hydratedTown = hydratedTowns.find((item: any) => item.id === townId) || town;
 
     await Promise.all([
       saves.updateOne(
@@ -1516,7 +2103,7 @@ export function createApp() {
       count,
       unitCountAdded: count,
       troopsAdded,
-      town,
+      town: hydratedTown,
       resources: nextResources,
       message: `Chiêu mộ thành công ${count} đợt binh sĩ (${unitType})`,
     });
@@ -1566,43 +2153,10 @@ export function createApp() {
   });
 
   app.post("/api/world/territories/:id/conquer", requireAuth, async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 0) {
-      return res.status(400).json({ error: "bad_request", message: "ID lãnh thổ không hợp lệ" });
-    }
-    const staticTerritory = buildStaticTerritoryList().find((territory) => territory.id === id);
-    if (!staticTerritory) {
-      return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
-    }
-    const { players, territoryClaims, territoryClearings, marchOrders, alliances } = await collections();
-    const now = new Date();
-    await territoryClaims.updateOne(
-      { territoryId: id },
-      { $set: { playerId: req.user!.id, claimedAt: now }, $setOnInsert: { _id: `territory:${id}`, territoryId: id } },
-      { upsert: true },
-    );
-    await territoryClearings.deleteMany({ territoryId: id });
-    await marchOrders.deleteMany({ $or: [{ fromTerritoryId: id }, { toTerritoryId: id }] });
-    await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
-    const [player, alliance] = await Promise.all([
-      players.findOne({ _id: req.user!.id }),
-      alliances.findOne({ memberIds: req.user!.id }),
-    ]);
-    await bumpWorldCacheVersion();
-    const payload: ClaimTerritoryResult = {
-      ok: true,
-      territory: { 
-        ...staticTerritory, 
-        ownerId: req.user!.id, 
-        ownerName: player?.name ?? req.user!.id,
-        ownerFlagColor: player?.flagColor,
-        ownerEmblem: player?.emblem,
-        ownerAllianceTag: alliance?.tag,
-        ownerAllianceEmblem: alliance?.emblem,
-      },
-    };
-    publishRealtime({ type: "territory_claimed", territory: payload.territory });
-    res.json(payload);
+    return res.status(410).json({
+      error: "backend_battle_required",
+      message: "Công thành phải đi qua lệnh hành quân và active battle trên server",
+    });
   });
 
   app.get("/api/save/me", requireAuth, async (req, res) => {
@@ -1626,6 +2180,21 @@ export function createApp() {
 
   const ConfigSchema = z.object({
     maxBattleDuration: z.number().positive(),
+    minBattleDuration: z.number().positive(),
+    baseBattleSeconds: z.number().nonnegative(),
+    battlePowerPerSecond: z.number().positive(),
+    townBattleSeconds: z.number().nonnegative(),
+    fortBattleSeconds: z.number().nonnegative(),
+    infantryAttackPower: z.number().nonnegative(),
+    infantryDefensePower: z.number().nonnegative(),
+    cavalryAttackPower: z.number().nonnegative(),
+    cavalryDefensePower: z.number().nonnegative(),
+    artilleryAttackPower: z.number().nonnegative(),
+    artilleryDefensePower: z.number().nonnegative(),
+    townLevelDefense: z.number().nonnegative(),
+    fortLevelDefense: z.number().nonnegative(),
+    lootPercent: z.number().min(0).max(100),
+    retreatPercent: z.number().min(0).max(100),
     infantryCostGold: z.number().nonnegative(),
     infantryCostWood: z.number().nonnegative(),
     infantryCostFood: z.number().nonnegative(),
@@ -1713,18 +2282,22 @@ export function createApp() {
 
   // ─── ADMIN: Reset Player Save ─────────────────────────────────────────────
   app.delete("/api/admin/players/:id/save", requireAuth, requireAdmin, async (req, res) => {
-    const { saves } = await collections();
-    await saves.deleteOne({ playerId: req.params.id });
+    const { saves, activeBattles } = await collections();
+    await Promise.all([
+      saves.deleteOne({ playerId: req.params.id }),
+      activeBattles.deleteMany({ $or: [{ attackerId: req.params.id }, { defenderId: req.params.id }] }),
+    ]);
     res.json({ ok: true, message: `Save của ${req.params.id} đã bị xóa.` });
   });
 
   // ─── ADMIN: Delete Player Account ────────────────────────────────────────
   app.delete("/api/admin/players/:id", requireAuth, requireAdmin, async (req, res) => {
-    const { players, saves } = await collections();
+    const { players, saves, activeBattles } = await collections();
     const pid = req.params.id;
     await Promise.all([
       players.deleteOne({ _id: pid }),
       saves.deleteOne({ playerId: pid }),
+      activeBattles.deleteMany({ $or: [{ attackerId: pid }, { defenderId: pid }] }),
     ]);
     res.json({ ok: true, message: `Tài khoản ${pid} đã bị xóa.` });
   });
@@ -1747,11 +2320,12 @@ export function createApp() {
   app.post("/api/admin/territories/:id/reset", requireAuth, requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "bad_request", message: "ID không hợp lệ" });
-    const { territoryClaims, territoryClearings, marchOrders } = await collections();
+    const { territoryClaims, territoryClearings, marchOrders, activeBattles } = await collections();
     await Promise.all([
       territoryClaims.deleteOne({ territoryId: id }),
       territoryClearings.deleteOne({ territoryId: id }),
       marchOrders.deleteMany({ $or: [{ fromTerritoryId: id }, { toTerritoryId: id }] }),
+      activeBattles.deleteMany({ regionId: id }),
     ]);
     await bumpWorldCacheVersion();
     res.json({ ok: true, message: `Lãnh thổ ${id} đã reset về hoang dã.` });
@@ -1759,11 +2333,12 @@ export function createApp() {
 
   // ─── ADMIN: Reset All Territory Runtime Data ─────────────────────────────
   app.post("/api/admin/territories/reset-all", requireAuth, requireAdmin, async (_req, res) => {
-    const { players, saves, territoryClaims, territoryClearings, marchOrders, allianceAids } = await collections();
+    const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, allianceAids } = await collections();
     await Promise.all([
       territoryClaims.deleteMany({}),
       territoryClearings.deleteMany({}),
       marchOrders.deleteMany({}),
+      activeBattles.deleteMany({}),
       allianceAids.deleteMany({}),
       saves.deleteMany({}),
       players.updateMany({ role: "player" }, { $set: { onboardingState: "needs_claim" }, $unset: { starterLandId: "" } }),

@@ -6,6 +6,7 @@ import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from
 import { LoginScreen } from "./LoginScreen";
 import { TerritoryTooltip } from "./TerritoryTooltip";
 import { NewbieOnboardingModal } from "./NewbieOnboardingModal";
+import { KingdomCreationModal } from "./KingdomCreationModal";
 import { TownManagementModal } from "./TownManagementModal";
 import { TroopDeploymentModal } from "./TroopDeploymentModal";
 import { ArmyModal } from "./ArmyModal";
@@ -250,6 +251,13 @@ function applyNewbieResetOnce() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(PLAYER_ID_KEY);
   localStorage.removeItem(CLAIM_KEY);
+  params.delete("newbie");
+  const nextSearch = params.toString();
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`
+  );
 }
 
 function isNewbieMode() {
@@ -345,6 +353,17 @@ function summarizeBackendHud(
   };
 }
 
+function mapServerBattlesForClient(battles: any[] = []) {
+  return battles.map((battle) => ({
+    ...battle,
+    regionId: serverToEngineTerritoryId(battle.regionId),
+    attPower: battle.attackerPower ?? battle.attPower ?? 0,
+    defPower: battle.defenderPower ?? battle.defPower ?? 0,
+    duration: battle.durationSeconds ?? battle.duration ?? 1,
+    t: battle.startedAt ? Math.max(0, (Date.now() - new Date(battle.startedAt).getTime()) / 1000) : battle.t ?? 0,
+  }));
+}
+
 function formatServerEvent(event: any, currentPlayerId: string | null) {
   if (event.type === "territory_claimed") {
     const mine = event.territory.ownerId === currentPlayerId;
@@ -361,6 +380,18 @@ function formatServerEvent(event: any, currentPlayerId: string | null) {
       : "TẤN CÔNG";
     const distance = event.march.distanceKm ? ` | ${event.march.distanceKm}KM` : "";
     return `[${mine ? "LIÊN MINH" : "THẾ GIỚI"}] ${mine ? "BẠN" : "ĐỐI THỦ"}: ${action} #${event.march.toTerritoryId + 1} (${event.march.troops} QUÂN${distance})`;
+  }
+  if (event.type === "battle_started") {
+    const mine = event.battle.attackerId === currentPlayerId || event.battle.defenderId === currentPlayerId;
+    return `[${mine ? "LIÊN MINH" : "THẾ GIỚI"}] SYSTEM: BẮT ĐẦU CÔNG THÀNH #${event.battle.regionId + 1}`;
+  }
+  if (event.type === "battle_resolved") {
+    return `[THẾ GIỚI] SYSTEM: ${event.winner === "attacker" ? "CÔNG THÀNH THẮNG" : "THỦ THÀNH THẮNG"} #${event.territory.id + 1}`;
+  }
+  if (event.type === "player_eliminated") {
+    return event.playerId === currentPlayerId
+      ? "[LIÊN MINH] SYSTEM: BẠN ĐÃ MẤT TOÀN BỘ THÀNH, HÃY CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI"
+      : "[THẾ GIỚI] SYSTEM: MỘT VƯƠNG QUỐC ĐÃ BỊ ĐÁNH BẠI HOÀN TOÀN";
   }
   return `[THẾ GIỚI] SYSTEM: ĐỒNG BỘ SOCKET`;
 }
@@ -546,6 +577,9 @@ export function GameApp() {
   const setWorldActivity = useGameStore((state) => state.setWorldActivity);
   const serverHud = useGameStore((state) => state.serverHud);
   const setServerHud = useGameStore((state) => state.setServerHud);
+  const serverTownsById = useGameStore((state) => state.townsById);
+  const setServerTowns = useGameStore((state) => state.setTowns);
+  const upsertServerTown = useGameStore((state) => state.upsertTown);
   const enqueueGameAction = useGameStore((state) => state.enqueueAction);
   const confirmGameAction = useGameStore((state) => state.confirmAction);
   const rollbackGameAction = useGameStore((state) => state.rollbackAction);
@@ -570,6 +604,7 @@ export function GameApp() {
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<number | null>(null);
+  const [kingdomCreationRegion, setKingdomCreationRegion] = useState<number | null>(null);
   const [coordinateSearch, setCoordinateSearch] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [chatChannel, setChatChannel] = useState<ChatChannel>("THẾ GIỚI");
@@ -896,12 +931,14 @@ export function GameApp() {
             territories,
             clearings: world.clearings,
             marches: world.marches,
+            battles: mapServerBattlesForClient(world.battles || []),
             towns: world.towns,
             resources: world.resources,
             newbieShieldUntil: world.newbieShieldUntil,
             playerProfile: world.playerProfile,
           });
           setResources({ ...world.resources });
+          setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
           const offlineSummary = summarizeResourceGain(world.offlineGain, world.offlineSeconds);
           if (offlineSummary) {
             addWarReport({
@@ -917,7 +954,7 @@ export function GameApp() {
           setWorldActivity({
             marches: world.marches,
             clearings: world.clearings,
-            battles: [],
+            battles: mapServerBattlesForClient(world.battles || []),
             territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
           });
           setServerHud(summarizeBackendHud(world, playerId, world.resources));
@@ -926,6 +963,12 @@ export function GameApp() {
             { text: "CÓ 1 ĐẠO QUÂN ĐANG HÀNH QUÂN", value: Math.min(world.marches.filter((march: any) => march.ownerId === playerId).length, 1), goal: 1 },
             { text: "HOÀN TẤT 1 XÂY THÀNH", value: Math.min(territories.filter((territory) => territory.ownerCode === 1).length, 1), goal: 1 }
           ]);
+          const hasOwnedTerritory = territories.some((territory) => territory.ownerCode === 1);
+          const hasOwnClearing = world.clearings.some((clearing: any) => clearing.playerId === playerId);
+          if (!hasOwnedTerritory && !hasOwnClearing) {
+            localStorage.setItem(ONBOARDING_KEY, "1");
+            setKingdomCreationRegion(null);
+          }
           if (localStorage.getItem(ONBOARDING_KEY) === "1") {
             const owned = territories.find((t) => t.ownerCode === 1);
             if (owned) {
@@ -1069,6 +1112,50 @@ export function GameApp() {
           lastSync: Date.now(),
         }));
       }
+      if (event.type === "battle_started") {
+        addWarReport({
+          id: `socket-battle-${event.battle.id}`,
+          kind: "battle",
+          title: `Công thành ${territoryLabel(serverToEngineTerritoryId(event.battle.regionId))}`,
+          body: `Công ${formatNum(event.battle.attackerPower)} / Thủ ${formatNum(event.battle.defenderPower)}. Trận đánh sẽ do server tổng kết.`,
+          meta: `Kết thúc sau ${formatTimeLeft(event.battle.resolvesAt)}`,
+        });
+        setWorldActivity((prev) => ({
+          ...prev,
+          battles: [
+            ...prev.battles.filter((battle) => battle.id !== event.battle.id),
+            { ...event.battle, regionId: serverToEngineTerritoryId(event.battle.regionId) },
+          ],
+        }));
+        refreshGameStateFromServer("battle-started", true);
+      }
+      if (event.type === "battle_resolved") {
+        addWarReport({
+          id: `socket-battle-resolved-${event.battleId}`,
+          kind: "battle",
+          title: event.winner === "attacker" ? "Công thành thắng lợi" : "Thủ thành thành công",
+          body: `${territoryLabel(serverToEngineTerritoryId(event.territory.id))} đã được server tổng kết.`,
+          meta: event.winner === "attacker" ? "Quyền sở hữu đã cập nhật" : "Thành vẫn được giữ",
+        });
+        setWorldActivity((prev) => ({
+          ...prev,
+          battles: prev.battles.filter((battle) => battle.id !== event.battleId),
+        }));
+        refreshGameStateFromServer("battle-resolved", true);
+      }
+      if (event.type === "player_eliminated" && event.playerId === playerId) {
+        localStorage.setItem(ONBOARDING_KEY, "1");
+        setKingdomCreationRegion(null);
+        setSelectedTown(null);
+        setSelectedRegion(null);
+        setResources({ gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 });
+        engineRef.current?.handleAction("setToast", { message: "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI" });
+        addPrivateReportMail(
+          "Vương quốc thất thủ",
+          "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc."
+        );
+        refreshGameStateFromServer("player-eliminated", true);
+      }
       if (event.type === "world_state_hint") {
         refreshGameStateFromServer("socket-hint");
       }
@@ -1110,6 +1197,7 @@ export function GameApp() {
     activeModal === "chat" ||
     activeModal === "tutorial" ||
     showTutorial ||
+    kingdomCreationRegion !== null ||
     (newbiePhase === "choose_banner" && newbieSelectedRegion !== null);
 
   useEffect(() => {
@@ -1144,10 +1232,30 @@ export function GameApp() {
     engineRef.current?.handleAction("setToast", { message });
   };
 
+  const normalizeTownForClient = (town: any) => {
+    if (!town) return town;
+    const level = Math.max(1, Math.floor(Number(town.lvl ?? town.level ?? 1) || 1));
+    return {
+      ...town,
+      lvl: level,
+      level,
+      owner: town.owner ?? (town.ownerId ? (town.ownerId === playerId ? 0 : 1) : 0),
+      buildings: { ...(town.buildings || {}) },
+      storage: { ...(town.storage || {}) },
+    };
+  };
+
+  const mergeTownWithServer = (town: any) => {
+    if (!town) return town;
+    const serverTown = serverTownsById[Number(town.id)];
+    if (!serverTown) return normalizeTownForClient(town);
+    return normalizeTownForClient({ ...town, ...serverTown });
+  };
+
   const getValidSourceTown = () => {
     const engine = engineRef.current;
     if (!engine) return null;
-    if (selectedTown && engine.isPlayerOwnedTown?.(selectedTown)) return selectedTown;
+    if (selectedTown && engine.isPlayerOwnedTown?.(selectedTown)) return mergeTownWithServer(selectedTown);
     return engine.getSourceTown?.() || null;
   };
 
@@ -1156,7 +1264,7 @@ export function GameApp() {
       showGameError("Chưa kết nối server, không thể mộ binh");
       return;
     }
-    const town = selectedTown;
+    const town = mergeTownWithServer(selectedTown);
     const territoryId = engineRef.current?.getTownRegionId?.(town);
     if (!town || territoryId === undefined || territoryId === null || territoryId < 0) {
       showGameError("Không xác định được lãnh thổ của thành");
@@ -1181,6 +1289,15 @@ export function GameApp() {
       type: "recruit",
       rollback: () => {
         setResources(previousResources);
+        setSelectedTown((prev: any) => {
+          if (!prev || prev.id !== town.id) return prev;
+          const next = { ...prev };
+          if (unitType === "infantry") next.infantryCount = Math.max(0, (next.infantryCount || 0) - 1);
+          else if (unitType === "cavalry") next.cavalryCount = Math.max(0, (next.cavalryCount || 0) - 1);
+          else next.artilleryCount = Math.max(0, (next.artilleryCount || 0) - 1);
+          next.troops = Math.max(0, (next.troops || 0) - optimistic.troopsAdded);
+          return next;
+        });
         engineRef.current?.handleAction("rollbackRecruitment", {
           ...optimisticPayload,
           resources: previousResources,
@@ -1189,6 +1306,15 @@ export function GameApp() {
       },
     });
     setResources(optimisticPayload.resources as any);
+    setSelectedTown((prev: any) => {
+      if (!prev || prev.id !== town.id) return prev;
+      const next = { ...prev };
+      if (unitType === "infantry") next.infantryCount = (next.infantryCount || 0) + 1;
+      else if (unitType === "cavalry") next.cavalryCount = (next.cavalryCount || 0) + 1;
+      else next.artilleryCount = (next.artilleryCount || 0) + 1;
+      next.troops = (next.troops || 0) + optimistic.troopsAdded;
+      return next;
+    });
     engineRef.current?.handleAction("applyRecruitment", optimisticPayload);
 
     try {
@@ -1200,6 +1326,15 @@ export function GameApp() {
       if (res.resources) {
         setResources((prev) => ({ ...prev, ...res.resources }));
         engineRef.current?.handleAction("syncResources", { resources: res.resources });
+      }
+      if (res.town) {
+        const serverTown = normalizeTownForClient(res.town);
+        upsertServerTown(serverTown);
+        engineRef.current?.handleAction("syncTownSnapshots", { towns: [serverTown] });
+        setSelectedTown((prev: any) => {
+          if (!prev || prev.id !== serverTown.id) return prev;
+          return { ...prev, ...serverTown };
+        });
       }
       confirmGameAction(actionId);
     } catch (err: any) {
@@ -1230,10 +1365,11 @@ export function GameApp() {
       playerProfile: world.playerProfile,
     });
     setResources({ ...world.resources });
+    setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
     setWorldActivity((prev) => ({
       marches: world.marches,
       clearings: world.clearings,
-      battles: resetBattles ? [] : prev.battles,
+      battles: world.battles ? mapServerBattlesForClient(world.battles) : (resetBattles ? [] : prev.battles),
       territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
     }));
     setServerHud(summarizeBackendHud(world, playerId, world.resources));
@@ -1284,6 +1420,7 @@ export function GameApp() {
   }
 
   const localOwnedTowns = engineRef.current?.getPlayerOwnedTowns?.() || [];
+  const selectedTownForModal = selectedTown ? mergeTownWithServer(selectedTown) : null;
   const localTroops = localOwnedTowns.reduce((sum: number, town: any) => sum + (town.troops || 0), 0);
   const hudOwnedTerritories = serverHud.lastSync ? serverHud.ownedTerritories : localOwnedTowns.length;
   const hudTotalTerritories = serverHud.totalTerritories || 75;
@@ -1858,10 +1995,26 @@ export function GameApp() {
               state.selectedRegion = null;
               state.selected = null;
             }
+            setSelectedRegion(null);
           }}
           onKhaiHoang={(regionId) => {
             if (!token) {
               showGameError("Chưa kết nối server, không thể xây thành");
+              return;
+            }
+            const towns = engineRef.current?.getTowns?.() || [];
+            const playerTownsCount = towns.filter((t: any) => t.owner === 0).length;
+            if (playerTownsCount === 0 || engineRef.current?.getState?.().newbieMode) {
+              engineRef.current?.selectNewbieLand?.(regionId);
+              const engineState = engineRef.current?.getState?.();
+              if (engineState) {
+                engineState.selectedRegion = null;
+                engineState.selected = null;
+              }
+              setNewbiePhase("choose_banner");
+              setNewbieSelectedRegion(regionId);
+              setKingdomCreationRegion(regionId);
+              setSelectedRegion(null);
               return;
             }
             startClearing(token, engineToServerTerritoryId(regionId))
@@ -1919,23 +2072,49 @@ export function GameApp() {
         />
       )}
 
-      {(activeModal === "tutorial" || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null && engineRef.current)) && (
+      {activeModal === "tutorial" && (
         <NewbieOnboardingModal
           onClose={() => {
             engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setActiveModal("");
-            if (engineRef.current && newbiePhase === "choose_banner") {
-              engineRef.current.cancelNewbieOnboarding();
-            }
           }}
           onConfirm={() => {
             engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setActiveModal("");
-            if (engineRef.current && newbiePhase === "choose_banner") {
-              engineRef.current.startNewbieOnboarding("#f59e0b", "crown");
-              if (token) {
-                updatePlayerProfile(token, "#f59e0b", "crown").catch(console.warn);
-              }
+          }}
+        />
+      )}
+
+      {(kingdomCreationRegion !== null || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null)) && engineRef.current && (
+        <KingdomCreationModal
+          defaultCityName="Thành Trì Vương Quốc"
+          onClose={() => {
+            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            setKingdomCreationRegion(null);
+            if (engineRef.current) {
+              engineRef.current.cancelNewbieOnboarding();
+            }
+          }}
+          onConfirm={async (flagColor, emblem, cityName) => {
+            const regionId = kingdomCreationRegion ?? newbieSelectedRegion;
+            if (!token || regionId === null) {
+              showGameError("Chưa kết nối server, không thể xây thành tân thủ");
+              return;
+            }
+            engineRef.current?.handleAction("setToast", { message: "ĐANG GỬI LỆNH XÂY THÀNH TÂN THỦ LÊN SERVER" });
+            try {
+              await updatePlayerProfile(token, flagColor, emblem, cityName);
+              engineRef.current?.startNewbieOnboarding(flagColor, emblem, cityName);
+              const result = await startClearing(token, engineToServerTerritoryId(regionId));
+              engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+              engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+              setKingdomCreationRegion(null);
+              addSystemLine(`BẮT ĐẦU XÂY THÀNH TRÌ ${cityName.toUpperCase()}`);
+              refreshGameStateFromServer("newbie-clearing-started", true);
+            } catch (err: any) {
+              engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+              engineRef.current?.cancelNewbieOnboarding();
+              showGameError(err.message || "Không thể khởi tạo thành trì tân thủ");
             }
           }}
         />
@@ -2048,12 +2227,12 @@ export function GameApp() {
         />
       )}
 
-      {selectedTown && selectedTown.owner === 0 && engineRef.current && (
+      {selectedTownForModal && selectedTownForModal.owner === 0 && engineRef.current && (
         <TownManagementModal
-          town={selectedTown}
+          town={selectedTownForModal}
           resources={resources}
           gameConfig={(engineRef.current as any).getConfig?.()}
-          specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTown)) || []}
+          specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTownForModal)) || []}
           playerColor={(engineRef.current as any).getState?.().newbieFlagColor || "#2563eb"}
           onTrainInfantry={async () => {
             await trainUnitServerFirst("infantry", "Server từ chối mộ bộ binh");

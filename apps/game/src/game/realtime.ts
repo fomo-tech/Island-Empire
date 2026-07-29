@@ -1,6 +1,14 @@
 import type { RealtimeEnvelope, RealtimeEvent } from "@island/shared";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:4000";
+function getApiUrl() {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return "http://127.0.0.1:4000";
+}
+
+const API_URL = getApiUrl();
 const WS_URL = import.meta.env.VITE_WS_URL ?? API_URL.replace(/^http/, "ws");
 
 export function connectGameSocket(token: string, onEvent: (event: RealtimeEvent) => void, onStatus?: (online: boolean) => void) {

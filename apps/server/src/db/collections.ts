@@ -1,4 +1,4 @@
-import type { ResourceBag, TownSnapshot, GameConfig } from "@island/shared";
+import type { ActiveBattle, ResourceBag, TownSnapshot, GameConfig } from "@island/shared";
 import { getDb } from "./client.js";
 
 export type PlayerDocument = {
@@ -43,6 +43,7 @@ export type TerritoryClearingDocument = {
   territoryId: number;
   playerId: string;
   startedAt: Date;
+  arrivesAt?: Date;
   completesAt: Date;
 };
 
@@ -62,6 +63,15 @@ export type MarchOrderDocument = {
   kind: "attack" | "reinforce" | "move";
   startedAt: Date;
   arrivesAt: Date;
+};
+
+export type ActiveBattleDocument = Omit<ActiveBattle, "id" | "startedAt" | "resolvesAt"> & {
+  _id: string;
+  startedAt: Date;
+  resolvesAt: Date;
+  fromTerritoryId: number;
+  toTerritoryId: number;
+  marchId: string;
 };
 
 export type AllianceDocument = {
@@ -96,13 +106,14 @@ export async function collections() {
     territoryClaims: db.collection<TerritoryClaimDocument>("territory_claims"),
     territoryClearings: db.collection<TerritoryClearingDocument>("territory_clearings"),
     marchOrders: db.collection<MarchOrderDocument>("march_orders"),
+    activeBattles: db.collection<ActiveBattleDocument>("active_battles"),
     alliances: db.collection<AllianceDocument>("alliances"),
     allianceAids: db.collection<AllianceAidDocument>("alliance_aids"),
   };
 }
 
 export async function ensureIndexes() {
-  const { players, saves, territoryClaims, territoryClearings, marchOrders, alliances, allianceAids } = await collections();
+  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids } = await collections();
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
     players.createIndex({ lastSeenAt: -1 }),
@@ -115,6 +126,8 @@ export async function ensureIndexes() {
     territoryClearings.createIndex({ completesAt: 1 }),
     marchOrders.createIndex({ ownerId: 1 }),
     marchOrders.createIndex({ arrivesAt: 1 }),
+    activeBattles.createIndex({ regionId: 1 }),
+    activeBattles.createIndex({ resolvesAt: 1 }),
     alliances.createIndex({ tag: 1 }, { unique: true }),
     alliances.createIndex({ memberIds: 1 }),
     alliances.createIndex({ leaderId: 1 }),

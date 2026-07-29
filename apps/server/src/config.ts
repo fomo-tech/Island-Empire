@@ -18,7 +18,8 @@ export const corsOrigins = config.CORS_ORIGIN.split(",")
   .filter(Boolean);
 
 export function isAllowedCorsOrigin(origin: string) {
+  if (!origin) return true;
   if (corsOrigins.includes(origin)) return true;
-  // Allow any localhost / 127.0.0.1 port in the Vite dev range (5173-5199)
-  return /^http:\/\/(127\.0\.0\.1|localhost):(51[7-9]\d)$/.test(origin);
+  // Allow any localhost, 127.0.0.1, or local LAN IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on dev ports
+  return /^http:\/\/(127\.0\.0\.1|localhost|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
 }

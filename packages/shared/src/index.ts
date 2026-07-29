@@ -4,6 +4,21 @@ export type ResourceBag = Record<ResourceKey, number>;
 
 export type GameConfig = {
   maxBattleDuration: number;
+  minBattleDuration: number;
+  baseBattleSeconds: number;
+  battlePowerPerSecond: number;
+  townBattleSeconds: number;
+  fortBattleSeconds: number;
+  infantryAttackPower: number;
+  infantryDefensePower: number;
+  cavalryAttackPower: number;
+  cavalryDefensePower: number;
+  artilleryAttackPower: number;
+  artilleryDefensePower: number;
+  townLevelDefense: number;
+  fortLevelDefense: number;
+  lootPercent: number;
+  retreatPercent: number;
   infantryCostGold: number;
   infantryCostWood: number;
   infantryTroopsValue: number;
@@ -70,6 +85,8 @@ export type TownSnapshot = {
     warehouse?: number;
   };
   storage?: Partial<ResourceBag>;
+  storageCapacity?: number;
+  maxTroops?: number;
 };
 
 export type SaveSnapshot = {
@@ -144,6 +161,7 @@ export type ActiveClearing = {
   territoryId: number;
   playerId: string;
   startedAt: string;
+  arrivesAt?: string;
   completesAt: string;
 };
 
@@ -165,10 +183,30 @@ export type MarchOrder = {
   arrivesAt: string;
 };
 
+export type ActiveBattle = {
+  id: string;
+  regionId: number;
+  townId?: number;
+  attackerId: string;
+  defenderId: string | null;
+  attackerPower: number;
+  defenderPower: number;
+  attackerInfantry: number;
+  attackerCavalry: number;
+  attackerArtillery: number;
+  defenderInfantry: number;
+  defenderCavalry: number;
+  defenderArtillery: number;
+  startedAt: string;
+  resolvesAt: string;
+  durationSeconds: number;
+};
+
 export type GameStateResult = {
   territories: TerritoryInfo[];
   clearings: ActiveClearing[];
   marches: MarchOrder[];
+  battles?: ActiveBattle[];
   towns?: TownSnapshot[];
   resources: ResourceBag;
   resourceCapacity: ResourceBag;
@@ -197,6 +235,9 @@ export type RealtimeEvent =
   | { type: "territory_clearing_started"; clearing: ActiveClearing }
   | { type: "territory_claimed"; territory: TerritoryInfo }
   | { type: "march_created"; march: MarchOrder }
+  | { type: "battle_started"; battle: ActiveBattle }
+  | { type: "battle_resolved"; battleId: string; territory: TerritoryInfo; winner: "attacker" | "defender" }
+  | { type: "player_eliminated"; playerId: string; reason: "all_towns_captured" }
   | { type: "world_state_hint"; reason: "reconnect" | "server_resync" };
 
 export type RealtimeEnvelope = {
@@ -824,8 +865,11 @@ export function generateWorldTerritories(): BaseTerritory[] {
       const y = Math.round(center.cy + rotY);
 
       // Low-frequency wave generator to carve out ocean channels inside the auto-generated continents
+      // 50% of continents (cIdx % 2 === 0) fill in as solid continuous mega-continents
+      const isSolidContinent = (cIdx % 2 === 0);
+      const autoWaveThreshold = isSolidContinent ? 0.95 : 0.08;
       const autoWave = Math.sin(x * 0.0012) * Math.cos(y * 0.0015) + Math.cos(x * 0.0008 + y * 0.001);
-      if (autoWave > 0.08) {
+      if (autoWave > autoWaveThreshold) {
         // Skipped: becomes sea water/ocean channels!
         continue;
       }
