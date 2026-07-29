@@ -251,10 +251,13 @@ export function claimAllianceAid(token: string, aidId: string): Promise<Alliance
 
 export interface RecruitTroopsResult {
   ok: boolean;
+  townId?: number;
+  territoryId?: number;
   unitType: "infantry" | "cavalry" | "artillery";
   count: number;
   unitCountAdded?: number;
   troopsAdded?: number;
+  town?: Record<string, unknown>;
   resources?: Record<string, number>;
   message?: string;
 }

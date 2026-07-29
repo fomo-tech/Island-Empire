@@ -198,6 +198,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [flagColor, setFlagColor] = useState("#2f70d7");
+  const [emblem, setEmblem] = useState<"shield" | "tree" | "mountain" | "anchor">("shield");
+  const [starterLand, setStarterLand] = useState<"north-forest" | "west-hills" | "east-coast" | "south-river">("south-river");
 
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
@@ -222,7 +225,11 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         if (username.length < 3) throw new Error("Tên tài khoản tối thiểu 3 ký tự");
         if (password.length < 8) throw new Error("Mật khẩu tối thiểu 8 ký tự");
 
-        const res = await registerPlayer(username, password);
+        const res = await registerPlayer(username, password, {
+          flagColor,
+          emblem,
+          starterLandId: starterLand,
+        });
         localStorage.removeItem(CAMERA_KEY);
         localStorage.removeItem(CLAIM_KEY);
         localStorage.setItem(ONBOARDING_KEY, "1");
@@ -371,6 +378,84 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                     <button type="button" className="forgot-link" onClick={() => setError("Vui lòng liên hệ CSKH để khôi phục mật khẩu")}>
                       Quên mật khẩu?
                     </button>
+                  </div>
+                )}
+
+                {tab === "register" && (
+                  <div className="register-customization-section">
+                    <div className="custom-section-title">✧ THIẾT LẬP THẾ LỰC TÂN THỦ ✧</div>
+                    
+                    {/* Flag Color Selection */}
+                    <div className="custom-row">
+                      <label className="custom-label">Màu cờ thế lực:</label>
+                      <div className="color-palette">
+                        {["#2f70d7", "#ef4444", "#22c55e", "#f59e0b", "#a855f7", "#ec4899"].map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`color-dot ${flagColor === color ? "active" : ""}`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setFlagColor(color)}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          value={flagColor}
+                          onChange={(e) => setFlagColor(e.target.value)}
+                          className="custom-color-picker"
+                          title="Chọn màu tự do"
+                        />
+                      </div>
+                    </div>
+ 
+                    {/* Emblem Selection */}
+                    <div className="custom-row">
+                      <label className="custom-label">Biểu tượng gia huy:</label>
+                      <div className="emblem-options">
+                        {([
+                          { id: "shield", label: "Khiên Thép", icon: "🛡️" },
+                          { id: "tree", label: "Cổ Thụ", icon: "🌲" },
+                          { id: "mountain", label: "Đỉnh Núi", icon: "⛰️" },
+                          { id: "anchor", label: "Mỏ Neo", icon: "⚓" },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            className={`emblem-chip ${emblem === opt.id ? "active" : ""}`}
+                            onClick={() => setEmblem(opt.id)}
+                          >
+                            <span className="icon">{opt.icon}</span>
+                            <span className="text">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+ 
+                    {/* Starter Land Selection */}
+                    <div className="custom-row">
+                      <label className="custom-label">Vị trí khởi đầu:</label>
+                      <div className="land-options">
+                        {([
+                          { id: "south-river", label: "Đồng Bằng Nam Lục Địa", desc: "Đất trù phú & ôn hòa", color: "#22c55e" },
+                          { id: "north-forest", label: "Lục Địa Băng Tuyết Bắc", desc: "Giá buốt & giàu tài nguyên", color: "#ccd7db" },
+                          { id: "west-hills", label: "Lục Địa Hỏa Sơn Tây", desc: "Nhiều khoáng sản & quặng sắt", color: "#ef4444" },
+                          { id: "east-coast", label: "Sa Mạc Cát Vàng Đông", desc: "Đất rộng & mỏ đá dồi dào", color: "#f59e0b" },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            className={`land-card ${starterLand === opt.id ? "active" : ""}`}
+                            onClick={() => setStarterLand(opt.id)}
+                          >
+                            <div className="land-header" style={{ color: opt.color }}>
+                              <span className="dot" style={{ backgroundColor: opt.color }} />
+                              <b>{opt.label}</b>
+                            </div>
+                            <div className="land-desc">{opt.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </>

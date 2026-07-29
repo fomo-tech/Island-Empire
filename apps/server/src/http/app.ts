@@ -246,11 +246,13 @@ const BIOME_PRIMARY: Record<number, string> = {
  *   finalTime = baseTime * biomeMult
  *   Clamped between 8s (minimum) and 180s (maximum)
  */
-function calcClearingSeconds(rx: number, ry: number, biome: number): number {
+function calcClearingSeconds(rx: number, ry: number, biome: number, settlerSpeed = 18, gameHourSeconds = 60): number {
   const area = rx * ry;
   const baseTime = area / 650;
-  const finalTime = baseTime * (BIOME_CLEAR_MULT[biome] ?? 1.0);
-  return Math.max(8, Math.min(180, Math.round(finalTime)));
+  const speedScale = 18 / Math.max(1, settlerSpeed);
+  const clockScale = Math.max(1, gameHourSeconds) / 60;
+  const finalTime = baseTime * (BIOME_CLEAR_MULT[biome] ?? 1.0) * speedScale * clockScale;
+  return Math.max(4, Math.min(600, Math.round(finalTime)));
 }
 
 /**
@@ -339,6 +341,36 @@ function buildStaticTerritoryList(): Omit<TerritoryInfo, "ownerId">[] {
 
 function getStaticTerritory(id: number) {
   return buildStaticTerritoryList().find((territory) => territory.id === id);
+}
+
+function townIdForTerritory(territoryId: number, requestedTownId?: number) {
+  return Number.isInteger(requestedTownId) && requestedTownId! >= 0 ? requestedTownId! : 9000 + territoryId;
+}
+
+function defaultTownSnapshotForTerritory(territory: NonNullable<ReturnType<typeof getStaticTerritory>>, playerId: string, townId?: number) {
+  return {
+    id: townIdForTerritory(territory.id, townId),
+    level: 2,
+    ownerId: playerId,
+    troops: 24,
+    population: 32,
+    x: territory.x,
+    y: territory.y,
+    infantryCount: 24,
+    cavalryCount: 0,
+    artilleryCount: 0,
+    buildings: {
+      barracks: 0,
+      lumberCamp: 0,
+      quarry: 0,
+      goldMine: 0,
+      gemCutter: 0,
+      fort: 0,
+      siegeWorkshop: 0,
+      warehouse: 0,
+    },
+    storage: {},
+  };
 }
 
 function toPublicClearing(clearing: { territoryId: number; playerId: string; startedAt: Date; completesAt: Date }) {
@@ -517,34 +549,41 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
         name: playerId,
         role: "player",
         createdAt: now,
+        newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
       },
     },
     { upsert: true },
   );
+  const shieldDate = player?.newbieShieldUntil ?? new Date(now.getTime() + 24 * 3600 * 1000);
   return {
     resources: next,
     resourceCapacity: capacity,
     productionPerSecond,
     offlineGain: gained,
     offlineSeconds: elapsedSeconds,
+    newbieShieldUntil: shieldDate ? new Date(shieldDate).toISOString() : null,
   };
 }
 
 async function buildGameStatePayload(playerId: string): Promise<GameStateResult> {
   await processArrivedMarches();
   await processCompletedClearings();
-  const { territoryClearings, marchOrders } = await collections();
-  const [world, clearings, marches, resourceState] = await Promise.all([
+  const { territoryClearings, marchOrders, players, saves } = await collections();
+  const [world, clearings, marches, resourceState, player, save] = await Promise.all([
     buildWorldTerritoriesPayload(),
     territoryClearings.find({}).toArray(),
     marchOrders.find({}).toArray(),
     collectPlayerResources(playerId),
+    players.findOne({ _id: playerId }),
+    saves.findOne({ playerId }),
   ]);
   return {
     territories: world.territories,
     clearings: clearings.map(toPublicClearing),
     marches: marches.map(toPublicMarch),
+    towns: Array.isArray(save?.towns) ? save.towns : [],
     ...resourceState,
+    playerProfile: player ? { flagColor: player.flagColor ?? "#2f70d7", emblem: player.emblem ?? "shield" } : null,
   };
 }
 
@@ -833,13 +872,41 @@ export function createApp() {
     const { username, password, flagColor, emblem, starterLandId } = parsed.data;
     const normalizedUsername = username.trim();
     const id = `player:${normalizedUsername.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-    const { players } = await collections();
+    const { players, territoryClaims } = await collections();
     const existingPlayer = await players.findOne({ _id: id });
     if (existingPlayer) {
       return res.status(400).json({ error: "username_taken", message: "Tên tài khoản đã tồn tại" });
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const now = new Date();
+
+    // Find and claim a territory dynamically in the chosen starting zone
+    const claimedList = await territoryClaims.find({}).toArray();
+    const claimedIds = new Set(claimedList.map((c) => c.territoryId));
+    const allStatic = buildStaticTerritoryList();
+    const targetBiomes = 
+      starterLandId === "north-forest" ? [2] :
+      starterLandId === "west-hills" ? [3] :
+      starterLandId === "east-coast" ? [1] :
+      [0, 6]; // south-river
+      
+    let chosenTerritory = allStatic.find((t) => !t.isIslet && targetBiomes.includes(t.biome) && !claimedIds.has(t.id));
+    if (!chosenTerritory) {
+      chosenTerritory = allStatic.find((t) => !t.isIslet && !claimedIds.has(t.id));
+    }
+    if (!chosenTerritory) {
+      chosenTerritory = allStatic.find((t) => !claimedIds.has(t.id));
+    }
+
+    if (chosenTerritory) {
+      await territoryClaims.insertOne({
+        _id: `territory:${chosenTerritory.id}`,
+        territoryId: chosenTerritory.id,
+        playerId: id,
+        claimedAt: now,
+      });
+    }
+
     await players.insertOne({
       _id: id,
       name: normalizedUsername,
@@ -847,10 +914,11 @@ export function createApp() {
       flagColor,
       emblem,
       starterLandId,
-      onboardingState: "needs_claim",
+      onboardingState: chosenTerritory ? "settled" : "needs_claim",
       resources: DEFAULT_PLAYER_RESOURCES,
       lastResourceCollectedAt: now,
       role: "player",
+      newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
       createdAt: now,
       lastSeenAt: now,
     });
@@ -894,6 +962,7 @@ export function createApp() {
           onboardingState: "needs_claim",
           resources: DEFAULT_PLAYER_RESOURCES,
           lastResourceCollectedAt: now,
+          newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
         },
       },
       { upsert: true },
@@ -1136,22 +1205,13 @@ export function createApp() {
     const now = new Date();
     const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
     
-    // Load player's save snapshot to check actual town count
-    const save = await saves.findOne({ playerId: req.user!.id });
-    const hasAnyTown = save?.towns?.some((t: any) => t.ownerId === req.user!.id || t.owner === 0) ?? false;
-    
-    const isStarterClaim = (ownedCount === 0) || !hasAnyTown;
-    
-    // If starting fresh but database still has stale claims, clean them up!
-    if (isStarterClaim && ownedCount > 0) {
-      await territoryClaims.deleteMany({ playerId: req.user!.id });
-    }
+    const isStarterClaim = (ownedCount === 0);
 
     const buildCost = isStarterClaim 
       ? { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 } 
       : territoryBuildCost(territory);
 
-    console.log("[DEBUG CLEARINGS] playerId:", req.user!.id, "ownedCount:", ownedCount, "hasAnyTown:", hasAnyTown, "isStarterClaim:", isStarterClaim, "buildCost:", buildCost);
+    console.log("[DEBUG CLEARINGS] playerId:", req.user!.id, "ownedCount:", ownedCount, "isStarterClaim:", isStarterClaim, "buildCost:", buildCost);
     const resourceState = await collectPlayerResources(req.user!.id, now);
     if (!existing && !canAfford(resourceState.resources, buildCost)) {
       return res.status(409).json({
@@ -1161,12 +1221,14 @@ export function createApp() {
         resources: resourceState.resources,
       });
     }
+    const gameSettings = await loadGameConfig();
+    const clearingSeconds = calcClearingSeconds(territory.rx, territory.ry, territory.biome, gameSettings.settlerSpeed, gameSettings.gameHourSeconds);
     const clearing = existing ?? {
       _id: `clearing:${territory.id}`,
       territoryId: territory.id,
       playerId: req.user!.id,
       startedAt: now,
-      completesAt: new Date(now.getTime() + territory.clearingSeconds * 1000),
+      completesAt: new Date(now.getTime() + clearingSeconds * 1000),
     };
     if (!existing) {
       try {
@@ -1268,12 +1330,35 @@ export function createApp() {
     const from = getStaticTerritory(parsed.data.fromTerritoryId);
     const to = getStaticTerritory(parsed.data.toTerritoryId);
     if (!from || !to) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ hành quân" });
-    const { territoryClaims, marchOrders } = await collections();
+    const { territoryClaims, marchOrders, players } = await collections();
     const sourceClaim = await territoryClaims.findOne({ territoryId: from.id });
     if (!sourceClaim || sourceClaim.playerId !== req.user!.id) {
       return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu lãnh thổ xuất phát" });
     }
     const now = new Date();
+
+    // Check newbie protection shield on target
+    const targetClaim = await territoryClaims.findOne({ territoryId: to.id });
+    if (parsed.data.kind === "attack" && targetClaim && targetClaim.playerId !== req.user!.id) {
+      const targetPlayer = await players.findOne({ _id: targetClaim.playerId });
+      if (targetPlayer?.newbieShieldUntil && new Date(targetPlayer.newbieShieldUntil).getTime() > now.getTime()) {
+        return res.status(403).json({
+          error: "target_protected",
+          message: "⚠️ Thành trì đối thủ đang trong thời gian bảo vệ tân thủ! Không thể tấn công."
+        });
+      }
+    }
+
+    // Break attacker's own shield if attacking another player
+    const attacker = await players.findOne({ _id: req.user!.id });
+    let finalShieldUntil = attacker?.newbieShieldUntil;
+    if (parsed.data.kind === "attack" && targetClaim && targetClaim.playerId !== req.user!.id) {
+      if (attacker?.newbieShieldUntil && new Date(attacker.newbieShieldUntil).getTime() > now.getTime()) {
+        finalShieldUntil = new Date(0);
+        await players.updateOne({ _id: req.user!.id }, { $set: { newbieShieldUntil: finalShieldUntil } });
+      }
+    }
+
     const gameSettings = await loadGameConfig();
     const unitPower = parsed.data.infantry * gameSettings.infantryTroopsValue +
       parsed.data.cavalry * gameSettings.cavalryTroopsValue +
@@ -1303,7 +1388,11 @@ export function createApp() {
     };
     await marchOrders.insertOne(order);
     await bumpWorldCacheVersion();
-    const payload: CreateMarchResult = { ok: true, march: toPublicMarch(order) };
+    const payload: CreateMarchResult = { 
+      ok: true, 
+      march: toPublicMarch(order),
+      newbieShieldUntil: finalShieldUntil ? new Date(finalShieldUntil).toISOString() : null
+    };
     publishRealtime({ type: "march_created", march: payload.march });
     res.json(payload);
   });
@@ -1317,8 +1406,20 @@ export function createApp() {
     const { unitType, count } = parsed.data;
     const now = new Date();
 
-    const { players, saves } = await collections();
+    const { players, saves, territoryClaims } = await collections();
     const gameConfig = await loadGameConfig();
+
+    const territoryId =
+      parsed.data.territoryId ??
+      (parsed.data.townId !== undefined && parsed.data.townId >= 9000 ? parsed.data.townId - 9000 : undefined);
+    const territory = territoryId !== undefined ? getStaticTerritory(territoryId) : undefined;
+    if (!territory) {
+      return res.status(400).json({ error: "bad_request", message: "Không xác định được lãnh thổ tuyển quân" });
+    }
+    const claim = await territoryClaims.findOne({ territoryId: territory.id });
+    if (!claim || claim.playerId !== req.user!.id) {
+      return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu thành/lãnh thổ này" });
+    }
 
     // Collect current resources from DB
     const resourceState = await collectPlayerResources(req.user!.id, now);
@@ -1353,12 +1454,7 @@ export function createApp() {
       });
     }
 
-    // Deduct cost and save updated resources to DB
     const nextResources = subtractCost(currentRes, unitCost);
-    await players.updateOne(
-      { _id: req.user!.id },
-      { $set: { resources: nextResources, lastResourceCollectedAt: now, lastSeenAt: now } },
-    );
 
     const unitValue =
       unitType === "infantry" ? (gameConfig.infantryTroopsValue ?? 18) :
@@ -1366,35 +1462,58 @@ export function createApp() {
       (gameConfig.artilleryTroopsValue ?? 58);
     const troopsAdded = unitValue * count;
 
-    // Update troops inside player save snapshot if available
     const save = (await saves.findOne({ playerId: req.user!.id })) as any;
-    if (save) {
-      const updatedSave = { ...save };
-      if (unitType === "infantry") {
-        updatedSave.infantryCount = (updatedSave.infantryCount || 0) + count;
-      } else if (unitType === "cavalry") {
-        updatedSave.cavalryCount = (updatedSave.cavalryCount || 0) + count;
-      } else if (unitType === "artillery") {
-        updatedSave.artilleryCount = (updatedSave.artilleryCount || 0) + count;
-      }
-      updatedSave.troops = (updatedSave.troops || 0) + troopsAdded;
-      updatedSave.resources = nextResources;
+    const townId = townIdForTerritory(territory.id, parsed.data.townId);
+    const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
+    const townIndex = towns.findIndex((town: any) => town?.id === townId || Math.hypot((town?.x ?? 0) - territory.x, (town?.y ?? 0) - territory.y) < 96);
+    const town = townIndex >= 0 ? { ...towns[townIndex] } : defaultTownSnapshotForTerritory(territory, req.user!.id, townId);
+    town.id = townId;
+    town.ownerId = req.user!.id;
+    town.x = territory.x;
+    town.y = territory.y;
+    town.level = Math.max(1, Math.floor(Number(town.level ?? town.lvl ?? 2) || 2));
+    town.population = Math.max(0, Math.floor(Number(town.population ?? 32) || 32));
+    town.infantryCount = Math.max(0, Math.floor(Number(town.infantryCount ?? town.troops ?? 0) || 0));
+    town.cavalryCount = Math.max(0, Math.floor(Number(town.cavalryCount ?? 0) || 0));
+    town.artilleryCount = Math.max(0, Math.floor(Number(town.artilleryCount ?? 0) || 0));
+    if (unitType === "infantry") town.infantryCount += count;
+    else if (unitType === "cavalry") town.cavalryCount += count;
+    else town.artilleryCount += count;
+    town.troops = Math.max(0, Math.floor(Number(town.troops ?? 0) || 0)) + troopsAdded;
+    if (townIndex >= 0) towns[townIndex] = town;
+    else towns.push(town);
 
-      await saves.updateOne(
+    await Promise.all([
+      saves.updateOne(
         { playerId: req.user!.id },
-        { $set: { resources: nextResources, troops: updatedSave.troops, infantryCount: updatedSave.infantryCount, cavalryCount: updatedSave.cavalryCount, artilleryCount: updatedSave.artilleryCount, updatedAt: now } },
-      );
-    }
+        {
+          $set: { resources: nextResources, towns, updatedAt: now },
+          $setOnInsert: {
+            _id: `save:${req.user!.id}`,
+            playerId: req.user!.id,
+            research: { sword: 0, stirrups: 0, cannon: 0, travel: 0 },
+          },
+        },
+        { upsert: true },
+      ),
+      players.updateOne(
+        { _id: req.user!.id },
+        { $set: { resources: nextResources, lastResourceCollectedAt: now, lastSeenAt: now } },
+      ),
+    ]);
 
     await bumpWorldCacheVersion();
     publishRealtime({ type: "world_state_hint", reason: "server_resync" });
 
     res.json({
       ok: true,
+      townId,
+      territoryId: territory.id,
       unitType,
       count,
       unitCountAdded: count,
       troopsAdded,
+      town,
       resources: nextResources,
       message: `Chiêu mộ thành công ${count} đợt binh sĩ (${unitType})`,
     });

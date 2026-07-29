@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
-import { cancelClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
+import { cancelClearing, completeClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
 import { connectGameSocket } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
@@ -152,6 +152,37 @@ function VectorGemsIcon() {
       <polygon points="6,4 18,4 22,10 12,21 2,10" fill="#3b82f6" stroke="#60a5fa" strokeWidth="1.2" />
       <polygon points="6,4 18,4 15,10 9,10" fill="#93c5fd" />
       <polygon points="9,10 15,10 12,21" fill="#1d4ed8" />
+    </svg>
+  );
+}
+
+function VectorGoldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="vector-res-svg">
+      <ellipse cx="12" cy="17" rx="7" ry="3.5" fill="#ca8a04" stroke="#854d0e" strokeWidth="1" />
+      <ellipse cx="12" cy="13" rx="7" ry="3.5" fill="#eab308" stroke="#a16207" strokeWidth="1" />
+      <ellipse cx="12" cy="9" rx="7" ry="3.5" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
+      <ellipse cx="12" cy="8" rx="5" ry="2.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+function VectorCoalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="vector-res-svg">
+      <polygon points="5,17 9,9 17,9 19,17 13,20" fill="#1e293b" stroke="#0f172a" strokeWidth="1.2" />
+      <polygon points="12,7 16,3 21,5 19,10" fill="#334155" stroke="#0f172a" strokeWidth="1" />
+      <polygon points="9,9 17,9 13,15 8,13" fill="#475569" />
+    </svg>
+  );
+}
+
+function VectorSulfurIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="vector-res-svg">
+      <polygon points="6,18 10,8 18,9 19,17 12,20" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <polygon points="10,8 18,9 13,15" fill="#fef08a" />
+      <polygon points="4,12 8,5 12,8" fill="#ca8a04" stroke="#a16207" strokeWidth="1" />
     </svg>
   );
 }
@@ -440,6 +471,7 @@ export function GameApp() {
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngineHandle | null>(null);
   const lastUpdateRef = useRef<number>(0);
+  const backendClaimCompleteRef = useRef<Set<number>>(new Set());
   const lastHudSnapshotRef = useRef({
     resources: "",
     missions: "",
@@ -486,6 +518,7 @@ export function GameApp() {
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<number | null>(null);
+  const [coordinateSearch, setCoordinateSearch] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [chatChannel, setChatChannel] = useState<ChatChannel>("THẾ GIỚI");
   const [language, setLanguage] = useState<GameLanguage>(() => detectDeviceLanguage());
@@ -585,6 +618,22 @@ export function GameApp() {
     addSystemLine(`ĐÃ GỬI THƯ CÁ NHÂN ĐẾN ${to}`);
   };
 
+  const jumpToCoordinates = useCallback(() => {
+    const matches = coordinateSearch.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length < 2) {
+      engineRef.current?.handleAction("setToast", { message: "NHẬP TỌA ĐỘ DẠNG X:Y, VÍ DỤ 13120:11063" });
+      return;
+    }
+    const x = Math.round(Number(matches[0]));
+    const y = Math.round(Number(matches[1]));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      engineRef.current?.handleAction("setToast", { message: "TỌA ĐỘ KHÔNG HỢP LỆ" });
+      return;
+    }
+    engineRef.current?.handleAction("centerCamera", { x, y, label: `X:${x} Y:${y}` });
+    setMobileMenu("none");
+  }, [coordinateSearch]);
+
   useEffect(() => {
     if (!isNewbieMode()) return;
     localStorage.removeItem(TOKEN_KEY);
@@ -669,10 +718,41 @@ export function GameApp() {
           });
         }
 
-        if (token && Array.isArray(engineState.pendingBackendClaims) && engineState.pendingBackendClaims.length > 0) {
-          engineRef.current?.handleAction("consumeBackendClaims");
-          refreshGameStateFromServer();
-        }
+	        if (token && Array.isArray(engineState.pendingBackendClaims) && engineState.pendingBackendClaims.length > 0) {
+	          engineState.pendingBackendClaims.forEach((regionId: number) => {
+	            if (backendClaimCompleteRef.current.has(regionId)) return;
+	            backendClaimCompleteRef.current.add(regionId);
+	            completeClearing(token, engineToServerTerritoryId(regionId))
+	              .then((result) => {
+	                if (result.territory) {
+	                  engineRef.current?.handleAction("applyWorldOwnership", {
+	                    territories: [{
+	                      id: serverToEngineTerritoryId(result.territory.id),
+	                      ownerCode: result.territory.ownerId === playerId ? 1 : 2,
+	                      ownerId: result.territory.ownerId,
+	                      ownerName: result.territory.ownerId === playerId ? "Bạn" : result.territory.ownerName ?? result.territory.ownerId ?? "Đối thủ",
+	                      ownerFlagColor: result.territory.ownerFlagColor,
+	                      ownerEmblem: result.territory.ownerEmblem,
+	                      ownerAllianceTag: result.territory.ownerAllianceTag,
+	                      ownerAllianceEmblem: result.territory.ownerAllianceEmblem,
+	                    }],
+	                  });
+	                }
+	                engineRef.current?.handleAction("consumeBackendClaim", { regionId });
+	                refreshGameStateFromServer();
+	              })
+	              .catch((err) => {
+	                console.error("Backend clearing complete failed:", err);
+	                if (err?.message?.includes("chưa hoàn tất") || err?.message?.includes("not_ready")) {
+	                  return;
+	                }
+	                engineRef.current?.handleAction("markClaimRejected", { regionId });
+	              })
+	              .finally(() => {
+	                backendClaimCompleteRef.current.delete(regionId);
+	              });
+	          });
+	        }
 
         if (token && Array.isArray(engineState.pendingBackendConquests) && engineState.pendingBackendConquests.length > 0) {
           engineRef.current?.handleAction("consumeBackendConquests");
@@ -747,7 +827,9 @@ export function GameApp() {
         }
 
         const selected = engineTowns.find((t: any) => t.id === engineState.selected);
-        const townSnapshot = selected ? `${selected.id}|${selected.owner}|${selected.troops}|${selected.lvl}|${selected.population || 0}` : "none";
+        const townSnapshot = selected
+          ? `${selected.id}|${selected.owner}|${selected.troops}|${selected.lvl}|${selected.population || 0}|${selected.infantryCount || 0}|${selected.cavalryCount || 0}|${selected.artilleryCount || 0}`
+          : "none";
         if (townSnapshot !== snapshots.selectedTown) {
           snapshots.selectedTown = townSnapshot;
           setSelectedTown(selected ? { ...selected } : null);
@@ -781,7 +863,10 @@ export function GameApp() {
             territories,
             clearings: world.clearings,
             marches: world.marches,
+            towns: world.towns,
             resources: world.resources,
+            newbieShieldUntil: world.newbieShieldUntil,
+            playerProfile: world.playerProfile,
           });
           setResources({ ...world.resources });
           const offlineSummary = summarizeResourceGain(world.offlineGain, world.offlineSeconds);
@@ -809,9 +894,15 @@ export function GameApp() {
             { text: "HOÀN TẤT 1 XÂY THÀNH", value: Math.min(territories.filter((territory) => territory.ownerCode === 1).length, 1), goal: 1 }
           ]);
           if (localStorage.getItem(ONBOARDING_KEY) === "1") {
-            const starterRegionId = pickStarterTerritoryId(playerId, territories);
-            if (starterRegionId !== null) {
-              engineRef.current?.handleAction("setStarterRegion", { regionId: starterRegionId, zoom: 1.18 });
+            const owned = territories.find((t) => t.ownerCode === 1);
+            if (owned) {
+              engineRef.current?.handleAction("setStarterRegion", { regionId: owned.id, zoom: 1.18 });
+              localStorage.removeItem(ONBOARDING_KEY);
+            } else {
+              const starterRegionId = pickStarterTerritoryId(playerId, territories);
+              if (starterRegionId !== null) {
+                engineRef.current?.handleAction("setStarterRegion", { regionId: starterRegionId, zoom: 1.18 });
+              }
             }
           }
           setLoadingText("ĐÃ ĐỒNG BỘ XONG, ĐANG VÀO GAME");
@@ -958,6 +1049,7 @@ export function GameApp() {
               territories,
               clearings: world.clearings,
               marches: world.marches,
+              towns: world.towns,
               resources: world.resources,
             });
             setResources({ ...world.resources });
@@ -1039,7 +1131,10 @@ export function GameApp() {
           territories,
           clearings: world.clearings,
           marches: world.marches,
+          towns: world.towns,
           resources: world.resources,
+          newbieShieldUntil: world.newbieShieldUntil,
+          playerProfile: world.playerProfile,
         });
         setResources({ ...world.resources });
         setWorldActivity({
@@ -1212,6 +1307,10 @@ export function GameApp() {
 
           {/* Resources capsule row - NO EMOJIS */}
           <div className="hud-resources">
+            <div className="hud-res-item res-gold" title={t("gold")}>
+              <span className="hud-res-icon"><VectorGoldIcon /></span>
+              <span className="hud-res-val">{formatNum(resources.gold || 0)}</span>
+            </div>
             <div className="hud-res-item res-food" title={t("food")}>
               <span className="hud-res-icon"><VectorFoodIcon /></span>
               <span className="hud-res-val">{formatNum(resources.food || 0)}</span>
@@ -1227,6 +1326,14 @@ export function GameApp() {
             <div className="hud-res-item res-iron" title={t("iron")}>
               <span className="hud-res-icon"><VectorIronIcon /></span>
               <span className="hud-res-val">{formatNum(resources.iron || 0)}</span>
+            </div>
+            <div className="hud-res-item res-coal" title={t("coal")}>
+              <span className="hud-res-icon"><VectorCoalIcon /></span>
+              <span className="hud-res-val">{formatNum(resources.coal || 0)}</span>
+            </div>
+            <div className="hud-res-item res-sulfur" title={t("sulfur")}>
+              <span className="hud-res-icon"><VectorSulfurIcon /></span>
+              <span className="hud-res-val">{formatNum(resources.sulfur || 0)}</span>
             </div>
             <div className="hud-res-item res-gems" title={t("gems")}>
               <span className="hud-res-icon"><VectorGemsIcon /></span>
@@ -1397,8 +1504,26 @@ export function GameApp() {
             <div className="hud-minimap-card">
               <div className="hud-minimap-header">
                 <span className="hud-minimap-title"><HudIcon name="map" /> {t("worldMap")}</span>
-                <button type="button" className="hud-mini-icon-btn" title={t("search")}><HudIcon name="search" /></button>
+                <button type="button" className="hud-mini-icon-btn" title={t("search")} onClick={jumpToCoordinates}><HudIcon name="search" /></button>
               </div>
+
+              <form
+                className="hud-coordinate-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  jumpToCoordinates();
+                }}
+              >
+                <HudIcon name="target" />
+                <input
+                  value={coordinateSearch}
+                  onChange={(event) => setCoordinateSearch(event.target.value)}
+                  placeholder="X:Y"
+                  inputMode="numeric"
+                  aria-label="Tìm tọa độ nhanh"
+                />
+                <button type="submit" title="Tìm tọa độ"><HudIcon name="search" /></button>
+              </form>
               
               <div className="hud-minimap-canvas-wrapper">
                 <canvas 
@@ -1745,6 +1870,9 @@ export function GameApp() {
                   battleSide: deployTarget.battleSide || "defender",
                   kind: deployTarget.isAttack ? "attack" : "reinforce",
                 });
+                if (result.newbieShieldUntil !== undefined) {
+                  engineRef.current?.handleAction("updateNewbieShield", { until: result.newbieShieldUntil });
+                }
                 const rendered = engineRef.current?.handleAction("applyBackendMarch", {
                   march: result.march,
                   unitMix: { infantry, cavalry, artillery, battleSide: deployTarget.battleSide || "defender" },
@@ -1799,8 +1927,13 @@ export function GameApp() {
               showGameError("Chưa kết nối server, không thể mộ binh");
               return;
             }
+            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
+            if (territoryId === undefined || territoryId === null || territoryId < 0) {
+              showGameError("Không xác định được lãnh thổ của thành");
+              return;
+            }
             try {
-              const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id });
+              const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
               if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
               engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
             } catch (err: any) {
@@ -1812,8 +1945,13 @@ export function GameApp() {
               showGameError("Chưa kết nối server, không thể mộ kị binh");
               return;
             }
+            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
+            if (territoryId === undefined || territoryId === null || territoryId < 0) {
+              showGameError("Không xác định được lãnh thổ của thành");
+              return;
+            }
             try {
-              const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id });
+              const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
               if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
               engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
             } catch (err: any) {
@@ -1825,8 +1963,13 @@ export function GameApp() {
               showGameError("Chưa kết nối server, không thể mộ pháo binh");
               return;
             }
+            const territoryId = engineRef.current?.getTownRegionId?.(selectedTown);
+            if (territoryId === undefined || territoryId === null || territoryId < 0) {
+              showGameError("Không xác định được lãnh thổ của thành");
+              return;
+            }
             try {
-              const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id });
+              const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id, territoryId: engineToServerTerritoryId(territoryId) });
               if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
               engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
             } catch (err: any) {

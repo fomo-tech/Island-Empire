@@ -85,19 +85,19 @@
   ];
 
   const islets = [
-    { x: 180, y: 320, rx: 58, ry: 44, biome: 2, seed: 41 },
-    { x: 281, y: 571, rx: 58, ry: 46, biome: 6, seed: 31 },
-    { x: 215, y: 730, rx: 52, ry: 40, biome: 6, seed: 32 },
-    { x: 140, y: 920, rx: 48, ry: 38, biome: 3, seed: 42 },
+    { x: 100, y: 250, rx: 58, ry: 44, biome: 2, seed: 41 },
+    { x: 110, y: 570, rx: 58, ry: 46, biome: 6, seed: 31 },
+    { x: 110, y: 730, rx: 52, ry: 40, biome: 6, seed: 32 },
+    { x: 70, y: 920, rx: 48, ry: 38, biome: 3, seed: 42 },
     { x: 1056, y: 405, rx: 50, ry: 42, biome: 4, seed: 33 },
     { x: 1125, y: 642, rx: 60, ry: 48, biome: 5, seed: 34 },
     { x: 1013, y: 166, rx: 68, ry: 50, biome: 4, seed: 35 },
-    { x: 900, y: 216, rx: 42, ry: 34, biome: 4, seed: 36 },
-    { x: 356, y: 100, rx: 52, ry: 38, biome: 2, seed: 37 },
-    { x: 232, y: 1112, rx: 62, ry: 48, biome: 6, seed: 38 },
-    { x: 1052, y: 910, rx: 76, ry: 58, biome: 5, seed: 39 },
-    { x: 1110, y: 1240, rx: 58, ry: 46, biome: 3, seed: 40 },
-    { x: 950, y: 1310, rx: 64, ry: 48, biome: 7, seed: 43 },
+    { x: 880, y: 80, rx: 42, ry: 34, biome: 4, seed: 36 },
+    { x: 150, y: 90, rx: 52, ry: 38, biome: 2, seed: 37 },
+    { x: 80, y: 1140, rx: 62, ry: 48, biome: 6, seed: 38 },
+    { x: 1130, y: 910, rx: 76, ry: 58, biome: 5, seed: 39 },
+    { x: 1200, y: 1280, rx: 58, ry: 46, biome: 3, seed: 40 },
+    { x: 1050, y: 1420, rx: 64, ry: 48, biome: 7, seed: 43 },
   ];
 
   const routes = [
@@ -181,6 +181,8 @@
     targetZoom: BASE_ZOOM,
     panX: 0,
     panY: 0,
+    targetPanX: null,
+    targetPanY: null,
     drag: null,
     dragMoved: false,
     voyages: [],
@@ -244,6 +246,37 @@
     return `rgb(${r},${g},${b})`;
   }
 
+  function findRegionAt(x, y) {
+    let best = null;
+    regions.forEach((r, idx) => {
+      const rx = r.rx || r.r;
+      const ry = r.ry || r.r * 0.78;
+      const dx = x - r.x;
+      const dy = y - r.y;
+      const val = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+      if (val <= 1.25) {
+        if (!best || val < best.val) best = { idx, val };
+      }
+    });
+    let bestIslet = null;
+    islets.forEach((r, idx) => {
+      const rx = r.rx || r.r;
+      const ry = r.ry || r.r * 0.78;
+      const dx = x - r.x;
+      const dy = y - r.y;
+      const val = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+      if (val <= 1.25) {
+        if (!bestIslet || val < bestIslet.val) bestIslet = { idx: idx + 60, val };
+      }
+    });
+    return bestIslet ? bestIslet.idx : (best ? best.idx : null);
+  }
+
+  function panCameraTo(cx, cy) {
+    state.targetPanX = W / 2 - cx * state.zoom - (1 - state.zoom) * W * 0.48;
+    state.targetPanY = H / 2 - cy * state.zoom - (1 - state.zoom) * H * 0.48;
+  }
+
   function text(str, x, y, size, color, align) {
     ctx.font = `700 ${size}px "Courier New", monospace`;
     ctx.textAlign = align || "left";
@@ -273,30 +306,70 @@
   }
 
   function drawOcean() {
+    // 1. Sea base gradient
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#0c446b");
-    g.addColorStop(0.5, "#0b5883");
-    g.addColorStop(1, "#07486f");
+    g.addColorStop(0, "#071825");
+    g.addColorStop(0.48, "#0a263b");
+    g.addColorStop(1, "#061521");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(42, 138, 186, 0.25)";
-    for (let y = 0; y < H; y += 16) {
-      for (let x = 0; x < W; x += 16) {
-        if ((x / 16 + y / 16) % 2 === 0) {
-          pxRect(x, y, 16, 16, "rgba(255, 255, 255, 0.02)");
+
+    // Light radial gradient (sunlight shining on the sea)
+    const lightG = ctx.createRadialGradient(W / 2, H / 3, 50, W / 2, H / 3, W);
+    lightG.addColorStop(0, "rgba(56, 189, 248, 0.12)");
+    lightG.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = lightG;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sea floor grid details
+    ctx.save();
+    for (let y = 0; y < H; y += 18) {
+      for (let x = 0; x < W; x += 18) {
+        const n = hash(x * 13 + y * 29 + 17);
+        if (n > 0.88) {
+          pxRect(x + (n > 0.94 ? 6 : 0), y + (n > 0.91 ? 4 : 0), n > 0.94 ? 8 : 4, 2, "rgba(43, 132, 168, 0.25)");
+        } else if (n < 0.055) {
+          pxRect(x + 4, y + 8, 3, 3, "rgba(2, 48, 72, 0.45)");
         }
       }
     }
-    for (let y = 8; y < H; y += 28) {
-      for (let x = -10; x < W + 20; x += 42) {
-        const offset = Math.sin((x * 0.02) + state.tick * 1.2) * 4;
-        const py = y + offset;
-        const waveType = hash(x * 7 + y * 13);
-        if (waveType > 0.6) {
-          pxRect(x + (y % 17), py, 14, 2, "rgba(100, 205, 240, 0.35)");
-          pxRect(x + (y % 17) + 2, py + 2, 10, 2, "rgba(20, 95, 140, 0.4)");
-        } else if (waveType > 0.3) {
-          pxRect(x, py, 6, 2, "rgba(140, 220, 255, 0.25)");
+    ctx.restore();
+
+    // 2. Animated waves (denser grid and organic fading)
+    for (let y = 8; y < H; y += 48) {
+      for (let x = -20; x < W + 40; x += 64) {
+        const waveCycle = state.tick * 1.2 + hash(x * 37 + y * 43) * Math.PI * 2;
+        const fade = Math.max(0, Math.sin(waveCycle)); // 0 to 1
+        if (fade > 0.08) {
+          const waveOffset = Math.sin((x * 0.015) + state.tick * 1.5) * 5;
+          const py = y + waveOffset;
+          const waveType = hash(x * 9 + y * 17);
+
+          if (waveType > 0.6) {
+            // Major cresting wave
+            const alphaBase = 0.65 * fade;
+            const alphaCrest = 0.92 * fade;
+            const alphaShadow = 0.70 * fade;
+            
+            const wx = x + (y % 17);
+            
+            // Deep blue shadow
+            pxRect(wx - 2, py + 2, 36, 2, `rgba(2, 32, 54, ${alphaShadow})`);
+            // Light blue wave body
+            pxRect(wx, py, 32, 2, `rgba(14, 165, 233, ${alphaBase})`);
+            // Bright white crest highlight
+            pxRect(wx + 8, py - 1.5, 16, 1.5, `rgba(255, 255, 255, ${alphaCrest})`);
+          } else if (waveType > 0.25) {
+            // Minor wave ripple
+            const alphaBase = 0.45 * fade;
+            const alphaShadow = 0.50 * fade;
+            const wx = x + (y % 11);
+            
+            // Ripple shadow
+            pxRect(wx - 1, py + 1.5, 18, 1.5, `rgba(2, 32, 54, ${alphaShadow})`);
+            // Ripple body
+            pxRect(wx, py, 16, 1.5, `rgba(56, 189, 248, ${alphaBase})`);
+          }
         }
       }
     }
@@ -354,17 +427,61 @@
     const rx = r.rx || r.r;
     const ry = r.ry || r.r * 0.78;
 
+    // Determine if this region is selected (active) in the demo
+    const selectedTown = towns.find(t => t.id === state.selected);
+    const activeRegionIdx = selectedTown ? findRegionAt(selectedTown.x, selectedTown.y) : null;
+    const isActive = activeRegionIdx === idx;
+
     if (!inland) {
-      // Shallow water outline / foam (light cyan pixel border around island)
+      // Fetch biome-specific colors or defaults
+      const cDeep = biome.cliffDeep || "#0f0a05";
+      const cMid = biome.cliffMid || "#21160a";
+      const cUpper = biome.cliffUpper || "#3e2e18";
+      const bColor = biome.beach || "#d5a549";
+
+      // 1. Shallow water outline / foam (light cyan pixel border around island)
       const shallow = organicPath(r.x, r.y, rx + 18, ry + 16, seed * 1.7);
       fillPath(shallow, "#289db9");
 
-      // Dark shoreline base & Sand rim
-      const coast = organicPath(r.x + 2, r.y + 3, rx + 8, ry + 8, seed * 1.7 + 0.15);
-      fillPath(coast, "#393529");
+      // 2. Tall 3D Cliff shadow base (+8px down)
+      const cliffDeep = organicPath(r.x + 3, r.y + 7, rx + 8, ry + 8, seed * 1.7 + 0.1);
+      fillPath(cliffDeep, cDeep);
 
-      const sandRim = organicPath(r.x, r.y, rx + 4, ry + 4, seed * 1.7 + 0.25);
-      fillPath(sandRim, "#d5a549");
+      // Shoreline highlight
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(cliffDeep[0][0], cliffDeep[0][1]);
+      for (let i = 1; i < cliffDeep.length; i++) ctx.lineTo(cliffDeep[i][0], cliffDeep[i][1]);
+      ctx.closePath();
+      ctx.stroke();
+
+      // 3. Mid/upper cliff face (gradient)
+      const coast = organicPath(r.x + 1.5, r.y + 3.5, rx + 5, ry + 5, seed * 1.7 + 0.2);
+      const cliffGrad = ctx.createLinearGradient(r.x - rx * 0.4, r.y - ry * 0.4, r.x + rx * 0.2, r.y + ry + 7);
+      cliffGrad.addColorStop(0, cUpper);
+      cliffGrad.addColorStop(0.5, cMid);
+      cliffGrad.addColorStop(1, cDeep);
+      fillPath(coast, cliffGrad);
+
+      // Crevice lines running down
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < coast.length; i += 4) {
+        ctx.moveTo(coast[i][0], coast[i][1]);
+        ctx.lineTo(cliffDeep[i][0], cliffDeep[i][1]);
+      }
+      ctx.stroke();
+
+      // 4. Sand rim
+      const sandRim = organicPath(r.x, r.y, rx + 3, ry + 3, seed * 1.7 + 0.25);
+      fillPath(sandRim, bColor);
+
+      // Sand highlight
+      const sandHighlight = organicPath(r.x, r.y, rx + 1, ry + 1, seed * 1.7 + 0.3);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      fillPath(sandHighlight);
     } else {
       // Internal region border shadow / separation between biomes
       const boundary = organicPath(r.x + 2, r.y + 4, rx + 3, ry + 3, seed * 1.7 + 0.25);
@@ -416,12 +533,166 @@
       pxRect(px, py, bw, bh, c);
     }
 
+    if (isActive) {
+      // Radial glow inside region (matching the main app style)
+      const maxRadius = Math.max(rx, ry) * 1.4;
+      const pulse = Math.sin(state.tick * 5.0) * 0.12 + 0.38;
+      const colorCenter = `rgba(255, 235, 90, ${pulse})`;
+      const colorEdge = `rgba(216, 155, 33, 0.03)`;
+      const grad = ctx.createRadialGradient(r.x, r.y, 4, r.x, r.y, maxRadius);
+      grad.addColorStop(0, colorCenter);
+      grad.addColorStop(0.6, colorCenter);
+      grad.addColorStop(1, colorEdge);
+      ctx.fillStyle = grad;
+      ctx.fillRect(r.x - rx - 16, r.y - ry - 16, rx * 2 + 32, ry * 2 + 32);
+
+      // Light sweep
+      const sweepPos = ((state.tick * 60) % (rx * 4)) - rx * 2;
+      const sweepGrad = ctx.createLinearGradient(
+        r.x + sweepPos - 20, r.y,
+        r.x + sweepPos + 20, r.y
+      );
+      sweepGrad.addColorStop(0, "rgba(255, 235, 90, 0)");
+      sweepGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.35)");
+      sweepGrad.addColorStop(1, "rgba(255, 235, 90, 0)");
+      ctx.fillStyle = sweepGrad;
+      ctx.fillRect(r.x - rx - 16, r.y - ry - 16, rx * 2 + 32, ry * 2 + 32);
+    }
+
     // Outer pixel border around region line
     ctx.strokeStyle = biome.edge;
     ctx.lineWidth = 3;
     ctx.stroke();
 
     ctx.restore();
+
+    if (isActive) {
+      ctx.save();
+      // Re-create the organic land path
+      const landPath = organicPath(r.x, r.y, rx, ry, seed * 1.7 + 0.4);
+      ctx.beginPath();
+      ctx.moveTo(landPath[0][0], landPath[0][1]);
+      for (let i = 1; i < landPath.length; i++) ctx.lineTo(landPath[i][0], landPath[i][1]);
+      ctx.closePath();
+
+      const glowColor = "#ffe85a";
+      const strokeColor = "#fff06a";
+      const innerColor = "#ffffff";
+
+      // Layer 1: Wide soft ambient glow
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 40 + Math.sin(state.tick * 6) * 8;
+      ctx.globalAlpha = 0.6 + Math.sin(state.tick * 6) * 0.1;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 10;
+      ctx.stroke();
+
+      // Layer 2: Medium intense core neon glow
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 18;
+      ctx.globalAlpha = 0.95 + Math.sin(state.tick * 8) * 0.05;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      // Layer 3: Solid high-contrast white core
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = innerColor;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Layer 4: Running dashed energy flow
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = innerColor;
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([12, 10]);
+      ctx.lineDashOffset = -state.tick * 22;
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Draw tactical radar target crosshair at the center of the region!
+      ctx.save();
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 12;
+
+      // 1. Outer rotating dashed ring
+      const outerRad = 28 + Math.sin(state.tick * 5) * 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, outerRad, 0, Math.PI * 2);
+      ctx.strokeStyle = glowColor;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.lineDashOffset = -state.tick * 12;
+      ctx.stroke();
+
+      // 2. Inner counter-rotating dashed ring
+      const innerRad = 16;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, innerRad, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([4, 4]);
+      ctx.lineDashOffset = state.tick * 8;
+      ctx.stroke();
+
+      // 3. Crosshair ticks (pulsing slightly and pointing inwards)
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.moveTo(r.x - outerRad - 8, r.y);
+      ctx.lineTo(r.x - outerRad + 3, r.y);
+      ctx.moveTo(r.x + outerRad - 3, r.y);
+      ctx.lineTo(r.x + outerRad + 8, r.y);
+      ctx.moveTo(r.x, r.y - outerRad - 8);
+      ctx.lineTo(r.x, r.y - outerRad + 3);
+      ctx.moveTo(r.x, r.y + outerRad - 3);
+      ctx.lineTo(r.x, r.y + outerRad + 8);
+      
+      ctx.strokeStyle = "#ffd34d";
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      // 4. Corner target brackets
+      const bracketSize = 8;
+      const bracketDist = outerRad + 12;
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#ffffff";
+      
+      ctx.beginPath();
+      ctx.moveTo(r.x - bracketDist, r.y - bracketDist + bracketSize);
+      ctx.lineTo(r.x - bracketDist, r.y - bracketDist);
+      ctx.lineTo(r.x - bracketDist + bracketSize, r.y - bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x + bracketDist, r.y - bracketDist + bracketSize);
+      ctx.lineTo(r.x + bracketDist, r.y - bracketDist);
+      ctx.lineTo(r.x + bracketDist - bracketSize, r.y - bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x - bracketDist, r.y + bracketDist - bracketSize);
+      ctx.lineTo(r.x - bracketDist, r.y + bracketDist);
+      ctx.lineTo(r.x - bracketDist + bracketSize, r.y + bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x + bracketDist, r.y + bracketDist - bracketSize);
+      ctx.lineTo(r.x + bracketDist, r.y + bracketDist);
+      ctx.lineTo(r.x + bracketDist - bracketSize, r.y + bracketDist);
+      ctx.stroke();
+
+      // 5. Center pulsing indicator dot
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 3.0, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowBlur = 10;
+      ctx.fill();
+
+      ctx.restore();
+    }
   }
 
   function drawRoutes() {
@@ -532,13 +803,25 @@
     const owner = factions[t.owner];
     const sel = t.id === state.selected;
     if (sel) {
+      ctx.save();
+      ctx.shadowColor = "#ffe85a";
+      ctx.shadowBlur = 12;
       ctx.fillStyle = "rgba(255, 230, 90, 0.35)";
       ctx.beginPath();
       ctx.ellipse(t.x, t.y + 24, 44, 18, 0, 0, TAU);
       ctx.fill();
+
+      ctx.shadowBlur = 0;
       ctx.strokeStyle = "#ffe24a";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -state.tick * 15;
+      ctx.stroke();
+      ctx.restore();
     }
     pxRect(t.x - 30, t.y + 16, 60, 14, "rgba(0,0,0,0.3)");
     pxRect(t.x - 26, t.y + 12, 52, 12, "#3d362e");
@@ -1105,6 +1388,9 @@
     };
   }
 
+  let dragStartPos = { x: 0, y: 0 };
+  let clickStartTime = 0;
+
   canvas.addEventListener("mousemove", (e) => {
     const p = pointer(e);
     if (state.drag) {
@@ -1113,7 +1399,8 @@
       state.panX += dx;
       state.panY += dy;
       state.drag = p;
-      if (Math.abs(dx) + Math.abs(dy) > 2) state.dragMoved = true;
+      const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
+      if (totalDist > 4) state.dragMoved = true;
       clampPan();
       return;
     }
@@ -1124,7 +1411,11 @@
 
   canvas.addEventListener("mousedown", (e) => {
     const p = pointer(e);
+    dragStartPos = p;
     state.dragMoved = false;
+    clickStartTime = performance.now();
+    state.targetPanX = null;
+    state.targetPanY = null;
     if (!buttonAt(p.x, p.y) && !gearAt(p.x, p.y) && state.targetZoom > BASE_ZOOM + 0.08) state.drag = p;
   });
 
@@ -1146,7 +1437,10 @@
   }, { passive: false });
 
   canvas.addEventListener("click", (e) => {
-    if (state.dragMoved) {
+    const p = pointer(e);
+    const clickDuration = performance.now() - clickStartTime;
+    const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
+    if (state.dragMoved || totalDist > 4 || clickDuration > 220) {
       state.dragMoved = false;
       return;
     }
@@ -1161,10 +1455,32 @@
       return;
     }
     const t = townAt(p.x, p.y);
-    if (!t) return;
-    state.selected = t.id;
-    if (t.owner === 0) toast("THÀNH CỦA BẠN: CÓ THỂ TUYỂN QUÂN/NÂNG CẤP");
-    else attack(t);
+    if (t) {
+      state.selected = t.id;
+      panCameraTo(t.x, t.y);
+      if (t.owner === 0) toast("THÀNH CỦA BẠN: CÓ THỂ TUYỂN QUÂN/NÂNG CẤP");
+      else attack(t);
+      return;
+    }
+
+    // Check if clicked on a region/islet
+    const wx = (p.x - (1 - state.zoom) * W * 0.48 - state.panX) / state.zoom;
+    const wy = (p.y - (1 - state.zoom) * H * 0.48 - state.panY) / state.zoom;
+    const regionIdx = findRegionAt(wx, wy);
+    if (regionIdx !== null) {
+      const r = regionIdx >= 60 ? islets[regionIdx - 60] : regions[regionIdx];
+      if (r) {
+        const townInRegion = towns.find(town => findRegionAt(town.x, town.y) === regionIdx);
+        if (townInRegion) {
+          state.selected = townInRegion.id;
+        } else {
+          state.selected = null;
+        }
+        panCameraTo(r.x, r.y);
+      }
+    } else {
+      state.selected = null;
+    }
   });
 
   window.addEventListener("keydown", (e) => {
@@ -1182,6 +1498,18 @@
   function sim(dt) {
     state.tick += dt;
     state.zoom = lerp(state.zoom, state.targetZoom, Math.min(1, dt * 12));
+    
+    if (state.targetPanX !== null && state.targetPanY !== null) {
+      state.panX = lerp(state.panX, state.targetPanX, Math.min(1, dt * 8));
+      state.panY = lerp(state.panY, state.targetPanY, Math.min(1, dt * 8));
+      if (Math.abs(state.panX - state.targetPanX) < 0.5 && Math.abs(state.panY - state.targetPanY) < 0.5) {
+        state.panX = state.targetPanX;
+        state.panY = state.targetPanY;
+        state.targetPanX = null;
+        state.targetPanY = null;
+      }
+    }
+
     clampPan();
     for (let i = state.voyages.length - 1; i >= 0; i--) {
       const v = state.voyages[i];

@@ -13,6 +13,7 @@ export type PlayerDocument = {
   lastResourceCollectedAt?: Date;
   allianceTroopReserve?: number;
   role: "player" | "admin";
+  newbieShieldUntil?: Date;
   createdAt: Date;
   lastSeenAt: Date;
 };

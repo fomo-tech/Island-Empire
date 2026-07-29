@@ -53,6 +53,9 @@ export type TownSnapshot = {
   level: number;
   ownerId: string;
   troops: number;
+  infantryCount?: number;
+  cavalryCount?: number;
+  artilleryCount?: number;
   population?: number;
   x?: number;
   y?: number;
@@ -166,11 +169,14 @@ export type GameStateResult = {
   territories: TerritoryInfo[];
   clearings: ActiveClearing[];
   marches: MarchOrder[];
+  towns?: TownSnapshot[];
   resources: ResourceBag;
   resourceCapacity: ResourceBag;
   productionPerSecond: ResourceBag;
   offlineGain: ResourceBag;
   offlineSeconds: number;
+  newbieShieldUntil?: string | null;
+  playerProfile?: { flagColor: string; emblem: string } | null;
 };
 
 export type StartClearingResult = {
@@ -183,6 +189,7 @@ export type CompleteClearingResult = ClaimTerritoryResult;
 export type CreateMarchResult = {
   ok: true;
   march: MarchOrder;
+  newbieShieldUntil?: string | null;
 };
 
 export type RealtimeEvent =
@@ -845,12 +852,38 @@ export function generateWorldTerritories(): BaseTerritory[] {
   // Islets start after all mainland regions
   let nextIsletId = nextRegionId;
 
+  const isOverlap = (px: number, py: number, prx: number, pry: number, bufferScale: number = 1.0): boolean => {
+    const prMax = Math.max(prx, pry);
+    for (let j = 0; j < territories.length; j++) {
+      const r = territories[j];
+      const dx = px - r.x;
+      const dy = py - r.y;
+      const dist = Math.hypot(dx, dy);
+      
+      const rMax = Math.max(r.rx, r.ry);
+      const baseBuffer = r.isIslet ? 200 : 130;
+      const buffer = baseBuffer * bufferScale;
+      if (dist < rMax + prMax + buffer) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Add baseIslets
   baseIslets.forEach((r) => {
+    let x = r.x;
+    let y = r.y;
+    let attempts = 0;
+    while (isOverlap(x, y, r.rx, r.ry, 1.0) && attempts < 100) {
+      x = Math.round(400 + random() * 23200);
+      y = Math.round(400 + random() * 17200);
+      attempts++;
+    }
     territories.push({
       id: nextIsletId++,
-      x: r.x,
-      y: r.y,
+      x,
+      y,
       rx: r.rx,
       ry: r.ry,
       biome: r.biome,
@@ -859,17 +892,26 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   });
 
-  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương lên 120 (scaled to 24000x18000)
-  for (let i = 0; i < 120; i++) {
-    const angle = (i / 120) * Math.PI * 2;
-    const radiusX = 6300 + (i % 10) * 630 + random() * 450;
-    const radiusY = 4800 + (i % 10) * 480 + random() * 360;
-    const x = Math.round(12000 + Math.cos(angle) * radiusX);
-    const y = Math.round(9000 + Math.sin(angle) * radiusY);
-
+  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương lên 60 (scaled to 24000x18000)
+  for (let i = 0; i < 60; i++) {
+    let x = 0;
+    let y = 0;
     const rx = Math.round(45 + random() * 25);
     const ry = Math.round(rx * 0.78);
     
+    let attempts = 0;
+    while (attempts < 100) {
+      // Uniform random distribution inside ocean gaps between grid continents
+      x = Math.round(400 + random() * 23200);
+      y = Math.round(400 + random() * 17200);
+      
+      const bufferScale = Math.max(0.1, 1.0 - (attempts / 80));
+      if (!isOverlap(x, y, rx, ry, bufferScale)) {
+        break;
+      }
+      attempts++;
+    }
+
     let biome = Math.floor(random() * 8);
     if (random() < 0.70) {
       const rareBiomes = [2, 4, 5];
@@ -887,27 +929,36 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   }
 
-  // Generate 80 border islets scaled to 24000x18000
-  for (let i = 0; i < 80; i++) {
+  // Generate 40 border islets scaled to 24000x18000
+  for (let i = 0; i < 40; i++) {
     let x = 0;
     let y = 0;
-    const edge = i % 4; // 0 = Left, 1 = Right, 2 = Top, 3 = Bottom
-    if (edge === 0) {
-      x = Math.round(150 + random() * 400);
-      y = Math.round(200 + (i / 80) * 17600);
-    } else if (edge === 1) {
-      x = Math.round(23450 + random() * 400);
-      y = Math.round(200 + (i / 80) * 17600);
-    } else if (edge === 2) {
-      x = Math.round(200 + (i / 80) * 23600);
-      y = Math.round(150 + random() * 400);
-    } else {
-      x = Math.round(200 + (i / 80) * 23600);
-      y = Math.round(17450 + random() * 400);
-    }
-
     const rx = Math.round(40 + random() * 20);
     const ry = Math.round(rx * 0.78);
+    
+    let attempts = 0;
+    while (attempts < 100) {
+      const edge = (i + attempts) % 4; // 0 = Left, 1 = Right, 2 = Top, 3 = Bottom
+      if (edge === 0) {
+        x = Math.round(150 + random() * 400);
+        y = Math.round(200 + (i / 40) * 17600);
+      } else if (edge === 1) {
+        x = Math.round(23450 + random() * 400);
+        y = Math.round(200 + (i / 40) * 17600);
+      } else if (edge === 2) {
+        x = Math.round(200 + (i / 40) * 23600);
+        y = Math.round(150 + random() * 400);
+      } else {
+        x = Math.round(200 + (i / 40) * 23600);
+        y = Math.round(17450 + random() * 400);
+      }
+      
+      const bufferScale = Math.max(0.1, 1.0 - (attempts / 80));
+      if (!isOverlap(x, y, rx, ry, bufferScale)) {
+        break;
+      }
+      attempts++;
+    }
 
     let biome = Math.floor(random() * 8);
     if (random() < 0.70) {
@@ -926,24 +977,27 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   }
 
-  // Generate additional North/South islets to fulfill exactly 5000 total territories
-  const targetTotal = 5000;
+  // Generate additional islets uniformly across the entire map to fulfill exactly 3800 total territories
+  const targetTotal = 3800;
   const neededIslets = targetTotal - territories.length;
 
   for (let i = 0; i < neededIslets; i++) {
     let x = 0;
     let y = 0;
-    const isNorth = i % 2 === 0;
-    if (isNorth) {
-      x = Math.round(200 + (i / neededIslets) * 23600 + random() * 100);
-      y = Math.round(150 + random() * 1900);
-    } else {
-      x = Math.round(200 + (i / neededIslets) * 23600 + random() * 100);
-      y = Math.round(15900 + random() * 1900);
-    }
-
     const rx = Math.round(40 + random() * 25);
     const ry = Math.round(rx * 0.78);
+    
+    let attempts = 0;
+    while (attempts < 100) {
+      x = Math.round(300 + random() * 23400);
+      y = Math.round(300 + random() * 17400);
+      
+      const bufferScale = Math.max(0.1, 1.0 - (attempts / 80));
+      if (!isOverlap(x, y, rx, ry, bufferScale)) {
+        break;
+      }
+      attempts++;
+    }
 
     let biome = Math.floor(random() * 8);
     if (biome === 3) biome = 6;

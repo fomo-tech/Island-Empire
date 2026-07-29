@@ -122,14 +122,14 @@ export function createIslandEmpireGame(
   };
 
   const BIOMES = [
-    { id: "grass", a: "#689f38", b: "#558b2f", hi: "#8bc34a", dark: "#33691e", edge: "#274f14", beach: "#e8b94a", cliffUpper: "#3e2e18", cliffMid: "#1e1409", cliffDeep: "#0f0a05" }, // Organic Meadow Green
-    { id: "sand", a: "#ddaa55", b: "#c89640", hi: "#f5c575", dark: "#a57325", edge: "#7c5314", beach: "#ddaa55", cliffUpper: "#7c5314", cliffMid: "#54360a", cliffDeep: "#2c1b03" }, // Classic Ochre Sand
-    { id: "snow", a: "#e3ecef", b: "#ccd7db", hi: "#ffffff", dark: "#a1b1b8", edge: "#7f8f96", beach: "#ffffff", cliffUpper: "#7f8f96", cliffMid: "#505c61", cliffDeep: "#2f373a" }, // Cool Glacier Snow
-    { id: "ember", a: "#5a6065", b: "#464b4f", hi: "#73797f", dark: "#303437", edge: "#212426", beach: "#464b4f", cliffUpper: "#212426", cliffMid: "#141618", cliffDeep: "#0b0c0d" }, // Obsidian Volcanic Gray
-    { id: "violet", a: "#4db6ac", b: "#37968e", hi: "#80cbc4", dark: "#20655f", edge: "#14423e", beach: "#80cbc4", cliffUpper: "#14423e", cliffMid: "#0a2522", cliffDeep: "#041110" }, // Emerald Jade Green
-    { id: "rose", a: "#cf7a57", b: "#b36442", hi: "#e89874", dark: "#8c4627", edge: "#693118", beach: "#e89874", cliffUpper: "#693118", cliffMid: "#3d1a0a", cliffDeep: "#200d04" }, // Terracotta Red Clay
-    { id: "pine", a: "#2e7d32", b: "#1b5e20", hi: "#4caf50", dark: "#0c3c13", edge: "#06250a", beach: "#a5d6a7", cliffUpper: "#1b5e20", cliffMid: "#0c3c13", cliffDeep: "#051b08" }, // Evergreen Pine
-    { id: "mint", a: "#809e52", b: "#68853b", hi: "#9ccc65", dark: "#475f24", edge: "#324417", beach: "#9ccc65", cliffUpper: "#324417", cliffMid: "#1d280d", cliffDeep: "#0f1506" }, // Mossy Swamp Olive
+    { id: "grass", a: "#6f9651", b: "#5d8044", hi: "#9fb977", dark: "#3d6032", edge: "#273d22", beach: "#cfb46a", cliffUpper: "#6a5730", cliffMid: "#40321b", cliffDeep: "#1f180d" },
+    { id: "sand", a: "#c8a85d", b: "#af8d4b", hi: "#dec37c", dark: "#7e6537", edge: "#5d4828", beach: "#d8bd75", cliffUpper: "#7d6135", cliffMid: "#4f3a1f", cliffDeep: "#251b0e" },
+    { id: "snow", a: "#d9e1da", b: "#c2cec6", hi: "#f1f4ed", dark: "#8fa098", edge: "#687a72", beach: "#dfe5dc", cliffUpper: "#819188", cliffMid: "#55645d", cliffDeep: "#303b36" },
+    { id: "ember", a: "#70685b", b: "#5b554c", hi: "#918674", dark: "#403b34", edge: "#2d2a25", beach: "#9b8252", cliffUpper: "#514533", cliffMid: "#312a20", cliffDeep: "#17130f" },
+    { id: "jade", a: "#6ea48d", b: "#5b8d79", hi: "#9bc7b3", dark: "#3b675b", edge: "#284941", beach: "#a9c6a0", cliffUpper: "#506c4f", cliffMid: "#314335", cliffDeep: "#172119" },
+    { id: "clay", a: "#bd785b", b: "#a6664d", hi: "#d29373", dark: "#764630", edge: "#573222", beach: "#d2a66f", cliffUpper: "#765036", cliffMid: "#493120", cliffDeep: "#23170f" },
+    { id: "pine", a: "#4f7d44", b: "#3f6a39", hi: "#7aa36d", dark: "#294b27", edge: "#1f351d", beach: "#a8bf83", cliffUpper: "#4a5f33", cliffMid: "#2f3e22", cliffDeep: "#171f10" },
+    { id: "moss", a: "#879762", b: "#728151", hi: "#a8b87b", dark: "#505e37", edge: "#39452a", beach: "#b8bd79", cliffUpper: "#65623a", cliffMid: "#3f3d24", cliffDeep: "#1e1d11" },
   ];
 
   const OWNER_BIOMES = [
@@ -435,6 +435,8 @@ export function createIslandEmpireGame(
     targetZoom: FIXED_FAR_ZOOM,
     panX: 0,
     panY: 0,
+    targetPanX: null as number | null,
+    targetPanY: null as number | null,
     cameraRestored: false,
     drag: null,
     dragMoved: false,
@@ -493,6 +495,31 @@ export function createIslandEmpireGame(
   const organicPathCache = new Map();
   const sharedEdgeCache = new Map<string, Array<[number, number]>>();
   const sharedRegionPolygonCache = new Map<string, Array<[number, number]>>();
+  const visualBiomeCache = new Map<string, number>();
+  const mainlandCoastalRegionIds = new Set<number>();
+
+  regions.forEach((r: any) => {
+    const continent = nearestContinent(r);
+    if (!continent) return;
+    const nx = (r.x - continent.x) / continent.rx;
+    const ny = (r.y - continent.y) / continent.ry;
+    const edgeScore = Math.sqrt(nx * nx + ny * ny);
+    if (edgeScore < 0.58) return;
+
+    const rx = r.rx || r.r || 180;
+    const ry = r.ry || (r.r || 180) * 0.78;
+    const outwardAngle = Math.atan2(r.y - continent.y, r.x - continent.x);
+    let openSeaSamples = 0;
+    for (let i = -2; i <= 2; i++) {
+      const angle = outwardAngle + i * (Math.PI / 8);
+      const px = r.x + Math.cos(angle) * rx * 1.28;
+      const py = r.y + Math.sin(angle) * ry * 1.28;
+      if (regionAtCoords(px, py) < 0) {
+        openSeaSamples++;
+      }
+    }
+    if (openSeaSamples >= 2) mainlandCoastalRegionIds.add(r.id);
+  });
 
   towns.forEach((town, i) => {
     normalizeTown(town);
@@ -721,15 +748,24 @@ export function createIslandEmpireGame(
     }
   }
 
-  function cancelClearingIfTargetTaken(regionIds: number[]) {
-    const travel = state.settlerTravel;
-    if (!travel?.active || travel.returning || travel.targetRegionId < 0) return;
-    if (!regionIds.includes(travel.targetRegionId)) return;
-    if (derivedRegionOwnership(travel.targetRegionId) !== 0) {
-      refundBuildCostForRegion(travel.targetRegionId);
-      beginSettlerReturn(travel.targetRegionId, "LÃNH THỔ ĐANG XÂY ĐÃ BỊ CHIẾM, ĐỘI THỢ QUAY VỀ");
-    }
-  }
+	  function cancelClearingIfTargetTaken(regionIds: number[]) {
+	    const travel = state.settlerTravel;
+	    if (!travel?.active || travel.returning || travel.targetRegionId < 0) return;
+	    if (!regionIds.includes(travel.targetRegionId)) return;
+	    const ownerCode = derivedRegionOwnership(travel.targetRegionId);
+	    if (ownerCode === 1) {
+	      state.regionInProgress = -1;
+	      state.regionClearing[travel.targetRegionId] = 0;
+	      delete state.activeClearingTimings[travel.targetRegionId];
+	      state.settlerTravel = { active: false, targetRegionId: -1, originTownId: null, originX: 0, originY: 0 };
+	      toast("XÂY THÀNH HOÀN TẤT, SERVER ĐÃ XÁC NHẬN");
+	      return;
+	    }
+	    if (ownerCode !== 0) {
+	      refundBuildCostForRegion(travel.targetRegionId);
+	      beginSettlerReturn(travel.targetRegionId, "LÃNH THỔ ĐANG XÂY ĐÃ BỊ CHIẾM, ĐỘI THỢ QUAY VỀ");
+	    }
+	  }
 
   function enforceTownTroopLimit(town: any) {
     normalizeTown(town);
@@ -897,7 +933,14 @@ export function createIslandEmpireGame(
     state.targetZoom = FIXED_FAR_ZOOM;
     state.panX = W / 2 - b.cx * state.zoom - (1 - state.zoom) * W * 0.48;
     state.panY = H / 2 - b.cy * state.zoom - (1 - state.zoom) * H * 0.48;
+    state.targetPanX = null;
+    state.targetPanY = null;
     clampPan();
+  }
+
+  function panCameraTo(cx: number, cy: number) {
+    state.targetPanX = W / 2 - cx * state.zoom - (1 - state.zoom) * W * 0.48;
+    state.targetPanY = H / 2 - cy * state.zoom - (1 - state.zoom) * H * 0.48;
   }
 
   function cameraSeesLand() {
@@ -975,6 +1018,50 @@ export function createIslandEmpireGame(
     return `rgb(${r},${g},${b})`;
   }
 
+  function nearestContinent(r: any) {
+    let best: any = null;
+    for (const c of megaContinents) {
+      const nx = (r.x - c.x) / c.rx;
+      const ny = (r.y - c.y) / c.ry;
+      const d = nx * nx + ny * ny;
+      if (!best || d < best.d) best = { ...c, d };
+    }
+    return best;
+  }
+
+  function visualBiomeIndex(r: any, idx: number, isIslet = false) {
+    const cacheKey = `${isIslet ? "i" : "r"}_${r.id ?? idx}`;
+    const cached = visualBiomeCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const continent = nearestContinent(r);
+    const base = Math.max(0, Math.min(BIOMES.length - 1, Math.round(r.biome || 0)));
+    const palettes = [
+      [0, 6, 7, 5],
+      [1, 7, 5, 0],
+      [2, 7, 6, 3],
+      [3, 1, 5, 7],
+      [4, 0, 7, 6],
+      [5, 1, 0, 7],
+      [6, 0, 7, 4],
+      [7, 0, 6, 1],
+    ];
+    const palette = palettes[base] || palettes[0];
+    const continentSeed = (continent?.seed || 0) * 97;
+    const roll = hash((r.seed || idx + 1) * 53 + continentSeed);
+    let picked = palette[0];
+    if (!isIslet && roll > 0.78 && roll <= 0.88) picked = palette[1];
+    else if (!isIslet && roll > 0.88 && roll <= 0.96) picked = palette[2];
+    else if (!isIslet && roll > 0.96) picked = palette[3];
+
+    visualBiomeCache.set(cacheKey, picked);
+    return picked;
+  }
+
+  function visualBiome(r: any, idx: number, isIslet = false) {
+    return BIOMES[visualBiomeIndex(r, idx, isIslet)] || BIOMES[0];
+  }
+
   function text(str, x, y, size, color, align) {
     ctx.font = `700 ${size}px "Courier New", monospace`;
     ctx.textAlign = align || "left";
@@ -1035,23 +1122,45 @@ export function createIslandEmpireGame(
 
   function drawWorldOceanTexture() {
     const vp = getWorldViewport();
-    const startY = Math.floor(vp.minY / 128) * 128;
-    const endY = Math.ceil(vp.maxY / 128) * 128;
-    const startX = Math.floor(vp.minX / 160) * 160;
-    const endX = Math.ceil(vp.maxX / 160) * 160;
+    const startY = Math.floor(vp.minY / 64) * 64;
+    const endY = Math.ceil(vp.maxY / 64) * 64;
+    const startX = Math.floor(vp.minX / 80) * 80;
+    const endX = Math.ceil(vp.maxX / 80) * 80;
 
-    for (let y = startY; y < endY; y += 128) {
-      for (let x = startX; x < endX; x += 160) {
-        const waveOffset = Math.sin((x * 0.015) + state.tick * 0.08) * 5;
-        const py = y + waveOffset;
-        const waveType = hash(x * 9 + y * 17);
-        
-        if (waveType > 0.65) {
-          pxRect(x + (y % 13), py, 28, 3, "rgba(14, 165, 233, 0.34)");
-          pxRect(x + (y % 13) + 6, py - 1, 12, 1.5, "rgba(223, 250, 255, 0.44)");
-          pxRect(x + (y % 13) + 3, py + 3, 20, 2, "rgba(2, 44, 74, 0.5)");
-        } else if (waveType > 0.35) {
-          pxRect(x, py, 12, 2, "rgba(56, 189, 248, 0.2)");
+    for (let y = startY; y < endY; y += 64) {
+      for (let x = startX; x < endX; x += 80) {
+        const waveCycle = state.tick * 1.2 + hash(x * 37 + y * 43) * Math.PI * 2;
+        const fade = Math.max(0, Math.sin(waveCycle)); // 0 to 1
+        if (fade > 0.08) {
+          const waveOffset = Math.sin((x * 0.015) + state.tick * 1.5) * 5;
+          const py = y + waveOffset;
+          const waveType = hash(x * 9 + y * 17);
+          
+          if (waveType > 0.65) {
+            // Major cresting wave
+            const alphaBase = 0.65 * fade;
+            const alphaCrest = 0.92 * fade;
+            const alphaShadow = 0.70 * fade;
+            
+            const wx = x + (y % 17);
+            
+            // 1. Deep blue shadow
+            pxRect(wx - 2, py + 2, 36, 2, `rgba(2, 32, 54, ${alphaShadow})`);
+            // 2. Light blue wave body
+            pxRect(wx, py, 32, 2, `rgba(14, 165, 233, ${alphaBase})`);
+            // 3. Bright white crest highlight
+            pxRect(wx + 8, py - 1.5, 16, 1.5, `rgba(255, 255, 255, ${alphaCrest})`);
+          } else if (waveType > 0.28) {
+            // Minor wave ripple
+            const alphaBase = 0.45 * fade;
+            const alphaShadow = 0.50 * fade;
+            const wx = x + (y % 11);
+            
+            // Ripple shadow
+            pxRect(wx - 1, py + 1.5, 18, 1.5, `rgba(2, 32, 54, ${alphaShadow})`);
+            // Ripple body
+            pxRect(wx, py, 16, 1.5, `rgba(56, 189, 248, ${alphaBase})`);
+          }
         }
       }
     }
@@ -1381,22 +1490,22 @@ export function createIslandEmpireGame(
     });
 
     const seed = r.seed || idx * 101 + 17;
-    const sizeFactor = 0.92 + hash(seed * 31) * 0.35;
+    const sizeFactor = 0.99 + hash(seed * 31) * 0.20;
     const baseRx = (r.rx || 230) * sizeFactor;
 
-    const numCorners = 10 + Math.floor(hash(seed * 17) * 5);
+    const numCorners = 7 + Math.floor(hash(seed * 17) * 4);
     const cornerAngles: number[] = [];
 
     for (let c = 0; c < numCorners; c++) {
       const baseA = (c / numCorners) * TAU;
-      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.42;
+      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.48;
       cornerAngles.push(baseA + jiggle);
     }
     cornerAngles.sort((a, b) => a - b);
 
     const cornerPts: Array<{ x: number; y: number; angle: number }> = [];
     cornerAngles.forEach((a, i) => {
-      const cornerRadiusMult = 0.86 + hash(seed * 41 + i * 19) * 0.26;
+      const cornerRadiusMult = 0.85 + hash(seed * 41 + i * 19) * 0.28;
       let maxDistInAngle = baseRx * cornerRadiusMult;
       
       let hasNeighbor = false;
@@ -1406,8 +1515,8 @@ export function createIslandEmpireGame(
         let diff = Math.abs(a - nbr.angle);
         if (diff > Math.PI) diff = TAU - diff;
 
-        if (diff < Math.PI / 3) {
-          const allowedDist = (nbr.dist * 0.54) / Math.max(0.5, Math.cos(diff));
+        if (diff < Math.PI / 2.75) {
+          const allowedDist = (nbr.dist * 0.58) / Math.max(0.5, Math.cos(diff));
           if (allowedDist < maxDistInAngle) {
             maxDistInAngle = allowedDist;
             hasNeighbor = true;
@@ -1417,7 +1526,7 @@ export function createIslandEmpireGame(
 
       // Ocean-facing edges: Add rugged, jagged coastline noise (no neighbor to align with!)
       if (!hasNeighbor) {
-        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.13 + Math.cos(a * 11.0 - seed * 0.5) * 0.08;
+        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.10 + Math.cos(a * 11.0 - seed * 0.5) * 0.06;
         maxDistInAngle = baseRx * cornerRadiusMult * oceanNoise;
       }
 
@@ -1427,7 +1536,7 @@ export function createIslandEmpireGame(
     });
 
     const basePts: Array<[number, number]> = cornerPts.map((p) => [p.x, p.y]);
-    const softened: Array<[number, number]> = [];
+    const angularPts: Array<[number, number]> = [];
     const nLen = basePts.length;
     for (let i = 0; i < nLen; i++) {
       const p0 = basePts[i];
@@ -1438,26 +1547,40 @@ export function createIslandEmpireGame(
       const ex = p1[0] - p0[0];
       const ey = p1[1] - p0[1];
       const len = Math.hypot(ex, ey) || 1;
-      const notch = (hash(midSeed) - 0.5) * Math.min(16, len * 0.08);
+      const notch = (hash(midSeed) - 0.5) * Math.min(14, len * 0.07);
       const mid: [number, number] = [
         Math.round((mx + (-ey / len) * notch) / 2) * 2,
         Math.round((my + (ex / len) * notch) / 2) * 2,
       ];
-      const q1: [number, number] = [
-        Math.round((p0[0] * 0.72 + p1[0] * 0.28) / 2) * 2,
-        Math.round((p0[1] * 0.72 + p1[1] * 0.28) / 2) * 2,
-      ];
-      const q2: [number, number] = [
-        Math.round((p0[0] * 0.28 + p1[0] * 0.72) / 2) * 2,
-        Math.round((p0[1] * 0.28 + p1[1] * 0.72) / 2) * 2,
-      ];
-      softened.push(q1);
-      if (len > 96 || hash(midSeed + 9) > 0.78) softened.push(mid);
-      softened.push(q2);
+      angularPts.push(p0);
+      if (len > 118 && hash(midSeed + 9) > 0.62) angularPts.push(mid);
     }
 
-    sharedRegionPolygonCache.set(polyKey, softened);
-    return softened;
+    const beveledPts: Array<[number, number]> = [];
+    const aLen = angularPts.length;
+    for (let i = 0; i < aLen; i++) {
+      const prev = angularPts[(i - 1 + aLen) % aLen];
+      const cur = angularPts[i];
+      const next = angularPts[(i + 1) % aLen];
+      const prevLen = Math.hypot(prev[0] - cur[0], prev[1] - cur[1]);
+      const nextLen = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
+      const cut = Math.min(14, prevLen * 0.12, nextLen * 0.12);
+      if (cut >= 4) {
+        beveledPts.push([
+          Math.round((cur[0] + ((prev[0] - cur[0]) / (prevLen || 1)) * cut) / 2) * 2,
+          Math.round((cur[1] + ((prev[1] - cur[1]) / (prevLen || 1)) * cut) / 2) * 2,
+        ]);
+        beveledPts.push([
+          Math.round((cur[0] + ((next[0] - cur[0]) / (nextLen || 1)) * cut) / 2) * 2,
+          Math.round((cur[1] + ((next[1] - cur[1]) / (nextLen || 1)) * cut) / 2) * 2,
+        ]);
+      } else {
+        beveledPts.push(cur);
+      }
+    }
+
+    sharedRegionPolygonCache.set(polyKey, beveledPts);
+    return beveledPts;
   }
 
   function fillPath(points, color) {
@@ -1475,7 +1598,8 @@ export function createIslandEmpireGame(
   function strokePath(points, strokeStyle, lineWidth) {
     if (!points || points.length === 0) return;
     ctx.beginPath();
-    ctx.lineJoin = "round";
+    ctx.lineJoin = "miter";
+    ctx.miterLimit = 2.6;
     ctx.lineCap = "round";
     ctx.moveTo(points[0][0], points[0][1]);
     for (let i = 1; i < points.length; i++) {
@@ -1504,15 +1628,38 @@ export function createIslandEmpireGame(
     const drawContinentPass = (lands: Array<[any, number]>, amount: number, dx: number, dy: number, color: string) => {
       lands.forEach(([r, id]) => fillPath(makeOffset(r, id, false, amount, dx, dy), color));
     };
+    const drawBiomePass = (lands: Array<[any, number]>, amount: number, dx: number, dy: number, pick: (biome: any) => string) => {
+      lands.forEach(([r, id]) => {
+        const biome = visualBiome(r, id, false);
+        fillPath(makeOffset(r, id, false, amount, dx, dy), pick(biome));
+      });
+    };
+    const coastalRegions = visibleRegions.filter(([r]) => mainlandCoastalRegionIds.has(r.id));
 
     // One continuous mainland underlay: draw the same expanded polygons in broad passes.
     // Overlap between neighbors fills gaps, so provinces read as sitting on one land mass.
     drawContinentPass(visibleRegions, 28, 10, 16, "rgba(0, 0, 0, 0.24)");
-    drawContinentPass(visibleRegions, 18, 3, 7, "rgba(92, 62, 26, 0.78)");
-    drawContinentPass(visibleRegions, 9, 0, 0, "#879c5d");
+
+    drawBiomePass(visibleRegions, 18, 3, 7, (biome) => biome.cliffUpper || "rgba(92, 62, 26, 0.78)");
+    drawBiomePass(visibleRegions, 7, 0, 0, (biome) => biome.b || "#879c5d");
+
+    coastalRegions.forEach(([r, id]) => {
+      const wavePulse = Math.sin(state.tick * 3.1 + (r.seed || id + 1) * 0.47) * 2.2;
+      fillPath(makeOffset(r, id, false, 37 + wavePulse), "rgba(56, 189, 248, 0.30)");
+      fillPath(makeOffset(r, id, false, 31 + wavePulse * 0.65), "rgba(255, 255, 255, 0.48)");
+    });
+
+    coastalRegions.forEach(([r, id]) => {
+      const biome = visualBiome(r, id, false);
+      fillPath(makeOffset(r, id, false, 28, 7, 17), "rgba(3, 4, 3, 0.82)");
+      fillPath(makeOffset(r, id, false, 23, 5, 13), biome.cliffDeep || "#1f180d");
+      fillPath(makeOffset(r, id, false, 17, 3, 9), biome.cliffMid || "#40321b");
+      fillPath(makeOffset(r, id, false, 10, 1, 4), biome.cliffUpper || "#6a5730");
+      fillPath(makeOffset(r, id, false, 6), biome.beach || "#cfb46a");
+    });
 
     const drawIsletBase = (r: any, id: number) => {
-      const biome = BIOMES[r.biome] || BIOMES[0];
+      const biome = visualBiome(r, id, true);
       fillPath(makeOffset(r, id, true, 18, 8, 13), "rgba(0, 0, 0, 0.22)");
       fillPath(makeOffset(r, id, true, 13, 3, 6), biome.cliffDeep || "rgba(30, 20, 9, 0.76)");
       fillPath(makeOffset(r, id, true, 9), biome.beach || "#d9b45f");
@@ -1780,7 +1927,7 @@ export function createIslandEmpireGame(
     ctx.restore();
   }
 
-  function drawRegionTerrain(r, seed, rx, ry, originalBiome) {
+  function drawRegionTerrain(r, seed, rx, ry, originalBiome, terrainBiome = originalBiome) {
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
 
@@ -1831,7 +1978,7 @@ export function createIslandEmpireGame(
 
       // --- BIOME-ACCURATE RESOURCE & TERRAIN DECORATIONS ---
       // 1. Desert Biome (Sa Mạc - Orange land)
-      if (originalBiome === 1) {
+      if (terrainBiome === 1) {
         if (pick > 0.62) drawPalmTree(x, y, pick > 0.85 ? 0.75 : 0.58);
         else if (pick > 0.35) drawCoin(x, y, 1.25);
         else if (pick > 0.18) drawMountain(x, y, pick > 0.28 ? 0.52 : 0.38);
@@ -1839,42 +1986,42 @@ export function createIslandEmpireGame(
         else drawDune(x, y, 0.65);
 
       // 2. Snow Biome
-      } else if (originalBiome === 2) {
+      } else if (terrainBiome === 2) {
         if (pick > 0.55) drawRockPile(x, y, pick > 0.75 ? 1.2 : 0.85);
         else if (pick > 0.28) drawMountain(x, y, pick > 0.45 ? 0.52 : 0.38);
         else if (pick > 0.14) drawSnowTree(x, y, 0.58);
         else drawBush(x, y, 0.5);
 
       // 3. Volcanic Biome
-      } else if (originalBiome === 3) {
+      } else if (terrainBiome === 3) {
         if (pick > 0.65) drawVolcano(x, y, pick > 0.85 ? 0.58 : 0.42);
         else if (pick > 0.35) drawMountain(x, y, pick > 0.55 ? 0.55 : 0.40);
         else if (pick > 0.18) drawCoin(x, y, 1.2);
         else drawRockPile(x, y, 1.15);
 
       // 4. Crystal Biome
-      } else if (originalBiome === 4) {
+      } else if (terrainBiome === 4) {
         if (pick > 0.50) drawRockPile(x, y, pick > 0.75 ? 1.25 : 0.9);
         else if (pick > 0.25) drawTree(x, y, 0.65);
         else if (pick > 0.12) drawCoin(x, y, 1.2);
         else drawFlower(x, y, 0.8, "#4cf0ff", "#ffffff");
 
       // 5. Autumn Biome
-      } else if (originalBiome === 5) {
+      } else if (terrainBiome === 5) {
         if (pick > 0.55) drawTree(x, y, pick > 0.78 ? 0.75 : 0.58);
         else if (pick > 0.30) drawCoin(x, y, 1.25);
         else if (pick > 0.14) drawMountain(x, y, 0.45);
         else drawChest(x, y, 0.85);
 
       // 6. Pine Forest Biome
-      } else if (originalBiome === 6) {
+      } else if (terrainBiome === 6) {
         if (pick > 0.45) drawOakTree(x, y, pick > 0.72 ? 0.85 : 0.60);
         else if (pick > 0.24) drawCoin(x, y, 1.25);
         else if (pick > 0.10) drawMountain(x, y, 0.48);
         else drawChest(x, y, 0.85);
 
       // 7. Mint Swamp Biome
-      } else if (originalBiome === 7) {
+      } else if (terrainBiome === 7) {
         if (pick > 0.45) drawSwampTree(x, y, pick > 0.75 ? 0.75 : 0.58);
         else if (pick > 0.24) drawCoin(x, y, 1.2);
         else if (pick > 0.10) drawMountain(x, y, 0.45);
@@ -1890,7 +2037,7 @@ export function createIslandEmpireGame(
       }
     });
 
-    if (originalBiome === 0 || originalBiome === 6 || originalBiome === 7 || originalBiome === 5) {
+    if (terrainBiome === 0 || terrainBiome === 6 || terrainBiome === 7 || terrainBiome === 5) {
       const fcount = 4;
       for (let i = 0; i < fcount; i++) {
         const fa = hash(seed * 137 + i * 53) * TAU;
@@ -1962,12 +2109,13 @@ export function createIslandEmpireGame(
   }
 
   function drawRegion(r, idx, pass, isIslet) {
-    const biome = BIOMES[r.biome] || BIOMES[0];
+    const biomeId = visualBiomeIndex(r, idx, isIslet);
+    const biome = BIOMES[biomeId] || BIOMES[0];
     const seed = r.seed || idx + 1;
-    const scale = isIslet ? 0.82 : 0.975;
+    const scale = isIslet ? 0.82 : 0.995;
 
     // Use the exact same baseRx/baseRy as getSharedRegionPolygon for perfect coastal alignment
-    const sizeFactor = 0.92 + hash(seed * 31) * 0.35;
+    const sizeFactor = 0.99 + hash(seed * 31) * 0.20;
     const rx = (r.rx || 230) * sizeFactor * scale;
     const ry = rx * 0.78;
 
@@ -1988,22 +2136,7 @@ export function createIslandEmpireGame(
       });
     }
 
-    // Detect whether this region is an outer coastal region / sea bay or an interior land region
-    const allRegs = regions || [];
-    let nbrCount = 0;
-    let hasWaterNbr = false;
-    for (let i = 0; i < allRegs.length; i++) {
-      const r2 = allRegs[i];
-      if (r2.id !== r.id) {
-        const d = Math.hypot(r2.x - r.x, r2.y - r.y);
-        if (d < 580) { // Increased from 380 to 580 to correctly identify interior region neighbors
-          nbrCount++;
-          if (r2.isWater) hasWaterNbr = true;
-        }
-      }
-    }
-    // Only true outside edges get foam/cliff. Interior territories stay flat on the shared land base.
-    const isCoastal = isIslet || r.isWater || hasWaterNbr || nbrCount < 3;
+    const isCoastal = isIslet || mainlandCoastalRegionIds.has(r.id);
 
     if (pass === 0) {
       // Pass 0: Animated Sky Blue Ocean Foam (Only for outer coastal facing edges!)
@@ -2025,21 +2158,72 @@ export function createIslandEmpireGame(
     if (pass === 1) {
       // Pass 1: Tall 3D Sand Cliff Base & Vibrant Golden Beach Rim (Only for outer coastal facing edges!)
       if (isCoastal) {
-        // Deepest shadow base (+12px down for max 3D elevation depth)
+        // Fetch biome-specific colors for cliffs and beach
+        const cDeep = biome.cliffDeep || "#0f0a05";
+        const cMid = biome.cliffMid || "#21160a";
+        const cUpper = biome.cliffUpper || "#3e2e18";
+        const bColor = biome.beach || "#e8b94a";
+
+        // 1. Deepest shadow base (+12px down for max 3D elevation depth)
         const cliffDeep = getOffsetPolygon(26).map(([px, py]) => [px + 5, py + 12] as [number, number]);
-        fillPath(cliffDeep, "#0f0a05");
+        fillPath(cliffDeep, cDeep);
 
-        // Mid cliff dark earth shadow
+        // Draw a bright shoreline foam highlight along the outer edge of cliffDeep to make the bottom pop
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cliffDeep[0][0], cliffDeep[0][1]);
+        for (let i = 1; i < cliffDeep.length; i++) ctx.lineTo(cliffDeep[i][0], cliffDeep[i][1]);
+        ctx.closePath();
+        ctx.stroke();
+
+        // 2. Mid cliff dark shadow
         const cliffBase = getOffsetPolygon(20).map(([px, py]) => [px + 3, py + 8] as [number, number]);
-        fillPath(cliffBase, "#1e1409");
+        
+        // Use a vertical/diagonal gradient for the mid-cliff to simulate lighting
+        const baseGrad = ctx.createLinearGradient(r.x - rx * 0.4, r.y - ry * 0.4, r.x + rx * 0.2, r.y + ry + 12);
+        baseGrad.addColorStop(0, cMid);
+        baseGrad.addColorStop(1, cDeep);
+        fillPath(cliffBase, baseGrad);
 
-        // Upper rocky cliff face
+        // 3. Upper rocky cliff face
         const coast = getOffsetPolygon(14).map(([px, py]) => [px + 2, py + 4.5] as [number, number]);
-        fillPath(coast, "#3e2e18");
+        
+        const coastGrad = ctx.createLinearGradient(r.x - rx * 0.4, r.y - ry * 0.4, r.x + rx * 0.2, r.y + ry + 8);
+        coastGrad.addColorStop(0, cUpper);
+        coastGrad.addColorStop(0.5, cMid);
+        coastGrad.addColorStop(1, cDeep);
+        fillPath(coast, coastGrad);
 
-        // Golden sand rim top face (wide & vivid)
+        // Draw vertical/diagonal rocky crevice lines (striations) running down the cliff face
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < coast.length; i += 3) {
+          // Draw from the upper rocky cliff point (coast[i]) to the lower shadow base point (cliffDeep[i])
+          ctx.moveTo(coast[i][0], coast[i][1]);
+          ctx.lineTo(cliffDeep[i][0], cliffDeep[i][1]);
+        }
+        ctx.stroke();
+
+        // Draw rock highlights to capture sunlight on top-left facing ridges
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        for (let i = 1; i < coast.length; i += 3) {
+          ctx.moveTo(coast[i][0], coast[i][1]);
+          ctx.lineTo(cliffDeep[i][0], cliffDeep[i][1]);
+        }
+        ctx.stroke();
+
+        // 4. Sandy shore/beach rim top face (wide & vivid)
         const sandRim = getOffsetPolygon(8);
-        fillPath(sandRim, "#e8b94a");
+        fillPath(sandRim, bColor);
+
+        // Add a soft highlight overlay on the inner side of the beach rim to make it feel sandy & sunlit
+        const sandHighlight = getOffsetPolygon(4);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+        fillPath(sandHighlight);
       }
       return;
     }
@@ -2060,6 +2244,9 @@ export function createIslandEmpireGame(
     }
 
     // Pass 2: Main land body using Shared Edge Mesh (Flat and unified)
+
+    const ownerCode = derivedRegionOwnership(idx);
+    const isWildBase = ownerCode === 0;
 
     // Draw Main Province Body
     fillPath(land, biome.a);
@@ -2082,7 +2269,7 @@ export function createIslandEmpireGame(
     rg.addColorStop(0,    "rgba(255, 255, 255, 0.12)"); // slightly bright center
     rg.addColorStop(0.38, "rgba(255, 255, 255, 0.06)"); // midfield open
     rg.addColorStop(0.72, "rgba(0, 0, 0, 0)");           // transparent mid
-    rg.addColorStop(1,    "rgba(0, 0, 0, 0.38)");        // dark edge vignette
+    rg.addColorStop(1,    `rgba(0, 0, 0, ${isCoastal ? 0.18 : isWildBase ? 0.04 : 0.10})`);
     ctx.fillStyle = rg;
     ctx.fillRect(r.x - rx - 20, r.y - ry - 20, rx * 2 + 40, ry * 2 + 40);
 
@@ -2111,12 +2298,11 @@ export function createIslandEmpireGame(
       pxRect(px, py, bw, bh, c);
     }
 
-    drawRegionTerrain(r, seed, rx, ry, r.biome);
+    drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
 
     // Restore clip context early so highlights and borders can draw outwards without clipping
     ctx.restore();
 
-    const ownerCode = derivedRegionOwnership(idx);
     const conflict = getRegionBattleState(idx);
     const isClearing = state.regionInProgress === idx ||
       Boolean(state.activeClearingTimings?.[idx]) ||
@@ -2167,14 +2353,71 @@ export function createIslandEmpireGame(
 
     if (state.selectedRegion === idx) {
       ctx.save();
-      ctx.globalAlpha = 0.38 + Math.sin(state.tick * 6) * 0.08;
-      fillPath(land, isClearing ? (isLocalClearing ? "#34d399" : "#fca7a7") : "#ffe85a");
+      // Clip to region path
+      ctx.beginPath();
+      ctx.moveTo(land[0][0], land[0][1]);
+      for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
+      ctx.closePath();
+      ctx.clip();
+
+      const pulse = Math.sin(state.tick * 5.0) * 0.12 + 0.38;
+
+      let colorCenter, colorEdge;
+      if (isClearing) {
+        if (isLocalClearing) {
+          colorCenter = `rgba(52, 211, 153, ${pulse * 1.1})`; // Emerald green
+          colorEdge = `rgba(16, 185, 129, 0.03)`;
+        } else {
+          colorCenter = `rgba(252, 167, 167, ${pulse * 1.1})`; // Light crimson
+          colorEdge = `rgba(239, 68, 68, 0.03)`;
+        }
+      } else {
+        colorCenter = `rgba(255, 235, 90, ${pulse})`; // Gold
+        colorEdge = `rgba(216, 155, 33, 0.03)`;
+      }
+
+      // Radial Glow
+      const maxRadius = Math.max(rx, ry) * 1.4;
+      const grad = ctx.createRadialGradient(r.x, r.y, 4, r.x, r.y, maxRadius);
+      grad.addColorStop(0, colorCenter);
+      grad.addColorStop(0.6, colorCenter);
+      grad.addColorStop(1, colorEdge);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Energy sweep effect
+      const sweepPos = ((state.tick * 60) % (rx * 4)) - rx * 2;
+      const sweepGrad = ctx.createLinearGradient(
+        r.x + sweepPos - 20, r.y,
+        r.x + sweepPos + 20, r.y
+      );
+      if (isClearing) {
+        if (isLocalClearing) {
+          sweepGrad.addColorStop(0, "rgba(52, 211, 153, 0)");
+          sweepGrad.addColorStop(0.5, "rgba(167, 243, 208, 0.25)");
+          sweepGrad.addColorStop(1, "rgba(52, 211, 153, 0)");
+        } else {
+          sweepGrad.addColorStop(0, "rgba(252, 167, 167, 0)");
+          sweepGrad.addColorStop(0.5, "rgba(254, 202, 202, 0.25)");
+          sweepGrad.addColorStop(1, "rgba(252, 167, 167, 0)");
+        }
+      } else {
+        sweepGrad.addColorStop(0, "rgba(255, 235, 90, 0)");
+        sweepGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.35)");
+        sweepGrad.addColorStop(1, "rgba(255, 235, 90, 0)");
+      }
+      ctx.fillStyle = sweepGrad;
+      ctx.fill();
+
       ctx.restore();
     }
 
+    const borderAlpha = 0;
+    const borderWidth = 0;
+    const borderColor = "rgba(20, 34, 21, 0.58)";
     ctx.save();
-    ctx.globalAlpha = isCoastal ? 0.86 : 0.38;
-    strokePath(land, isCoastal ? "#142215" : "rgba(20, 34, 21, 0.62)", isCoastal ? 1.8 : 1.05);
+    ctx.globalAlpha = borderAlpha;
+    if (borderAlpha > 0.02 && borderWidth > 0) strokePath(land, borderColor, borderWidth);
     ctx.restore();
 
     // 1. RED DANGER BORDER FOR TERRITORY IN ATTACK OR BATTLE!
@@ -2255,123 +2498,153 @@ export function createIslandEmpireGame(
       ctx.stroke();
       ctx.restore();
     }
-    // 2. Electric Cyan Bold Glowing Border ONLY for Player-owned Territory!
-    else if (rel === "own") {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(land[0][0], land[0][1]);
-      for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
-      ctx.closePath();
-
-      // Outer Glowing Neon Cyan Aura
-      ctx.shadowColor = "#00f0ff";
-      ctx.shadowBlur = 28;
-      ctx.globalAlpha = 0.95 + Math.sin(state.tick * 4) * 0.05;
-      ctx.strokeStyle = "#00f0ff";
-      ctx.lineWidth = 6.5;
-      ctx.stroke();
-
-      // Inner Animated Dashed White Royal Border (moves continuously!)
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 0.95;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([12, 6]);
-      ctx.lineDashOffset = -state.tick * 20;
-      ctx.stroke();
-      ctx.restore();
-    }
-    // 3. Subtle Soft Gold-Yellow Border for Alliance Members!
-    else if (rel === "ally") {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(land[0][0], land[0][1]);
-      for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
-      ctx.closePath();
-
-      // Subtle, clean 2px Gold Border without heavy glowing shadow
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#eab308";
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.65;
-      ctx.stroke();
-      ctx.restore();
-    }
-    // 4. Subtle Soft Crimson Red Border for Non-Alliance / Enemy Players!
-    else if (rel === "enemy" && ownerCode > 1) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(land[0][0], land[0][1]);
-      for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
-      ctx.closePath();
-
-      // Subtle, clean 1.8px Crimson Red Border without heavy glowing shadow
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#ef4444";
-      ctx.lineWidth = 1.8;
-      ctx.globalAlpha = 0.60;
-      ctx.stroke();
-      ctx.restore();
-    }
+    // Ownership is shown by soft fill tint only; adjacent territories should not draw internal borders.
 
     if (state.selectedRegion === idx) {
       ctx.save();
       
-      // Recreate land path for the double golden neon glowing border stroke
+      // Recreate land path for the double neon glowing border stroke
       ctx.beginPath();
       ctx.moveTo(land[0][0], land[0][1]);
       for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
       ctx.closePath();
 
-      ctx.shadowColor = "#ffe85a";
-      ctx.shadowBlur = 32;
-      ctx.globalAlpha = 0.9 + Math.sin(state.tick * 6) * 0.1;
-      ctx.strokeStyle = "#fff06a";
-      ctx.lineWidth = 7.5;
+      // Define colors based on state
+      let glowColor = "#ffe85a";
+      let strokeColor = "#fff06a";
+      let innerColor = "#ffffff";
+      if (isClearing) {
+        if (isLocalClearing) {
+          glowColor = "#34d399";
+          strokeColor = "#10b981";
+          innerColor = "#ffffff";
+        } else {
+          glowColor = "#f87171";
+          strokeColor = "#ef4444";
+          innerColor = "#fca5a5";
+        }
+      }
+
+      // Layer 1: Wide soft ambient glow
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 40 + Math.sin(state.tick * 6) * 8;
+      ctx.globalAlpha = 0.6 + Math.sin(state.tick * 6) * 0.1;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 10;
       ctx.stroke();
 
+      // Layer 2: Medium intense core neon glow
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 18;
+      ctx.globalAlpha = 0.95 + Math.sin(state.tick * 8) * 0.05;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      // Layer 3: Solid high-contrast white core
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = innerColor;
       ctx.lineWidth = 2.5;
       ctx.stroke();
+
+      // Layer 4: Running dashed energy flow
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = innerColor;
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([12, 10]);
+      ctx.lineDashOffset = -state.tick * 22;
+      ctx.stroke();
+
       ctx.restore();
 
       // Draw tactical radar target crosshair at the center of the region!
       ctx.save();
-      const radius = 24 + Math.sin(state.tick * 6) * 4;
-      ctx.shadowColor = "#ffe85a";
-      ctx.shadowBlur = 12;
       
-      // Pulsing outer thin ring
+      let tickColor = "#ffd34d";
+      if (isClearing) {
+        if (isLocalClearing) {
+          tickColor = "#6ee7b7";
+        } else {
+          tickColor = "#fca5a5";
+        }
+      }
+
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 12;
+
+      // 1. Outer rotating dashed ring
+      const outerRad = 28 + Math.sin(state.tick * 5) * 3;
       ctx.beginPath();
-      ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.arc(r.x, r.y, outerRad, 0, Math.PI * 2);
+      ctx.strokeStyle = glowColor;
       ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.lineDashOffset = -state.tick * 12;
       ctx.stroke();
 
-      // Crosshair ticks
+      // 2. Inner counter-rotating dashed ring
+      const innerRad = 16;
       ctx.beginPath();
-      // Left tick
-      ctx.moveTo(r.x - radius - 6, r.y);
-      ctx.lineTo(r.x - radius + 2, r.y);
-      // Right tick
-      ctx.moveTo(r.x + radius - 2, r.y);
-      ctx.lineTo(r.x + radius + 6, r.y);
-      // Top tick
-      ctx.moveTo(r.x, r.y - radius - 6);
-      ctx.lineTo(r.x, r.y - radius + 2);
-      // Bottom tick
-      ctx.moveTo(r.x, r.y + radius - 2);
-      ctx.lineTo(r.x, r.y + radius + 6);
-      ctx.strokeStyle = "#ffd34d";
+      ctx.arc(r.x, r.y, innerRad, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([4, 4]);
+      ctx.lineDashOffset = state.tick * 8;
+      ctx.stroke();
+
+      // 3. Crosshair ticks (pulsing slightly and pointing inwards)
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.moveTo(r.x - outerRad - 8, r.y);
+      ctx.lineTo(r.x - outerRad + 3, r.y);
+      ctx.moveTo(r.x + outerRad - 3, r.y);
+      ctx.lineTo(r.x + outerRad + 8, r.y);
+      ctx.moveTo(r.x, r.y - outerRad - 8);
+      ctx.lineTo(r.x, r.y - outerRad + 3);
+      ctx.moveTo(r.x, r.y + outerRad - 3);
+      ctx.lineTo(r.x, r.y + outerRad + 8);
+      
+      ctx.strokeStyle = tickColor;
       ctx.lineWidth = 2.0;
       ctx.stroke();
+
+      // 4. Corner target brackets (L-shapes around the crosshair for a futuristic hud look)
+      const bracketSize = 8;
+      const bracketDist = outerRad + 12;
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#ffffff";
       
-      // Center indicator dot
       ctx.beginPath();
-      ctx.arc(r.x, r.y, 2.5, 0, Math.PI * 2);
+      ctx.moveTo(r.x - bracketDist, r.y - bracketDist + bracketSize);
+      ctx.lineTo(r.x - bracketDist, r.y - bracketDist);
+      ctx.lineTo(r.x - bracketDist + bracketSize, r.y - bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x + bracketDist, r.y - bracketDist + bracketSize);
+      ctx.lineTo(r.x + bracketDist, r.y - bracketDist);
+      ctx.lineTo(r.x + bracketDist - bracketSize, r.y - bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x - bracketDist, r.y + bracketDist - bracketSize);
+      ctx.lineTo(r.x - bracketDist, r.y + bracketDist);
+      ctx.lineTo(r.x - bracketDist + bracketSize, r.y + bracketDist);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r.x + bracketDist, r.y + bracketDist - bracketSize);
+      ctx.lineTo(r.x + bracketDist, r.y + bracketDist);
+      ctx.lineTo(r.x + bracketDist - bracketSize, r.y + bracketDist);
+      ctx.stroke();
+
+      // 5. Center pulsing indicator dot
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 3.0, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
+      ctx.shadowBlur = 10;
       ctx.fill();
 
       ctx.restore();
@@ -3201,13 +3474,25 @@ export function createIslandEmpireGame(
 
     const sel = t.id === state.selected;
     if (sel) {
+      ctx.save();
+      ctx.shadowColor = "#ffe85a";
+      ctx.shadowBlur = 12;
       ctx.fillStyle = "rgba(255, 230, 90, 0.35)";
       ctx.beginPath();
       ctx.ellipse(drawX, drawY + 24, 48, 16, 0, 0, TAU);
       ctx.fill();
+
+      ctx.shadowBlur = 0;
       ctx.strokeStyle = "#ffe24a";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -state.tick * 15;
+      ctx.stroke();
+      ctx.restore();
     }
     const flagColor = t.owner === 0 ? (state.newbieFlagColor || "#2563eb") : owner.color;
     const ownerName = t.owner === 0 ? (state.localPlayerName || "BẠN") : owner.name;
@@ -3663,7 +3948,7 @@ export function createIslandEmpireGame(
     const r = landById(regionId);
     if (!r) return { originTownId: null, originX: 0, originY: 0, x: 0, y: 0, fromCamp: true };
     const nearestTown = getNearestPlayerTown(r.x, r.y);
-    if (nearestTown && !state.newbieMode) {
+    if (nearestTown) {
       return { originTownId: nearestTown.id, originX: nearestTown.x, originY: nearestTown.y, x: nearestTown.x, y: nearestTown.y, fromCamp: false };
     }
     const ox = r.x - Math.min(120, Math.max(45, (r.rx || r.r || 100) * 0.42));
@@ -4759,14 +5044,14 @@ export function createIslandEmpireGame(
   }
 
   const BIOME_COLORS = {
-    0: "#689f38", // grass
-    1: "#ddaa55", // sand
-    2: "#e3ecef", // snow
-    3: "#5a6065", // ember
-    4: "#4db6ac", // violet
-    5: "#cf7a57", // rose
-    6: "#2e7d32", // pine
-    7: "#809e52", // mint
+    0: BIOMES[0].a,
+    1: BIOMES[1].a,
+    2: BIOMES[2].a,
+    3: BIOMES[3].a,
+    4: BIOMES[4].a,
+    5: BIOMES[5].a,
+    6: BIOMES[6].a,
+    7: BIOMES[7].a,
   };
 
   let minimapDragging = false;
@@ -4837,7 +5122,7 @@ export function createIslandEmpireGame(
     
     // Draw all regions (continents)
     regions.forEach((r) => {
-      minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
+      minimapCtx.fillStyle = BIOME_COLORS[visualBiomeIndex(r, r.id, false)] || "#557a46";
       minimapCtx.beginPath();
       const mx = r.x / 150;
       const my = r.y / 150;
@@ -4849,7 +5134,7 @@ export function createIslandEmpireGame(
 
     // Draw all islets
     islets.forEach((r) => {
-      minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
+      minimapCtx.fillStyle = BIOME_COLORS[visualBiomeIndex(r, r.id, true)] || "#557a46";
       minimapCtx.beginPath();
       const mx = r.x / 150;
       const my = r.y / 150;
@@ -5192,6 +5477,30 @@ export function createIslandEmpireGame(
     towns.push(town);
     normalizeTown(town);
     return town;
+  }
+
+  function applyBackendTownSnapshots(snapshots: any[]) {
+    if (!Array.isArray(snapshots)) return;
+    snapshots.forEach((snapshot) => {
+      const x = Number(snapshot?.x);
+      const y = Number(snapshot?.y);
+      const regionId = Number.isFinite(x) && Number.isFinite(y)
+        ? regionAtCoords(x, y)
+        : (Number.isInteger(snapshot?.id) && snapshot.id >= 9000 ? snapshot.id - 9000 : -1);
+      if (regionId < 0 || derivedRegionOwnership(regionId) !== 1) return;
+      const town = ensureTownForRegion(regionId, 1);
+      if (!town) return;
+      town.id = Number.isInteger(snapshot.id) ? snapshot.id : town.id;
+      town.lvl = Math.max(1, Math.floor(Number(snapshot.lvl ?? snapshot.level ?? town.lvl ?? 1) || 1));
+      town.troops = Math.max(0, Math.floor(Number(snapshot.troops ?? town.troops ?? 0) || 0));
+      town.population = Math.max(0, Math.floor(Number(snapshot.population ?? town.population ?? 32) || 32));
+      town.infantryCount = Math.max(0, Math.floor(Number(snapshot.infantryCount ?? town.infantryCount ?? town.troops ?? 0) || 0));
+      town.cavalryCount = Math.max(0, Math.floor(Number(snapshot.cavalryCount ?? town.cavalryCount ?? 0) || 0));
+      town.artilleryCount = Math.max(0, Math.floor(Number(snapshot.artilleryCount ?? town.artilleryCount ?? 0) || 0));
+      town.buildings = { ...defaultBuildings(), ...(snapshot.buildings || town.buildings || {}) };
+      town.storage = { ...defaultStorage(), ...(snapshot.storage || town.storage || {}) };
+      centerTownInRegion(town, regionId);
+    });
   }
 
   function spend(cost) {
@@ -5788,6 +6097,7 @@ export function createIslandEmpireGame(
   let panVelX = 0;
   let panVelY = 0;
   let lastDragTime = 0;
+  let clickStartTime = 0;
 
   canvas.addEventListener("mousemove", (e) => {
     const p = pointer(e);
@@ -5806,7 +6116,7 @@ export function createIslandEmpireGame(
       state.panY += dy;
       state.drag = p;
       const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
-      if (totalDist > 12) state.dragMoved = true;
+      if (totalDist > 4) state.dragMoved = true;
       clampPan();
       return;
     }
@@ -5822,6 +6132,9 @@ export function createIslandEmpireGame(
     panVelX = 0;
     panVelY = 0;
     lastDragTime = performance.now();
+    clickStartTime = performance.now();
+    state.targetPanX = null;
+    state.targetPanY = null;
     if (!buttonAt(p.x, p.y) && !gearAt(p.x, p.y)) state.drag = p;
   });
 
@@ -5845,6 +6158,7 @@ export function createIslandEmpireGame(
       panVelX = 0;
       panVelY = 0;
       lastDragTime = performance.now();
+      clickStartTime = performance.now();
       if (!buttonAt(p.x, p.y) && !gearAt(p.x, p.y)) state.drag = p;
     }
   }, { passive: true });
@@ -5866,7 +6180,7 @@ export function createIslandEmpireGame(
       state.panY += dy;
       state.drag = p;
       const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
-      if (totalDist > 12) state.dragMoved = true;
+      if (totalDist > 4) state.dragMoved = true;
       clampPan();
     }
   }, { passive: true });
@@ -5890,8 +6204,9 @@ export function createIslandEmpireGame(
 
   canvas.addEventListener("click", (e) => {
     const p = pointer(e);
+    const clickDuration = performance.now() - clickStartTime;
     const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
-    if (state.dragMoved || totalDist > 12) {
+    if (state.dragMoved || totalDist > 4 || clickDuration > 220) {
       state.dragMoved = false;
       return;
     }
@@ -5924,6 +6239,7 @@ export function createIslandEmpireGame(
         state.selectedRegion = regionAt(p.x, p.y);
         toast(`THÀNH TRÌ CỦA ĐỊCH #${t.id}`);
       }
+      panCameraTo(t.x, t.y);
       return;
     }
     const region = regionAt(p.x, p.y);
@@ -5935,16 +6251,19 @@ export function createIslandEmpireGame(
 
     // Territory clearing / selection logic
     const ownership = derivedRegionOwnership(region);
+    const r = landById(region);
 
     if (ownership === 1) {
       state.selectedRegion = region;
       state.selected = null;
       toast("QUẢN LÝ LÃNH THỔ CỦA BẠN");
+      if (r) panCameraTo(r.x, r.y);
       return;
     }
 
     state.selectedRegion = region;
     state.selected = null;
+    if (r) panCameraTo(r.x, r.y);
 
     if (ownership === 0) {
       toast(`ĐÃ CHỌN LÃNH THỔ ${region + 1} - BẤM XÂY THÀNH TRÊN TOOLTIP`);
@@ -5975,6 +6294,19 @@ export function createIslandEmpireGame(
     state.tick += dt;
     state.zoom = FIXED_FAR_ZOOM;
     state.targetZoom = FIXED_FAR_ZOOM;
+    
+    if (state.targetPanX !== null && state.targetPanY !== null) {
+      state.panX = lerp(state.panX, state.targetPanX, Math.min(1, dt * 8));
+      state.panY = lerp(state.panY, state.targetPanY, Math.min(1, dt * 8));
+      if (Math.abs(state.panX - state.targetPanX) < 0.5 && Math.abs(state.panY - state.targetPanY) < 0.5) {
+        state.panX = state.targetPanX;
+        state.panY = state.targetPanY;
+        state.targetPanX = null;
+        state.targetPanY = null;
+        saveCamera();
+      }
+    }
+
     clampPan();
     for (let i = state.voyages.length - 1; i >= 0; i--) {
       const v = state.voyages[i];
@@ -5993,13 +6325,14 @@ export function createIslandEmpireGame(
 
     state.activeBattles = [];
 
-    cancelClearingIfOriginLost();
-    if (state.settlerTravel?.returning) {
-      state.settlerTravel.returnProgress = Math.min(1, (state.settlerTravel.returnProgress || 0) + dt / 12);
-      if (state.settlerTravel.returnProgress >= 1) {
-        clearSettlerReturn();
-      }
-    }
+	    cancelClearingIfOriginLost();
+	    if (state.settlerTravel?.returning) {
+	      const settlerReturnSeconds = Math.max(2, 12 * (18 / Math.max(1, gameConfig.settlerSpeed || 18)) * ((gameConfig.gameHourSeconds || 60) / 60));
+	      state.settlerTravel.returnProgress = Math.min(1, (state.settlerTravel.returnProgress || 0) + dt / settlerReturnSeconds);
+	      if (state.settlerTravel.returnProgress >= 1) {
+	        clearSettlerReturn();
+	      }
+	    }
 
     // ── Clearing progress ──────────────────────────────────────────────────
     Object.entries(state.activeClearingTimings || {}).forEach(([key, timing]: any) => {
@@ -6011,18 +6344,26 @@ export function createIslandEmpireGame(
         state.regionClearing[regionId] = 0;
       }
     });
-    const ip = state.regionInProgress;
-    if (ip >= 0) {
-      const r = landById(ip);
-      if (r) {
-        const serverTiming = state.activeClearingTimings[ip];
-        if (serverTiming?.startedAt && serverTiming?.completesAt) {
-          state.regionClearing[ip] = timingProgress(serverTiming.startedAt, serverTiming.completesAt);
-        } else {
-          state.regionClearing[ip] = Math.max(0, state.regionClearing[ip] || 0);
-        }
-      }
-    }
+	    const ip = state.regionInProgress;
+	    if (ip >= 0) {
+	      const r = landById(ip);
+	      if (r) {
+	        const serverTiming = state.activeClearingTimings[ip];
+	        if (serverTiming?.startedAt && serverTiming?.completesAt) {
+	          state.regionClearing[ip] = timingProgress(serverTiming.startedAt, serverTiming.completesAt);
+	          if (
+	            state.regionClearing[ip] >= 1 &&
+	            serverTiming.playerId === state.localPlayerId &&
+	            !state.pendingBackendClaims.includes(ip)
+	          ) {
+	            state.pendingBackendClaims.push(ip);
+	            toast("XÂY THÀNH HOÀN TẤT, ĐANG XÁC NHẬN SERVER");
+	          }
+	        } else {
+	          state.regionClearing[ip] = Math.max(0, state.regionClearing[ip] || 0);
+	        }
+	      }
+	    }
 
     // Resources, town storage, and population are owned by the backend state.
 
@@ -6181,9 +6522,19 @@ export function createIslandEmpireGame(
         state.toast = "ĐANG ĐỒNG BỘ DỮ LIỆU SERVER";
         return;
       }
+      if (id === "updateNewbieShield") {
+        const until = payload?.until ? new Date(payload.until).getTime() : 0;
+        state.newbieShieldUntil = until;
+        localStorage.setItem("island_empire_newbie_shield_until", String(until));
+        return;
+      }
       if (id === "applyGameState") {
         if (payload?.resources) {
           state.resources = { ...state.resources, ...payload.resources };
+        }
+        if (payload?.newbieShieldUntil !== undefined) {
+          state.newbieShieldUntil = payload.newbieShieldUntil ? new Date(payload.newbieShieldUntil).getTime() : 0;
+          localStorage.setItem("island_empire_newbie_shield_until", String(state.newbieShieldUntil));
         }
         const touchedRegionIds = [];
         state.hasAuthoritativeOwnership = true;
@@ -6209,6 +6560,7 @@ export function createIslandEmpireGame(
           if (territory.ownerAllianceEmblem) state.regionOwnerAllianceEmblems[territory.id] = territory.ownerAllianceEmblem;
         });
         syncTownOwnersForRegions(touchedRegionIds);
+        applyBackendTownSnapshots(payload?.towns || []);
         cancelClearingIfTargetTaken(touchedRegionIds);
         cancelClearingIfOriginLost();
         (payload?.clearings || []).forEach((clearing) => applyBackendClearing(clearing));
@@ -6283,10 +6635,15 @@ export function createIslandEmpireGame(
         toast(payload?.message || "SERVER TỪ CHỐI XÂY THÀNH, ĐÃ HOÀN TÀI NGUYÊN");
         return;
       }
-      if (id === "consumeBackendClaims") {
-        state.pendingBackendClaims = [];
-        return;
-      }
+	      if (id === "consumeBackendClaims") {
+	        state.pendingBackendClaims = [];
+	        return;
+	      }
+	      if (id === "consumeBackendClaim") {
+	        const regionId = payload?.regionId ?? payload;
+	        state.pendingBackendClaims = state.pendingBackendClaims.filter((id) => id !== regionId);
+	        return;
+	      }
       if (id === "consumeBackendConquests") {
         state.pendingBackendConquests = [];
         return;
@@ -6344,14 +6701,17 @@ export function createIslandEmpireGame(
         return;
       }
       if (id === "centerCamera") {
+        const b = worldContentBounds();
+        const x = Math.max(b.minX, Math.min(b.maxX, Number(payload?.x) || b.cx));
+        const y = Math.max(b.minY, Math.min(b.maxY, Number(payload?.y) || b.cy));
         state.zoom = FIXED_FAR_ZOOM;
         state.targetZoom = FIXED_FAR_ZOOM;
-        state.panX = W / 2 - payload.x * state.zoom - (1 - state.zoom) * W * 0.48;
-        state.panY = H / 2 - payload.y * state.zoom - (1 - state.zoom) * H * 0.48;
+        state.panX = W / 2 - x * state.zoom - (1 - state.zoom) * W * 0.48;
+        state.panY = H / 2 - y * state.zoom - (1 - state.zoom) * H * 0.48;
         state.selected = null;
         state.selectedRegion = null;
         clampPan();
-        toast(`ỐNG NHÒM: CAMERA ĐÃ PHÓNG ĐẾN THÀNH PHỐ ${payload.townId}`);
+        toast(payload?.label ? `ĐÃ NHẢY ĐẾN ${payload.label}` : `ĐÃ NHẢY ĐẾN X:${Math.round(x)} Y:${Math.round(y)}`);
         saveCamera();
         save();
         return;
