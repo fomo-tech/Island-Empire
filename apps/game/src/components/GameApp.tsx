@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
-import { cancelClearing, completeClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, startClearing, updatePlayerProfile } from "../game/api";
+import { cancelClearing, completeClearing, conquerTerritory, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
 import { connectGameSocket } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
@@ -549,6 +549,7 @@ export function GameApp() {
 
   const backendClearingStartRef = useRef<Set<number>>(new Set());
   const backendClaimingRef = useRef<Set<number>>(new Set());
+  const backendConquestRef = useRef<Set<number>>(new Set());
 
   const addWarReport = useCallback((report: Omit<WarReportRecord, "time"> & { time?: number }) => {
     setWarReports((prev) => {
@@ -728,6 +729,44 @@ export function GameApp() {
               })
               .finally(() => {
                 backendClaimingRef.current.delete(regionId);
+              });
+          });
+        }
+
+        if (token && Array.isArray(engineState.pendingBackendConquests) && engineState.pendingBackendConquests.length > 0) {
+          engineState.pendingBackendConquests.forEach((regionId: number) => {
+            if (backendConquestRef.current.has(regionId)) return;
+            backendConquestRef.current.add(regionId);
+            conquerTerritory(token, engineToServerTerritoryId(regionId))
+              .then((result) => {
+                engineRef.current?.handleAction("applyWorldOwnership", {
+                  territories: [{
+                    id: serverToEngineTerritoryId(result.territory.id),
+                    ownerCode: 1,
+                    ownerId: result.territory.ownerId,
+                    ownerName: result.territory.ownerName ?? "Bạn",
+                    ownerFlagColor: result.territory.ownerFlagColor,
+                    ownerEmblem: result.territory.ownerEmblem,
+                    ownerAllianceTag: result.territory.ownerAllianceTag,
+                    ownerAllianceEmblem: result.territory.ownerAllianceEmblem,
+                  }],
+                });
+                addWarReport({
+                  id: `conquer-${result.territory.id}-${result.territory.ownerId}`,
+                  kind: "battle",
+                  title: `Chiếm đóng thành công ${territoryLabel(serverToEngineTerritoryId(result.territory.id))}`,
+                  body: "Quân ta đã đánh bại phòng tuyến đối thủ và tiếp quản lãnh thổ mới.",
+                  meta: `Chủ sở hữu: ${result.territory.ownerName ?? "Bạn"}`,
+                });
+                addSystemLine(`ĐÃ CHIẾM ĐÓNG ${territoryLabel(serverToEngineTerritoryId(result.territory.id)).toUpperCase()}`);
+                engineRef.current?.handleAction("consumeBackendConquests");
+              })
+              .catch((err) => {
+                console.error("Backend territory conquest failed:", err);
+                engineRef.current?.handleAction("consumeBackendConquests");
+              })
+              .finally(() => {
+                backendConquestRef.current.delete(regionId);
               });
           });
         }
@@ -1861,13 +1900,37 @@ export function GameApp() {
           resources={resources}
           gameConfig={(engineRef.current as any).getConfig?.()}
           specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTown)) || []}
-          onTrainInfantry={() => {
+          onTrainInfantry={async () => {
+            if (token) {
+              try {
+                const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id });
+                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              } catch (err: any) {
+                console.error("[Recruit] Backend recruitment error:", err);
+              }
+            }
             engineRef.current?.handleAction("trainInfantry");
           }}
-          onTrainCavalry={() => {
+          onTrainCavalry={async () => {
+            if (token) {
+              try {
+                const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id });
+                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              } catch (err: any) {
+                console.error("[Recruit] Backend recruitment error:", err);
+              }
+            }
             engineRef.current?.handleAction("trainCavalry");
           }}
-          onTrainArtillery={() => {
+          onTrainArtillery={async () => {
+            if (token) {
+              try {
+                const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id });
+                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              } catch (err: any) {
+                console.error("[Recruit] Backend recruitment error:", err);
+              }
+            }
             engineRef.current?.handleAction("trainArtillery");
           }}
           onUpgradeTown={() => {

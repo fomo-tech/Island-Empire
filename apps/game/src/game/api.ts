@@ -105,6 +105,16 @@ export function claimTerritory(token: string, territoryId: number): Promise<Clai
   });
 }
 
+export function conquerTerritory(token: string, territoryId: number): Promise<ClaimTerritoryResult> {
+  return request<ClaimTerritoryResult>(`/api/world/territories/${territoryId}/conquer`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({}),
+  });
+}
+
 export function getGameState(token: string): Promise<GameStateResult> {
   return request<GameStateResult>("/api/game/state", {
     headers: {
@@ -236,5 +246,31 @@ export function claimAllianceAid(token: string, aidId: string): Promise<Alliance
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({}),
+  });
+}
+
+export interface RecruitTroopsResult {
+  ok: boolean;
+  unitType: "infantry" | "cavalry" | "artillery";
+  count: number;
+  resources?: Record<string, number>;
+  message?: string;
+}
+
+export function recruitTroops(
+  token: string,
+  payload: {
+    unitType: "infantry" | "cavalry" | "artillery";
+    territoryId?: number;
+    townId?: number;
+    count?: number;
+  },
+): Promise<RecruitTroopsResult> {
+  return request<RecruitTroopsResult>("/api/game/recruit", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
   });
 }

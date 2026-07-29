@@ -104,6 +104,13 @@ const CreateMarchSchema = z.object({
   kind: z.enum(["attack", "reinforce", "move"]).default("attack"),
 });
 
+const RecruitTroopsSchema = z.object({
+  territoryId: z.number().int().nonnegative().optional(),
+  townId: z.number().int().nonnegative().optional(),
+  unitType: z.enum(["infantry", "cavalry", "artillery"]),
+  count: z.number().int().positive().default(1),
+});
+
 const CreateAllianceSchema = z.object({
   name: z.string().trim().min(3).max(32),
   tag: z.string().trim().min(2).max(6).regex(/^[a-zA-Z0-9]+$/),
@@ -1199,6 +1206,89 @@ export function createApp() {
     res.json(payload);
   });
 
+  app.post("/api/game/recruit", requireAuth, async (req, res) => {
+    const parsed = RecruitTroopsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "bad_request", message: "Loại binh sĩ hoặc số lượng không hợp lệ" });
+    }
+
+    const { unitType, count } = parsed.data;
+    const now = new Date();
+
+    const { players, saves } = await collections();
+    const gameConfig = await loadGameConfig();
+
+    // Collect current resources from DB
+    const resourceState = await collectPlayerResources(req.user!.id, now);
+    const currentRes = resourceState.resources;
+
+    // Calculate troop recruitment cost
+    const unitCost = emptyResources();
+    if (unitType === "infantry") {
+      unitCost.gold = (gameConfig.infantryCostGold ?? 24) * count;
+      unitCost.wood = (gameConfig.infantryCostWood ?? 12) * count;
+      unitCost.food = (gameConfig.infantryCostFood ?? 10) * count;
+    } else if (unitType === "cavalry") {
+      unitCost.gold = (gameConfig.cavalryCostGold ?? 48) * count;
+      unitCost.wood = (gameConfig.cavalryCostWood ?? 24) * count;
+      unitCost.stone = (gameConfig.cavalryCostStone ?? 18) * count;
+      unitCost.food = (gameConfig.cavalryCostFood ?? 20) * count;
+      unitCost.iron = (gameConfig.cavalryCostIron ?? 10) * count;
+    } else if (unitType === "artillery") {
+      unitCost.gold = (gameConfig.artilleryCostGold ?? 72) * count;
+      unitCost.stone = (gameConfig.artilleryCostStone ?? 36) * count;
+      unitCost.iron = (gameConfig.artilleryCostIron ?? 24) * count;
+      unitCost.sulfur = (gameConfig.artilleryCostSulfur ?? 12) * count;
+    }
+
+    // Check affordability
+    if (!canAfford(currentRes, unitCost)) {
+      return res.status(409).json({
+        error: "not_enough_resources",
+        message: `Không đủ tài nguyên mộ binh. Cần ${resourceCostMessage(unitCost)}`,
+        cost: unitCost,
+        resources: currentRes,
+      });
+    }
+
+    // Deduct cost and save updated resources to DB
+    const nextResources = subtractCost(currentRes, unitCost);
+    await players.updateOne(
+      { _id: req.user!.id },
+      { $set: { resources: nextResources, lastResourceCollectedAt: now, lastSeenAt: now } },
+    );
+
+    // Update troops inside player save snapshot if available
+    const save = (await saves.findOne({ playerId: req.user!.id })) as any;
+    if (save) {
+      const updatedSave = { ...save };
+      if (unitType === "infantry") {
+        updatedSave.infantryCount = (updatedSave.infantryCount || 0) + count * 6;
+      } else if (unitType === "cavalry") {
+        updatedSave.cavalryCount = (updatedSave.cavalryCount || 0) + count * 4;
+      } else if (unitType === "artillery") {
+        updatedSave.artilleryCount = (updatedSave.artilleryCount || 0) + count * 2;
+      }
+      updatedSave.resources = nextResources;
+
+      await saves.updateOne(
+        { playerId: req.user!.id },
+        { $set: { resources: nextResources, updatedAt: now } },
+      );
+    }
+
+    await bumpWorldCacheVersion();
+    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+
+    res.json({
+      ok: true,
+      unitType,
+      count,
+      resources: nextResources,
+      message: `Chiêu mộ thành công ${count} đợt binh sĩ (${unitType})`,
+    });
+  });
+
   app.post("/api/world/territories/:id/claim", requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id < 0) {
@@ -1220,6 +1310,46 @@ export function createApp() {
       { upsert: true },
     );
     await territoryClearings.deleteMany({ territoryId: id });
+    await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const [player, alliance] = await Promise.all([
+      players.findOne({ _id: req.user!.id }),
+      alliances.findOne({ memberIds: req.user!.id }),
+    ]);
+    await bumpWorldCacheVersion();
+    const payload: ClaimTerritoryResult = {
+      ok: true,
+      territory: { 
+        ...staticTerritory, 
+        ownerId: req.user!.id, 
+        ownerName: player?.name ?? req.user!.id,
+        ownerFlagColor: player?.flagColor,
+        ownerEmblem: player?.emblem,
+        ownerAllianceTag: alliance?.tag,
+        ownerAllianceEmblem: alliance?.emblem,
+      },
+    };
+    publishRealtime({ type: "territory_claimed", territory: payload.territory });
+    res.json(payload);
+  });
+
+  app.post("/api/world/territories/:id/conquer", requireAuth, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 0) {
+      return res.status(400).json({ error: "bad_request", message: "ID lãnh thổ không hợp lệ" });
+    }
+    const staticTerritory = buildStaticTerritoryList().find((territory) => territory.id === id);
+    if (!staticTerritory) {
+      return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
+    }
+    const { players, territoryClaims, territoryClearings, marchOrders, alliances } = await collections();
+    const now = new Date();
+    await territoryClaims.updateOne(
+      { territoryId: id },
+      { $set: { playerId: req.user!.id, claimedAt: now }, $setOnInsert: { _id: `territory:${id}`, territoryId: id } },
+      { upsert: true },
+    );
+    await territoryClearings.deleteMany({ territoryId: id });
+    await marchOrders.deleteMany({ $or: [{ fromTerritoryId: id }, { toTerritoryId: id }] });
     await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
     const [player, alliance] = await Promise.all([
       players.findOne({ _id: req.user!.id }),
