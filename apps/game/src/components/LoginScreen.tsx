@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { loginGuest, loginPlayer, registerPlayer } from "../game/api";
 import { detectDeviceLanguage, translate } from "../game/i18n";
 
@@ -6,15 +6,80 @@ interface LoginScreenProps {
   onSuccess: (token: string, playerId: string) => void;
 }
 
-type TabType = "login" | "register" | "guest";
+type AuthTab = "login" | "register" | "guest";
 
 const CAMERA_KEY = "island_empire_camera_v1";
 const CLAIM_KEY = "island_empire_onboarding_claim";
 const ONBOARDING_KEY = "island_empire_onboarding_pending";
 
+// --- 100% VECTOR SVGS (ZERO EMOJIS) ---
+function GlobeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function HeadsetHelpIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+    </svg>
+  );
+}
+
+function GearSettingsIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" style={{ flexShrink: 0, marginRight: 8 }}>
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -23,29 +88,118 @@ function GoogleIcon() {
   );
 }
 
+/* Header Crest Shield with 2 Crossed Broadswords on top of Login Card */
+function CrestHeaderEmblem() {
+  return (
+    <svg viewBox="0 0 120 90" width="100" height="75" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.8))" }}>
+      <defs>
+        <linearGradient id="goldBladeGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fff099" />
+          <stop offset="50%" stopColor="#eab308" />
+          <stop offset="100%" stopColor="#854d0e" />
+        </linearGradient>
+        <linearGradient id="steelBladeGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f8fafc" />
+          <stop offset="50%" stopColor="#94a3b8" />
+          <stop offset="100%" stopColor="#334155" />
+        </linearGradient>
+        <linearGradient id="crestDarkShield" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+      </defs>
+
+      <g className="crossed-swords">
+        <line x1="12" y1="12" x2="108" y2="78" stroke="url(#steelBladeGrad)" strokeWidth="5" strokeLinecap="round" />
+        <path d="M 12 12 L 20 18 L 18 20 Z" fill="#fff" />
+        <line x1="22" y1="14" x2="14" y2="24" stroke="url(#goldBladeGrad)" strokeWidth="4" />
+        <circle cx="11" cy="11" r="3.5" fill="url(#goldBladeGrad)" />
+
+        <line x1="108" y1="12" x2="12" y2="78" stroke="url(#steelBladeGrad)" strokeWidth="5" strokeLinecap="round" />
+        <path d="M 108 12 L 100 18 L 102 20 Z" fill="#fff" />
+        <line x1="98" y1="14" x2="106" y2="24" stroke="url(#goldBladeGrad)" strokeWidth="4" />
+        <circle cx="109" cy="11" r="3.5" fill="url(#goldBladeGrad)" />
+      </g>
+
+      <path d="M 60 18 L 32 30 L 32 64 C 32 78 48 84 60 88 C 72 84 88 78 88 64 L 88 30 Z" fill="url(#crestDarkShield)" stroke="url(#goldBladeGrad)" strokeWidth="3" />
+      <path d="M 60 22 L 35 33 L 35 64 C 35 76 49 81 60 84 Z" fill="rgba(234,179,8,0.15)" />
+
+      <polygon points="46,26 42,12 52,20 60,8 68,20 78,12 74,26" fill="url(#goldBladeGrad)" stroke="#78350f" strokeWidth="1" />
+      <circle cx="42" cy="11" r="2" fill="#fff" />
+      <circle cx="60" cy="7" r="2.5" fill="#fff" />
+      <circle cx="78" cy="11" r="2" fill="#fff" />
+
+      <rect x="57.5" y="38" width="5" height="30" fill="url(#goldBladeGrad)" />
+      <rect x="45" y="48" width="30" height="5" fill="url(#goldBladeGrad)" />
+    </svg>
+  );
+}
+
+/* 4 Bottom Feature Vector Art SVGs */
+function CastleFeatureArt() {
+  return (
+    <svg viewBox="0 0 80 80" width="46" height="46" style={{ flexShrink: 0 }}>
+      <defs>
+        <linearGradient id="goldShieldArt" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fff099" />
+          <stop offset="50%" stopColor="#eab308" />
+          <stop offset="100%" stopColor="#854d0e" />
+        </linearGradient>
+      </defs>
+      <path d="M40 8L12 20v24c0 18 16 26 28 28 12-2 28-10 28-28V20L40 8z" fill="#0f172a" stroke="url(#goldShieldArt)" strokeWidth="2.5" />
+      <rect x="26" y="34" width="28" height="24" fill="#64748b" stroke="url(#goldShieldArt)" strokeWidth="1.5" />
+      <polygon points="26,34 33,24 40,34" fill="#ef4444" />
+      <polygon points="40,34 47,24 54,34" fill="#ef4444" />
+      <path d="M35,58 v-10 a5,5 0 0,1 10,0 v10 z" fill="#1e293b" />
+    </svg>
+  );
+}
+
+function BattleFeatureArt() {
+  return (
+    <svg viewBox="0 0 80 80" width="46" height="46" style={{ flexShrink: 0 }}>
+      <line x1="16" y1="16" x2="64" y2="64" stroke="url(#goldShieldArt)" strokeWidth="4" strokeLinecap="round" />
+      <polygon points="16,16 26,20 20,26" fill="#fff" />
+      <line x1="64" y1="16" x2="16" y2="64" stroke="url(#goldShieldArt)" strokeWidth="4" strokeLinecap="round" />
+      <polygon points="64,16 58,26 54,20" fill="#fff" />
+      <circle cx="40" cy="40" r="6" fill="#ffd34d" />
+    </svg>
+  );
+}
+
+function AllianceFeatureArt() {
+  return (
+    <svg viewBox="0 0 80 80" width="46" height="46" style={{ flexShrink: 0 }}>
+      <path d="M40 8L12 20v24c0 18 16 26 28 28 12-2 28-10 28-28V20L40 8z" fill="#0f172a" stroke="url(#goldShieldArt)" strokeWidth="2.5" />
+      <path d="M22 38 Q 32 28 40 38 Q 48 28 58 38 Q 46 54 40 46 Q 34 54 22 38 Z" fill="url(#goldShieldArt)" />
+    </svg>
+  );
+}
+
+function CrownFeatureArt() {
+  return (
+    <svg viewBox="0 0 80 80" width="46" height="46" style={{ flexShrink: 0 }}>
+      <path d="M40 8L12 20v24c0 18 16 26 28 28 12-2 28-10 28-28V20L40 8z" fill="#0f172a" stroke="url(#goldShieldArt)" strokeWidth="2.5" />
+      <polygon points="22,46 18,26 31,34 40,20 49,34 62,26 58,46" fill="url(#goldShieldArt)" stroke="#78350f" strokeWidth="1" />
+      <circle cx="40" cy="18" r="3" fill="#fff" />
+      <circle cx="18" cy="24" r="2.5" fill="#fff" />
+      <circle cx="62" cy="24" r="2.5" fill="#fff" />
+    </svg>
+  );
+}
+
 export function LoginScreen({ onSuccess }: LoginScreenProps) {
-  const [language] = useState(() => detectDeviceLanguage());
-  const [tab, setTab] = useState<TabType>("guest");
+  const [language, setLanguage] = useState(() => detectDeviceLanguage());
+  const [tab, setTab] = useState<AuthTab>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [guestName, setGuestName] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showPass, setShowPass] = useState(false);
-  const [trailerMsg, setTrailerMsg] = useState<string | null>(null);
+
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-
-  const switchTab = (nextTab: TabType) => {
-    setTab(nextTab);
-    setError(null);
-    setLoading(false);
-  };
-
-  const validateAccount = () => {
-    if (!username || !password) throw new Error(t("missingAccount"));
-    if (username.length < 3) throw new Error(t("usernameTooShort"));
-    if (password.length < 8) throw new Error(t("passwordTooShort"));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,16 +208,21 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
     try {
       if (tab === "login") {
-        validateAccount();
+        if (!username || !password) throw new Error("Vui lòng nhập tên đăng nhập và mật khẩu");
+        if (username.length < 3) throw new Error("Tên đăng nhập quá ngắn");
+        if (password.length < 6) throw new Error("Mật khẩu quá ngắn");
+
         const res = await loginPlayer(username, password);
         onSuccess(res.token, res.playerId);
         return;
       }
 
-      if (tab === "guest") {
-        const name = guestName.trim() || `Guest-${Math.floor(1000 + Math.random() * 9000)}`;
-        if (name.length < 2) throw new Error(t("guestTooShort"));
-        const res = await loginGuest(name);
+      if (tab === "register") {
+        if (!username || !password) throw new Error("Vui lòng điền đầy đủ thông tin đăng ký");
+        if (username.length < 3) throw new Error("Tên tài khoản tối thiểu 3 ký tự");
+        if (password.length < 8) throw new Error("Mật khẩu tối thiểu 8 ký tự");
+
+        const res = await registerPlayer(username, password);
         localStorage.removeItem(CAMERA_KEY);
         localStorage.removeItem(CLAIM_KEY);
         localStorage.setItem(ONBOARDING_KEY, "1");
@@ -71,8 +230,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         return;
       }
 
-      validateAccount();
-      const res = await registerPlayer(username, password);
+      // Guest / Fast Play Mode
+      const name = guestName.trim() || `Lord-${Math.floor(1000 + Math.random() * 9000)}`;
+      const res = await loginGuest(name);
       localStorage.removeItem(CAMERA_KEY);
       localStorage.removeItem(CLAIM_KEY);
       localStorage.setItem(ONBOARDING_KEY, "1");
@@ -83,247 +243,220 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const name = `GoogleUser-${Math.floor(1000 + Math.random() * 9000)}`;
+      const res = await loginGuest(name);
+      localStorage.removeItem(CAMERA_KEY);
+      localStorage.removeItem(CLAIM_KEY);
+      localStorage.setItem(ONBOARDING_KEY, "1");
+      onSuccess(res.token, res.playerId);
+    } catch (err: any) {
+      setError(err.message || "Đăng nhập Google thất bại");
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="l3-root">
-      {/* Background with user artwork */}
-      <div className="l3-bg" />
-      <div className="l3-overlay" />
+    <div className="l4-root">
+      {/* Background Atmosphere Wallpaper */}
+      <div className="l4-bg-image" />
+      <div className="l4-bg-overlay" />
 
-      {/* Trailer Toast */}
-      {trailerMsg && (
-        <div className="l3-toast" onClick={() => setTrailerMsg(null)}>
-          <span>🎬 {trailerMsg}</span>
+      {/* Top Header Controls Bar */}
+      <div className="l4-top-bar">
+        <div className="l4-brand-empty-spacer" />
+
+        <div className="l4-top-actions">
+          <button type="button" className="l4-lang-btn" onClick={() => setLanguage(language === "vi" ? "en" : "vi")}>
+            <GlobeIcon /> {language === "vi" ? "Tiếng Việt" : "English"} ▾
+          </button>
+          <button type="button" className="l4-top-action-pill" onClick={() => setError("Vui lòng gửi email đến support@hexrivals.com")}>
+            <HeadsetHelpIcon /> Hỗ trợ
+          </button>
+          <button type="button" className="l4-top-action-pill" onClick={() => setError("Bản quyền game Hex Rivals v1.0.0")}>
+            <GearSettingsIcon /> Cài đặt
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Main Container */}
-      <div className="l3-container">
+      {/* Center Form Section */}
+      <div className="l4-center-section">
+        <div className="l4-login-card">
+          
+          {/* Top Crest Emblem Header */}
+          <div className="l4-card-header">
+            <CrestHeaderEmblem />
+            <h2 className="title">
+              {tab === "login" ? "ĐĂNG NHẬP" : tab === "register" ? "ĐĂNG KÝ TÀI KHOẢN" : "CHƠI NHANH GUEST"}
+            </h2>
+            <p className="subtitle">
+              {tab === "login" ? "Chào mừng Vua trở lại!" : tab === "register" ? "Khai mở triều đại vương quốc mới" : "Tham chiến ngay lập tức không cần tạo tài khoản"}
+            </p>
+          </div>
 
-        {/* ── LEFT SECTION: BRANDING & TRAILER ── */}
-        <div className="l3-left">
-          <div className="l3-title-wrap">
-            <h1 className="l3-game-title">
-              {language === "vi" ? "ĐẾ CHẾ" : "PIXEL"}
-              <br />
-              {language === "vi" ? "ĐẢO PIXEL" : "ISLAND EMPIRE"}
-            </h1>
-            <p className="l3-subtitle">{t("loginSubtitle")}</p>
-
+          {/* Mode Switcher Tabs (ĐĂNG NHẬP | ĐĂNG KÝ | CHƠI NHANH) */}
+          <div className="l4-mode-tabs">
             <button
               type="button"
-              className="l3-trailer-btn"
-              onClick={() => {
-                setTrailerMsg(t("trailerSoon"));
-                setTimeout(() => setTrailerMsg(null), 3000);
-              }}
+              className={`l4-mode-tab ${tab === "login" ? "active" : ""}`}
+              onClick={() => { setTab("login"); setError(null); }}
             >
-              <span className="l3-play-icon">▶</span> {t("watchTrailer")}
+              ĐĂNG NHẬP
+            </button>
+            <button
+              type="button"
+              className={`l4-mode-tab ${tab === "register" ? "active" : ""}`}
+              onClick={() => { setTab("register"); setError(null); }}
+            >
+              ĐĂNG KÝ
+            </button>
+            <button
+              type="button"
+              className={`l4-mode-tab ${tab === "guest" ? "active" : ""}`}
+              onClick={() => { setTab("guest"); setError(null); }}
+            >
+              CHƠI NHANH
             </button>
           </div>
 
-          {/* Bottom feature badges bar */}
-          <div className="l3-features-bar">
-            <div className="l3-feature-item">
-              <span className="l3-feat-icon">🏰</span>
-              <span>{t("buildCastleFeature")}</span>
+          {error && (
+            <div className="l4-error-banner">
+              {error}
             </div>
-            <div className="l3-feature-item">
-              <span className="l3-feat-icon">🛡️</span>
-              <span>{t("recruitFeature")}</span>
-            </div>
-            <div className="l3-feature-item">
-              <span className="l3-feat-icon">🤝</span>
-              <span>{t("allianceFeature")}</span>
-            </div>
-            <div className="l3-feature-item">
-              <span className="l3-feat-icon">🎁</span>
-              <span>{t("eventFeature")}</span>
-            </div>
-            <div className="l3-feature-item">
-              <span className="l3-feat-icon">🌐</span>
-              <span>{t("conquerFeature")}</span>
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* ── RIGHT SECTION: LOGIN FORM CARD ── */}
-        <div className="l3-right">
-          <div className="l3-card">
-
-            {/* Crest badge header on top */}
-            <div className="l3-card-crest">
-              <div className="l3-crest-shield">👑</div>
-              <div className="l3-plaque-title">
-                {tab === "login" ? t("loginTitle") : tab === "register" ? t("registerTitle") : t("guestTitle")}
-              </div>
-            </div>
-
-            {/* Tabs (Đăng Nhập | Đăng Ký | Chơi Nhanh) */}
-            <div className="l3-tabs">
-              <button
-                type="button"
-                className={`l3-tab ${tab === "login" ? "l3-tab--active" : ""}`}
-                onClick={() => switchTab("login")}
-                disabled={loading}
-              >
-                <span className="l3-tab-icon">⚔️</span>
-                <span>{t("loginTab")}</span>
-              </button>
-
-              <button
-                type="button"
-                className={`l3-tab ${tab === "register" ? "l3-tab--active" : ""}`}
-                onClick={() => switchTab("register")}
-                disabled={loading}
-              >
-                <span className="l3-tab-icon">📜</span>
-                <span>{t("registerTab")}</span>
-              </button>
-
-              <button
-                type="button"
-                className={`l3-tab ${tab === "guest" ? "l3-tab--active" : ""}`}
-                onClick={() => switchTab("guest")}
-                disabled={loading}
-              >
-                <span className="l3-tab-icon">⚡</span>
-                <span>{t("guestTab")}</span>
-              </button>
-            </div>
-
-            {/* Error box */}
-            {error && (
-              <div className="l3-error-box">
-                <span>⚠️ {error}</span>
-              </div>
-            )}
-
-            {/* Loading state */}
-            {loading ? (
-              <div className="l3-loading-state">
-                <div className="l3-spin-sword">⚔️</div>
-                <span>{t("connectingWorld")}</span>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="l3-form">
-
-                {/* Form fields for Login / Register */}
-                {(tab === "login" || tab === "register") && (
-                  <>
-                    <div className="l3-field">
-                      <label className="l3-label">
-                        {tab === "register" ? t("newbieUsername") : t("username")}
-                      </label>
-                      <div className="l3-input-wrap">
-                        <span className="l3-input-icon">👤</span>
-                        <input
-                          className="l3-input"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder={t("usernamePlaceholder")}
-                          maxLength={40}
-                          autoComplete="username"
-                          spellCheck={false}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="l3-field">
-                      <label className="l3-label">{t("password")}</label>
-                      <div className="l3-input-wrap">
-                        <span className="l3-input-icon">🔑</span>
-                        <input
-                          type={showPass ? "text" : "password"}
-                          className="l3-input"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder={t("passwordPlaceholder")}
-                          maxLength={200}
-                          autoComplete={tab === "register" ? "new-password" : "current-password"}
-                        />
-                        <button
-                          type="button"
-                          className="l3-eye-toggle"
-                          onClick={() => setShowPass((v) => !v)}
-                        >
-                          {showPass ? "🙈" : "👁"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {tab === "register" && (
-                      <div className="l3-callout-blue">
-                        <span className="l3-callout-icon">🗺️</span>
-                        <span>{t("registerHint")}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Form field for Guest Mode */}
-                {tab === "guest" && (
-                  <>
-                    <div className="l3-field">
-                      <label className="l3-label">
-                        {t("lordName")} <span className="l3-label-sub">({t("optional")})</span>
-                      </label>
-                      <div className="l3-input-wrap">
-                        <span className="l3-input-icon">👑</span>
-                        <input
-                          className="l3-input"
-                          value={guestName}
-                          onChange={(e) => setGuestName(e.target.value)}
-                          placeholder={t("guestPlaceholder")}
-                          maxLength={24}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="l3-callout-blue">
-                      <span className="l3-callout-icon">⚡</span>
-                      <span>{t("guestHint")}</span>
-                    </div>
-                  </>
-                )}
-
-                {/* Big Shiny Gold Primary CTA Button */}
-                <button type="submit" className="l3-gold-cta">
-                  <span className="l3-cta-swords">⚔️</span>
-                  <span className="l3-cta-label">
-                    {tab === "login" ? t("enterBattle") : tab === "register" ? t("createDynasty") : t("startNow")}
-                  </span>
-                  <span className="l3-cta-swords">⚔️</span>
-                </button>
-
-                {/* Divider */}
-                <div className="l3-divider">
-                  <span className="l3-div-line" />
-                  <span className="l3-div-text">{t("continueWith")}</span>
-                  <span className="l3-div-line" />
+          {/* Form Inputs */}
+          <form onSubmit={handleSubmit} className="l4-form">
+            
+            {(tab === "login" || tab === "register") && (
+              <>
+                <div className="l4-input-group">
+                  <span className="icon"><UserIcon /></span>
+                  <input
+                    type="text"
+                    placeholder={tab === "register" ? "Tên tài khoản mới (từ 3 ký tự)" : "Tên đăng nhập / Email"}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    spellCheck={false}
+                  />
                 </div>
 
-                {/* Google Login Button */}
-                <button
-                  type="button"
-                  className="l3-google-btn"
-                  onClick={() => {
-                    setError(t("googleSoon"));
-                  }}
-                >
-                  <GoogleIcon />
-                  <span>{t("googleLogin")}</span>
-                </button>
-              </form>
+                <div className="l4-input-group">
+                  <span className="icon"><LockIcon /></span>
+                  <input
+                    type={showPass ? "text" : "password"}
+                    placeholder={tab === "register" ? "Mật khẩu bảo mật (từ 8 ký tự)" : "Mật khẩu"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button type="button" className="eye-btn" onClick={() => setShowPass(!showPass)}>
+                    {showPass ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+
+                {tab === "login" && (
+                  <div className="l4-options-row">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                      />
+                      <span>Ghi nhớ đăng nhập</span>
+                    </label>
+
+                    <button type="button" className="forgot-link" onClick={() => setError("Vui lòng liên hệ CSKH để khôi phục mật khẩu")}>
+                      Quên mật khẩu?
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Footer */}
-            <div className="l3-footer">
-              👑 Island Empire Beta &nbsp;•&nbsp; v0.1.0
+            {tab === "guest" && (
+              <div className="l4-input-group">
+                <span className="icon"><UserIcon /></span>
+                <input
+                  type="text"
+                  placeholder="Tên Chúa công (tùy chọn, để trống sẽ tự tạo)"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+            )}
+
+            {/* Primary Action Button */}
+            <button type="submit" className="l4-gold-submit-btn" disabled={loading}>
+              {loading
+                ? "ĐANG XỬ LÝ..."
+                : tab === "login"
+                ? "ĐĂNG NHẬP"
+                : tab === "register"
+                ? "TẠO TÀI KHOẢN MỚI"
+                : "BẮT ĐẦU CHƠI NHANH"}
+            </button>
+
+            {/* Social Login Divider */}
+            <div className="l4-divider">
+              <span className="line" />
+              <span className="text">HOẶC ĐĂNG NHẬP BẰNG</span>
+              <span className="line" />
             </div>
 
+            {/* Google Login Button ONLY */}
+            <div className="l4-social-single">
+              <button type="button" className="l4-google-login-btn" onClick={handleGoogleLogin}>
+                <GoogleIcon />
+                <span>Đăng nhập bằng Google</span>
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+      {/* Bottom Feature Showcase Bar (100% Match Reference Art) */}
+      <div className="l4-bottom-features-bar">
+        <div className="feature-item">
+          <CastleFeatureArt />
+          <div className="info">
+            <span className="title">XÂY DỰNG</span>
+            <span className="desc">Phát triển thành trì vững chắc</span>
           </div>
         </div>
 
+        <div className="feature-item">
+          <BattleFeatureArt />
+          <div className="info">
+            <span className="title">CHIẾN ĐẤU</span>
+            <span className="desc">Chinh phục kẻ thù mạnh mẽ</span>
+          </div>
+        </div>
+
+        <div className="feature-item">
+          <AllianceFeatureArt />
+          <div className="info">
+            <span className="title">LIÊN MINH</span>
+            <span className="desc">Kết giao bằng hữu khắp bốn phương</span>
+          </div>
+        </div>
+
+        <div className="feature-item">
+          <CrownFeatureArt />
+          <div className="info">
+            <span className="title">THỐNG TRỊ</span>
+            <span className="desc">Trở thành bá chủ vương quốc</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Copyright */}
+      <div className="l4-footer-copyright">
+        ✧ © 2025 All Rights Reserved. ✧
       </div>
     </div>
   );

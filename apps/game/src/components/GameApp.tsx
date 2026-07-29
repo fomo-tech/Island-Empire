@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
-import { cancelClearing, completeClearing, conquerTerritory, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
+import { cancelClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
 import { connectGameSocket } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
@@ -9,11 +9,8 @@ import { NewbieOnboardingModal } from "./NewbieOnboardingModal";
 import { TownManagementModal } from "./TownManagementModal";
 import { TroopDeploymentModal } from "./TroopDeploymentModal";
 import { ArmyModal } from "./ArmyModal";
-import { BuildModal } from "./BuildModal";
-import { ResearchModal } from "./ResearchModal";
 import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
-import { EventModal } from "./EventModal";
 import { ChatInputModal } from "./ChatInputModal";
 import { SettingsModal } from "./SettingsModal";
 
@@ -471,8 +468,8 @@ export function GameApp() {
   const [resources, setResources] = useState({ gold: 1250, wood: 830, stone: 670, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 420 });
   const [missions, setMissions] = useState<Array<{ text: string; value: number; goal: number }>>([
     { text: "CHIẾM 3 THÀNH PHỐ", value: 0, goal: 3 },
-    { text: "XÂY 5 NHÀ QUÂN SỰ", value: 2, goal: 5 },
-    { text: "NÂNG THÀNH LV.3", value: 1, goal: 3 }
+    { text: "GỬI 1 ĐẠO QUÂN HÀNH QUÂN", value: 0, goal: 1 },
+    { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 }
   ]);
   const [chatLog, setChatLog] = useState<string[]>([
     "PLAYER1: CÙNG NHAU CHIẾN THẮNG!",
@@ -519,8 +516,6 @@ export function GameApp() {
   const [deploySourceTown, setDeploySourceTown] = useState<any>(null);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<string>("none");
-  const [research, setResearch] = useState<any>({ sword: 0, stirrups: 0, cannon: 0, travel: 0 });
-  const [events, setEvents] = useState<any>({ goldRush: 0, harvestRush: 0 });
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">("none");
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
@@ -548,8 +543,6 @@ export function GameApp() {
   });
 
   const backendClearingStartRef = useRef<Set<number>>(new Set());
-  const backendClaimingRef = useRef<Set<number>>(new Set());
-  const backendConquestRef = useRef<Set<number>>(new Set());
 
   const addWarReport = useCallback((report: Omit<WarReportRecord, "time"> & { time?: number }) => {
     setWarReports((prev) => {
@@ -677,98 +670,13 @@ export function GameApp() {
         }
 
         if (token && Array.isArray(engineState.pendingBackendClaims) && engineState.pendingBackendClaims.length > 0) {
-          engineState.pendingBackendClaims.forEach((regionId: number) => {
-            if (backendClaimingRef.current.has(regionId)) return;
-            backendClaimingRef.current.add(regionId);
-            completeClearing(token, engineToServerTerritoryId(regionId))
-              .then((result) => {
-                engineRef.current?.handleAction("applyWorldOwnership", {
-                  territories: [{
-                    id: serverToEngineTerritoryId(result.territory.id),
-                    ownerCode: 1,
-                    ownerId: result.territory.ownerId,
-                    ownerName: result.territory.ownerName ?? "Bạn",
-                    ownerFlagColor: result.territory.ownerFlagColor,
-                    ownerEmblem: result.territory.ownerEmblem,
-                    ownerAllianceTag: result.territory.ownerAllianceTag,
-                    ownerAllianceEmblem: result.territory.ownerAllianceEmblem,
-                  }],
-                });
-                addWarReport({
-                  id: `claim-${result.territory.id}-${result.territory.ownerId}`,
-                  kind: "clearing",
-                  title: `Hoàn tất xây thành ${territoryLabel(serverToEngineTerritoryId(result.territory.id))}`,
-                  body: "Đội thợ đã dựng xong thành trì, lãnh thổ chính thức thuộc về vương quốc của bạn.",
-                  meta: `Chủ sở hữu: ${result.territory.ownerName ?? "Bạn"}`,
-                });
-                addPrivateReportMail(
-                  `Hoàn tất xây thành ${territoryLabel(serverToEngineTerritoryId(result.territory.id))}`,
-                  "Đội thợ đã hoàn tất xây thành. Thành trì mới đã xuất hiện và có thể nhận lệnh phòng thủ, xuất binh, xây dựng."
-                );
-                addSystemLine(`HOÀN TẤT XÂY THÀNH ${territoryLabel(serverToEngineTerritoryId(result.territory.id)).toUpperCase()}`);
-                engineRef.current?.handleAction("consumeBackendClaims");
-              })
-              .catch((err) => {
-                console.error("Backend territory claim failed:", err);
-                engineRef.current?.handleAction("markClaimRejected", { regionId });
-                getWorldTerritories(token)
-                  .then((world) => {
-                    const territories = world.territories.map((territory) => ({
-                      id: serverToEngineTerritoryId(territory.id),
-                      ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
-                      ownerId: territory.ownerId,
-                      ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
-                      ownerFlagColor: territory.ownerFlagColor,
-                      ownerEmblem: territory.ownerEmblem,
-                      ownerAllianceTag: territory.ownerAllianceTag,
-                      ownerAllianceEmblem: territory.ownerAllianceEmblem,
-                    }));
-                    engineRef.current?.handleAction("applyWorldOwnership", { territories, replace: true });
-                  })
-                  .catch((syncErr) => console.warn("Claim reject resync failed:", syncErr));
-              })
-              .finally(() => {
-                backendClaimingRef.current.delete(regionId);
-              });
-          });
+          engineRef.current?.handleAction("consumeBackendClaims");
+          refreshGameStateFromServer();
         }
 
         if (token && Array.isArray(engineState.pendingBackendConquests) && engineState.pendingBackendConquests.length > 0) {
-          engineState.pendingBackendConquests.forEach((regionId: number) => {
-            if (backendConquestRef.current.has(regionId)) return;
-            backendConquestRef.current.add(regionId);
-            conquerTerritory(token, engineToServerTerritoryId(regionId))
-              .then((result) => {
-                engineRef.current?.handleAction("applyWorldOwnership", {
-                  territories: [{
-                    id: serverToEngineTerritoryId(result.territory.id),
-                    ownerCode: 1,
-                    ownerId: result.territory.ownerId,
-                    ownerName: result.territory.ownerName ?? "Bạn",
-                    ownerFlagColor: result.territory.ownerFlagColor,
-                    ownerEmblem: result.territory.ownerEmblem,
-                    ownerAllianceTag: result.territory.ownerAllianceTag,
-                    ownerAllianceEmblem: result.territory.ownerAllianceEmblem,
-                  }],
-                });
-                addWarReport({
-                  id: `conquer-${result.territory.id}-${result.territory.ownerId}`,
-                  kind: "battle",
-                  title: `Chiếm đóng thành công ${territoryLabel(serverToEngineTerritoryId(result.territory.id))}`,
-                  body: "Quân ta đã đánh bại phòng tuyến đối thủ và tiếp quản lãnh thổ mới.",
-                  meta: `Chủ sở hữu: ${result.territory.ownerName ?? "Bạn"}`,
-                });
-                addSystemLine(`ĐÃ CHIẾM ĐÓNG ${territoryLabel(serverToEngineTerritoryId(result.territory.id)).toUpperCase()}`);
-                engineRef.current?.handleAction("consumeBackendConquests");
-              })
-              .catch((err) => {
-                console.error("Backend territory conquest failed:", err);
-                engineRef.current?.handleAction("consumeBackendConquests");
-              })
-              .finally(() => {
-                backendConquestRef.current.delete(regionId);
-              });
-          });
+          engineRef.current?.handleAction("consumeBackendConquests");
+          refreshGameStateFromServer();
         }
 
         const now = Date.now();
@@ -806,20 +714,6 @@ export function GameApp() {
           );
         }
 
-        if (engineState.research) {
-          const researchSnapshot = stableJson(engineState.research);
-          if (researchSnapshot !== snapshots.research) {
-            snapshots.research = researchSnapshot;
-            setResearch({ ...engineState.research });
-          }
-        }
-        if (engineState.events) {
-          const eventsSnapshot = stableJson(engineState.events);
-          if (eventsSnapshot !== snapshots.events) {
-            snapshots.events = eventsSnapshot;
-            setEvents({ ...engineState.events });
-          }
-        }
         if (Array.isArray(engineState.activeBattles)) {
           const battleSnapshot = stableJson(engineState.activeBattles.map((battle: any) => ({
             regionId: battle.regionId,
@@ -1158,6 +1052,14 @@ export function GameApp() {
       })
       .catch((err) => console.warn("Alliance resync failed:", err));
   };
+
+  useEffect(() => {
+    if (!gameReady || !token || !playerId) return;
+    const timer = window.setInterval(() => {
+      refreshGameStateFromServer();
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [gameReady, token, playerId]);
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1592,13 +1494,9 @@ export function GameApp() {
                 <span className="hud-tile-icon"><HudIcon name="swords" /></span>
                 <span className="hud-tile-label">{t("army")}</span>
               </button>
-              <button type="button" className="hud-dock-tile" onClick={() => handleAction("build")} title={t("build")}>
-                <span className="hud-tile-icon"><HudIcon name="hammer" /></span>
-                <span className="hud-tile-label">{t("build")}</span>
-              </button>
-              <button type="button" className="hud-dock-tile" onClick={() => handleAction("research")} title={t("research")}>
+              <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("treasure")} title="Kho Báu">
                 <span className="hud-tile-icon"><HudIcon name="book" /></span>
-                <span className="hud-tile-label">{t("research")}</span>
+                <span className="hud-tile-label">Kho Báu</span>
               </button>
             </div>
 
@@ -1615,10 +1513,6 @@ export function GameApp() {
               <button type="button" className="hud-dock-tile" onClick={() => handleAction("ally")} title={t("alliance")}>
                 <span className="hud-tile-icon"><HudIcon name="handshake" /></span>
                 <span className="hud-tile-label">{t("diplomacy")}</span>
-              </button>
-              <button type="button" className="hud-dock-tile" onClick={() => handleAction("event")} title={t("events")}>
-                <span className="hud-tile-icon"><HudIcon name="crown" /></span>
-                <span className="hud-tile-label">{t("events")}</span>
               </button>
               <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("inventory")} title={t("inventory")}>
                 <span className="hud-tile-icon"><HudIcon name="bag" /></span>
@@ -1717,13 +1611,23 @@ export function GameApp() {
             }
           }}
           onKhaiHoang={(regionId) => {
-            engineRef.current?.handleAction("claimRegion", regionId);
+            if (!token) {
+              showGameError("Chưa kết nối server, không thể xây thành");
+              return;
+            }
+            startClearing(token, engineToServerTerritoryId(regionId))
+              .then((result) => {
+                engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+                setSelectedRegion(null);
+                addSystemLine(`BẮT ĐẦU XÂY THÀNH ${territoryLabel(regionId).toUpperCase()}`);
+              })
+              .catch((err) => showGameError(err.message || "Server từ chối xây thành"));
           }}
           onHuyKhaiHoang={(regionId) => {
             engineRef.current?.handleAction("cancelClaimRegion", regionId);
             setSelectedRegion(null);
             if (token) {
-              cancelClearing(token, regionId)
+              cancelClearing(token, engineToServerTerritoryId(regionId))
                 .then((result) => {
                   if (result.resources) {
                     engineRef.current?.handleAction("syncResources", { resources: result.resources });
@@ -1764,19 +1668,19 @@ export function GameApp() {
         />
       )}
 
-      {newbiePhase === "choose_banner" && newbieSelectedRegion !== null && engineRef.current && (
+      {(activeModal === "tutorial" || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null && engineRef.current)) && (
         <NewbieOnboardingModal
-          regionId={newbieSelectedRegion}
-          onConfirm={(flagColor, emblem) => {
-            if (token) {
-              updatePlayerProfile(token, flagColor, emblem)
-                .then(() => console.log("Profile updated successfully on server."))
-                .catch((err) => console.error("Failed to update profile:", err));
+          onClose={() => {
+            setActiveModal("");
+            if (engineRef.current && newbiePhase === "choose_banner") {
+              engineRef.current.cancelNewbieOnboarding();
             }
-            engineRef.current?.startNewbieOnboarding(flagColor, emblem);
           }}
-          onCancel={() => {
-            engineRef.current?.cancelNewbieOnboarding();
+          onConfirm={() => {
+            setActiveModal("");
+            if (engineRef.current && newbiePhase === "choose_banner") {
+              engineRef.current.startNewbieOnboarding("#f59e0b", "crown");
+            }
           }}
         />
       )}
@@ -1846,20 +1750,9 @@ export function GameApp() {
                   unitMix: { infantry, cavalry, artillery, battleSide: deployTarget.battleSide || "defender" },
                 });
                 if (rendered === false) {
-                  const localStarted = engineRef.current?.handleAction(deployTarget.isAttack ? "marchAttack" : "marchReinforce", {
-                    sourceTownId: deploySourceTown.id,
-                    targetRegionId: deployTarget.targetRegionId,
-                    power,
-                    infantry,
-                    cavalry,
-                    artillery,
-                    battleSide: deployTarget.battleSide || "defender",
-                    backendTiming: { noTroopDebit: true },
-                  });
-                  if (localStarted === false) {
-                    showGameError("Server đã nhận lệnh nhưng client chưa vẽ được đường hành quân. Hãy chọn thành xuất quân gần mục tiêu hơn.");
-                    return;
-                  }
+                  showGameError("Server đã nhận lệnh nhưng client chưa vẽ được đường hành quân. Dữ liệu sẽ đồng bộ lại từ server.");
+                  refreshGameStateFromServer();
+                  return;
                 }
               } catch (err: any) {
                 console.error("Backend march failed:", err);
@@ -1900,41 +1793,45 @@ export function GameApp() {
           resources={resources}
           gameConfig={(engineRef.current as any).getConfig?.()}
           specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTown)) || []}
+          playerColor={(engineRef.current as any).getState?.().newbieFlagColor || "#2563eb"}
           onTrainInfantry={async () => {
-            if (token) {
-              try {
-                const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id });
-                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              } catch (err: any) {
-                console.error("[Recruit] Backend recruitment error:", err);
-              }
+            if (!token) {
+              showGameError("Chưa kết nối server, không thể mộ binh");
+              return;
             }
-            engineRef.current?.handleAction("trainInfantry");
+            try {
+              const res = await recruitTroops(token, { unitType: "infantry", townId: selectedTown.id });
+              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
+            } catch (err: any) {
+              showGameError(err.message || "Server từ chối mộ bộ binh");
+            }
           }}
           onTrainCavalry={async () => {
-            if (token) {
-              try {
-                const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id });
-                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              } catch (err: any) {
-                console.error("[Recruit] Backend recruitment error:", err);
-              }
+            if (!token) {
+              showGameError("Chưa kết nối server, không thể mộ kị binh");
+              return;
             }
-            engineRef.current?.handleAction("trainCavalry");
+            try {
+              const res = await recruitTroops(token, { unitType: "cavalry", townId: selectedTown.id });
+              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
+            } catch (err: any) {
+              showGameError(err.message || "Server từ chối mộ kị binh");
+            }
           }}
           onTrainArtillery={async () => {
-            if (token) {
-              try {
-                const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id });
-                if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
-              } catch (err: any) {
-                console.error("[Recruit] Backend recruitment error:", err);
-              }
+            if (!token) {
+              showGameError("Chưa kết nối server, không thể mộ pháo binh");
+              return;
             }
-            engineRef.current?.handleAction("trainArtillery");
-          }}
-          onUpgradeTown={() => {
-            engineRef.current?.handleAction("build");
+            try {
+              const res = await recruitTroops(token, { unitType: "artillery", townId: selectedTown.id });
+              if (res.resources) setResources((prev) => ({ ...prev, ...res.resources }));
+              engineRef.current?.handleAction("applyRecruitment", { townId: selectedTown.id, ...res });
+            } catch (err: any) {
+              showGameError(err.message || "Server từ chối mộ pháo binh");
+            }
           }}
           onClose={() => {
             engineRef.current?.handleAction("deselect");
@@ -1947,28 +1844,6 @@ export function GameApp() {
           towns={engineRef.current.getTowns()}
           onCenterCamera={(town) => {
             engineRef.current?.handleAction("centerCamera", { townId: town.id, x: town.x, y: town.y });
-          }}
-          onClose={() => setActiveModal("none")}
-        />
-      )}
-
-      {activeModal === "build" && selectedTown && engineRef.current && (
-        <BuildModal
-          town={selectedTown}
-          resources={resources}
-          onBuild={(structureType, cost, name) => {
-            engineRef.current?.handleAction("buildStructure", { townId: selectedTown.id, structureType, cost, structureName: name });
-          }}
-          onClose={() => setActiveModal("none")}
-        />
-      )}
-
-      {activeModal === "research" && engineRef.current && (
-        <ResearchModal
-          research={research}
-          resources={resources}
-          onUpgrade={(techType, cost, name) => {
-            engineRef.current?.handleAction("upgradeResearch", { techType, cost, techName: name });
           }}
           onClose={() => setActiveModal("none")}
         />
@@ -1996,17 +1871,6 @@ export function GameApp() {
               meta: "Đồng bộ backend",
             });
             refreshGameStateFromServer();
-          }}
-          onClose={() => setActiveModal("none")}
-        />
-      )}
-
-      {activeModal === "event" && engineRef.current && (
-        <EventModal
-          resources={resources}
-          events={events}
-          onTriggerEvent={(eventType, costGems, name) => {
-            engineRef.current?.handleAction("triggerEvent", { eventType, costGems, eventName: name });
           }}
           onClose={() => setActiveModal("none")}
         />
@@ -2131,158 +1995,16 @@ export function GameApp() {
 
       {/* Newbie Tutorial Modal Overlay */}
       {showTutorial && (
-        <div className="ob-modal-overlay">
-          <div className="ob-modal-container" style={{ maxWidth: "560px", padding: "28px" }}>
-            <div className="ob-modal-glow" style={{ background: "linear-gradient(90deg, transparent, #ffd34d, transparent)" }} />
-            
-            {/* Header matching TownManagementModal */}
-            <div className="ob-modal-header" style={{ marginBottom: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "center", gap: "6px", color: "#ffd34d", fontSize: "11px", fontWeight: "bold", textShadow: "0 0 10px rgba(255, 211, 77, 0.35)", marginBottom: "4px" }}>
-                <span className="star">★</span>
-                <span>BƯỚC HƯỚNG DẪN {currentSlide + 1} / 4</span>
-                <span className="star">★</span>
-              </div>
-              <h2 className="ob-modal-title" style={{ fontSize: "16px" }}>HƯỚNG DẪN TÂN VƯƠNG</h2>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "6px 0" }}>
-                <span style={{ width: "6px", height: "6px", background: "#ffd34d", transform: "rotate(45deg)", display: "inline-block" }} />
-                <span style={{ width: "100px", height: "1px", background: "rgba(212, 175, 55, 0.45)", display: "inline-block" }} />
-                <span style={{ width: "6px", height: "6px", background: "#ffd34d", transform: "rotate(45deg)", display: "inline-block" }} />
-              </div>
-            </div>
-
-            {/* Content Section: Left Art, Right Description */}
-            <div className="ob-modal-content" style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "20px", alignItems: "center", minHeight: "180px", margin: "0 0 20px 0" }}>
-              {/* Left Column: Art matching the active slide */}
-              <div className="tutorial-art-col" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 16, 25, 0.6)", borderRadius: "8px", border: "1px solid rgba(212, 175, 55, 0.2)", height: "150px" }}>
-                {currentSlide === 0 && <CastleArt />}
-                {currentSlide === 1 && <ArmyArt />}
-                {currentSlide === 2 && <ResourceArt />}
-                {currentSlide === 3 && <DiplomacyArt />}
-              </div>
-
-              {/* Right Column: Descriptions & Details */}
-              <div className="tutorial-desc-col" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {currentSlide === 0 && (
-                  <>
-                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>1. XÂY DỰNG QUỐC GIA</h3>
-                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
-                      Nhấp chọn mảnh đất hoang dã (chưa có chủ, màu vàng cát) có viền đen mảnh để khai hoang và dựng thành trì đầu tiên của bạn.
-                    </p>
-                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
-                      Mẹo: Vùng đất sở hữu sẽ lập tức chuyển sang màu xanh lá của vương quốc bạn.
-                    </p>
-                  </>
-                )}
-                {currentSlide === 1 && (
-                  <>
-                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>2. ĐIỀU BINH KHIỂN TƯỚNG</h3>
-                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
-                      Nhấp vào thành trì đã sở hữu của bạn, sau đó chọn "Phát động tấn công" hoặc "Tiếp viện" sang các mảnh đất lân cận để chiếm giữ các vùng đất mới.
-                    </p>
-                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
-                      Mẹo: Bạn có thể huấn luyện Bộ binh, Kị binh hoặc Pháo binh để gia tăng thế lực.
-                    </p>
-                  </>
-                )}
-                {currentSlide === 2 && (
-                  <>
-                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>3. QUẢN LÝ TÀI NGUYÊN</h3>
-                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
-                      Các loại tài nguyên Lương thực, Gỗ, Đá, Sắt và Ngọc sẽ được khai thác tự động và cộng trực tiếp vào ngân khố theo thời gian.
-                    </p>
-                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
-                      Mẹo: Càng sở hữu nhiều đất đai, tốc độ thu thập tài nguyên càng tăng nhanh.
-                    </p>
-                  </>
-                )}
-                {currentSlide === 3 && (
-                  <>
-                    <h3 style={{ margin: 0, fontSize: "14px", color: "#ffd34d", fontWeight: "bold" }}>4. NGOẠI GIAO & LIÊN MINH</h3>
-                    <p style={{ margin: 0, fontSize: "12px", color: "#cbd5e1", lineHeight: 1.6 }}>
-                      Nhấp biểu tượng "Ngoại giao" ở thanh công cụ góc phải trên cùng để liên lạc, kết giao liên minh cùng các lãnh chúa khác.
-                    </p>
-                    <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
-                      Mẹo: Liên minh sẽ cùng nhau chia sẻ thông tin, cứu trợ binh lính phòng thủ.
-                    </p>
-                  </>
-                )}
-
-                {/* Slide Dots Indicator */}
-                <div className="slide-dots" style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                  {[0, 1, 2, 3].map((idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setCurrentSlide(idx)}
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        border: "none",
-                        background: currentSlide === idx ? "#ffd34d" : "rgba(255, 255, 255, 0.2)",
-                        cursor: "pointer",
-                        padding: 0,
-                        transition: "background 0.2s"
-                      }}
-                      title={`Bước ${idx + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Actions matching ob-modal-actions / town-modal-actions */}
-            <div className="ob-modal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(212, 175, 55, 0.25)", paddingTop: "16px" }}>
-              <button
-                type="button"
-                className="ob-action-btn secondary"
-                onClick={() => {
-                  localStorage.setItem("island_empire_tutorial_completed", "1");
-                  setShowTutorial(false);
-                }}
-                style={{ padding: "8px 20px", fontSize: "11.5px" }}
-              >
-                BỎ QUA
-              </button>
-              
-              <div style={{ display: "flex", gap: "10px" }}>
-                {currentSlide > 0 && (
-                  <button
-                    type="button"
-                    className="ob-action-btn secondary"
-                    onClick={() => setCurrentSlide((prev) => prev - 1)}
-                    style={{ padding: "8px 16px", fontSize: "11.5px" }}
-                  >
-                    TRƯỚC
-                  </button>
-                )}
-                
-                {currentSlide < 3 ? (
-                  <button
-                    type="button"
-                    className="ob-action-btn primary"
-                    onClick={() => setCurrentSlide((prev) => prev + 1)}
-                    style={{ padding: "8px 24px", fontSize: "11.5px" }}
-                  >
-                    KẾ TIẾP
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="ob-action-btn primary"
-                    onClick={() => {
-                      localStorage.setItem("island_empire_tutorial_completed", "1");
-                      setShowTutorial(false);
-                    }}
-                    style={{ padding: "8px 24px", fontSize: "11.5px" }}
-                  >
-                    ĐÃ HIỂU
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <NewbieOnboardingModal
+          onClose={() => {
+            localStorage.setItem("island_empire_tutorial_completed", "1");
+            setShowTutorial(false);
+          }}
+          onConfirm={() => {
+            localStorage.setItem("island_empire_tutorial_completed", "1");
+            setShowTutorial(false);
+          }}
+        />
       )}
     </main>
   );

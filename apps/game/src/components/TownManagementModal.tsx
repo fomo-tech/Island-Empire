@@ -23,14 +23,12 @@ interface TownManagementModalProps {
   resources: ResourceBag;
   gameConfig?: any;
   specialResources?: string[];
+  playerColor?: string;
   onTrainInfantry: () => void;
   onTrainCavalry: () => void;
   onTrainArtillery: () => void;
-  onUpgradeTown: () => void;
   onClose: () => void;
 }
-
-const UPGRADE_COST = { wood: 160, stone: 120 };
 
 function populationCost(troopValue: number) {
   return Math.max(1, Math.ceil((troopValue || 0) / 5));
@@ -61,8 +59,22 @@ function ResourceCost({
   );
 }
 
+function getDarkerColor(hex: string) {
+  if (!hex || !hex.startsWith("#")) return "#1e3a8a";
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  r = Math.max(0, Math.floor(r * 0.6));
+  g = Math.max(0, Math.floor(g * 0.6));
+  b = Math.max(0, Math.floor(b * 0.6));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 /* High-Definition Stylized Circular Gold Ring Badge Artwork with Waving War Flag Banner in Background matching User Photo 1 */
-function InfantryArt() {
+function InfantryArt({ color }: { color?: string }) {
+  const flagColor = color || "#2563eb";
+  const flagDarkColor = getDarkerColor(flagColor);
+
   return (
     <svg viewBox="0 0 100 100" className="unit-art-svg">
       <defs>
@@ -82,9 +94,8 @@ function InfantryArt() {
           <stop offset="100%" stopColor="#334155" />
         </linearGradient>
         <linearGradient id="royalFlagRed" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#ef4444" />
-          <stop offset="50%" stopColor="#dc2626" />
-          <stop offset="100%" stopColor="#991b1b" />
+          <stop offset="0%" stopColor={flagColor} />
+          <stop offset="100%" stopColor={flagDarkColor} />
         </linearGradient>
         <linearGradient id="royalBlueShieldGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#3b82f6" />
@@ -128,7 +139,10 @@ function InfantryArt() {
   );
 }
 
-function CavalryArt() {
+function CavalryArt({ color }: { color?: string }) {
+  const flagColor = color || "#2563eb";
+  const flagDarkColor = getDarkerColor(flagColor);
+
   return (
     <svg viewBox="0 0 100 100" className="unit-art-svg">
       <defs>
@@ -143,8 +157,8 @@ function CavalryArt() {
           <stop offset="100%" stopColor="#854d0e" />
         </linearGradient>
         <linearGradient id="flagBlueGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#2563eb" />
-          <stop offset="100%" stopColor="#1e3a8a" />
+          <stop offset="0%" stopColor={flagColor} />
+          <stop offset="100%" stopColor={flagDarkColor} />
         </linearGradient>
         <linearGradient id="horseBrownGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#92400e" />
@@ -156,9 +170,9 @@ function CavalryArt() {
       <circle cx="50" cy="50" r="41" fill="url(#circleDarkBgCavalry)" stroke="url(#goldLanceGrad)" strokeWidth="3" />
       <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
 
-      {/* 2. CỜ PHÍA SAU (Waving Royal Blue Cavalry Flag Banner in Background) */}
+      {/* 2. CỜ PHÍA SAU (Waving Cavalry Flag Banner in Background) */}
       <g className="bg-flag">
-        <rect x="22" y="10" width="3" height="78" fill="url(#goldLanceGrad)" rx="1" />
+        <rect x="22" y="12" width="3" height="74" fill="url(#goldLanceGrad)" rx="1" />
         <path d="M 25,16 Q 44,10 64,18 Q 80,26 60,30 Q 40,34 25,28 Z" fill="url(#flagBlueGrad)" stroke="url(#goldLanceGrad)" strokeWidth="1" />
         <circle cx="44" cy="22" r="4" fill="url(#goldLanceGrad)" />
       </g>
@@ -178,14 +192,17 @@ function CavalryArt() {
       <circle cx="52" cy="32" r="7.5" fill="#64748b" stroke="url(#goldLanceGrad)" strokeWidth="1" />
       <path d="M 44,39 L 60,39 L 62,55 L 42,55 Z" fill="#475569" />
 
-      {/* Long Tilted Lance Spear extending across and past the Gold Ring! */}
-      <line x1="8" y1="58" x2="94" y2="16" stroke="url(#goldLanceGrad)" strokeWidth="4" strokeLinecap="round" />
-      <polygon points="94,16 99,13 96,20" fill="#f8fafc" />
+      {/* Long Tilted Lance Spear kept inside circle bounds! */}
+      <line x1="14" y1="58" x2="86" y2="22" stroke="url(#goldLanceGrad)" strokeWidth="4" strokeLinecap="round" />
+      <polygon points="86,22 91,19 88,26" fill="#f8fafc" />
     </svg>
   );
 }
 
-function ArtilleryArt() {
+function ArtilleryArt({ color }: { color?: string }) {
+  const flagColor = color || "#2563eb";
+  const flagDarkColor = getDarkerColor(flagColor);
+
   return (
     <svg viewBox="0 0 100 100" className="unit-art-svg">
       <defs>
@@ -201,8 +218,8 @@ function ArtilleryArt() {
           <stop offset="100%" stopColor="#451a03" />
         </linearGradient>
         <linearGradient id="flagGoldGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#d97706" />
-          <stop offset="100%" stopColor="#78350f" />
+          <stop offset="0%" stopColor={flagColor} />
+          <stop offset="100%" stopColor={flagDarkColor} />
         </linearGradient>
       </defs>
 
@@ -210,9 +227,9 @@ function ArtilleryArt() {
       <circle cx="50" cy="50" r="41" fill="url(#circleDarkBgArtillery)" stroke="url(#bronzeCannonGrad)" strokeWidth="3" />
       <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
 
-      {/* 2. CỜ PHÍA SAU (Waving Crimson Siege Guild Flag Banner in Background) */}
+      {/* 2. CỜ PHÍA SAU (Waving Artillery Flag Banner in Background) */}
       <g className="bg-flag">
-        <rect x="68" y="10" width="3" height="78" fill="url(#bronzeCannonGrad)" rx="1" />
+        <rect x="68" y="12" width="3" height="74" fill="url(#bronzeCannonGrad)" rx="1" />
         <path d="M 68,16 Q 48,10 28,18 Q 12,26 32,30 Q 52,34 68,28 Z" fill="url(#flagGoldGrad)" stroke="url(#bronzeCannonGrad)" strokeWidth="1" />
         <polygon points="46,18 52,24 46,30" fill="#fff099" />
       </g>
@@ -237,53 +254,6 @@ function ArtilleryArt() {
       <line x1="30" y1="68" x2="66" y2="68" stroke="#f8fafc" strokeWidth="2" />
       <line x1="35" y1="55" x2="61" y2="81" stroke="#cbd5e1" strokeWidth="1.5" />
       <line x1="35" y1="81" x2="61" y2="55" stroke="#cbd5e1" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function CastleUpgradeArt() {
-  return (
-    <svg viewBox="0 0 100 100" className="unit-art-svg">
-      <defs>
-        <radialGradient id="circleDarkBgCastle" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1e3a5f" />
-          <stop offset="80%" stopColor="#0b1422" />
-          <stop offset="100%" stopColor="#040810" />
-        </radialGradient>
-        <linearGradient id="castleGoldGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#fff099" />
-          <stop offset="50%" stopColor="#eab308" />
-          <stop offset="100%" stopColor="#854d0e" />
-        </linearGradient>
-        <linearGradient id="castleStoneGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#cbd5e1" />
-          <stop offset="50%" stopColor="#64748b" />
-          <stop offset="100%" stopColor="#1e293b" />
-        </linearGradient>
-      </defs>
-
-      {/* 1. Dark Inner Disc & Gold Outer Ring */}
-      <circle cx="50" cy="50" r="41" fill="url(#circleDarkBgCastle)" stroke="url(#castleGoldGrad)" strokeWidth="3" />
-      <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
-
-      {/* 2. CỜ PHÍA SAU (Twin Waving Imperial Royal Banners in Background) */}
-      <g className="bg-flag">
-        <line x1="28" y1="12" x2="28" y2="44" stroke="url(#castleGoldGrad)" strokeWidth="2" />
-        <polygon points="28,14 42,19 28,24" fill="#ef4444" stroke="url(#castleGoldGrad)" strokeWidth="0.8" />
-        <line x1="72" y1="12" x2="72" y2="44" stroke="url(#castleGoldGrad)" strokeWidth="2" />
-        <polygon points="72,14 86,19 72,24" fill="#ef4444" stroke="url(#castleGoldGrad)" strokeWidth="0.8" />
-      </g>
-
-      {/* 3. FOREGROUND FORTRESS KEEP */}
-      <rect x="30" y="44" width="40" height="36" fill="url(#castleStoneGrad)" stroke="#f8fafc" strokeWidth="1" />
-      <path d="M 42,80 L 42,62 Q 50,55 58,62 L 58,80 Z" fill="#020617" stroke="url(#castleGoldGrad)" strokeWidth="1.5" />
-      <line x1="50" y1="57" x2="50" y2="80" stroke="url(#castleGoldGrad)" strokeWidth="1" />
-
-      <rect x="20" y="32" width="18" height="48" fill="url(#castleStoneGrad)" stroke="#f8fafc" strokeWidth="1" />
-      <polygon points="17,32 29,14 41,32" fill="#ef4444" stroke="url(#castleGoldGrad)" strokeWidth="1" />
-
-      <rect x="62" y="32" width="18" height="48" fill="url(#castleStoneGrad)" stroke="#f8fafc" strokeWidth="1" />
-      <polygon points="59,32 71,14 83,32" fill="#ef4444" stroke="url(#castleGoldGrad)" strokeWidth="1" />
     </svg>
   );
 }
@@ -332,10 +302,10 @@ export function TownManagementModal({
   resources,
   gameConfig,
   specialResources = [],
+  playerColor,
   onTrainInfantry,
   onTrainCavalry,
   onTrainArtillery,
-  onUpgradeTown,
   onClose
 }: TownManagementModalProps) {
   const config = gameConfig || {
@@ -410,8 +380,6 @@ export function TownManagementModal({
     canAffordArtillery &&
     population >= artilleryPop &&
     town.troops + config.artilleryTroopsValue <= maxDefending;
-
-  const canAffordUpgrade = resources.wood >= UPGRADE_COST.wood && resources.stone >= UPGRADE_COST.stone;
 
   return (
     <div className="ob-modal-overlay town-modal-overlay" onClick={onClose}>
@@ -489,7 +457,7 @@ export function TownManagementModal({
 
           {/* Row 1: Infantry */}
           <div className="recruit-option">
-            <div className="unit-art-box"><InfantryArt /></div>
+            <div className="unit-art-box"><InfantryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">BỘ BINH (INFANTRY)</span>
               <span className="option-desc">Tăng cường tấn công phòng thủ/cận công</span>
@@ -509,7 +477,7 @@ export function TownManagementModal({
 
           {/* Row 2: Cavalry */}
           <div className="recruit-option">
-            <div className="unit-art-box"><CavalryArt /></div>
+            <div className="unit-art-box"><CavalryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">KỊ BINH (CAVALRY)</span>
               <span className="option-desc">{hasHorsePasture ? "Cận chiến tốc độ cao, hiệu quả để huấn luyện" : "Cần lãnh thổ có Bãi ngựa để huấn luyện."}</span>
@@ -531,7 +499,7 @@ export function TownManagementModal({
 
           {/* Row 3: Artillery */}
           <div className="recruit-option">
-            <div className="unit-art-box"><ArtilleryArt /></div>
+            <div className="unit-art-box"><ArtilleryArt color={playerColor} /></div>
             <div className="option-info">
               <span className="option-name">PHÁO BINH (ARTILLERY)</span>
               <span className="option-desc">{hasSiegeWorkshop ? "Càn quét tường thành xa trước" : "Cần xây Xưởng chiến xa trước"}</span>
@@ -550,30 +518,6 @@ export function TownManagementModal({
             </div>
           </div>
 
-          <div className="section-header-line margin-top-line">
-            <span className="star-left">✢</span>
-            <h3 className="section-title">NÂNG CẤP KIẾN TRÚC</h3>
-            <span className="line-fill" />
-            <span className="star-right">✢</span>
-          </div>
-
-          {/* Row 4: Castle Upgrade */}
-          <div className="recruit-option upgrade-row">
-            <div className="unit-art-box"><CastleUpgradeArt /></div>
-            <div className="option-info">
-              <span className="option-name">NÂNG CẤP LÂU ĐÀI</span>
-              <span className="option-desc">Gia cố thành lũy vững chắc ( +1 cấp, +12 lính )</span>
-              <div className="cost-row">
-                <ResourceCost label="Gỗ" value={UPGRADE_COST.wood} enough={resources.wood >= UPGRADE_COST.wood} />
-                <ResourceCost label="Đá" value={UPGRADE_COST.stone} enough={resources.stone >= UPGRADE_COST.stone} />
-              </div>
-            </div>
-            <div className="recruit-action-col">
-              <button type="button" className="recruit-btn upgrade-action" disabled={!canAffordUpgrade} onClick={onUpgradeTown}>
-                NÂNG CẤP
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="ob-modal-actions town-modal-actions">

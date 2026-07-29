@@ -724,9 +724,16 @@ export function generateWorldTerritories(): BaseTerritory[] {
   ];
 
   // Add regions to territories
-  baseRegions.forEach((r, i) => {
+  let nextRegionId = 0;
+  baseRegions.forEach((r) => {
+    // Wave generator to carve out channels and oceans to split the massive landmass
+    const wave = Math.sin(r.x * 0.0012) * Math.cos(r.y * 0.0015) + Math.cos(r.x * 0.0008 + r.y * 0.001);
+    if (wave > 0.3) {
+      // Skipped: becomes sea water/ocean channels!
+      return;
+    }
     territories.push({
-      id: i,
+      id: nextRegionId++,
       x: r.x,
       y: r.y,
       rx: r.rx,
@@ -740,47 +747,54 @@ export function generateWorldTerritories(): BaseTerritory[] {
   const random = mulberry32(12345);
 
   const centers = [
-    // Row 1 (y ~ 1400 - 1600)
-    { cx: 2000, cy: 1500, name: "THÁI BÌNH QUẦN ĐẢO" },
-    { cx: 6000, cy: 1600, name: "BẮC ĐẨU LỤC ĐỊA" },
-    { cx: 10000, cy: 1500, name: "VƯƠNG QUỐC PHA LÊ" },
-    { cx: 14000, cy: 1400, name: "THƯỢNG CỔ ĐẢO" },
+    // Row 1 (y ~ 2250)
+    { cx: 3000, cy: 2250, name: "THÁI BÌNH QUẦN ĐẢO" },
+    { cx: 9000, cy: 2400, name: "BẮC ĐẨU LỤC ĐỊA" },
+    { cx: 15000, cy: 2250, name: "VƯƠNG QUỐC PHA LÊ" },
+    { cx: 21000, cy: 2100, name: "THƯỢNG CỔ ĐẢO" },
 
-    // Row 2 (y ~ 4400 - 4600)
-    { cx: 2100, cy: 4500, name: "HOÀNG KIM THỔ" },
-    { cx: 5900, cy: 4600, name: "BẠCH HỔ LỤC ĐỊA" },
-    { cx: 9900, cy: 4400, name: "LINH QUY ĐẢO" },
-    { cx: 13900, cy: 4500, name: "ĐÔNG HẢI LONG CUNG" },
+    // Row 2 (y ~ 6750)
+    { cx: 3150, cy: 6750, name: "HOÀNG KIM THỔ" },
+    { cx: 8850, cy: 6900, name: "BẠCH HỔ LỤC ĐỊA" },
+    { cx: 14850, cy: 6600, name: "LINH QUY ĐẢO" },
+    { cx: 20850, cy: 6750, name: "ĐÔNG HẢI LONG CUNG" },
 
-    // Row 3 (y ~ 7400 - 7700)
-    { cx: 2000, cy: 7500, name: "TỬ PHONG ĐẢO" },
-    { cx: 6000, cy: 7700, name: "THIÊN LONG LỤC ĐỊA" },
-    { cx: 10000, cy: 7500, name: "SAN HÔ ĐẠI LỤC" },
-    { cx: 14000, cy: 7600, name: "VẠN AN ĐẢO" },
+    // Row 3 (y ~ 11250)
+    { cx: 3000, cy: 11250, name: "TỬ PHONG ĐẢO" },
+    { cx: 9000, cy: 11550, name: "THIÊN LONG LỤC ĐỊA" },
+    { cx: 15000, cy: 11250, name: "SAN HÔ ĐẠI LỤC" },
+    { cx: 21000, cy: 11400, name: "VẠN AN ĐẢO" },
 
-    // Row 4 (y ~ 10400 - 10600)
-    { cx: 2200, cy: 10500, name: "HỎA LONG MA THỔ" },
-    { cx: 6100, cy: 10600, name: "KỲ LÂN BĂNG SƠN" },
-    { cx: 10100, cy: 10400, name: "CHU TƯỚC ĐẢO" },
-    { cx: 14100, cy: 10500, name: "BĂNG LONG ĐẢO" },
+    // Row 4 (y ~ 15750)
+    { cx: 3300, cy: 15750, name: "HỎA LONG MA THỔ" },
+    { cx: 9150, cy: 15900, name: "KỲ LÂN BĂNG SƠN" },
+    { cx: 15150, cy: 15600, name: "CHU TƯỚC ĐẢO" },
+    { cx: 21150, cy: 15750, name: "BĂNG LONG ĐẢO" },
   ];
 
-  const totalAutoRegions = 1400;
+  const totalAutoRegions = 4550;
   const regionsPerContinent = Math.floor(totalAutoRegions / centers.length);
   const remainingRegions = totalAutoRegions % centers.length;
 
-  let nextRegionId = territories.filter((territory) => !territory.isIslet).length;
+  nextRegionId = territories.filter((territory) => !territory.isIslet).length;
 
   centers.forEach((center, cIdx) => {
     const numRegions = regionsPerContinent + (cIdx < remainingRegions ? 1 : 0);
-    let themeBiome = 0;
-    if (center.name.includes("BĂNG")) themeBiome = 2;
-    else if (center.name.includes("HỎA")) themeBiome = 1;
-    else if (center.name.includes("SA MẠC") || center.name.includes("HOÀNG KIM")) themeBiome = 1;
-    else if (center.name.includes("QUY") || center.name.includes("SAN HÔ")) themeBiome = 5;
-    else if (center.name.includes("LONG") || center.name.includes("HỔ")) themeBiome = 6;
-    else {
-      const allowedBiomes = [0, 1, 2, 4, 5, 6, 7];
+    let themeBiome = 0; // Default to Grass (0)
+    if (center.name.includes("BĂNG")) {
+      themeBiome = 2; // Băng Tuyết (Snow)
+    } else if (center.name.includes("HỎA") || center.name.includes("CHU TƯỚC")) {
+      themeBiome = 3; // Hỏa Sơn (Volcanic)
+    } else if (center.name.includes("SA MẠC")) {
+      themeBiome = 1; // Sa Mạc (Desert)
+    } else if (center.name.includes("PHA LÊ") || center.name.includes("LONG CUNG") || center.name.includes("SAN HÔ")) {
+      themeBiome = 4; // Lục Lam (Ngọc bích/San hô/Crystal)
+    } else if (center.name.includes("HOÀNG KIM")) {
+      themeBiome = 5; // Vàng Cam (Cam đất)
+    } else if (center.name.includes("HỔ") || center.name.includes("LONG")) {
+      themeBiome = 6; // Rừng Thông (Pine Forest)
+    } else {
+      const allowedBiomes = [0, 6, 7, 0, 6, 5];
       themeBiome = allowedBiomes[Math.floor(random() * allowedBiomes.length)];
     }
 
@@ -790,7 +804,7 @@ export function generateWorldTerritories(): BaseTerritory[] {
     for (let rIdx = 0; rIdx < numRegions; rIdx++) {
       const angle = rIdx * 2.39996 + (random() * 0.1);
       const waveMod = 1.0 + Math.sin(angle * 3 + cIdx * 1.9) * 0.42 + Math.cos(angle * 5 - cIdx * 0.7) * 0.22;
-      const baseDist = 180 + Math.sqrt(rIdx) * 125;
+      const baseDist = 180 + Math.sqrt(rIdx) * 120;
       const dist = baseDist * waveMod;
 
       const dx = Math.cos(angle) * dist;
@@ -801,6 +815,13 @@ export function generateWorldTerritories(): BaseTerritory[] {
 
       const x = Math.round(center.cx + rotX);
       const y = Math.round(center.cy + rotY);
+
+      // Low-frequency wave generator to carve out ocean channels inside the auto-generated continents
+      const autoWave = Math.sin(x * 0.0012) * Math.cos(y * 0.0015) + Math.cos(x * 0.0008 + y * 0.001);
+      if (autoWave > 0.08) {
+        // Skipped: becomes sea water/ocean channels!
+        continue;
+      }
 
       const rx = Math.round(185 + random() * 45);
       const ry = Math.round(rx * 0.75);
@@ -838,13 +859,13 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   });
 
-  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương lên 360 (scaled to 16000x12000)
-  for (let i = 0; i < 360; i++) {
-    const angle = (i / 360) * Math.PI * 2;
-    const radiusX = 4200 + (i % 10) * 420 + random() * 300;
-    const radiusY = 3200 + (i % 10) * 320 + random() * 240;
-    const x = Math.round(8000 + Math.cos(angle) * radiusX);
-    const y = Math.round(6000 + Math.sin(angle) * radiusY);
+  // Tăng số đảo nhỏ (islets) xung quanh các vùng đại dương lên 120 (scaled to 24000x18000)
+  for (let i = 0; i < 120; i++) {
+    const angle = (i / 120) * Math.PI * 2;
+    const radiusX = 6300 + (i % 10) * 630 + random() * 450;
+    const radiusY = 4800 + (i % 10) * 480 + random() * 360;
+    const x = Math.round(12000 + Math.cos(angle) * radiusX);
+    const y = Math.round(9000 + Math.sin(angle) * radiusY);
 
     const rx = Math.round(45 + random() * 25);
     const ry = Math.round(rx * 0.78);
@@ -866,23 +887,23 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   }
 
-  // Generate 240 border islets scaled to 16000x12000
-  for (let i = 0; i < 240; i++) {
+  // Generate 80 border islets scaled to 24000x18000
+  for (let i = 0; i < 80; i++) {
     let x = 0;
     let y = 0;
     const edge = i % 4; // 0 = Left, 1 = Right, 2 = Top, 3 = Bottom
     if (edge === 0) {
       x = Math.round(150 + random() * 400);
-      y = Math.round(200 + (i / 240) * 11600);
+      y = Math.round(200 + (i / 80) * 17600);
     } else if (edge === 1) {
-      x = Math.round(15450 + random() * 400);
-      y = Math.round(200 + (i / 240) * 11600);
+      x = Math.round(23450 + random() * 400);
+      y = Math.round(200 + (i / 80) * 17600);
     } else if (edge === 2) {
-      x = Math.round(200 + (i / 240) * 15600);
+      x = Math.round(200 + (i / 80) * 23600);
       y = Math.round(150 + random() * 400);
     } else {
-      x = Math.round(200 + (i / 240) * 15600);
-      y = Math.round(11450 + random() * 400);
+      x = Math.round(200 + (i / 80) * 23600);
+      y = Math.round(17450 + random() * 400);
     }
 
     const rx = Math.round(40 + random() * 20);
@@ -905,17 +926,20 @@ export function generateWorldTerritories(): BaseTerritory[] {
     });
   }
 
-  // Generate 500 additional North/South islets to fulfill total territories
-  for (let i = 0; i < 500; i++) {
+  // Generate additional North/South islets to fulfill exactly 5000 total territories
+  const targetTotal = 5000;
+  const neededIslets = targetTotal - territories.length;
+
+  for (let i = 0; i < neededIslets; i++) {
     let x = 0;
     let y = 0;
     const isNorth = i % 2 === 0;
     if (isNorth) {
-      x = Math.round(200 + (i / 500) * 15600 + random() * 100);
-      y = Math.round(150 + random() * 1050);
+      x = Math.round(200 + (i / neededIslets) * 23600 + random() * 100);
+      y = Math.round(150 + random() * 1900);
     } else {
-      x = Math.round(200 + (i / 500) * 15600 + random() * 100);
-      y = Math.round(10800 + random() * 1050);
+      x = Math.round(200 + (i / neededIslets) * 23600 + random() * 100);
+      y = Math.round(15900 + random() * 1900);
     }
 
     const rx = Math.round(40 + random() * 25);

@@ -122,14 +122,14 @@ export function createIslandEmpireGame(
   };
 
   const BIOMES = [
-    { id: "grass", a: "#5fa038", b: "#4a8228", hi: "#7ecc47", dark: "#36611c", edge: "#274714" }, // Rich Meadow Green
-    { id: "sand", a: "#e68a35", b: "#c47023", hi: "#fca34d", dark: "#945115", edge: "#733d0d" }, // Warm Terracotta Orange (Screenshot 14)
-    { id: "snow", a: "#dedad4", b: "#bfb9b0", hi: "#f7f5f0", dark: "#8c8477", edge: "#6e675b" }, // Alpine Snow White (Screenshot 14)
-    { id: "ember", a: "#4c8c30", b: "#386b22", hi: "#6bb346", dark: "#254d16", edge: "#1a380e" }, // Pine Forest Green (NO RED)
-    { id: "violet", a: "#529642", b: "#3f7832", hi: "#77be65", dark: "#2a5921", edge: "#1d4217" }, // Emerald Forest Green (NO CYAN BLUE)
-    { id: "rose", a: "#e68a35", b: "#c47023", hi: "#fca34d", dark: "#945115", edge: "#733d0d" }, // Vibrant Amber Orange
-    { id: "pine", a: "#4c8c30", b: "#386b22", hi: "#6bb346", dark: "#254d16", edge: "#1a380e" }, // Pine Forest Green
-    { id: "mint", a: "#7cb84d", b: "#609638", hi: "#9de36b", dark: "#436e25", edge: "#305219" }, // Light Meadow Green
+    { id: "grass", a: "#689f38", b: "#558b2f", hi: "#8bc34a", dark: "#33691e", edge: "#274f14", beach: "#e8b94a", cliffUpper: "#3e2e18", cliffMid: "#1e1409", cliffDeep: "#0f0a05" }, // Organic Meadow Green
+    { id: "sand", a: "#ddaa55", b: "#c89640", hi: "#f5c575", dark: "#a57325", edge: "#7c5314", beach: "#ddaa55", cliffUpper: "#7c5314", cliffMid: "#54360a", cliffDeep: "#2c1b03" }, // Classic Ochre Sand
+    { id: "snow", a: "#e3ecef", b: "#ccd7db", hi: "#ffffff", dark: "#a1b1b8", edge: "#7f8f96", beach: "#ffffff", cliffUpper: "#7f8f96", cliffMid: "#505c61", cliffDeep: "#2f373a" }, // Cool Glacier Snow
+    { id: "ember", a: "#5a6065", b: "#464b4f", hi: "#73797f", dark: "#303437", edge: "#212426", beach: "#464b4f", cliffUpper: "#212426", cliffMid: "#141618", cliffDeep: "#0b0c0d" }, // Obsidian Volcanic Gray
+    { id: "violet", a: "#4db6ac", b: "#37968e", hi: "#80cbc4", dark: "#20655f", edge: "#14423e", beach: "#80cbc4", cliffUpper: "#14423e", cliffMid: "#0a2522", cliffDeep: "#041110" }, // Emerald Jade Green
+    { id: "rose", a: "#cf7a57", b: "#b36442", hi: "#e89874", dark: "#8c4627", edge: "#693118", beach: "#e89874", cliffUpper: "#693118", cliffMid: "#3d1a0a", cliffDeep: "#200d04" }, // Terracotta Red Clay
+    { id: "pine", a: "#2e7d32", b: "#1b5e20", hi: "#4caf50", dark: "#0c3c13", edge: "#06250a", beach: "#a5d6a7", cliffUpper: "#1b5e20", cliffMid: "#0c3c13", cliffDeep: "#051b08" }, // Evergreen Pine
+    { id: "mint", a: "#809e52", b: "#68853b", hi: "#9ccc65", dark: "#475f24", edge: "#324417", beach: "#9ccc65", cliffUpper: "#324417", cliffMid: "#1d280d", cliffDeep: "#0f1506" }, // Mossy Swamp Olive
   ];
 
   const OWNER_BIOMES = [
@@ -1288,13 +1288,12 @@ export function createIslandEmpireGame(
 
   function organicPath(cx, cy, rx, ry, seed) {
     const pts: Array<[number, number]> = [];
-    const count = 36;
+    const count = 12; // 12 points for jagged, rocky edges
     for (let i = 0; i < count; i++) {
       const a = (i / count) * TAU;
-      const chip = hash(seed * 97 + i * 13) * 0.12 - 0.06;
-      const wave = 1 + Math.sin(a * 4 + seed) * 0.08 + Math.cos(a * 8 - seed * 0.5) * 0.05 + chip;
-      const x = Math.round((cx + Math.cos(a) * rx * wave) / 4) * 4;
-      const y = Math.round((cy + Math.sin(a) * ry * wave) / 4) * 4;
+      const radVar = 0.72 + hash(seed * 97 + i * 13) * 0.48; // High variance
+      const x = Math.round((cx + Math.cos(a) * rx * radVar) / 4) * 4;
+      const y = Math.round((cy + Math.sin(a) * ry * radVar * 0.78) / 4) * 4;
       pts.push([x, y]);
     }
     return pts;
@@ -1361,26 +1360,25 @@ export function createIslandEmpireGame(
     let cached = sharedRegionPolygonCache.get(polyKey);
     if (cached) return cached;
 
-    // Find neighboring regions within 450px radius
+    // Find neighboring regions within 500px radius to align borders
     const allRegions = regions || [];
     const neighbors: Array<{ r2: any; angle: number; dist: number }> = [];
 
     allRegions.forEach((r2: any) => {
       if (r2.id === r.id) return;
       const dist = Math.hypot(r2.x - r.x, r2.y - r.y);
-      if (dist < 450) {
+      if (dist < 500) {
         const angle = Math.atan2(r2.y - r.y, r2.x - r.x);
         neighbors.push({ r2, angle, dist });
       }
     });
 
-    // Vary territory sizes naturally using seed (Nhỏ, Vừa, Bự)
     const seed = r.seed || idx * 101 + 17;
-    const sizeFactor = 0.92 + hash(seed * 31) * 0.35; // 0.92x ~ 1.27x size variation
+    const sizeFactor = 0.92 + hash(seed * 31) * 0.35;
     const baseRx = (r.rx || 230) * sizeFactor;
 
-    // Generate 8-10 distinct polygonal corners
-    const numCorners = 8 + Math.floor(hash(seed * 17) * 3);
+    // Use 10-12 corners for smooth, gap-free border tile fit
+    const numCorners = 10 + Math.floor(hash(seed * 17) * 3);
     const cornerAngles: number[] = [];
 
     for (let c = 0; c < numCorners; c++) {
@@ -1390,11 +1388,12 @@ export function createIslandEmpireGame(
     }
     cornerAngles.sort((a, b) => a - b);
 
-    // Calculate exact coordinates for each polygonal corner
     const cornerPts: Array<{ x: number; y: number; angle: number }> = [];
     cornerAngles.forEach((a, i) => {
       const cornerRadiusMult = 0.92 + hash(seed * 41 + i * 19) * 0.22;
       let maxDistInAngle = baseRx * cornerRadiusMult;
+      
+      let hasNeighbor = false;
 
       for (let j = 0; j < neighbors.length; j++) {
         const nbr = neighbors[j];
@@ -1402,11 +1401,18 @@ export function createIslandEmpireGame(
         if (diff > Math.PI) diff = TAU - diff;
 
         if (diff < Math.PI / 3) {
-          const allowedDist = (nbr.dist * 0.66) / Math.max(0.5, Math.cos(diff));
+          const allowedDist = (nbr.dist * 0.54) / Math.max(0.5, Math.cos(diff));
           if (allowedDist < maxDistInAngle) {
             maxDistInAngle = allowedDist;
+            hasNeighbor = true;
           }
         }
+      }
+
+      // Ocean-facing edges: Add rugged, jagged coastline noise (no neighbor to align with!)
+      if (!hasNeighbor) {
+        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.16 + Math.cos(a * 11.0 - seed * 0.5) * 0.08;
+        maxDistInAngle = baseRx * cornerRadiusMult * oceanNoise;
       }
 
       const px = Math.round((r.x + Math.cos(a) * maxDistInAngle) / 4) * 4;
@@ -1420,6 +1426,7 @@ export function createIslandEmpireGame(
     for (let i = 0; i < nLen; i++) {
       const p0 = basePts[i];
       const p1 = basePts[(i + 1) % nLen];
+      // Smooth double-softening for gapless boundary alignment
       const qx = Math.round((0.85 * p0[0] + 0.15 * p1[0]) / 2) * 2;
       const qy = Math.round((0.85 * p0[1] + 0.15 * p1[1]) / 2) * 2;
       const rx = Math.round((0.15 * p0[0] + 0.85 * p1[0]) / 2) * 2;
@@ -1910,6 +1917,21 @@ export function createIslandEmpireGame(
 
     const cachePrefix = isIslet ? `islet_${idx}` : `region_${idx}`;
 
+    // Get the shared land polygon first so we can base our cliffs/beaches/foams on it!
+    const land = getSharedRegionPolygon(r, idx, isIslet);
+
+    function getOffsetPolygon(offset: number): Array<[number, number]> {
+      return land.map(([px, py]) => {
+        const dx = px - r.x;
+        const dy = py - r.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        return [
+          Math.round(r.x + (dx / dist) * (dist + offset)),
+          Math.round(r.y + (dy / dist) * (dist + offset * 0.78))
+        ];
+      });
+    }
+
     // Detect whether this region is an outer coastal region / sea bay or an interior land region
     const allRegs = regions || [];
     let nbrCount = 0;
@@ -1918,7 +1940,7 @@ export function createIslandEmpireGame(
       const r2 = allRegs[i];
       if (r2.id !== r.id) {
         const d = Math.hypot(r2.x - r.x, r2.y - r.y);
-        if (d < 380) {
+        if (d < 580) { // Increased from 380 to 580 to correctly identify interior region neighbors
           nbrCount++;
           if (r2.isWater) hasWaterNbr = true;
         }
@@ -1931,36 +1953,36 @@ export function createIslandEmpireGame(
       // Pass 0: Animated Sky Blue Ocean Foam (Only for outer coastal facing edges!)
       if (isCoastal) {
         const wavePulse = Math.sin(state.tick * 3.2 + seed * 0.5) * 3.2;
-        const shallow = getOrganicPath(r.x, r.y, rx + 38 + wavePulse, ry + 29 + wavePulse, seed * 1.7, `${cachePrefix}_shallow_cont`);
+        const shallow = getOffsetPolygon(38 + wavePulse);
         fillPath(shallow, "rgba(56, 189, 248, 0.85)");
 
-        const waveCrest = getOrganicPath(r.x, r.y, rx + 30 + wavePulse * 0.8, ry + 23 + wavePulse * 0.8, seed * 1.7 + 0.1, `${cachePrefix}_wave_crest_cont`);
+        const waveCrest = getOffsetPolygon(30 + wavePulse * 0.8);
         fillPath(waveCrest, "rgba(255, 255, 255, 0.70)");
       } else {
-        // Interior land regions merge seamlessly with zero sea gaps or brown cracks
-        const continentBase = getOrganicPath(r.x, r.y, rx + 8, ry + 6, seed * 1.7, `${cachePrefix}_cont_base`);
+        // Vẽ lớp nền đất rộng ra 12px trùng màu với sinh cảnh để che phủ hoàn toàn các rãnh phân tách nội địa
+        const continentBase = getOffsetPolygon(12);
         fillPath(continentBase, biome.a);
       }
       return;
     }
 
     if (pass === 1) {
-      // Pass 1: Tall 3D Sand Cliff Base & Vibrant Golden Beach Rim
+      // Pass 1: Tall 3D Sand Cliff Base & Vibrant Golden Beach Rim (Only for outer coastal facing edges!)
       if (isCoastal) {
         // Deepest shadow base (+12px down for max 3D elevation depth)
-        const cliffDeep = getOrganicPath(r.x + 5, r.y + 12, rx + 26, ry + 20, seed * 1.7 + 0.05, `${cachePrefix}_cliff_deep`);
+        const cliffDeep = getOffsetPolygon(26).map(([px, py]) => [px + 5, py + 12] as [number, number]);
         fillPath(cliffDeep, "#0f0a05");
 
         // Mid cliff dark earth shadow
-        const cliffBase = getOrganicPath(r.x + 3, r.y + 8, rx + 20, ry + 15, seed * 1.7 + 0.1, `${cachePrefix}_cont_cliff_base`);
+        const cliffBase = getOffsetPolygon(20).map(([px, py]) => [px + 3, py + 8] as [number, number]);
         fillPath(cliffBase, "#1e1409");
 
         // Upper rocky cliff face
-        const coast = getOrganicPath(r.x + 2, r.y + 4.5, rx + 14, ry + 10.5, seed * 1.7 + 0.15, `${cachePrefix}_cont_coast`);
+        const coast = getOffsetPolygon(14).map(([px, py]) => [px + 2, py + 4.5] as [number, number]);
         fillPath(coast, "#3e2e18");
 
         // Golden sand rim top face (wide & vivid)
-        const sandRim = getOrganicPath(r.x, r.y, rx + 8, ry + 6, seed * 1.7 + 0.25, `${cachePrefix}_cont_sand`);
+        const sandRim = getOffsetPolygon(8);
         fillPath(sandRim, "#e8b94a");
       }
       return;
@@ -1982,7 +2004,6 @@ export function createIslandEmpireGame(
     }
 
     // Pass 2: Main land body using Shared Edge Mesh (Flat and unified)
-    const land = getSharedRegionPolygon(r, idx, isIslet);
 
     // Draw Main Province Body
     fillPath(land, biome.a);
@@ -2046,6 +2067,13 @@ export function createIslandEmpireGame(
       (state.regionClearing[idx] > 0 && state.regionClearing[idx] < 1) ||
       state.regionOwnerNames[idx] === "ĐANG KHAI HOANG";
 
+    const isLocalClearing = isClearing && (
+      state.regionInProgress === idx ||
+      state.regionOwnerIds[idx] === state.localPlayerId ||
+      state.activeClearingTimings?.[idx]?.playerId === state.localPlayerId
+    );
+    const isRemoteClearing = isClearing && !isLocalClearing;
+
     const rel = getRegionAllianceRelation(idx, ownerCode, state.regionOwnerNames[idx]);
 
     // Fill overlay based on state
@@ -2054,10 +2082,15 @@ export function createIslandEmpireGame(
       ctx.globalAlpha = 0.35 + Math.sin(state.tick * 8) * 0.1;
       fillPath(land, "#ef4444");
       ctx.restore();
-    } else if (isClearing) {
+    } else if (isLocalClearing) {
       ctx.save();
       ctx.globalAlpha = 0.30 + Math.sin(state.tick * 5) * 0.08;
       fillPath(land, "#10b981");
+      ctx.restore();
+    } else if (isRemoteClearing) {
+      ctx.save();
+      ctx.globalAlpha = 0.32 + Math.sin(state.tick * 5) * 0.08;
+      fillPath(land, "#ef4444"); // Red overlay for other players building
       ctx.restore();
     } else if (rel === "own") {
       ctx.save();
@@ -2079,7 +2112,7 @@ export function createIslandEmpireGame(
     if (state.selectedRegion === idx) {
       ctx.save();
       ctx.globalAlpha = 0.38 + Math.sin(state.tick * 6) * 0.08;
-      fillPath(land, isClearing ? "#34d399" : "#ffe85a");
+      fillPath(land, isClearing ? (isLocalClearing ? "#34d399" : "#fca7a7") : "#ffe85a");
       ctx.restore();
     }
 
@@ -2112,8 +2145,8 @@ export function createIslandEmpireGame(
       ctx.stroke();
       ctx.restore();
     }
-    // 1.5. Dynamic Emerald-Gold Animated Construction Border for Territory Under Clearing!
-    else if (isClearing) {
+    // 1.5. Dynamic Emerald-Gold Animated Construction Border for Local Territory Under Clearing!
+    else if (isLocalClearing) {
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(land[0][0], land[0][1]);
@@ -2132,6 +2165,32 @@ export function createIslandEmpireGame(
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
       ctx.strokeStyle = "#ffd34d";
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([12, 6]);
+      ctx.lineDashOffset = -state.tick * 28;
+      ctx.stroke();
+      ctx.restore();
+    }
+    // 1.6. Dynamic Crimson-Red Animated Construction Border for Remote Territory Under Clearing!
+    else if (isRemoteClearing) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(land[0][0], land[0][1]);
+      for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
+      ctx.closePath();
+
+      // Outer Glowing Crimson Red Aura
+      ctx.shadowColor = "#f87171";
+      ctx.shadowBlur = 32;
+      ctx.globalAlpha = 0.95 + Math.sin(state.tick * 5) * 0.05;
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 7.5;
+      ctx.stroke();
+
+      // Inner Rapidly Moving White-Red Dashed Construction Line
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#fca5a5";
       ctx.lineWidth = 3.5;
       ctx.setLineDash([12, 6]);
       ctx.lineDashOffset = -state.tick * 28;
@@ -4641,14 +4700,14 @@ export function createIslandEmpireGame(
   }
 
   const BIOME_COLORS = {
-    0: "#5fa038", // grass
-    1: "#e68a35", // sand
-    2: "#dedad4", // snow
-    3: "#4c8c30", // ember
-    4: "#529642", // violet
-    5: "#e68a35", // rose
-    6: "#4c8c30", // pine
-    7: "#7cb84d", // mint
+    0: "#689f38", // grass
+    1: "#ddaa55", // sand
+    2: "#e3ecef", // snow
+    3: "#5a6065", // ember
+    4: "#4db6ac", // violet
+    5: "#cf7a57", // rose
+    6: "#2e7d32", // pine
+    7: "#809e52", // mint
   };
 
   let minimapDragging = false;
@@ -4659,9 +4718,9 @@ export function createIslandEmpireGame(
     const rect = minimapCanvas.getBoundingClientRect();
     const mx = (e.clientX - rect.left) * (160 / rect.width);
     const my = (e.clientY - rect.top) * (120 / rect.height);
-    // Map to world coordinates (0 to 16000, 0 to 12000)
-    const worldX = Math.max(0, Math.min(16000, mx * 100));
-    const worldY = Math.max(0, Math.min(12000, my * 100));
+    // Map to world coordinates (0 to 24000, 0 to 18000)
+    const worldX = Math.max(0, Math.min(24000, mx * 150));
+    const worldY = Math.max(0, Math.min(18000, my * 150));
     
     // Center camera on this world coordinate
     state.panX = -worldX * state.zoom + W * 0.5 - (1 - state.zoom) * W * 0.48;
@@ -4721,10 +4780,10 @@ export function createIslandEmpireGame(
     regions.forEach((r) => {
       minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
       minimapCtx.beginPath();
-      const mx = r.x / 100;
-      const my = r.y / 100;
-      const mrx = (r.rx || r.r) / 100 * 1.02;
-      const mry = (r.ry || r.r * 0.78) / 100 * 1.02;
+      const mx = r.x / 150;
+      const my = r.y / 150;
+      const mrx = (r.rx || r.r) / 150 * 1.02;
+      const mry = (r.ry || r.r * 0.78) / 150 * 1.02;
       minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
       minimapCtx.fill();
     });
@@ -4733,10 +4792,10 @@ export function createIslandEmpireGame(
     islets.forEach((r) => {
       minimapCtx.fillStyle = BIOME_COLORS[r.biome] || "#557a46";
       minimapCtx.beginPath();
-      const mx = r.x / 100;
-      const my = r.y / 100;
-      const mrx = (r.rx || r.r) / 100 * 0.82;
-      const mry = (r.ry || r.r * 0.78) / 100 * 0.82;
+      const mx = r.x / 150;
+      const my = r.y / 150;
+      const mrx = (r.rx || r.r) / 150 * 0.82;
+      const mry = (r.ry || r.r * 0.78) / 150 * 0.82;
       minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
       minimapCtx.fill();
     });
@@ -4751,8 +4810,8 @@ export function createIslandEmpireGame(
         color = isAlly ? "#3b82f6" : "#ef4444";
       }
 
-      const tx = t.x / 100;
-      const ty = t.y / 100;
+      const tx = t.x / 150;
+      const ty = t.y / 150;
 
       if (isPlayer) {
         // Draw pulsing green radar halo for player's capital / towns
@@ -4780,10 +4839,10 @@ export function createIslandEmpireGame(
     const viewX = -(state.panX + (1 - state.zoom) * W * 0.48) / state.zoom;
     const viewY = -(state.panY + (1 - state.zoom) * H * 0.48) / state.zoom;
 
-    const vx = viewX / 100;
-    const vy = viewY / 100;
-    const vw = viewW / 100;
-    const vh = viewH / 100;
+    const vx = viewX / 150;
+    const vy = viewY / 150;
+    const vw = viewW / 150;
+    const vh = viewH / 150;
 
     minimapCtx.strokeStyle = "#ffd34d"; // bright gold viewport boundary box
     minimapCtx.lineWidth = 1.5;
@@ -5047,99 +5106,12 @@ export function createIslandEmpireGame(
   }
 
   function startNewbieClearing(canvasId: number) {
-    const r = landById(canvasId);
-    if (!r) return toast("KHÔNG TÌM THẤY MẢNH ĐẤT");
-
-    // Enforce 1 active settler limit per player
-    if (state.regionInProgress >= 0 && state.regionInProgress !== canvasId) {
-      toast(`BẠN ĐÃ CÓ 1 ĐỘI THỢ ĐANG XÂY THÀNH Ở LÃNH THỔ #${state.regionInProgress + 1}! VUI LÒNG CHỜ HOÀN THÀNH.`);
-      return;
-    }
-
-    const origin = settlerOriginForRegion(canvasId);
-    const buildCost = territoryBuildCost(canvasId);
-    if (!spend(buildCost)) {
-      toast(`KHÔNG ĐỦ TÀI NGUYÊN XÂY THÀNH: CẦN ${resourceCostText(buildCost)}`);
-      return;
-    }
-    if (!origin.fromCamp) {
-      const sourceTown = towns.find((town) => town.id === origin.originTownId);
-      const routeStatus = getMarchRouteStatus(sourceTown, canvasId);
-      if (!routeStatus.ok) {
-        refundResources(buildCost);
-        toast(routeStatus.message);
-        return;
-      }
-      normalizeTown(sourceTown);
-      if (!sourceTown || sourceTown.population < SETTLER_POPULATION_COST) {
-        refundResources(buildCost);
-        toast(`THÀNH XUẤT PHÁT CẦN ÍT NHẤT ${SETTLER_POPULATION_COST} DÂN ĐỂ CỬ ĐỘI THỢ XÂY THÀNH`);
-        return;
-      }
-      sourceTown.population = Math.max(0, sourceTown.population - SETTLER_POPULATION_COST);
-    } else if (!state.newbieMode) {
-      refundResources(buildCost);
-      toast("BẠN CẦN CÓ THÀNH TRÌ ĐỂ ĐIỀU ĐỘI THỢ XÂY THÀNH XA");
-      return;
-    }
-    state.regionInProgress = canvasId;
-    state.regionClearing[canvasId] = 0;
     state.newbieSelectedRegion = canvasId;
-    state.newbiePhase = "clearing";
-    state.settlerTravel = {
-      active: true,
-      targetRegionId: canvasId,
-      originTownId: origin.originTownId,
-      originX: origin.originX,
-      originY: origin.originY,
-      populationCost: origin.fromCamp ? 0 : SETTLER_POPULATION_COST,
-      resourceCost: buildCost,
-    };
-    state.pendingBackendClearingStarts.push(canvasId);
-    const route = settlerRouteForRegion(origin, canvasId);
-    toast(origin.fromCamp
-      ? `ĐỘI THỢ BẮT ĐẦU XÂY THÀNH Ở LÃNH THỔ #${canvasId + 1} (${resourceCostText(buildCost)})`
-      : route.requiresShip
-        ? `ĐỘI THỢ LÊN THUYỀN TỪ THÀNH #${origin.originTownId} ĐỂ XÂY THÀNH Ở LÃNH THỔ #${canvasId + 1}`
-        : `ĐỘI THỢ XUẤT PHÁT TỪ THÀNH #${origin.originTownId} ĐỂ XÂY THÀNH Ở LÃNH THỔ #${canvasId + 1}`);
+    toast("XÂY THÀNH PHẢI ĐƯỢC SERVER XÁC NHẬN");
   }
 
   function completeClearing(canvasId) {
-    const r = landById(canvasId);
-    if (!r) return;
-    state.regionOwnership[canvasId] = 1;
-    if (state.localPlayerId) state.regionOwnerIds[canvasId] = state.localPlayerId;
-    state.regionOwnerNames[canvasId] = state.localPlayerName || "BẠN";
-    state.regionInProgress = -1;
-    delete state.activeClearingTimings[canvasId];
-    state.settlerTravel = { active: false, targetRegionId: -1, originTownId: null, originX: 0, originY: 0 };
-    let town = towns.find((t) => t.owner === 0 && regionAtCoords(t.x, t.y) === canvasId);
-    if (!town) {
-      const nextId = Math.max(...towns.map((t) => t.id)) + 1;
-      town = {
-        id: nextId,
-        x: r.x,
-        y: r.y,
-        lvl: 1,
-        owner: 0,
-        troops: 24,
-        population: territoryStartingPopulation(canvasId, 1),
-        buildings: defaultBuildings(),
-        storage: defaultStorage(),
-      };
-      towns.push(town);
-    } else {
-      centerTownInRegion(town, canvasId);
-    }
-    state.selected = null;
-    state.selectedRegion = null;
-    state.newbiePhase = "done";
-    state.newbieMode = false;
-    localStorage.removeItem(ONBOARDING_KEY);
-    pushLog(`[LIÊN MINH] PLAYER1: ĐÃ XÂY THÀNH Ở LÃNH THỔ #${canvasId + 1}, THÀNH TRÌ #${town.id} ĐÃ DỰNG`);
-    toast(`ĐÃ XÂY THÀNH Ở LÃNH THỔ #${canvasId + 1} - THÀNH TRÌ #${town.id} ĐÃ DỰNG`);
-    state.pendingBackendClaims.push(canvasId);
-    save();
+    toast("HOÀN TẤT XÂY THÀNH PHẢI ĐƯỢC SERVER XÁC NHẬN");
   }
 
   function ensureTownForRegion(regionId, ownerCode) {
@@ -5214,12 +5186,7 @@ export function createIslandEmpireGame(
     const t = towns.find((it) => it.id === state.selected);
 
     // Layout Modals Bridge
-    if (["army", "build", "research", "treasure", "ally", "event"].includes(id)) {
-      if (id === "build") {
-        if (!t || t.owner !== 0) {
-          return toast("VUI LÒNG CHỌN THÀNH PHỐ CỦA BẠN TRÊN BẢN ĐỒ TRƯỚC!");
-        }
-      }
+    if (["army", "treasure", "ally"].includes(id)) {
       onLayoutAction?.(id);
       return;
     }
@@ -5227,58 +5194,16 @@ export function createIslandEmpireGame(
     if (!t) return;
 
     if (id === "trainInfantry") {
-      if (t.owner !== 0) return toast("CHỈ TUYỂN QUÂN Ở THÀNH CỦA BẠN");
-      normalizeTown(t);
-      const popCost = troopPopulationCost(gameConfig.infantryTroopsValue);
-      if (t.population < popCost) return toast(`KHÔNG ĐỦ DÂN ĐỂ MỘ BỘ BINH, CẦN ${popCost} DÂN`);
-      const maxDefending = maxDefendingTroops(t);
-      if (t.troops + gameConfig.infantryTroopsValue > maxDefending) {
-        return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
-      }
-      if (spend({ gold: gameConfig.infantryCostGold, wood: gameConfig.infantryCostWood, ...unitExtraCosts().infantry })) {
-        t.population = Math.max(0, t.population - popCost);
-        t.infantryCount = (t.infantryCount || 0) + 1;
-        t.troops += gameConfig.infantryTroopsValue;
-        toast(`+${gameConfig.infantryTroopsValue} BỘ BINH ĐÃ CHIÊU MỘ, TỐN ${popCost} DÂN`);
-      } else toast("KHÔNG ĐỦ TÀI NGUYÊN");
+      toast("MỘ BINH PHẢI ĐƯỢC SERVER XÁC NHẬN");
+      return;
     }
     if (id === "trainCavalry") {
-      if (t.owner !== 0) return toast("CHỈ TUYỂN QUÂN Ở THÀNH CỦA BẠN");
-      normalizeTown(t);
-      if (!townHasSpecial(t, "Bãi ngựa")) {
-        return toast("THÀNH NÀY CHƯA CÓ BÃI NGỰA TRONG LÃNH THỔ, KHÔNG THỂ MỘ KỊ BINH");
-      }
-      const popCost = troopPopulationCost(gameConfig.cavalryTroopsValue);
-      if (t.population < popCost) return toast(`KHÔNG ĐỦ DÂN ĐỂ MỘ KỊ BINH, CẦN ${popCost} DÂN`);
-      const maxDefending = maxDefendingTroops(t);
-      if (t.troops + gameConfig.cavalryTroopsValue > maxDefending) {
-        return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
-      }
-      if (spend({ gold: gameConfig.cavalryCostGold, wood: gameConfig.cavalryCostWood, stone: gameConfig.cavalryCostStone, ...unitExtraCosts().cavalry })) {
-        t.population = Math.max(0, t.population - popCost);
-        t.cavalryCount = (t.cavalryCount || 0) + 1;
-        t.troops += gameConfig.cavalryTroopsValue;
-        toast(`+${gameConfig.cavalryTroopsValue} KỊ BÌNH ĐÃ HUẤN LUYỆN, TỐN ${popCost} DÂN`);
-      } else toast("KHÔNG ĐỦ TÀI NGUYÊN");
+      toast("MỘ BINH PHẢI ĐƯỢC SERVER XÁC NHẬN");
+      return;
     }
     if (id === "trainArtillery") {
-      if (t.owner !== 0) return toast("CHỈ TUYỂN QUÂN Ở THÀNH CỦA BẠN");
-      normalizeTown(t);
-      if ((t.buildings?.siegeWorkshop || 0) <= 0) {
-        return toast("CẦN XÂY XƯỞNG CHIẾN XA ĐỂ CHẾ TẠO PHÁO BINH");
-      }
-      const popCost = troopPopulationCost(gameConfig.artilleryTroopsValue);
-      if (t.population < popCost) return toast(`KHÔNG ĐỦ DÂN ĐỂ MỘ PHÁO BINH, CẦN ${popCost} DÂN`);
-      const maxDefending = maxDefendingTroops(t);
-      if (t.troops + gameConfig.artilleryTroopsValue > maxDefending) {
-        return toast(`ĐẠT GIỚI HẠN QUÂN ĐỒN TRÚ CỦA THÀNH (${maxDefending} QUÂN)`);
-      }
-      if (spend({ gold: gameConfig.artilleryCostGold, stone: gameConfig.artilleryCostStone, ...unitExtraCosts().artillery })) {
-        t.population = Math.max(0, t.population - popCost);
-        t.artilleryCount = (t.artilleryCount || 0) + 1;
-        t.troops += gameConfig.artilleryTroopsValue;
-        toast(`+${gameConfig.artilleryTroopsValue} PHÁO BINH ĐÃ CHẾ TẠO, TỐN ${popCost} DÂN`);
-      } else toast("KHÔNG ĐỦ TÀI NGUYÊN");
+      toast("MỘ BINH PHẢI ĐƯỢC SERVER XÁC NHẬN");
+      return;
     }
     save();
   }
@@ -5299,134 +5224,12 @@ export function createIslandEmpireGame(
   }
 
   function resolveAttack(t) {
-    normalizeTown(t);
-    const owned = towns.filter((it) => it.owner === 0);
-    const power = owned.reduce((a, it) => a + it.troops, 0);
-    const defense = t.troops + t.lvl * 18 + (t.buildings?.fort || 0) * 90;
-    if (power <= defense) {
-      toast("QUÂN LỰC CHƯA ĐỦ ĐỂ CHIẾM");
-      return;
-    }
-    owned.forEach((it) => {
-      it.troops = Math.max(12, Math.floor(it.troops * 0.78));
-    });
-    t.owner = 0;
-    t.troops = Math.max(28, Math.floor(defense * 0.36));
-    const looted = lootTownStorage(t);
-    state.missions[0].value = towns.filter(it => it.owner === 0).length;
-    pushLog(`PLAYER1: ĐÃ CHIẾM THÀNH ${t.id}${looted > 0 ? `, THU ${looted} TÀI NGUYÊN TRONG KHO` : ""}!`);
-    toast(`THÀNH ${t.id} THUỘC VỀ BẠN${looted > 0 ? `, CƯỚP KHO +${looted}` : ""}`);
-    save();
+    toast("KẾT QUẢ CHIẾN ĐẤU PHẢI ĐƯỢC SERVER XÁC NHẬN");
   }
 
   function resolveBattleFinal(b) {
-    const target = towns.find((t) => t.id === b.townId);
-    if (!target) return;
-    normalizeTown(target);
-
-    let attPower = b.attPower;
-    let defPower = b.defPower + (target.buildings?.fort || 0) * 40;
-
-    // Apply research buffs
-    if (b.originalOwner !== 0) {
-      // Player is attacking
-      const swordLvl = state.research?.sword || 0;
-      attPower *= (1 + swordLvl * 0.15); // +15% per sword research level
-      
-      // Apply ocean relic buff (Kiếm Bão Biển: +10% attack if player owns a seaside city)
-      const hasSeaTown = towns.some(t => t.owner === 0 && islandOfTown(t).includes("SEA"));
-      if (hasSeaTown) {
-        attPower *= 1.10;
-      }
-    } else {
-      // Player is defending
-      // Apply Sun Shield treasure buff (+15% city defense when player owns >= 3 towns)
-      const ownedTowns = towns.filter(t => t.owner === 0).length;
-      if (ownedTowns >= 3) {
-        defPower *= 1.15;
-      }
-    }
-
-    const total = attPower + defPower;
-    if (total === 0) return;
-
-    const roll = Math.random();
-    const attWon = roll < (attPower / total);
-
-    // Clean up active battles for this region / town
-    const battleRegionId = b.regionId ?? regionAtCoords(target.x, target.y);
-    state.activeBattles = (state.activeBattles || []).filter((bat: any) => bat.regionId !== battleRegionId && bat.townId !== target.id);
-
-    if (b.originalOwner !== 0) {
-      // Player is attacking enemy/wild town
-      if (attWon) {
-        target.owner = 0;
-        const conqueredRegionId = battleRegionId;
-        if (conqueredRegionId >= 0) {
-          state.regionOwnership[conqueredRegionId] = 1;
-          state.regionOwnerIds[conqueredRegionId] = state.localPlayerId;
-          state.regionOwnerNames[conqueredRegionId] = state.localPlayerName || "BẠN";
-          delete state.regionOwnerAllianceTags[conqueredRegionId];
-          delete state.regionOwnerAllianceEmblems[conqueredRegionId];
-          delete state.activeClearingTimings[conqueredRegionId];
-          state.regionClearing[conqueredRegionId] = 0;
-          if (!state.pendingBackendConquests.includes(conqueredRegionId)) {
-            state.pendingBackendConquests.push(conqueredRegionId);
-          }
-        }
-        const survivorRate = 0.2 + (attPower / total) * 0.45;
-        target.troops = Math.max(12, Math.floor(b.attPower * survivorRate));
-        target.infantryCount = Math.max(0, Math.floor(target.troops / Math.max(1, gameConfig.infantryTroopsValue || 18)));
-        target.cavalryCount = 0;
-        target.artilleryCount = 0;
-        const overflow = enforceTownTroopLimit(target);
-        const looted = lootTownStorage(target);
-        
-        // Update mission
-        state.missions[0].value = towns.filter(t => t.owner === 0).length;
-        
-        pushLog(`PLAYER1: CHIẾN THẮNG! ĐÃ CHIẾM THÀNH #${target.id}${looted > 0 ? `, THU ${looted} TÀI NGUYÊN TRONG KHO` : ""}${overflow > 0 ? `, ${overflow} QUÂN DƯ QUAY VỀ` : ""}`);
-        toast(`THÀNH ${target.id} ĐÃ THUỘC VỀ BẠN${looted > 0 ? `, CƯỚP KHO +${looted}` : ""}${overflow > 0 ? `, QUÂN DƯ ĐÃ QUAY VỀ` : ""}!`);
-      } else {
-        // Defender wins
-        const survivorRate = 0.15 + (defPower / total) * 0.4;
-        target.troops = Math.max(8, Math.floor(b.defPower * survivorRate));
-        
-        pushLog(`PLAYER1: THẤT BẠI! ĐẠO QUÂN TẤN CÔNG THÀNH #${target.id} BỊ TIÊU DIỆT`);
-        toast(`THẤT BẠI TẠI THÀNH ${target.id}! ĐẠO QUÂN ĐÃ HY SINH`);
-      }
-    } else {
-      // Enemy is attacking player town
-      if (attWon) {
-        const lostRegionId = battleRegionId;
-        target.owner = 1 + Math.floor(Math.random() * 3);
-        if (lostRegionId >= 0) {
-          state.regionOwnership[lostRegionId] = 2;
-          delete state.regionOwnerIds[lostRegionId];
-          state.regionOwnerNames[lostRegionId] = "KẺ THÙ";
-          delete state.regionOwnerAllianceTags[lostRegionId];
-          delete state.regionOwnerAllianceEmblems[lostRegionId];
-        }
-        const survivorRate = 0.2 + (attPower / total) * 0.4;
-        target.troops = Math.max(12, Math.floor(b.attPower * survivorRate));
-        if (state.settlerTravel?.originTownId === target.id || state.regionInProgress === lostRegionId) {
-          refundBuildCostForRegion(state.settlerTravel?.targetRegionId ?? lostRegionId);
-          beginSettlerReturn(state.settlerTravel?.targetRegionId ?? lostRegionId, "THÀNH XUẤT PHÁT BỊ CHIẾM, XÂY THÀNH ĐÃ HỦY");
-        }
-        
-        state.missions[0].value = towns.filter(t => t.owner === 0).length;
-        
-        pushLog(`SYSTEM: THÀNH PHỐ #${target.id} CỦA BẠN ĐÃ BỊ KẺ THÙ CHIẾM ĐÓNG!`);
-        toast(`THÀNH ${target.id} CỦA BẠN ĐÃ BỊ CHIẾM MẤT!`);
-      } else {
-        const survivorRate = 0.2 + (defPower / total) * 0.45;
-        target.troops = Math.max(12, Math.floor(b.defPower * survivorRate));
-        
-        pushLog(`PLAYER1: BẢO VỆ THÀNH CÔNG THÀNH PHỐ #${target.id}!`);
-        toast(`BẢO VỆ THÀNH CÔNG THÀNH ${target.id}!`);
-      }
-    }
-    save();
+    state.activeBattles = [];
+    toast("KẾT QUẢ CHIẾN ĐẤU PHẢI ĐƯỢC SERVER XÁC NHẬN");
   }
 
   function isPlayerOwnedTown(town: any) {
@@ -5827,9 +5630,6 @@ export function createIslandEmpireGame(
         originX: origin.originX,
         originY: origin.originY,
       };
-      if (state.regionClearing[regionId] >= 1 && !state.pendingBackendClaims.includes(regionId)) {
-        state.pendingBackendClaims.push(regionId);
-      }
     }
   }
 
@@ -6134,62 +5934,12 @@ export function createIslandEmpireGame(
         v.t += dt;
       }
       if (v.t >= v.duration) {
-        const target = towns.find((t) => t.id === v.targetId);
         state.voyages.splice(i, 1);
-        if (target) {
-          if (v.isAttack) {
-            const existing = state.activeBattles.find(b => b.townId === target.id);
-            if (existing) {
-              existing.attPower += v.power;
-              toast(`VIỆN BINH TẤN CÔNG ĐÃ ĐẾN! (+${v.power} CÔNG)`);
-            } else {
-              normalizeTown(target);
-              const defPower = target.troops + target.lvl * 18 + (target.buildings?.fort || 0) * 90;
-              const battleDuration = Math.min(gameConfig.maxBattleDuration, 3.0 + (v.power + defPower) * 0.05);
-              state.activeBattles.push({
-                townId: target.id,
-                regionId: v.targetRegionId,
-                duration: battleDuration,
-                t: 0,
-                attPower: v.power,
-                defPower: defPower,
-                attackerOwner: v.owner,
-                originalOwner: target.owner
-              });
-              toast(`CHIẾN SỰ BÙNG NỔ TẠI THÀNH ${target.id}!`);
-              pushLog(`SYSTEM: CHIẾN SỰ BÙNG NỔ TẠI THÀNH ${target.id} (${battleDuration.toFixed(1)}s)`);
-            }
-          } else {
-            const existing = state.activeBattles.find(b => b.townId === target.id);
-            if (existing) {
-              if (v.battleSide === "attacker") {
-                existing.attPower += v.power;
-                toast(`VIỆN BINH TẤN CÔNG ĐÃ ĐẾN! (+${v.power} CÔNG)`);
-                pushLog(`PLAYER1: TIẾP VIỆN PHE TẤN CÔNG TẠI LÃNH THỔ ${v.targetRegionId + 1} (+${v.power})`);
-              } else {
-                existing.defPower += v.power;
-                toast(`VIỆN BINH PHÒNG THỦ ĐÃ ĐẾN! (+${v.power} THỦ)`);
-                pushLog(`PLAYER1: TIẾP VIỆN PHÒNG THỦ TẠI LÃNH THỔ ${v.targetRegionId + 1} (+${v.power})`);
-              }
-            } else {
-              target.troops += v.power;
-              toast(`ĐÃ TIẾP VIỆN +${v.power} LÍNH CHO THÀNH ${target.id}`);
-              save();
-            }
-          }
-        }
+        toast("ĐẠO QUÂN ĐÃ ĐẾN NƠI, ĐANG CHỜ SERVER TỔNG KẾT");
       }
     }
 
-    // Tick active battles
-    for (let i = state.activeBattles.length - 1; i >= 0; i--) {
-      const b = state.activeBattles[i];
-      b.t += dt;
-      if (b.t >= b.duration) {
-        state.activeBattles.splice(i, 1);
-        resolveBattleFinal(b);
-      }
-    }
+    state.activeBattles = [];
 
     cancelClearingIfOriginLost();
     if (state.settlerTravel?.returning) {
@@ -6217,86 +5967,12 @@ export function createIslandEmpireGame(
         if (serverTiming?.startedAt && serverTiming?.completesAt) {
           state.regionClearing[ip] = timingProgress(serverTiming.startedAt, serverTiming.completesAt);
         } else {
-          const dur = clearingDuration(r);
-          state.regionClearing[ip] = Math.min(1, (state.regionClearing[ip] || 0) + dt / dur);
-        }
-        if (state.regionClearing[ip] >= 1) {
-          completeClearing(ip);
+          state.regionClearing[ip] = Math.max(0, state.regionClearing[ip] || 0);
         }
       }
     }
 
-    // Tick active events
-    if (state.events) {
-      if (state.events.goldRush > 0) state.events.goldRush = Math.max(0, state.events.goldRush - dt);
-      if (state.events.harvestRush > 0) state.events.harvestRush = Math.max(0, state.events.harvestRush - dt);
-    }
-
-    const goldMult = (state.events?.goldRush || 0) > 0 ? 2 : 1;
-    const harvestMult = (state.events?.harvestRush || 0) > 0 ? 2 : 1;
-
-    // ── Biome-based per-territory resource yield ──────────────────────────
-    const allTerritories: { r: any; idx: number }[] = [
-      ...regions.map((r) => ({ r, idx: r.id })),
-      ...islets.map((r) => ({ r, idx: r.id })),
-    ];
-    allTerritories.forEach(({ r, idx }) => {
-      if (state.regionOwnership[idx] !== 1) return;
-      const y = territoryYield(idx);
-      let goldGen = y.gold;
-      let woodGen = y.wood;
-      let stoneGen = y.stone;
-      let foodGen = y.food;
-      let ironGen = y.iron;
-      let coalGen = y.coal;
-      let sulfurGen = y.sulfur;
-      let gemsGen = y.gems;
-
-      // Add passive buildings production if there's a player town in this territory
-      const town = towns.find((t) => t.owner === 0 && regionAtCoords(t.x, t.y) === idx);
-      if (town && town.buildings) {
-        goldGen += (town.buildings.goldMine || 0) * 3.0;
-        woodGen += (town.buildings.lumberCamp || 0) * 2.0;
-        stoneGen += (town.buildings.quarry || 0) * 2.0;
-        gemsGen += (town.buildings.gemCutter || 0) * 0.5;
-      }
-
-      state.resources.food ??= 0;
-      state.resources.iron ??= 0;
-      state.resources.coal ??= 0;
-      state.resources.sulfur ??= 0;
-      state.resources.gold  += goldGen  * dt * goldMult;
-      state.resources.wood  += woodGen  * dt * harvestMult;
-      state.resources.stone += stoneGen * dt * harvestMult;
-      state.resources.food  += foodGen  * dt * harvestMult;
-      state.resources.iron  += ironGen  * dt;
-      state.resources.coal  += coalGen  * dt;
-      state.resources.sulfur += sulfurGen * dt;
-      state.resources.gems  += gemsGen  * dt;
-      if (town) {
-        addTownStorage(town, {
-          gold: goldGen * dt * goldMult * 0.35,
-          wood: woodGen * dt * harvestMult * 0.35,
-          stone: stoneGen * dt * harvestMult * 0.35,
-          food: foodGen * dt * harvestMult * 0.35,
-          iron: ironGen * dt * 0.35,
-          coal: coalGen * dt * 0.35,
-          sulfur: sulfurGen * dt * 0.35,
-          gems: gemsGen * dt * 0.35,
-        });
-      }
-    });
-
-    // Castle income is now paid by owned territory yields/buildings only.
-
-    towns.forEach((town) => {
-      if (town.owner !== 0) return;
-      normalizeTown(town);
-      const cap = townPopulationCap(town);
-      if (town.population < cap) {
-        town.population = Math.min(cap, town.population + townPopulationGrowthPerSecond(town) * dt);
-      }
-    });
+    // Resources, town storage, and population are owned by the backend state.
 
     if (Math.floor(state.tick) % 17 === 0 && Math.random() < dt * 0.08) {
       const f = factions[1 + Math.floor(Math.random() * (factions.length - 1))];
@@ -6414,6 +6090,21 @@ export function createIslandEmpireGame(
         if (payload?.resources) state.resources = { ...state.resources, ...payload.resources };
         return;
       }
+      if (id === "applyRecruitment") {
+        const targetTown = towns.find((town) => town.id === payload?.townId);
+        if (!targetTown) return false;
+        normalizeTown(targetTown);
+        const unitCount = Math.max(0, Math.floor(payload?.unitCountAdded || payload?.count || 1));
+        const troopsAdded = Math.max(0, Math.floor(payload?.troopsAdded || 0));
+        if (payload?.resources) state.resources = { ...state.resources, ...payload.resources };
+        if (payload?.unitType === "infantry") targetTown.infantryCount = (targetTown.infantryCount || 0) + unitCount;
+        else if (payload?.unitType === "cavalry") targetTown.cavalryCount = (targetTown.cavalryCount || 0) + unitCount;
+        else if (payload?.unitType === "artillery") targetTown.artilleryCount = (targetTown.artilleryCount || 0) + unitCount;
+        targetTown.troops += troopsAdded;
+        toast(payload?.message || `CHIÊU MỘ THÀNH CÔNG +${troopsAdded} QUÂN`);
+        save();
+        return true;
+      }
       if (id === "applyConfig") {
         if (payload?.config) Object.assign(gameConfig, payload.config);
         return;
@@ -6471,6 +6162,7 @@ export function createIslandEmpireGame(
         (payload?.clearings || []).forEach((clearing) => applyBackendClearing(clearing));
         state.voyages = state.voyages.filter((voyage) => !voyage.backendMarchId);
         (payload?.marches || []).forEach((march) => applyBackendMarch(march));
+        state.activeBattles = [];
         save();
         return;
       }
@@ -6568,13 +6260,7 @@ export function createIslandEmpireGame(
         return;
       }
     if (id === "claimRegion") {
-      const canvasId = reactToCanvasRegionId(payload);
-      if (derivedRegionOwnership(canvasId) !== 0) {
-        state.selectedRegion = canvasId;
-        toast(derivedRegionOwnership(canvasId) === 1 ? "ĐÂY LÀ LÃNH THỔ CỦA BẠN" : "LÃNH THỔ NÀY ĐÃ CÓ CHỦ");
-        return;
-      }
-      triggerSettlerClearing(canvasId);
+      toast("XÂY THÀNH PHẢI ĐƯỢC SERVER XÁC NHẬN");
       return;
     }
       if (id === "cancelClaimRegion") {
@@ -6587,23 +6273,11 @@ export function createIslandEmpireGame(
         return;
       }
       if (id === "marchAttack") {
-        const source = towns.find((town) => town.id === payload.sourceTownId && isPlayerOwnedTown(town)) || sourceTown();
-        const targetCanvasRegionId = reactToCanvasRegionId(payload.targetRegionId);
-        const target = ensureTownForRegion(targetCanvasRegionId, derivedRegionOwnership(targetCanvasRegionId) || 2);
-        if (source && target) {
-          return launchVoyage(source, target, payload.power, targetCanvasRegionId, true, payload.infantry, payload.cavalry, payload.artillery, payload.battleSide || null, payload.backendTiming || null);
-        }
-        toast("KHÔNG TÌM THẤY THÀNH XUẤT QUÂN HOẶC MỤC TIÊU");
+        toast("HÀNH QUÂN PHẢI ĐƯỢC SERVER XÁC NHẬN");
         return false;
       }
       if (id === "marchReinforce") {
-        const source = towns.find((town) => town.id === payload.sourceTownId && isPlayerOwnedTown(town)) || sourceTown();
-        const targetCanvasRegionId = reactToCanvasRegionId(payload.targetRegionId);
-        const target = ensureTownForRegion(targetCanvasRegionId, derivedRegionOwnership(targetCanvasRegionId) || 1);
-        if (source && target) {
-          return launchVoyage(source, target, payload.power, targetCanvasRegionId, false, payload.infantry, payload.cavalry, payload.artillery, payload.battleSide || "defender", payload.backendTiming || null);
-        }
-        toast("KHÔNG TÌM THẤY THÀNH XUẤT QUÂN HOẶC MỤC TIÊU");
+        toast("HÀNH QUÂN PHẢI ĐƯỢC SERVER XÁC NHẬN");
         return false;
       }
       if (id === "selectTown") {
@@ -6648,64 +6322,23 @@ export function createIslandEmpireGame(
         return;
       }
       if (id === "buildStructure") {
-        const t = towns.find((town) => town.id === payload.townId);
-        if (!t) return;
-        normalizeTown(t);
-        if (spend(payload.cost)) {
-          t.buildings[payload.structureType] = (t.buildings[payload.structureType] || 0) + 1;
-          toast(`ĐÃ XÂY DỰNG THÀNH CÔNG ${payload.structureName.toUpperCase()}`);
-          pushLog(`PLAYER1: XÂY DỰNG 1 ${payload.structureName.toUpperCase()} TẠI THÀNH #${t.id}`);
-          save();
-        } else {
-          toast("KHÔNG ĐỦ TÀI NGUYÊN ĐỂ XÂY DỰNG!");
-        }
+        toast("TÍNH NĂNG XÂY CÔNG TRÌNH ĐÃ TẠM ẨN ĐỂ CHỜ ĐỒNG BỘ SERVER");
         return;
       }
       if (id === "upgradeResearch") {
-        if (spend(payload.cost)) {
-          state.research[payload.techType] = (state.research[payload.techType] || 0) + 1;
-          toast(`NÂNG CẤP THÀNH CÔNG ${payload.techName.toUpperCase()} LÊN CẤP ${state.research[payload.techType]}`);
-          pushLog(`PLAYER1: NÂNG CẤP CÔNG NGHỆ ${payload.techName.toUpperCase()} CẤP ${state.research[payload.techType]}`);
-          save();
-        } else {
-          toast("KHÔNG ĐỦ TÀI NGUYÊN ĐỂ NGHIÊN CỨU!");
-        }
+        toast("TÍNH NĂNG NGHIÊN CỨU ĐÃ TẠM ẨN ĐỂ CHỜ ĐỒNG BỘ SERVER");
         return;
       }
       if (id === "allyTrade") {
-        if (spend({ gold: payload.costGold })) {
-          state.resources[payload.targetRes] += payload.targetAmount;
-          toast(`NHẬN +${payload.targetAmount} ${payload.targetRes.toUpperCase()} TỪ ĐỒNG MÌNH`);
-          pushLog(`PLAYER1: ĐỔI VÀNG LẤY +${payload.targetAmount} ${payload.targetRes.toUpperCase()}`);
-          save();
-        } else {
-          toast("KHÔNG ĐỦ VÀNG ĐỂ GIAO THƯƠNG!");
-        }
+        toast("GIAO THƯƠNG LIÊN MINH PHẢI ĐƯỢC SERVER XÁC NHẬN");
         return;
       }
       if (id === "allyHire") {
-        const capital = towns.filter(t => t.owner === 0)[0];
-        if (!capital) return toast("BẠN KHÔNG CÓ THÀNH PHỐ NÀO ĐỂ ĐỒN TRÚ!");
-        if (spend({ gold: payload.costGold })) {
-          capital.troops += payload.troopsAmount;
-          toast(`VIỆN BINH +${payload.troopsAmount} LÍNH ĐÁNH THUÊ ĐÃ ĐẾN THÀNH #${capital.id}`);
-          pushLog(`PLAYER1: THUÊ +${payload.troopsAmount} LÍNH ĐÁNH THUÊ TẠI THÀNH #${capital.id}`);
-          save();
-        } else {
-          toast("KHÔNG ĐỦ VÀNG ĐỂ THUÊ QUÂN!");
-        }
+        toast("THUÊ VIỆN BINH PHẢI ĐƯỢC SERVER XÁC NHẬN");
         return;
       }
       if (id === "triggerEvent") {
-        if (spend({ gems: payload.costGems })) {
-          state.events = state.events || { goldRush: 0, harvestRush: 0 };
-          state.events[payload.eventType] = (state.events[payload.eventType] || 0) + 60;
-          toast(`KÍCH HOẠT SỰ KIỆN ${payload.eventName.toUpperCase()} TRONG 60 GIÂY!`);
-          pushLog(`PLAYER1: KÍCH HOẠT SỰ KIỆN ${payload.eventName.toUpperCase()} (TỐN ${payload.costGems} GEMS)`);
-          save();
-        } else {
-          toast("KHÔNG ĐỦ KIM CƯƠNG ĐỂ KÍCH HOẠT!");
-        }
+        toast("TÍNH NĂNG SỰ KIỆN BUFF ĐÃ TẠM ẨN ĐỂ CHỜ ĐỒNG BỘ SERVER");
         return;
       }
       handleButton(id);
@@ -6714,12 +6347,16 @@ export function createIslandEmpireGame(
       state.newbieFlagColor = flagColor;
       state.newbieEmblem = emblem;
       const region = state.newbieSelectedRegion ?? NEWBIE_DEFAULT_REGION;
-      startNewbieClearing(region);
+      state.newbieSelectedRegion = region;
+      toast("XÁC NHẬN XÂY THÀNH TRÊN SERVER ĐỂ BẮT ĐẦU");
     },
     cancelNewbieOnboarding: () => {
       state.newbiePhase = "select_land";
       state.newbieSelectedRegion = null;
     },
-    getConfig: () => gameConfig
+    getConfig: () => gameConfig,
+    territoryYield,
+    clearingDuration,
+    territoryBuildCost
   };
 }

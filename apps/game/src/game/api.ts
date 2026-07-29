@@ -253,6 +253,8 @@ export interface RecruitTroopsResult {
   ok: boolean;
   unitType: "infantry" | "cavalry" | "artillery";
   count: number;
+  unitCountAdded?: number;
+  troopsAdded?: number;
   resources?: Record<string, number>;
   message?: string;
 }

@@ -531,6 +531,8 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
 }
 
 async function buildGameStatePayload(playerId: string): Promise<GameStateResult> {
+  await processArrivedMarches();
+  await processCompletedClearings();
   const { territoryClearings, marchOrders } = await collections();
   const [world, clearings, marches, resourceState] = await Promise.all([
     buildWorldTerritoriesPayload(),
@@ -544,6 +546,89 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
     marches: marches.map(toPublicMarch),
     ...resourceState,
   };
+}
+
+async function processArrivedMarches(now = new Date()) {
+  const { players, territoryClaims, territoryClearings, marchOrders, alliances } = await collections();
+  const arrived = await marchOrders.find({ arrivesAt: { $lte: now } }).toArray();
+  for (const march of arrived) {
+    if (march.kind === "attack") {
+      const territory = getStaticTerritory(march.toTerritoryId);
+      if (territory) {
+        await territoryClaims.updateOne(
+          { territoryId: territory.id },
+          { $set: { playerId: march.ownerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
+          { upsert: true },
+        );
+        await territoryClearings.deleteMany({ territoryId: territory.id });
+        const [player, alliance] = await Promise.all([
+          players.findOne({ _id: march.ownerId }),
+          alliances.findOne({ memberIds: march.ownerId }),
+        ]);
+        publishRealtime({
+          type: "territory_claimed",
+          territory: {
+            ...territory,
+            ownerId: march.ownerId,
+            ownerName: player?.name ?? march.ownerId,
+            ownerFlagColor: player?.flagColor,
+            ownerEmblem: player?.emblem,
+            ownerAllianceTag: alliance?.tag,
+            ownerAllianceEmblem: alliance?.emblem,
+          },
+        });
+      }
+    }
+    await marchOrders.deleteOne({ _id: march._id });
+  }
+  if (arrived.length > 0) {
+    await bumpWorldCacheVersion();
+    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+  }
+}
+
+async function processCompletedClearings(now = new Date()) {
+  const { players, territoryClaims, territoryClearings, alliances } = await collections();
+  const completed = await territoryClearings.find({ completesAt: { $lte: now } }).toArray();
+  for (const clearing of completed) {
+    const territory = getStaticTerritory(clearing.territoryId);
+    if (!territory) {
+      await territoryClearings.deleteOne({ _id: clearing._id });
+      continue;
+    }
+    const existingClaim = await territoryClaims.findOne({ territoryId: territory.id });
+    if (existingClaim && existingClaim.playerId !== clearing.playerId) {
+      await territoryClearings.deleteOne({ _id: clearing._id });
+      continue;
+    }
+    await territoryClaims.updateOne(
+      { territoryId: territory.id },
+      { $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id, playerId: clearing.playerId, claimedAt: now } },
+      { upsert: true },
+    );
+    await territoryClearings.deleteOne({ _id: clearing._id });
+    await players.updateOne({ _id: clearing.playerId }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const [player, alliance] = await Promise.all([
+      players.findOne({ _id: clearing.playerId }),
+      alliances.findOne({ memberIds: clearing.playerId }),
+    ]);
+    publishRealtime({
+      type: "territory_claimed",
+      territory: {
+        ...territory,
+        ownerId: clearing.playerId,
+        ownerName: player?.name ?? clearing.playerId,
+        ownerFlagColor: player?.flagColor,
+        ownerEmblem: player?.emblem,
+        ownerAllianceTag: alliance?.tag,
+        ownerAllianceEmblem: alliance?.emblem,
+      },
+    });
+  }
+  if (completed.length > 0) {
+    await bumpWorldCacheVersion();
+    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+  }
 }
 
 async function toPublicAlliance(alliance: {
@@ -1031,7 +1116,7 @@ export function createApp() {
     if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "ID lãnh thổ không hợp lệ" });
     const territory = getStaticTerritory(parsed.data.territoryId);
     if (!territory) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
-    const { players, territoryClaims, territoryClearings, alliances } = await collections();
+    const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
     const claim = await territoryClaims.findOne({ territoryId: territory.id });
     if (claim && claim.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
@@ -1049,7 +1134,24 @@ export function createApp() {
       });
     }
     const now = new Date();
-    const buildCost = territoryBuildCost(territory);
+    const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
+    
+    // Load player's save snapshot to check actual town count
+    const save = await saves.findOne({ playerId: req.user!.id });
+    const hasAnyTown = save?.towns?.some((t: any) => t.ownerId === req.user!.id || t.owner === 0) ?? false;
+    
+    const isStarterClaim = (ownedCount === 0) || !hasAnyTown;
+    
+    // If starting fresh but database still has stale claims, clean them up!
+    if (isStarterClaim && ownedCount > 0) {
+      await territoryClaims.deleteMany({ playerId: req.user!.id });
+    }
+
+    const buildCost = isStarterClaim 
+      ? { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 } 
+      : territoryBuildCost(territory);
+
+    console.log("[DEBUG CLEARINGS] playerId:", req.user!.id, "ownedCount:", ownedCount, "hasAnyTown:", hasAnyTown, "isStarterClaim:", isStarterClaim, "buildCost:", buildCost);
     const resourceState = await collectPlayerResources(req.user!.id, now);
     if (!existing && !canAfford(resourceState.resources, buildCost)) {
       return res.status(409).json({
@@ -1258,22 +1360,29 @@ export function createApp() {
       { $set: { resources: nextResources, lastResourceCollectedAt: now, lastSeenAt: now } },
     );
 
+    const unitValue =
+      unitType === "infantry" ? (gameConfig.infantryTroopsValue ?? 18) :
+      unitType === "cavalry" ? (gameConfig.cavalryTroopsValue ?? 34) :
+      (gameConfig.artilleryTroopsValue ?? 58);
+    const troopsAdded = unitValue * count;
+
     // Update troops inside player save snapshot if available
     const save = (await saves.findOne({ playerId: req.user!.id })) as any;
     if (save) {
       const updatedSave = { ...save };
       if (unitType === "infantry") {
-        updatedSave.infantryCount = (updatedSave.infantryCount || 0) + count * 6;
+        updatedSave.infantryCount = (updatedSave.infantryCount || 0) + count;
       } else if (unitType === "cavalry") {
-        updatedSave.cavalryCount = (updatedSave.cavalryCount || 0) + count * 4;
+        updatedSave.cavalryCount = (updatedSave.cavalryCount || 0) + count;
       } else if (unitType === "artillery") {
-        updatedSave.artilleryCount = (updatedSave.artilleryCount || 0) + count * 2;
+        updatedSave.artilleryCount = (updatedSave.artilleryCount || 0) + count;
       }
+      updatedSave.troops = (updatedSave.troops || 0) + troopsAdded;
       updatedSave.resources = nextResources;
 
       await saves.updateOne(
         { playerId: req.user!.id },
-        { $set: { resources: nextResources, updatedAt: now } },
+        { $set: { resources: nextResources, troops: updatedSave.troops, infantryCount: updatedSave.infantryCount, cavalryCount: updatedSave.cavalryCount, artilleryCount: updatedSave.artilleryCount, updatedAt: now } },
       );
     }
 
@@ -1284,6 +1393,8 @@ export function createApp() {
       ok: true,
       unitType,
       count,
+      unitCountAdded: count,
+      troopsAdded,
       resources: nextResources,
       message: `Chiêu mộ thành công ${count} đợt binh sĩ (${unitType})`,
     });
