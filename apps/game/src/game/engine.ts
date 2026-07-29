@@ -69,9 +69,9 @@ export function createIslandEmpireGame(
   canvas.style.height = H + "px";
 
   function getMinZoom() {
-    if (W <= 600) return 0.12;
-    if (W <= 1024) return 0.14;
-    return 0.15;
+    if (W <= 600) return 0.20;
+    if (W <= 1024) return 0.28;
+    return 0.36;
   }
 
   function getMaxZoom() {
@@ -79,9 +79,9 @@ export function createIslandEmpireGame(
   }
 
   function getDefaultFarZoom() {
-    if (W <= 600) return 0.22;
-    if (W <= 1024) return 0.28;
-    return 0.35;
+    if (W <= 600) return 0.30;
+    if (W <= 1024) return 0.40;
+    return 0.52;
   }
 
   function resizeCanvas() {
@@ -105,7 +105,7 @@ export function createIslandEmpireGame(
   const CAMERA_KEY = "island_empire_camera_v1";
   const ONBOARDING_KEY = "island_empire_onboarding_pending";
   const BASE_ZOOM = 1;
-  const FIXED_FAR_ZOOM = 0.35;
+  const FIXED_FAR_ZOOM = 0.52;
   const NEWBIE_DEFAULT_REGION = 0;
   const gameConfig = {
     infantryCostGold: 100,
@@ -280,6 +280,16 @@ export function createIslandEmpireGame(
   const allGenerated = generateWorldTerritories();
   const regions = allGenerated.filter(t => !t.isIslet);
   const islets = allGenerated.filter(t => t.isIslet);
+  const REGION_POLYGON_CELL_SIZE = 620;
+  const regionSpatialBuckets = new Map<string, any[]>();
+  regions.forEach((r: any) => {
+    const gx = Math.floor(r.x / REGION_POLYGON_CELL_SIZE);
+    const gy = Math.floor(r.y / REGION_POLYGON_CELL_SIZE);
+    const key = `${gx}:${gy}`;
+    const bucket = regionSpatialBuckets.get(key);
+    if (bucket) bucket.push(r);
+    else regionSpatialBuckets.set(key, [r]);
+  });
 
   const allLandsById = new Map<number, any>();
   allGenerated.forEach((r) => {
@@ -1010,8 +1020,10 @@ export function createIslandEmpireGame(
       const raw = localStorage.getItem(CAMERA_KEY);
       if (!raw) return false;
       const saved = JSON.parse(raw);
+      const minZ = getMinZoom();
+      const maxZ = getMaxZoom();
       if (Number.isFinite(saved.zoom)) {
-        state.zoom = Math.max(0.15, Math.min(1.8, saved.zoom));
+        state.zoom = Math.max(minZ, Math.min(maxZ, saved.zoom));
         state.targetZoom = state.zoom;
       } else {
         const farZ = getDefaultFarZoom();
@@ -1445,15 +1457,38 @@ export function createIslandEmpireGame(
 
   function organicPath(cx, cy, rx, ry, seed) {
     const pts: Array<[number, number]> = [];
-    const count = 12; // 12 points for jagged, rocky edges
+    const count = 18;
     for (let i = 0; i < count; i++) {
       const a = (i / count) * TAU;
-      const radVar = 0.72 + hash(seed * 97 + i * 13) * 0.48; // High variance
-      const x = Math.round((cx + Math.cos(a) * rx * radVar) / 4) * 4;
-      const y = Math.round((cy + Math.sin(a) * ry * radVar * 0.78) / 4) * 4;
+      const chip = hash(seed * 97 + i * 13) * 0.12 - 0.06;
+      const wave = 1 + Math.sin(a * 4 + seed) * 0.075 + Math.cos(a * 7 - seed * 0.5) * 0.04 + chip;
+      const x = Math.round((cx + Math.cos(a) * rx * wave) / 4) * 4;
+      const y = Math.round((cy + Math.sin(a) * ry * wave) / 4) * 4;
       pts.push([x, y]);
     }
     return pts;
+  }
+
+  function softenPolygonCorners(points: Array<[number, number]>) {
+    if (points.length < 5) return points;
+    const softened: Array<[number, number]> = [];
+    for (let i = 0; i < points.length; i++) {
+      const prev = points[(i - 1 + points.length) % points.length];
+      const cur = points[i];
+      const next = points[(i + 1) % points.length];
+      const lenA = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+      const lenB = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
+      const softness = Math.min(0.075, Math.max(0.035, Math.min(lenA, lenB) / 520));
+      softened.push([
+        Math.round((cur[0] * (1 - softness) + prev[0] * softness) / 2) * 2,
+        Math.round((cur[1] * (1 - softness) + prev[1] * softness) / 2) * 2,
+      ]);
+      softened.push([
+        Math.round((cur[0] * (1 - softness) + next[0] * softness) / 2) * 2,
+        Math.round((cur[1] * (1 - softness) + next[1] * softness) / 2) * 2,
+      ]);
+    }
+    return softened;
   }
 
   function getOrganicPath(cx, cy, rx, ry, seed, key) {
@@ -1464,6 +1499,75 @@ export function createIslandEmpireGame(
       organicPathCache.set(cacheKey, pts);
     }
     return pts;
+  }
+
+  function nearbyMainlandRegions(r: any) {
+    const gx = Math.floor(r.x / REGION_POLYGON_CELL_SIZE);
+    const gy = Math.floor(r.y / REGION_POLYGON_CELL_SIZE);
+    const out: any[] = [];
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oy = -1; oy <= 1; oy++) {
+        const bucket = regionSpatialBuckets.get(`${gx + ox}:${gy + oy}`);
+        if (!bucket) continue;
+        bucket.forEach((other) => {
+          if (other.id !== r.id) out.push(other);
+        });
+      }
+    }
+    return out;
+  }
+
+  function clipPolygonToNeighbor(poly: Array<[number, number]>, r: any, other: any) {
+    if (poly.length < 3) return poly;
+    const dx = other.x - r.x;
+    const dy = other.y - r.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) return poly;
+
+    const rxLimit = ((r.rx || 230) + (other.rx || 230)) * 1.14;
+    const ryLimit = ((r.ry || (r.rx || 230) * 0.78) + (other.ry || (other.rx || 230) * 0.78)) * 1.18;
+    const normalized = Math.hypot(dx / rxLimit, dy / ryLimit);
+    if (normalized > 1.08) return poly;
+
+    const midX = (r.x + other.x) / 2;
+    const midY = (r.y + other.y) / 2;
+    const side = (p: [number, number]) => (p[0] - midX) * dx + (p[1] - midY) * dy;
+    const intersect = (a: [number, number], b: [number, number]): [number, number] => {
+      const sa = side(a);
+      const sb = side(b);
+      const t = Math.max(0, Math.min(1, sa / (sa - sb || 1)));
+      return [
+        Math.round((a[0] + (b[0] - a[0]) * t) / 2) * 2,
+        Math.round((a[1] + (b[1] - a[1]) * t) / 2) * 2,
+      ];
+    };
+
+    const clipped: Array<[number, number]> = [];
+    for (let i = 0; i < poly.length; i++) {
+      const current = poly[i];
+      const prev = poly[(i - 1 + poly.length) % poly.length];
+      const currentInside = side(current) <= 0;
+      const prevInside = side(prev) <= 0;
+
+      if (currentInside) {
+        if (!prevInside) clipped.push(intersect(prev, current));
+        clipped.push(current);
+      } else if (prevInside) {
+        clipped.push(intersect(prev, current));
+      }
+    }
+
+    const deduped: Array<[number, number]> = [];
+    clipped.forEach((p) => {
+      const last = deduped[deduped.length - 1];
+      if (!last || Math.hypot(last[0] - p[0], last[1] - p[1]) > 3) deduped.push(p);
+    });
+    if (deduped.length > 2) {
+      const first = deduped[0];
+      const last = deduped[deduped.length - 1];
+      if (Math.hypot(first[0] - last[0], first[1] - last[1]) <= 3) deduped.pop();
+    }
+    return deduped.length >= 3 ? deduped : poly;
   }
 
   // --- SHARED EDGE MESH ALGORITHM (NO OVERLAPPING, ORGANIC CURVED SHARED BORDERS) ---
@@ -1510,115 +1614,35 @@ export function createIslandEmpireGame(
       return getOrganicPath(r.x, r.y, (r.rx || r.r) * 0.82, (r.ry || r.r * 0.78) * 0.82, r.seed || idx + 1, `islet_${idx}_poly`);
     }
 
-    const polyKey = `shared_poly_${idx}_${Math.round(r.x)}_${Math.round(r.y)}`;
+    const polyKey = `shared_clipped_region_faceted_v3_${idx}_${Math.round(r.x)}_${Math.round(r.y)}`;
     let cached = sharedRegionPolygonCache.get(polyKey);
     if (cached) return cached;
 
-    // Find neighboring regions within 500px radius to align borders
-    const allRegions = regions || [];
-    const neighbors: Array<{ r2: any; angle: number; dist: number }> = [];
-
-    allRegions.forEach((r2: any) => {
-      if (r2.id === r.id) return;
-      const dist = Math.hypot(r2.x - r.x, r2.y - r.y);
-      if (dist < 500) {
-        const angle = Math.atan2(r2.y - r.y, r2.x - r.x);
-        neighbors.push({ r2, angle, dist });
-      }
-    });
-
     const seed = r.seed || idx * 101 + 17;
-    const sizeFactor = 0.99 + hash(seed * 31) * 0.20;
-    const baseRx = (r.rx || 230) * sizeFactor;
+    const rx = (r.rx || r.r || 230) * 1.20;
+    const ry = (r.ry || (r.r || 230) * 0.78) * 1.20;
+    cached = getOrganicPath(r.x, r.y, rx, ry, seed * 1.7 + 0.4, `${polyKey}_base`);
+    nearbyMainlandRegions(r)
+      .sort((a, b) => Math.hypot(a.x - r.x, a.y - r.y) - Math.hypot(b.x - r.x, b.y - r.y))
+      .forEach((other) => {
+        cached = clipPolygonToNeighbor(cached, r, other);
+      });
+    cached = softenPolygonCorners(cached);
+    sharedRegionPolygonCache.set(polyKey, cached);
+    return cached;
+  }
 
-    const numCorners = 7 + Math.floor(hash(seed * 17) * 4);
-    const cornerAngles: number[] = [];
+  function getContinentFoundationPolygon(r: any, idx: number): Array<[number, number]> {
+    const seed = r.seed || idx * 101 + 17;
+    const key = `continent_foundation_v1_${idx}_${Math.round(r.x)}_${Math.round(r.y)}`;
+    let cached = sharedRegionPolygonCache.get(key);
+    if (cached) return cached;
 
-    for (let c = 0; c < numCorners; c++) {
-      const baseA = (c / numCorners) * TAU;
-      const jiggle = (hash(seed * 23 + c * 13) - 0.5) * (TAU / numCorners) * 0.48;
-      cornerAngles.push(baseA + jiggle);
-    }
-    cornerAngles.sort((a, b) => a - b);
-
-    const cornerPts: Array<{ x: number; y: number; angle: number }> = [];
-    cornerAngles.forEach((a, i) => {
-      const cornerRadiusMult = 0.85 + hash(seed * 41 + i * 19) * 0.28;
-      let maxDistInAngle = baseRx * cornerRadiusMult;
-      
-      let hasNeighbor = false;
-
-      for (let j = 0; j < neighbors.length; j++) {
-        const nbr = neighbors[j];
-        let diff = Math.abs(a - nbr.angle);
-        if (diff > Math.PI) diff = TAU - diff;
-
-        if (diff < Math.PI / 2.75) {
-          const allowedDist = (nbr.dist * 0.58) / Math.max(0.5, Math.cos(diff));
-          if (allowedDist < maxDistInAngle) {
-            maxDistInAngle = allowedDist;
-            hasNeighbor = true;
-          }
-        }
-      }
-
-      // Ocean-facing edges: Add rugged, jagged coastline noise (no neighbor to align with!)
-      if (!hasNeighbor) {
-        const oceanNoise = 1.0 + Math.sin(a * 5.0 + seed) * 0.10 + Math.cos(a * 11.0 - seed * 0.5) * 0.06;
-        maxDistInAngle = baseRx * cornerRadiusMult * oceanNoise;
-      }
-
-      const px = Math.round((r.x + Math.cos(a) * maxDistInAngle) / 4) * 4;
-      const py = Math.round((r.y + Math.sin(a) * maxDistInAngle * 0.78) / 4) * 4;
-      cornerPts.push({ x: px, y: py, angle: a });
-    });
-
-    const basePts: Array<[number, number]> = cornerPts.map((p) => [p.x, p.y]);
-    const angularPts: Array<[number, number]> = [];
-    const nLen = basePts.length;
-    for (let i = 0; i < nLen; i++) {
-      const p0 = basePts[i];
-      const p1 = basePts[(i + 1) % nLen];
-      const midSeed = seed * 101 + i * 37;
-      const mx = (p0[0] + p1[0]) / 2;
-      const my = (p0[1] + p1[1]) / 2;
-      const ex = p1[0] - p0[0];
-      const ey = p1[1] - p0[1];
-      const len = Math.hypot(ex, ey) || 1;
-      const notch = (hash(midSeed) - 0.5) * Math.min(14, len * 0.07);
-      const mid: [number, number] = [
-        Math.round((mx + (-ey / len) * notch) / 2) * 2,
-        Math.round((my + (ex / len) * notch) / 2) * 2,
-      ];
-      angularPts.push(p0);
-      if (len > 118 && hash(midSeed + 9) > 0.62) angularPts.push(mid);
-    }
-
-    const beveledPts: Array<[number, number]> = [];
-    const aLen = angularPts.length;
-    for (let i = 0; i < aLen; i++) {
-      const prev = angularPts[(i - 1 + aLen) % aLen];
-      const cur = angularPts[i];
-      const next = angularPts[(i + 1) % aLen];
-      const prevLen = Math.hypot(prev[0] - cur[0], prev[1] - cur[1]);
-      const nextLen = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
-      const cut = Math.min(14, prevLen * 0.12, nextLen * 0.12);
-      if (cut >= 4) {
-        beveledPts.push([
-          Math.round((cur[0] + ((prev[0] - cur[0]) / (prevLen || 1)) * cut) / 2) * 2,
-          Math.round((cur[1] + ((prev[1] - cur[1]) / (prevLen || 1)) * cut) / 2) * 2,
-        ]);
-        beveledPts.push([
-          Math.round((cur[0] + ((next[0] - cur[0]) / (nextLen || 1)) * cut) / 2) * 2,
-          Math.round((cur[1] + ((next[1] - cur[1]) / (nextLen || 1)) * cut) / 2) * 2,
-        ]);
-      } else {
-        beveledPts.push(cur);
-      }
-    }
-
-    sharedRegionPolygonCache.set(polyKey, beveledPts);
-    return beveledPts;
+    const rx = (r.rx || 230) * (1.0 + hash(seed * 71) * 0.08);
+    const ry = (r.ry || rx * 0.78) * (0.98 + hash(seed * 73) * 0.08);
+    cached = getOrganicPath(r.x, r.y, rx, ry, seed * 1.7 + 0.19, key);
+    sharedRegionPolygonCache.set(key, cached);
+    return cached;
   }
 
   function fillPath(points, color) {
@@ -1636,8 +1660,8 @@ export function createIslandEmpireGame(
   function strokePath(points, strokeStyle, lineWidth) {
     if (!points || points.length === 0) return;
     ctx.beginPath();
-    ctx.lineJoin = "miter";
-    ctx.miterLimit = 2.6;
+    ctx.lineJoin = "bevel";
+    ctx.miterLimit = 1.8;
     ctx.lineCap = "round";
     ctx.moveTo(points[0][0], points[0][1]);
     for (let i = 1; i < points.length; i++) {
@@ -1663,48 +1687,36 @@ export function createIslandEmpireGame(
       });
     };
 
-    const drawContinentPass = (lands: Array<[any, number]>, amount: number, dx: number, dy: number, color: string) => {
-      lands.forEach(([r, id]) => fillPath(makeOffset(r, id, false, amount, dx, dy), color));
-    };
-    const drawBiomePass = (lands: Array<[any, number]>, amount: number, dx: number, dy: number, pick: (biome: any) => string) => {
-      lands.forEach(([r, id]) => {
-        const biome = visualBiome(r, id, false);
-        fillPath(makeOffset(r, id, false, amount, dx, dy), pick(biome));
-      });
-    };
     const coastalRegions = visibleRegions.filter(([r]) => mainlandCoastalRegionIds.has(r.id));
-
-    // One continuous mainland underlay: draw the same expanded polygons in broad passes.
-    // Overlap between neighbors fills gaps, so provinces read as sitting on one land mass.
-    drawContinentPass(visibleRegions, 28, 10, 16, "rgba(0, 0, 0, 0.24)");
-
-    drawBiomePass(visibleRegions, 18, 3, 7, (biome) => biome.cliffUpper || "rgba(92, 62, 26, 0.78)");
-    drawBiomePass(visibleRegions, 7, 0, 0, (biome) => biome.b || "#879c5d");
-
-    coastalRegions.forEach(([r, id]) => {
-      const wavePulse = Math.sin(state.tick * 3.1 + (r.seed || id + 1) * 0.47) * 2.2;
-      fillPath(makeOffset(r, id, false, 37 + wavePulse), "rgba(56, 189, 248, 0.30)");
-      fillPath(makeOffset(r, id, false, 31 + wavePulse * 0.65), "rgba(255, 255, 255, 0.48)");
-    });
 
     coastalRegions.forEach(([r, id]) => {
       const biome = visualBiome(r, id, false);
-      fillPath(makeOffset(r, id, false, 28, 7, 17), "rgba(3, 4, 3, 0.82)");
-      fillPath(makeOffset(r, id, false, 23, 5, 13), biome.cliffDeep || "#1f180d");
-      fillPath(makeOffset(r, id, false, 17, 3, 9), biome.cliffMid || "#40321b");
-      fillPath(makeOffset(r, id, false, 10, 1, 4), biome.cliffUpper || "#6a5730");
-      fillPath(makeOffset(r, id, false, 6), biome.beach || "#cfb46a");
+      const seed = r.seed || id + 1;
+      const wavePulse = Math.sin(state.tick * 3.1 + seed * 0.47) * 2.2;
+
+      fillPath(makeOffset(r, id, false, 46 + wavePulse), "rgba(56, 189, 248, 0.54)");
+      fillPath(makeOffset(r, id, false, 38 + wavePulse * 0.65), "rgba(255, 255, 255, 0.62)");
+      fillPath(makeOffset(r, id, false, 32, 7, 17), "rgba(3, 4, 3, 0.78)");
+      fillPath(makeOffset(r, id, false, 26, 5, 13), biome.cliffDeep || "#1f180d");
+      fillPath(makeOffset(r, id, false, 20, 3, 9), biome.cliffMid || "#40321b");
+      fillPath(makeOffset(r, id, false, 14, 1, 5), biome.cliffUpper || "#6a5730");
+      fillPath(makeOffset(r, id, false, 8), biome.beach || "#cfb46a");
     });
 
-    const drawIsletBase = (r: any, id: number) => {
+    visibleRegions.forEach(([r, id]) => {
+      const biome = visualBiome(r, id, false);
+      fillPath(makeOffset(r, id, false, 4, 1, 2), "rgba(8, 18, 10, 0.18)");
+      fillPath(makeOffset(r, id, false, 2, 0, 0), biome.dark || "#2f5d31");
+      fillPath(makeOffset(r, id, false, 0, 0, 0), biome.b || "#427a32");
+    });
+
+    visibleIslets.forEach(([r, id]) => {
       const biome = visualBiome(r, id, true);
       fillPath(makeOffset(r, id, true, 18, 8, 13), "rgba(0, 0, 0, 0.22)");
       fillPath(makeOffset(r, id, true, 13, 3, 6), biome.cliffDeep || "rgba(30, 20, 9, 0.76)");
       fillPath(makeOffset(r, id, true, 9), biome.beach || "#d9b45f");
       fillPath(makeOffset(r, id, true, 4), biome.b);
-    };
-
-    visibleIslets.forEach(([r, id]) => drawIsletBase(r, id));
+    });
   }
 
   function regionOwner(r) {
@@ -1994,7 +2006,7 @@ export function createIslandEmpireGame(
 
     // Calculate territory resource richness based on seed for "có nhiều có ít" variation
     const richness = hash(seed * 43 + r.id * 19); // 0.0 -> 1.0
-    const count = 8 + Math.floor(richness * 18);  // 8 (sparse wilderness) to 26 (dense/rich region) items
+    const count = 4 + Math.floor(richness * 9);  // 4 (sparse wilderness) to 13 (dense/rich region) visible items
 
     const items: Array<{
       type: "resource" | "sprite";
@@ -2224,6 +2236,7 @@ export function createIslandEmpireGame(
     const isCoastal = isIslet || mainlandCoastalRegionIds.has(r.id);
 
     if (pass === 0) {
+      if (!isCoastal) return;
       // Pass 0: Animated Sky Blue Ocean Foam (Only for outer coastal facing edges!)
       if (isCoastal) {
         const wavePulse = Math.sin(state.tick * 3.2 + seed * 0.5) * 3.2;
@@ -2232,15 +2245,12 @@ export function createIslandEmpireGame(
 
         const waveCrest = getOffsetPolygon(30 + wavePulse * 0.8);
         fillPath(waveCrest, "rgba(255, 255, 255, 0.70)");
-      } else {
-        // Vẽ lớp nền đất rộng ra 12px trùng màu với sinh cảnh để che phủ hoàn toàn các rãnh phân tách nội địa
-        const continentBase = getOffsetPolygon(12);
-        fillPath(continentBase, biome.a);
       }
       return;
     }
 
     if (pass === 1) {
+      if (!isCoastal) return;
       // Pass 1: Tall 3D Sand Cliff Base & Vibrant Golden Beach Rim (Only for outer coastal facing edges!)
       if (isCoastal) {
         // Fetch biome-specific colors for cliffs and beach
@@ -2333,8 +2343,16 @@ export function createIslandEmpireGame(
     const ownerCode = derivedRegionOwnership(idx);
     const isWildBase = ownerCode === 0;
 
-    // Draw Main Province Body
+    if (!isIslet) {
+      const boundary = getOrganicPath(r.x + 1, r.y + 2, rx + 1, ry + 1, seed * 1.7 + 0.25, `${cachePrefix}_demo_boundary_soft`);
+      fillPath(boundary, "rgba(20, 26, 22, 0.14)");
+    }
+
+    // Draw province as a thin terrain overlay on top of the mainland foundation.
+    ctx.save();
+    ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
     fillPath(land, biome.a);
+    ctx.restore();
 
     // Define land path (straight polygon line path for clip region)
     ctx.beginPath();
@@ -2350,11 +2368,13 @@ export function createIslandEmpireGame(
 
     // Dark outer rim → bright mid-tone highlight → dark inner vignette
     // Creates a natural "hill" look: dark at edges, light in center, subtle depth
+    const edgeShade = isCoastal ? 0.18 : 0.006;
+    const centerLight = isCoastal ? 0.12 : 0.055;
     const rg = ctx.createRadialGradient(r.x, r.y, rx * 0.08, r.x, r.y, rx * 1.05);
-    rg.addColorStop(0,    "rgba(255, 255, 255, 0.12)"); // slightly bright center
-    rg.addColorStop(0.38, "rgba(255, 255, 255, 0.06)"); // midfield open
-    rg.addColorStop(0.72, "rgba(0, 0, 0, 0)");           // transparent mid
-    rg.addColorStop(1,    `rgba(0, 0, 0, ${isCoastal ? 0.18 : isWildBase ? 0.04 : 0.10})`);
+    rg.addColorStop(0,    `rgba(255, 255, 255, ${centerLight})`);
+    rg.addColorStop(0.38, `rgba(255, 255, 255, ${centerLight * 0.45})`);
+    rg.addColorStop(0.72, "rgba(0, 0, 0, 0)");
+    rg.addColorStop(1,    `rgba(0, 0, 0, ${edgeShade})`);
     ctx.fillStyle = rg;
     ctx.fillRect(r.x - rx - 20, r.y - ry - 20, rx * 2 + 40, ry * 2 + 40);
 
@@ -5013,13 +5033,14 @@ export function createIslandEmpireGame(
     // Layer 2: continuous mainland foundation below all province polygons.
     drawStrategyContinentLayer(visibleRegions, visibleIslets);
 
-    // Pass 0/1 only for standalone islets. Mainland territories sit on the shared land base,
-    // otherwise every province draws its own coastline and the continent looks broken apart.
+    // Pass 0/1 only for standalone islets. Mainland coast/cliff is drawn once as foundation
+    // below all province polygons so territories sit on top instead of hiding each other's cliffs.
     visibleIslets.forEach(([r, id]) => drawRegion(r, id, 0, true));
 
     visibleIslets.forEach(([r, id]) => drawRegion(r, id, 1, true));
 
-    // Pass 2: Draw main land bodies, terrain details and borders
+    // Pass 2: Draw main land bodies. Province polygons are clipped against neighbors,
+    // so borders meet instead of one territory being painted over another.
     visibleIslets.forEach(([r, id]) => drawRegion(r, id, 2, true));
     visibleRegions.forEach(([r, id]) => drawRegion(r, id, 2, false));
 
