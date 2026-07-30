@@ -391,7 +391,11 @@ function formatServerEvent(event: any, currentPlayerId: string | null) {
     return `[${mine ? "LIÊN MINH" : "THẾ GIỚI"}] SYSTEM: BẮT ĐẦU CÔNG THÀNH #${event.battle.regionId + 1}`;
   }
   if (event.type === "battle_resolved") {
-    return `[THẾ GIỚI] SYSTEM: ${event.winner === "attacker" ? "CÔNG THÀNH THẮNG" : "THỦ THÀNH THẮNG"} #${event.territory.id + 1}`;
+    const suffix = event.territory?.id !== undefined ? ` #${event.territory.id + 1}` : "";
+    return `[THẾ GIỚI] SYSTEM: ${event.winner === "attacker" ? "CÔNG THÀNH THẮNG" : "THỦ THÀNH THẮNG"}${suffix}`;
+  }
+  if (event.type === "player_state_updated") {
+    return event.playerId === currentPlayerId ? "[LIÊN MINH] SYSTEM: STATE CỦA BẠN ĐÃ ĐỒNG BỘ QUA SOCKET" : "[THẾ GIỚI] SYSTEM: NGƯỜI CHƠI ĐÃ CẬP NHẬT STATE";
   }
   if (event.type === "player_eliminated") {
     return event.playerId === currentPlayerId
@@ -879,7 +883,6 @@ export function GameApp() {
 	                  });
 	                }
 	                engineRef.current?.handleAction("consumeBackendClaim", { regionId });
-	                refreshGameStateFromServer();
 	              })
 	              .catch((err) => {
 	                console.error("Backend clearing complete failed:", err);
@@ -1099,6 +1102,9 @@ export function GameApp() {
       if (event.type === "hello") {
         setSocketOnline(true);
       }
+      if (event.type === "player_state_updated") {
+        applyRealtimePlayerState(event);
+      }
       if (event.type === "battle_resolved") {
         if (event.territory) {
           const engTerritoryId = serverToEngineTerritoryId(event.territory.id);
@@ -1115,7 +1121,6 @@ export function GameApp() {
               ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
             }],
           });
-          refreshGameStateFromServer("battle_resolved", true);
         }
 
         if (event.report) {
@@ -1174,7 +1179,6 @@ export function GameApp() {
             ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
           }],
         });
-        refreshGameStateFromServer("territory-claimed", true);
         setWorldActivity((prev) => ({
           ...prev,
           clearings: prev.clearings.filter((clearing) => clearing.territoryId !== serverToEngineTerritoryId(event.territory.id)),
@@ -1215,6 +1219,18 @@ export function GameApp() {
           lastSync: Date.now(),
         }));
       }
+      if (event.type === "territory_clearing_cancelled") {
+        setWorldActivity((prev) => ({
+          ...prev,
+          clearings: prev.clearings.filter((clearing) => clearing.territoryId !== event.territoryId),
+        }));
+        setServerHud((prev) => ({
+          ...prev,
+          activeClearings: Math.max(0, prev.activeClearings - 1),
+          ownClearings: Math.max(0, prev.ownClearings - (event.playerId === playerId ? 1 : 0)),
+          lastSync: Date.now(),
+        }));
+      }
       if (event.type === "march_created") {
         addWarReport({
           id: `socket-march-${event.march.id}`,
@@ -1230,6 +1246,14 @@ export function GameApp() {
           );
         }
         engineRef.current?.handleAction("applyBackendMarch", { march: event.march });
+        if (event.sourceTown && event.march.ownerId === playerId) {
+          const normalized = normalizeTownForClient(event.sourceTown);
+          setServerTowns((prev) => [
+            ...prev.filter((town) => town.id !== normalized.id),
+            normalized,
+          ]);
+          engineRef.current?.handleAction("applyBackendTownSnapshots", { towns: [normalized] });
+        }
         setWorldActivity((prev) => ({
           ...prev,
           marches: [
@@ -1246,6 +1270,14 @@ export function GameApp() {
           lastSync: Date.now(),
         }));
       }
+      if (event.type === "march_removed") {
+        engineRef.current?.handleAction("removeBackendMarch", { marchId: event.marchId });
+        setWorldActivity((prev) => ({
+          ...prev,
+          marches: prev.marches.filter((march) => (march.id || march._id || march.marchId) !== event.marchId),
+        }));
+        setServerHud((prev) => ({ ...prev, lastSync: Date.now() }));
+      }
       if (event.type === "battle_started") {
         addWarReport({
           id: `socket-battle-${event.battle.id}`,
@@ -1256,12 +1288,18 @@ export function GameApp() {
         });
         setWorldActivity((prev) => ({
           ...prev,
+          marches: event.consumedMarchId
+            ? prev.marches.filter((march) => (march.id || march._id || march.marchId) !== event.consumedMarchId)
+            : prev.marches,
           battles: [
             ...prev.battles.filter((battle) => battle.id !== event.battle.id),
             { ...event.battle, regionId: serverToEngineTerritoryId(event.battle.regionId) },
           ],
         }));
-        refreshGameStateFromServer("battle-started", true);
+        if (event.consumedMarchId) {
+          engineRef.current?.handleAction("removeBackendMarch", { marchId: event.consumedMarchId });
+        }
+        engineRef.current?.handleAction("applyBackendBattles", { battles: [event.battle], merge: true });
       }
       if (event.type === "battle_resolved") {
         if (event.territory) {
@@ -1292,7 +1330,7 @@ export function GameApp() {
           ...prev,
           battles: prev.battles.filter((battle) => battle.id !== event.battleId),
         }));
-        refreshGameStateFromServer("battle-resolved", true);
+        engineRef.current?.handleAction("removeBackendBattle", { battleId: event.battleId });
       }
       if (event.type === "player_eliminated" && event.playerId === playerId) {
         localStorage.setItem(ONBOARDING_KEY, "1");
@@ -1305,7 +1343,6 @@ export function GameApp() {
           "Vương quốc thất thủ",
           "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc."
         );
-        refreshGameStateFromServer("player-eliminated", true);
       }
       if (event.type === "world_state_hint") {
         refreshGameStateFromServer("socket-hint");
@@ -1540,6 +1577,27 @@ export function GameApp() {
       territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
     }));
     setServerHud(summarizeBackendHud(world, playerId, world.resources));
+  }
+
+  function applyRealtimePlayerState(event: any) {
+    if (!playerId || event?.playerId !== playerId) return false;
+    if (event.resources) {
+      setResources({ ...event.resources });
+      engineRef.current?.handleAction("syncResources", { resources: event.resources });
+    }
+    if (Array.isArray(event.towns)) {
+      const towns = event.towns.map((town: any) => normalizeTownForClient(town));
+      setServerTowns(towns);
+      engineRef.current?.handleAction("applyBackendTownSnapshots", { towns });
+    }
+    if (event.newbieShieldUntil !== undefined) {
+      engineRef.current?.handleAction("updateNewbieShield", { until: event.newbieShieldUntil });
+    }
+    setServerHud((prev) => ({
+      ...prev,
+      lastSync: Date.now(),
+    }));
+    return true;
   }
 
   function refreshGameStateFromServer(reason = "manual", force = false) {
@@ -2329,7 +2387,6 @@ export function GameApp() {
               engineRef.current?.handleAction("setUiOverlayActive", { active: false });
               setKingdomCreationRegion(null);
               addSystemLine(`BẮT ĐẦU XÂY THÀNH TRÌ ${cityName.toUpperCase()}`);
-              refreshGameStateFromServer("newbie-clearing-started", true);
             } catch (err: any) {
               engineRef.current?.handleAction("setUiOverlayActive", { active: true });
               engineRef.current?.cancelNewbieOnboarding();
@@ -2436,7 +2493,6 @@ export function GameApp() {
                   refreshGameStateFromServer();
                   return;
                 }
-                refreshGameStateFromServer("march-created-api", true);
               } catch (err: any) {
                 console.error("Backend march failed:", err);
                 showGameError(err.message || "Server từ chối lệnh hành quân");

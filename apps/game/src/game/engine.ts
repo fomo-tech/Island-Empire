@@ -7050,18 +7050,6 @@ export function createIslandEmpireGame(
     const cav = unitMix.cavalry ?? march.cavalry ?? 0;
     const art = unitMix.artillery ?? march.artillery ?? 0;
 
-    if (source && ownerCode === 1) {
-      source.infantryCount = Math.max(0, (source.infantryCount || 0) - inf);
-      source.cavalryCount = Math.max(0, (source.cavalryCount || 0) - cav);
-      source.artilleryCount = Math.max(0, (source.artilleryCount || 0) - art);
-      const gameConfig = state.gameConfig || {};
-      source.troops = Math.max(0,
-        (source.infantryCount || 0) * (gameConfig.infantryTroopsValue || 18) +
-        (source.cavalryCount || 0) * (gameConfig.cavalryTroopsValue || 34) +
-        (source.artilleryCount || 0) * (gameConfig.artilleryTroopsValue || 58)
-      );
-    }
-
     return launchVoyage(
       source,
       target,
@@ -7081,6 +7069,41 @@ export function createIslandEmpireGame(
         noTroopDebit: true,
       }
     );
+  }
+
+  function mapBackendBattle(battle: any) {
+    const regId = reactToCanvasRegionId(battle.regionId);
+    const dur = Math.max(1, battle.durationSeconds || (battle.startedAt && battle.resolvesAt ? (new Date(battle.resolvesAt).getTime() - new Date(battle.startedAt).getTime()) / 1000 : 25));
+    const remMs = battle.resolvesAt ? new Date(battle.resolvesAt).getTime() - Date.now() : dur * 1000;
+    const remSec = Math.max(0, remMs / 1000);
+    return {
+      ...battle,
+      id: battle.id || battle._id,
+      regionId: regId,
+      townId: battle.townId ?? (9000 + regId),
+      startedAt: battle.startedAt,
+      resolvesAt: battle.resolvesAt,
+      duration: dur,
+      durationSeconds: dur,
+      t: Math.max(0, dur - remSec),
+      isServerBattle: true,
+      attPower: battle.attackerPower ?? battle.attPower ?? 0,
+      defPower: battle.defenderPower ?? battle.defPower ?? 0,
+    };
+  }
+
+  function applyBackendBattles(battles: any[] = [], merge = true) {
+    const mapped = battles.map(mapBackendBattle);
+    if (!merge) {
+      state.activeBattles = mapped;
+      return;
+    }
+    mapped.forEach((battle) => {
+      state.activeBattles = [
+        ...(state.activeBattles || []).filter((item: any) => item.id !== battle.id && item._id !== battle.id),
+        battle,
+      ];
+    });
   }
 
   let toastTimeout: any = null;
@@ -7892,26 +7915,26 @@ export function createIslandEmpireGame(
           return isServerActive || hasActiveBattle || hasActiveClearing || (voyage.t < voyage.duration) || voyage.keepLineUntilResolved;
         });
         (payload?.marches || []).forEach((march) => applyBackendMarch(march));
-        state.activeBattles = (payload?.battles || []).map((battle: any) => {
-          const regId = reactToCanvasRegionId(battle.regionId);
-          const dur = Math.max(1, battle.durationSeconds || (battle.startedAt && battle.resolvesAt ? (new Date(battle.resolvesAt).getTime() - new Date(battle.startedAt).getTime()) / 1000 : 25));
-          const remMs = battle.resolvesAt ? new Date(battle.resolvesAt).getTime() - Date.now() : 25000;
-          const remSec = Math.max(0, remMs / 1000);
-          return {
-            ...battle,
-            isServerBattle: true,
-            regionId: regId,
-            townId: battle.townId ?? (9000 + regId),
-            startedAt: battle.startedAt,
-            resolvesAt: battle.resolvesAt,
-            duration: dur,
-            durationSeconds: dur,
-            t: Math.max(0, dur - remSec),
-            attPower: battle.attackerPower ?? battle.attPower ?? 0,
-            defPower: battle.defenderPower ?? battle.defPower ?? 0,
-          };
-        });
+        applyBackendBattles(payload?.battles || [], false);
         save();
+        return;
+      }
+      if (id === "applyBackendBattles") {
+        applyBackendBattles(payload?.battles || [], payload?.merge !== false);
+        return;
+      }
+      if (id === "removeBackendMarch") {
+        const marchId = payload?.marchId;
+        if (marchId) {
+          state.voyages = (state.voyages || []).filter((voyage: any) => voyage.backendMarchId !== marchId);
+        }
+        return;
+      }
+      if (id === "removeBackendBattle") {
+        const battleId = payload?.battleId;
+        if (battleId) {
+          state.activeBattles = (state.activeBattles || []).filter((battle: any) => battle.id !== battleId && battle._id !== battleId);
+        }
         return;
       }
       if (id === "applyWorldOwnership") {

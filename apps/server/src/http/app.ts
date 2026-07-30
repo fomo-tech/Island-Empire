@@ -1015,7 +1015,6 @@ async function processArrivedMarches(now = new Date()) {
   }
   if (arrived.length > 0) {
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
   }
 }
 
@@ -1099,6 +1098,10 @@ async function processActiveBattles(now = new Date()) {
         players.updateOne({ _id: battle.attackerId }, { $set: { resources: attackerResources, lastResourceCollectedAt: now, lastSeenAt: now } }),
         battle.defenderId ? players.updateOne({ _id: battle.defenderId }, { $set: { resources: defenderResources, lastResourceCollectedAt: now, lastSeenAt: now } }) : Promise.resolve(),
       ]);
+      await publishPlayerState(battle.attackerId, "battle_resolved", attackerResources, attackerTowns);
+      if (battle.defenderId) {
+        await publishPlayerState(battle.defenderId, "battle_resolved", defenderResources, defenderTowns);
+      }
       if (battle.defenderId) {
         const defenderRemainingClaims = await territoryClaims.countDocuments({ playerId: battle.defenderId });
         if (defenderRemainingClaims === 0) {
@@ -1132,6 +1135,7 @@ async function processActiveBattles(now = new Date()) {
             ),
           ]);
           publishRealtime({ type: "player_eliminated", playerId: battle.defenderId, reason: "all_towns_captured" });
+          await publishPlayerState(battle.defenderId, "player_eliminated", emptyResources(), [], new Date(now.getTime() + 24 * 3600 * 1000));
         }
       }
     } else if (battle.defenderId) {
@@ -1164,6 +1168,8 @@ async function processActiveBattles(now = new Date()) {
         { $set: { towns: defenderTowns, updatedAt: now }, $setOnInsert: { _id: `save:${battle.defenderId}`, playerId: battle.defenderId, resources: DEFAULT_PLAYER_RESOURCES } },
         { upsert: true },
       );
+      const defenderCurrent = defenderPlayer ? normalizeResources(defenderPlayer.resources) : DEFAULT_PLAYER_RESOURCES;
+      await publishPlayerState(battle.defenderId, "battle_resolved", defenderCurrent, defenderTowns);
       const retreatRatio = clampNumber(gameConfig.retreatPercent, 0, 100) / 100;
       let retreatInfantry = 0;
       let retreatCavalry = 0;
@@ -1192,6 +1198,8 @@ async function processActiveBattles(now = new Date()) {
               { $set: { towns: attackerTowns, updatedAt: now }, $setOnInsert: { _id: `save:${battle.attackerId}`, playerId: battle.attackerId, resources: DEFAULT_PLAYER_RESOURCES } },
               { upsert: true },
             );
+            const attackerCurrent = attackerPlayer ? normalizeResources(attackerPlayer.resources) : DEFAULT_PLAYER_RESOURCES;
+            await publishPlayerState(battle.attackerId, "battle_retreat", attackerCurrent, attackerTowns);
           }
         }
       }
@@ -1263,12 +1271,11 @@ async function processActiveBattles(now = new Date()) {
   }
   if (resolved.length > 0) {
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
   }
 }
 
 async function processCompletedClearings(now = new Date()) {
-  const { players, territoryClaims, territoryClearings, alliances } = await collections();
+  const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
   const completed = await territoryClearings.find({ completesAt: { $lte: now } }).toArray();
   for (const clearing of completed) {
     const territory = getStaticTerritory(clearing.territoryId);
@@ -1288,6 +1295,19 @@ async function processCompletedClearings(now = new Date()) {
     );
     await territoryClearings.deleteOne({ _id: clearing._id });
     await players.updateOne({ _id: clearing.playerId }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const resourceState = await collectPlayerResources(clearing.playerId, now);
+    const saveDoc = (await saves.findOne({ playerId: clearing.playerId })) as any;
+    const towns = Array.isArray(saveDoc?.towns) ? removeTownForTerritory(saveDoc.towns, territory) : [];
+    const town = normalizeTownSnapshotForState(defaultTownSnapshotForTerritory(territory, clearing.playerId), clearing.playerId, territory);
+    towns.push(town);
+    await saves.updateOne(
+      { playerId: clearing.playerId },
+      {
+        $set: { towns, updatedAt: now },
+        $setOnInsert: { _id: `save:${clearing.playerId}`, playerId: clearing.playerId, resources: DEFAULT_PLAYER_RESOURCES },
+      },
+      { upsert: true },
+    );
     const [player, alliance] = await Promise.all([
       players.findOne({ _id: clearing.playerId }),
       alliances.findOne({ memberIds: clearing.playerId }),
@@ -1304,10 +1324,10 @@ async function processCompletedClearings(now = new Date()) {
         ownerAllianceEmblem: alliance?.emblem,
       },
     });
+    await publishPlayerState(clearing.playerId, "clearing_completed", resourceState.resources, towns);
   }
   if (completed.length > 0) {
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
   }
 }
 
@@ -1485,8 +1505,8 @@ async function processBotAISimulation(now = new Date()) {
           );
           await bumpWorldCacheVersion();
           publishRealtime({
-            type: "world_state_hint",
-            reason: "server_resync"
+            type: "territory_clearing_started",
+            clearing: toPublicClearing({ territoryId: wildTargetId, playerId: bot._id, startedAt: now, arrivesAt, completesAt }),
           });
         }
       }
@@ -1815,7 +1835,9 @@ export function createApp() {
       );
     }
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+    if (req.user?.id) {
+      await publishPlayerState(req.user.id, "profile_updated", null, null);
+    }
     res.json({ ok: true });
   });
 
@@ -2125,6 +2147,9 @@ export function createApp() {
     }
     const payload: StartClearingResult = { ok: true, clearing: toPublicClearing(clearing) };
     publishRealtime({ type: "territory_clearing_started", clearing: payload.clearing });
+    if (!existing) {
+      await publishPlayerState(req.user!.id, "clearing_started", subtractCost(resourceState.resources, buildCost), null);
+    }
     res.json(payload);
   });
 
@@ -2132,7 +2157,7 @@ export function createApp() {
     const id = Number(req.params.id);
     const territory = Number.isInteger(id) ? getStaticTerritory(id) : undefined;
     if (!territory) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
-    const { players, territoryClaims, territoryClearings, alliances } = await collections();
+    const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
     const existingClaim = await territoryClaims.findOne({ territoryId: territory.id });
     if (existingClaim && existingClaim.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
@@ -2149,6 +2174,19 @@ export function createApp() {
     );
     await territoryClearings.deleteOne({ territoryId: territory.id, playerId: req.user!.id });
     await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const resourceState = await collectPlayerResources(req.user!.id, now);
+    const saveDoc = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(saveDoc?.towns) ? removeTownForTerritory(saveDoc.towns, territory) : [];
+    const town = normalizeTownSnapshotForState(defaultTownSnapshotForTerritory(territory, req.user!.id), req.user!.id, territory);
+    towns.push(town);
+    await saves.updateOne(
+      { playerId: req.user!.id },
+      {
+        $set: { towns, updatedAt: now },
+        $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES },
+      },
+      { upsert: true },
+    );
     const [player, alliance] = await Promise.all([
       players.findOne({ _id: req.user!.id }),
       alliances.findOne({ memberIds: req.user!.id }),
@@ -2167,6 +2205,7 @@ export function createApp() {
       },
     };
     publishRealtime({ type: "territory_claimed", territory: payload.territory });
+    await publishPlayerState(req.user!.id, "territory_claimed", resourceState.resources, towns);
     res.json(payload);
   });
 
@@ -2193,7 +2232,8 @@ export function createApp() {
       players.updateOne({ _id: req.user!.id }, { $set: { resources: nextResources, onboardingState: "settled", lastSeenAt: now } }),
     ]);
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+    publishRealtime({ type: "territory_clearing_cancelled", territoryId: territory.id, playerId: req.user!.id });
+    await publishPlayerState(req.user!.id, "clearing_cancelled", nextResources, null);
     res.json({ ok: true, resources: nextResources, refund });
   });
 
@@ -2312,9 +2352,11 @@ export function createApp() {
     const payload: CreateMarchResult = { 
       ok: true, 
       march: toPublicMarch(order),
+      town: sourceTown,
       newbieShieldUntil: finalShieldUntil ? new Date(finalShieldUntil).toISOString() : null
     };
-    publishRealtime({ type: "march_created", march: payload.march });
+    publishRealtime({ type: "march_created", march: payload.march, sourceTown });
+    await publishPlayerState(req.user!.id, "march_created", null, towns, payload.newbieShieldUntil);
     res.json(payload);
   });
 
@@ -2471,7 +2513,7 @@ export function createApp() {
     ]);
 
     await bumpWorldCacheVersion();
-    publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+    await publishPlayerState(req.user!.id, "troops_recruited", nextResources, hydratedTowns);
 
     res.json({
       ok: true,
