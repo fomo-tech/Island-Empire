@@ -288,41 +288,6 @@ function stableHash(input: string) {
 
 type UnitType = "infantry" | "cavalry" | "artillery";
 
-function recruitmentDelta(unitType: UnitType, config: any, count = 1) {
-  const resources: Record<string, number> = {};
-  const setCost = (key: string, value: number) => {
-    const amount = Math.max(0, Math.floor(Number(value || 0) * count));
-    if (amount > 0) resources[key] = amount;
-  };
-  if (unitType === "infantry") {
-    setCost("gold", config?.infantryCostGold ?? 24);
-    setCost("wood", config?.infantryCostWood ?? 12);
-    setCost("food", config?.infantryCostFood ?? 10);
-    return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.infantryTroopsValue ?? 18) * count)) };
-  }
-  if (unitType === "cavalry") {
-    setCost("gold", config?.cavalryCostGold ?? 48);
-    setCost("wood", config?.cavalryCostWood ?? 24);
-    setCost("stone", config?.cavalryCostStone ?? 18);
-    setCost("food", config?.cavalryCostFood ?? 20);
-    setCost("iron", config?.cavalryCostIron ?? 10);
-    return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.cavalryTroopsValue ?? 34) * count)) };
-  }
-  setCost("gold", config?.artilleryCostGold ?? 72);
-  setCost("stone", config?.artilleryCostStone ?? 36);
-  setCost("iron", config?.artilleryCostIron ?? 24);
-  setCost("sulfur", config?.artilleryCostSulfur ?? 12);
-  return { resources, troopsAdded: Math.max(1, Math.floor(Number(config?.artilleryTroopsValue ?? 58) * count)) };
-}
-
-function subtractResourceBag<T extends Record<string, number>>(bag: T, cost: Record<string, number>) {
-  const next = { ...bag };
-  Object.entries(cost).forEach(([key, amount]) => {
-    next[key as keyof T] = Math.max(0, Math.floor(Number(next[key as keyof T] || 0) - amount)) as T[keyof T];
-  });
-  return next;
-}
-
 function pickStarterTerritoryId(playerId: string, territories: Array<{ id: number; ownerCode: number; isIslet?: boolean }>) {
   const wild = territories.filter((territory) => territory.ownerCode === 0 && !territory.isIslet);
   const pool = wild.length > 0 ? wild : territories.filter((territory) => territory.ownerCode === 0);
@@ -618,9 +583,6 @@ export function GameApp() {
   const serverTownsById = useGameStore((state) => state.townsById);
   const setServerTowns = useGameStore((state) => state.setTowns);
   const upsertServerTown = useGameStore((state) => state.upsertTown);
-  const enqueueGameAction = useGameStore((state) => state.enqueueAction);
-  const confirmGameAction = useGameStore((state) => state.confirmAction);
-  const rollbackGameAction = useGameStore((state) => state.rollbackAction);
   const resetGameStore = useGameStore((state) => state.resetGameStore);
   const [missions, setMissions] = useState<Array<{ text: string; value: number; goal: number }>>([
     { text: "CHIẾM 3 THÀNH PHỐ", value: 0, goal: 3 },
@@ -907,12 +869,6 @@ export function GameApp() {
         lastUpdateRef.current = now;
 
         const snapshots = lastHudSnapshotRef.current;
-        const res = engineState.resources || {};
-        const resourceSnapshot = `${Math.floor(res.gold || 0)}|${Math.floor(res.wood || 0)}|${Math.floor(res.stone || 0)}|${Math.floor(res.food || 0)}|${Math.floor(res.iron || 0)}|${Math.floor(res.gems || 0)}`;
-        if (resourceSnapshot !== snapshots.resources) {
-          snapshots.resources = resourceSnapshot;
-          setResources({ ...engineState.resources });
-        }
         const missionSnapshot = `${(engineState.missions || []).length}|${(engineState.missions || []).map((m: any) => `${m.value}/${m.goal}`).join(",")}`;
         if (missionSnapshot !== snapshots.missions) {
           snapshots.missions = missionSnapshot;
@@ -1473,53 +1429,6 @@ export function GameApp() {
       showGameError("Không xác định được lãnh thổ của thành");
       return;
     }
-    const previousResources = { ...resources };
-    const config = (engineRef.current as any)?.getConfig?.() || {};
-    const optimistic = recruitmentDelta(unitType, config, 1);
-    const actionId = `recruit:${town.id}:${unitType}:${Date.now()}`;
-    const optimisticPayload = {
-      townId: town.id,
-      unitType,
-      count: 1,
-      unitCountAdded: 1,
-      troopsAdded: optimistic.troopsAdded,
-      resources: subtractResourceBag(previousResources, optimistic.resources),
-      message: "ĐANG GỬI LỆNH MỘ BINH LÊN SERVER",
-    };
-
-    enqueueGameAction({
-      id: actionId,
-      type: "recruit",
-      rollback: () => {
-        setResources(previousResources);
-        setSelectedTown((prev: any) => {
-          if (!prev || prev.id !== town.id) return prev;
-          const next = { ...prev };
-          if (unitType === "infantry") next.infantryCount = Math.max(0, (next.infantryCount || 0) - 1);
-          else if (unitType === "cavalry") next.cavalryCount = Math.max(0, (next.cavalryCount || 0) - 1);
-          else next.artilleryCount = Math.max(0, (next.artilleryCount || 0) - 1);
-          next.troops = Math.max(0, (next.troops || 0) - optimistic.troopsAdded);
-          return next;
-        });
-        engineRef.current?.handleAction("rollbackRecruitment", {
-          ...optimisticPayload,
-          resources: previousResources,
-          message: fallbackError,
-        });
-      },
-    });
-    setResources(optimisticPayload.resources as any);
-    setSelectedTown((prev: any) => {
-      if (!prev || prev.id !== town.id) return prev;
-      const next = { ...prev };
-      if (unitType === "infantry") next.infantryCount = (next.infantryCount || 0) + 1;
-      else if (unitType === "cavalry") next.cavalryCount = (next.cavalryCount || 0) + 1;
-      else next.artilleryCount = (next.artilleryCount || 0) + 1;
-      next.troops = (next.troops || 0) + optimistic.troopsAdded;
-      return next;
-    });
-    engineRef.current?.handleAction("applyRecruitment", optimisticPayload);
-
     try {
       const res = await recruitTroops(token, {
         unitType,
@@ -1539,9 +1448,7 @@ export function GameApp() {
           return { ...prev, ...serverTown };
         });
       }
-      confirmGameAction(actionId);
     } catch (err: any) {
-      rollbackGameAction(actionId);
       showGameError(err.message || fallbackError);
     }
   };

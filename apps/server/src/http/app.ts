@@ -50,47 +50,6 @@ const RegisterSchema = LoginSchema.extend({
   starterLandId: z.enum(["north-forest", "west-hills", "east-coast", "south-river"]).default("north-forest"),
 });
 
-const SaveSchema = z.object({
-  resources: z.object({
-    gold: z.number().nonnegative(),
-    wood: z.number().nonnegative(),
-    stone: z.number().nonnegative(),
-    food: z.number().nonnegative().default(0),
-    iron: z.number().nonnegative().default(0),
-    coal: z.number().nonnegative().default(0),
-    sulfur: z.number().nonnegative().default(0),
-    gems: z.number().nonnegative().default(0),
-  }),
-  towns: z.array(
-    z.object({
-      id: z.number().int().positive(),
-      level: z.number().int().positive(),
-      ownerId: z.string().min(1),
-      troops: z.number().int().nonnegative(),
-      population: z.number().int().nonnegative().optional(),
-      x: z.number().optional(),
-      y: z.number().optional(),
-      buildings: z.object({
-        barracks: z.number().int().nonnegative().default(0),
-        lumberCamp: z.number().int().nonnegative().default(0),
-        quarry: z.number().int().nonnegative().default(0),
-        goldMine: z.number().int().nonnegative().default(0),
-        gemCutter: z.number().int().nonnegative().default(0),
-        fort: z.number().int().nonnegative().default(0),
-        siegeWorkshop: z.number().int().nonnegative().default(0),
-        warehouse: z.number().int().nonnegative().default(0),
-      }).optional(),
-      storage: z.record(z.string(), z.number().nonnegative()).optional(),
-    }),
-  ),
-  research: z.object({
-    sword: z.number().int().nonnegative().default(0),
-    stirrups: z.number().int().nonnegative().default(0),
-    cannon: z.number().int().nonnegative().default(0),
-    travel: z.number().int().nonnegative().default(0),
-  }).optional(),
-});
-
 const StartClearingSchema = z.object({
   territoryId: z.number().int().nonnegative(),
 });
@@ -696,6 +655,12 @@ function territoryBuildCost(territory: Pick<TerritoryInfo,
     iron: Math.round(20 + territory.yieldIron * 95 + territory.yieldSulfur * 30),
     gems: Math.round(Math.max(0, territory.yieldGems - 0.28) * 22),
   });
+}
+
+function clearingBuildCostForRefund(clearing: { buildCost?: Partial<ResourceBag>; isStarterClaim?: boolean }, territory: Parameters<typeof territoryBuildCost>[0], ownedCount: number) {
+  if (clearing.buildCost) return clearing.buildCost;
+  if (clearing.isStarterClaim || ownedCount === 0) return emptyResources();
+  return territoryBuildCost(territory);
 }
 
 function canAfford(resources: ResourceBag, cost: Partial<ResourceBag>) {
@@ -2067,8 +2032,8 @@ export function createApp() {
     
     const isStarterClaim = (ownedCount === 0);
 
-    const buildCost = isStarterClaim 
-      ? { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 } 
+    const buildCost = isStarterClaim
+      ? emptyResources()
       : territoryBuildCost(territory);
 
     const resourceState = await collectPlayerResources(req.user!.id, now);
@@ -2080,6 +2045,7 @@ export function createApp() {
         resources: resourceState.resources,
       });
     }
+    const nextResources = existing ? resourceState.resources : subtractCost(resourceState.resources, buildCost);
     const gameSettings = await loadGameConfig();
     const clearingSeconds = calcClearingSeconds(territory.rx, territory.ry, territory.biome, gameSettings.settlerSpeed, gameSettings.gameHourSeconds);
     
@@ -2121,6 +2087,8 @@ export function createApp() {
       _id: `clearing:${territory.id}`,
       territoryId: territory.id,
       playerId: req.user!.id,
+      buildCost,
+      isStarterClaim,
       startedAt: now,
       arrivesAt,
       completesAt,
@@ -2141,14 +2109,14 @@ export function createApp() {
       }
       await players.updateOne(
         { _id: req.user!.id },
-        { $set: { onboardingState: "claiming", lastSeenAt: now, resources: subtractCost(resourceState.resources, buildCost) } },
+        { $set: { onboardingState: "claiming", lastSeenAt: now, resources: nextResources } },
       );
       await bumpWorldCacheVersion();
     }
     const payload: StartClearingResult = { ok: true, clearing: toPublicClearing(clearing) };
     publishRealtime({ type: "territory_clearing_started", clearing: payload.clearing });
     if (!existing) {
-      await publishPlayerState(req.user!.id, "clearing_started", subtractCost(resourceState.resources, buildCost), null);
+      await publishPlayerState(req.user!.id, "clearing_started", nextResources, null);
     }
     res.json(payload);
   });
@@ -2162,9 +2130,15 @@ export function createApp() {
     if (existingClaim && existingClaim.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
     }
+    if (existingClaim && existingClaim.playerId === req.user!.id) {
+      return res.status(409).json({ error: "already_owned", message: "Bạn đã sở hữu lãnh thổ này" });
+    }
     const clearing = await territoryClearings.findOne({ territoryId: territory.id, playerId: req.user!.id });
     const now = new Date();
-    if (clearing && clearing.completesAt.getTime() > now.getTime()) {
+    if (!clearing) {
+      return res.status(404).json({ error: "no_active_clearing", message: "Bạn cần bắt đầu xây thành và trả chi phí trước khi hoàn tất" });
+    }
+    if (clearing.completesAt.getTime() > now.getTime()) {
       return res.status(409).json({ error: "clearing_not_ready", message: "Xây thành chưa hoàn tất", readyAt: clearing.completesAt.toISOString() });
     }
     await territoryClaims.updateOne(
@@ -2222,7 +2196,7 @@ export function createApp() {
     const resourceState = await collectPlayerResources(req.user!.id, now);
     const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
     const capacity = resourceCapacityForOwnedTerritories(ownedCount);
-    const refund = territoryBuildCost(territory);
+    const refund = clearingBuildCostForRefund(clearing, territory, ownedCount);
     const nextResources = { ...resourceState.resources };
     RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(capacity[key], Math.floor(nextResources[key] + Math.floor(refund[key] || 0)));
@@ -2538,10 +2512,21 @@ export function createApp() {
     if (!staticTerritory) {
       return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
     }
-    const { players, territoryClaims, territoryClearings, alliances } = await collections();
+    const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
     const existing = await territoryClaims.findOne({ territoryId: id });
     if (existing && existing.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
+    }
+    if (existing && existing.playerId === req.user!.id) {
+      return res.status(409).json({ error: "already_owned", message: "Bạn đã sở hữu lãnh thổ này" });
+    }
+    const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
+    if (ownedCount > 0) {
+      return res.status(410).json({
+        error: "clearing_required",
+        message: "Xây thành mới phải qua lệnh khai hoang và tốn tài nguyên",
+        cost: territoryBuildCost(staticTerritory),
+      });
     }
     const now = new Date();
     await territoryClaims.updateOne(
@@ -2551,6 +2536,19 @@ export function createApp() {
     );
     await territoryClearings.deleteMany({ territoryId: id });
     await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const resourceState = await collectPlayerResources(req.user!.id, now);
+    const saveDoc = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(saveDoc?.towns) ? removeTownForTerritory(saveDoc.towns, staticTerritory) : [];
+    const town = normalizeTownSnapshotForState(defaultTownSnapshotForTerritory(staticTerritory, req.user!.id), req.user!.id, staticTerritory);
+    towns.push(town);
+    await saves.updateOne(
+      { playerId: req.user!.id },
+      {
+        $set: { towns, updatedAt: now },
+        $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES },
+      },
+      { upsert: true },
+    );
     const [player, alliance] = await Promise.all([
       players.findOne({ _id: req.user!.id }),
       alliances.findOne({ memberIds: req.user!.id }),
@@ -2569,6 +2567,7 @@ export function createApp() {
       },
     };
     publishRealtime({ type: "territory_claimed", territory: payload.territory });
+    await publishPlayerState(req.user!.id, "starter_territory_claimed", resourceState.resources, towns);
     res.json(payload);
   });
 
@@ -2586,16 +2585,10 @@ export function createApp() {
   });
 
   app.put("/api/save/me", requireAuth, async (req, res) => {
-    const parsed = SaveSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "Invalid save payload" });
-    const { saves } = await collections();
-    const now = new Date();
-    await saves.updateOne(
-      { playerId: req.user!.id },
-      { $set: { ...parsed.data, updatedAt: now }, $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id } },
-      { upsert: true },
-    );
-    res.json({ ok: true, updatedAt: now.toISOString() });
+    return res.status(410).json({
+      error: "server_authoritative_state",
+      message: "Save client đã tắt. Tài nguyên, thành trì và quân đội phải cập nhật qua API gameplay trên server.",
+    });
   });
 
   const ConfigSchema = z.object({

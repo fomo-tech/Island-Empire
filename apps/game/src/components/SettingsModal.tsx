@@ -255,6 +255,27 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                   </button>
                 </div>
 
+                {/* Hide Territory Assets / Performance mode toggle */}
+                <div className="settings-control-row">
+                  <div className="settings-label-block">
+                    <span className="settings-label">Ẩn Tài Nguyên & Assets Lãnh Thổ (Phím 'H')</span>
+                    <span className="settings-subtext">Ẩn cây cối, núi, quặng, thú & tài nguyên trên đất để đo hiệu suất FPS</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`settings-toggle-btn ${localStorage.getItem("island_empire_hide_assets") === "true" ? "active" : "muted"}`}
+                    onClick={() => {
+                      if ((window as any).toggleHideTerritoryAssets) {
+                        (window as any).toggleHideTerritoryAssets();
+                        // force re-render settings modal
+                        setFogOfWarEffect((prev) => prev);
+                      }
+                    }}
+                  >
+                    {localStorage.getItem("island_empire_hide_assets") === "true" ? "Đang Ẩn (Tối Ưu)" : "Hiển Thị"}
+                  </button>
+                </div>
+
                 {/* Screen War Alerts */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">

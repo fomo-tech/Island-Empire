@@ -42,6 +42,8 @@ export type TerritoryClearingDocument = {
   _id: string;
   territoryId: number;
   playerId: string;
+  buildCost?: Partial<ResourceBag>;
+  isStarterClaim?: boolean;
   startedAt: Date;
   arrivesAt?: Date;
   completesAt: Date;

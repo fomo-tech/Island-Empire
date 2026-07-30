@@ -1,13 +1,11 @@
 import type {
   AllianceActionResult,
   AllianceStateResult,
-  ClaimTerritoryResult,
   CompleteClearingResult,
   CreateMarchResult,
   GameConfig,
   GameStateResult,
   ServerStatus,
-  SaveSnapshot,
   StartClearingResult,
   WorldTerritoriesResult,
 } from "@island/shared";
@@ -82,49 +80,11 @@ export function loginGuest(name?: string): Promise<AuthResponse> {
   });
 }
 
-export function getSave(token: string): Promise<SaveSnapshot | null> {
-  return request<SaveSnapshot | null>("/api/save/me", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-export function putSave(token: string, data: any): Promise<{ ok: boolean; updatedAt: string }> {
-  return request<{ ok: boolean; updatedAt: string }>("/api/save/me", {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-}
-
 export function getWorldTerritories(token: string): Promise<WorldTerritoriesResult> {
   return request<WorldTerritoriesResult>("/api/world/territories", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-  });
-}
-
-export function claimTerritory(token: string, territoryId: number): Promise<ClaimTerritoryResult> {
-  return request<ClaimTerritoryResult>(`/api/world/territories/${territoryId}/claim`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({}),
-  });
-}
-
-export function conquerTerritory(token: string, territoryId: number): Promise<ClaimTerritoryResult> {
-  return request<ClaimTerritoryResult>(`/api/world/territories/${territoryId}/conquer`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({}),
   });
 }
 
