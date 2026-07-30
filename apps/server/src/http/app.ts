@@ -36,6 +36,14 @@ import { requireAdmin, requireAuth, signToken } from "../security/auth.js";
 import { publishRealtime, realtimeStats } from "../realtime/socket.js";
 import { bumpWorldCacheVersion, cacheGetJson, cacheSetJson, getWorldCacheVersion } from "../cache.js";
 
+const MAX_AID_RESOURCE_AMOUNT = 2_000_000;
+const MAX_RECRUIT_BATCH = 25;
+const MAX_MARCH_UNIT_COUNT = 250_000;
+const MAX_ACTIVE_MARCHES_PER_PLAYER = 6;
+const ALLIANCE_CREATE_GEMS_COST = 100;
+const ALLIANCE_MAX_MEMBERS = 20;
+const ALLIANCE_AID_MAX_TROOPS = 500;
+
 const LoginSchema = z.object({
   username: z.string().min(3).max(40),
   password: z.string().min(8).max(200),
@@ -57,10 +65,10 @@ const StartClearingSchema = z.object({
 const CreateMarchSchema = z.object({
   fromTerritoryId: z.number().int().nonnegative(),
   toTerritoryId: z.number().int().nonnegative(),
-  troops: z.number().int().positive(),
-  infantry: z.number().int().nonnegative().default(0),
-  cavalry: z.number().int().nonnegative().default(0),
-  artillery: z.number().int().nonnegative().default(0),
+  troops: z.number().int().positive().max(MAX_MARCH_UNIT_COUNT),
+  infantry: z.number().int().nonnegative().max(MAX_MARCH_UNIT_COUNT).default(0),
+  cavalry: z.number().int().nonnegative().max(MAX_MARCH_UNIT_COUNT).default(0),
+  artillery: z.number().int().nonnegative().max(MAX_MARCH_UNIT_COUNT).default(0),
   battleSide: z.enum(["attacker", "defender"]).optional(),
   kind: z.enum(["attack", "reinforce", "move"]).default("attack"),
 });
@@ -69,7 +77,7 @@ const RecruitTroopsSchema = z.object({
   territoryId: z.number().int().nonnegative().optional(),
   townId: z.number().int().nonnegative().optional(),
   unitType: z.enum(["infantry", "cavalry", "artillery"]),
-  count: z.number().int().positive().default(1),
+  count: z.number().int().positive().max(MAX_RECRUIT_BATCH).default(1),
 });
 
 const CreateAllianceSchema = z.object({
@@ -85,16 +93,16 @@ const JoinAllianceSchema = z.object({
 const SendAllianceAidSchema = z.object({
   toPlayerId: z.string().min(3).max(120),
   resources: z.object({
-    gold: z.number().int().nonnegative().default(0),
-    wood: z.number().int().nonnegative().default(0),
-    stone: z.number().int().nonnegative().default(0),
-    food: z.number().int().nonnegative().default(0),
-    iron: z.number().int().nonnegative().default(0),
-    coal: z.number().int().nonnegative().default(0),
-    sulfur: z.number().int().nonnegative().default(0),
-    gems: z.number().int().nonnegative().default(0),
+    gold: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    wood: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    stone: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    food: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    iron: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    coal: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    sulfur: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
+    gems: z.number().int().nonnegative().max(MAX_AID_RESOURCE_AMOUNT).default(0),
   }).default({}),
-  troops: z.number().int().nonnegative().default(0),
+  troops: z.number().int().nonnegative().max(ALLIANCE_AID_MAX_TROOPS).default(0),
 });
 
 const RESOURCE_KEYS: ResourceKey[] = ["gold", "wood", "stone", "food", "iron", "coal", "sulfur", "gems"];
@@ -111,9 +119,38 @@ const DEFAULT_PLAYER_RESOURCES: ResourceBag = {
 const BASE_RESOURCE_CAPACITY = 3200;
 const TERRITORY_RESOURCE_CAPACITY = 850;
 const MAX_OFFLINE_RESOURCE_SECONDS = 24 * 60 * 60;
-const ALLIANCE_CREATE_GEMS_COST = 100;
-const ALLIANCE_MAX_MEMBERS = 20;
-const ALLIANCE_AID_MAX_TROOPS = 500;
+
+type ActionBucket = { count: number; resetAt: number };
+const actionBuckets = new Map<string, ActionBucket>();
+
+function consumeActionLimit(playerId: string, action: string, limit: number, windowMs: number) {
+  const now = Date.now();
+  if (actionBuckets.size > 20_000) {
+    actionBuckets.forEach((bucket, key) => {
+      if (bucket.resetAt <= now) actionBuckets.delete(key);
+    });
+  }
+  const key = `${playerId}:${action}`;
+  const existing = actionBuckets.get(key);
+  if (!existing || existing.resetAt <= now) {
+    actionBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, retryAfterMs: 0 };
+  }
+  if (existing.count >= limit) {
+    return { ok: false, retryAfterMs: Math.max(250, existing.resetAt - now) };
+  }
+  existing.count += 1;
+  return { ok: true, retryAfterMs: 0 };
+}
+
+function enforceActionLimit(req: any, res: any, action: string, limit: number, windowMs: number) {
+  const playerId = req.user?.id || req.ip || "anonymous";
+  const result = consumeActionLimit(playerId, action, limit, windowMs);
+  if (result.ok) return true;
+  res.setHeader("Retry-After", String(Math.ceil(result.retryAfterMs / 1000)));
+  res.status(429).json({ error: "rate_limited", message: "Bạn thao tác quá nhanh, vui lòng chờ một chút" });
+  return false;
+}
 
 function emptyResources(): ResourceBag {
   return { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
@@ -479,14 +516,20 @@ function toPublicClearing(clearing: { territoryId: number; playerId: string; sta
   };
 }
 
+function normalizeWorldTerritoryId(value: unknown) {
+  const id = Number(value);
+  if (!Number.isInteger(id)) return id;
+  return id >= 9000 ? id - 9000 : id;
+}
+
 function toPublicMarch(order: any) {
   const startedAtDate = order.startedAt instanceof Date ? order.startedAt : new Date(order.startedAt);
   const arrivesAtDate = order.arrivesAt instanceof Date ? order.arrivesAt : new Date(order.arrivesAt);
   return {
     id: order._id || order.id,
     ownerId: order.ownerId,
-    fromTerritoryId: order.fromTerritoryId,
-    toTerritoryId: order.toTerritoryId,
+    fromTerritoryId: normalizeWorldTerritoryId(order.fromTerritoryId),
+    toTerritoryId: normalizeWorldTerritoryId(order.toTerritoryId),
     troops: order.troops,
     infantry: order.infantry ?? 0,
     cavalry: order.cavalry ?? 0,
@@ -761,6 +804,7 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
     saves.findOne({ playerId }),
   ]);
   return {
+    playerId,
     territories: world.territories,
     clearings: clearings.map(toPublicClearing),
     marches: marches.map(toPublicMarch),
@@ -820,14 +864,21 @@ const DEFAULT_CONFIG: GameConfig = {
   gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
 };
 
+let cachedGameConfig: GameConfig | null = null;
+let cachedGameConfigExpiresAt = 0;
+
 function normalizeGameConfig(doc?: Partial<GameConfig> | null): GameConfig {
   return { ...DEFAULT_CONFIG, ...(doc || {}) };
 }
 
 async function loadGameConfig(): Promise<GameConfig> {
+  const now = Date.now();
+  if (cachedGameConfig && now < cachedGameConfigExpiresAt) return cachedGameConfig;
   const { configs } = await collections();
   const doc = await configs.findOne({ _id: "game_settings" });
-  return normalizeGameConfig(doc || null);
+  cachedGameConfig = normalizeGameConfig(doc || null);
+  cachedGameConfigExpiresAt = now + 5000;
+  return cachedGameConfig;
 }
 
 async function processArrivedMarches(now = new Date()) {
@@ -1376,16 +1427,37 @@ async function processBotAISimulation(now = new Date()) {
 
     const ALL_LANDS = Array.from({ length: 60 }, (_, idx) => getStaticTerritory(idx)).filter((t): t is NonNullable<typeof t> => Boolean(t));
     const calcTroopVal = (inf: number, cav: number, art: number) => inf * 18 + cav * 34 + art * 58;
+    const botIds = bots.map((bot) => bot._id);
+    const [allClaims, botSaves, activeBotClearings, botMarches] = await Promise.all([
+      territoryClaims.find({}).toArray(),
+      saves.find({ playerId: { $in: botIds } }).toArray(),
+      territoryClearings.find({ playerId: { $in: botIds } }).toArray(),
+      marchOrders.find({ ownerId: { $in: botIds } }, { projection: { ownerId: 1 } }).toArray(),
+    ]);
+    const claimsByPlayer = new Map<string, typeof allClaims>();
+    const allClaimedIds = new Set<number>();
+    allClaims.forEach((claim: any) => {
+      allClaimedIds.add(claim.territoryId);
+      const list = claimsByPlayer.get(claim.playerId) || [];
+      list.push(claim);
+      claimsByPlayer.set(claim.playerId, list);
+    });
+    const saveByPlayer = new Map(botSaves.map((save: any) => [save.playerId, save]));
+    const clearingByPlayer = new Map(activeBotClearings.map((clearing: any) => [clearing.playerId, clearing]));
+    const marchCountByPlayer = new Map<string, number>();
+    botMarches.forEach((march: any) => {
+      marchCountByPlayer.set(march.ownerId, (marchCountByPlayer.get(march.ownerId) || 0) + 1);
+    });
+    let worldChanged = false;
 
     for (const bot of bots) {
-      const claims = await territoryClaims.find({ playerId: bot._id }).toArray();
+      const claims = claimsByPlayer.get(bot._id) || [];
       const botTerritoryIds = new Set(claims.map((c: any) => c.territoryId));
 
-      const botSave = (await saves.findOne({ playerId: bot._id })) as any;
+      const botSave = saveByPlayer.get(bot._id) as any;
       let botTowns = Array.isArray(botSave?.towns) ? botSave.towns : [];
 
       if (claims.length === 0) {
-        const allClaimedIds = new Set((await territoryClaims.find({}).toArray()).map((c: any) => c.territoryId));
         const unclaimed = ALL_LANDS.filter(l => !allClaimedIds.has(l.id));
         if (unclaimed.length > 0) {
           const pick = unclaimed[Math.floor(Math.random() * unclaimed.length)];
@@ -1396,7 +1468,12 @@ async function processBotAISimulation(now = new Date()) {
             { $set: { towns: [starterTown], updatedAt: now }, $setOnInsert: { _id: `save:${bot._id}`, playerId: bot._id, resources: DEFAULT_PLAYER_RESOURCES } },
             { upsert: true }
           );
-          await bumpWorldCacheVersion();
+          allClaimedIds.add(pick.id);
+          const insertedClaim = { _id: `territory:${pick.id}`, territoryId: pick.id, playerId: bot._id, claimedAt: now } as any;
+          allClaims.push(insertedClaim);
+          claimsByPlayer.set(bot._id, [insertedClaim]);
+          saveByPlayer.set(bot._id, { ...(botSave || {}), playerId: bot._id, towns: [starterTown] });
+          worldChanged = true;
           publishRealtime({
             type: "territory_claimed",
             territory: {
@@ -1433,9 +1510,8 @@ async function processBotAISimulation(now = new Date()) {
       }
 
       // 2. Bot Decision A: Expand / Clear wild territory
-      const activeClearing = await territoryClearings.findOne({ playerId: bot._id });
+      const activeClearing = clearingByPlayer.get(bot._id);
       if (!activeClearing && Math.random() < 0.40) {
-        const allClaimedIds = new Set((await territoryClaims.find({}).toArray()).map((c: any) => c.territoryId));
         let wildTargetId = -1;
 
         for (const tid of botTerritoryIds) {
@@ -1468,7 +1544,8 @@ async function processBotAISimulation(now = new Date()) {
             },
             { upsert: true }
           );
-          await bumpWorldCacheVersion();
+          clearingByPlayer.set(bot._id, { territoryId: wildTargetId, playerId: bot._id, startedAt: now, arrivesAt, completesAt });
+          worldChanged = true;
           publishRealtime({
             type: "territory_clearing_started",
             clearing: toPublicClearing({ territoryId: wildTargetId, playerId: bot._id, startedAt: now, arrivesAt, completesAt }),
@@ -1477,9 +1554,9 @@ async function processBotAISimulation(now = new Date()) {
       }
 
       // 3. Bot Decision B: Launch March Attack
-      const activeMarches = await marchOrders.countDocuments({ ownerId: bot._id });
+      const activeMarches = marchCountByPlayer.get(bot._id) || 0;
       if (activeMarches < 2 && Math.random() < 0.30 && botTowns.length > 0) {
-        const enemyClaims = await territoryClaims.find({ playerId: { $ne: bot._id } }).toArray();
+        const enemyClaims = allClaims.filter((claim: any) => claim.playerId !== bot._id);
         if (enemyClaims.length > 0) {
           const targetClaim = enemyClaims[Math.floor(Math.random() * enemyClaims.length)];
           const sourceTown = botTowns[Math.floor(Math.random() * botTowns.length)];
@@ -1503,7 +1580,7 @@ async function processBotAISimulation(now = new Date()) {
               id: marchId,
               ownerId: bot._id,
               ownerName: bot.name,
-              fromTerritoryId: Number(sourceTown.id ?? sourceTown.regionId ?? 0),
+      fromTerritoryId: normalizeWorldTerritoryId(sourceTown.regionId ?? sourceTown.id ?? 0),
               toTerritoryId: Number(targetClaim.territoryId),
               isAttack: true,
               kind: "attack" as const,
@@ -1516,10 +1593,14 @@ async function processBotAISimulation(now = new Date()) {
               arrivesAt: new Date(now.getTime() + marchDuration).toISOString(),
             };
             await marchOrders.insertOne(marchDoc as any);
+            marchCountByPlayer.set(bot._id, activeMarches + 1);
             publishRealtime({ type: "march_created", march: marchDoc });
           }
         }
       }
+    }
+    if (worldChanged) {
+      await bumpWorldCacheVersion();
     }
   } catch (err) {
     console.error("Bot AI simulation error:", err);
@@ -1658,7 +1739,11 @@ export function createApp() {
       credentials: false,
     }),
   );
-  app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
+  app.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: true, legacyHeaders: false }));
+  app.use("/api/auth", rateLimit({ windowMs: 60_000, limit: 18, standardHeaders: true, legacyHeaders: false }));
+  app.use("/api/game", rateLimit({ windowMs: 60_000, limit: 90, standardHeaders: true, legacyHeaders: false }));
+  app.use("/api/alliance", rateLimit({ windowMs: 60_000, limit: 70, standardHeaders: true, legacyHeaders: false }));
+  app.use("/api/admin", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false }));
 
   app.get("/api/health", (_req, res) => {
     const payload: ServerStatus = { ok: true, service: "island-empire-api", time: new Date().toISOString() };
@@ -1738,7 +1823,7 @@ export function createApp() {
   });
 
   app.post("/api/auth/player/guest", async (req, res) => {
-    const name = z.string().min(2).max(24).catch(`PLAYER-${Math.floor(Math.random() * 9999)}`).parse(req.body?.name);
+    const name = z.string().trim().min(2).max(24).regex(/^[\p{L}\p{N} _-]+$/u).catch(`PLAYER-${Math.floor(Math.random() * 9999)}`).parse(req.body?.name);
     const id = `guest:${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
     const now = new Date();
@@ -1778,11 +1863,18 @@ export function createApp() {
   });
 
   app.post("/api/player/profile", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "profile:update", 12, 60_000)) return;
     const parsed = z.object({
-      flagColor: z.string().min(3).max(20).optional(),
-      emblem: z.string().min(2).max(40).optional(),
+      flagColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      // Keep this list aligned with the kingdom-creation modal. The default
+      // newbie emblem is `crown`; rejecting it prevented the clearing request
+      // from ever being sent.
+      emblem: z.enum([
+        "crown", "swords", "shield", "eagle", "lion", "dragon",
+        "tree", "mountain", "anchor", "star", "tower", "flame", "feather", "spear",
+      ]).optional(),
       cityName: z.string().max(60).optional(),
-    }).passthrough().safeParse(req.body);
+    }).strict().safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "Màu cờ hoặc biểu tượng không hợp lệ" });
     }
@@ -1813,10 +1905,7 @@ export function createApp() {
   });
 
   app.get("/api/game/state", requireAuth, async (_req, res) => {
-    setTimeout(() => {
-      processWorldTick(new Date(), false)
-        .catch((err) => console.error("Deferred state tick error:", err));
-    }, 0).unref?.();
+    await processWorldTick(new Date(), false);
     const payload = await buildGameStatePayload(_req.user!.id);
     res.setHeader("X-World-Cache", "partial");
     res.json(payload);
@@ -1827,6 +1916,7 @@ export function createApp() {
   });
 
   app.post("/api/alliance/create", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "alliance:create", 4, 60_000)) return;
     const parsed = CreateAllianceSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "Tên liên minh hoặc TAG không hợp lệ" });
@@ -1871,6 +1961,7 @@ export function createApp() {
   });
 
   app.post("/api/alliance/join", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "alliance:join", 10, 60_000)) return;
     const parsed = JoinAllianceSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "ID liên minh không hợp lệ" });
@@ -1898,6 +1989,7 @@ export function createApp() {
   });
 
   app.post("/api/alliance/leave", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "alliance:leave", 8, 60_000)) return;
     const { alliances } = await collections();
     const alliance = await alliances.findOne({ memberIds: req.user!.id });
     if (!alliance) {
@@ -1923,6 +2015,7 @@ export function createApp() {
   });
 
   app.post("/api/alliance/aid", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "alliance:aid", 20, 60_000)) return;
     const parsed = SendAllianceAidSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "Dữ liệu viện trợ không hợp lệ" });
@@ -1975,6 +2068,7 @@ export function createApp() {
   });
 
   app.post("/api/alliance/aid/:id/claim", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "alliance:aid:claim", 30, 60_000)) return;
     const { players, allianceAids, territoryClaims } = await collections();
     const aid = await allianceAids.findOne({ _id: req.params.id, toPlayerId: req.user!.id, status: "pending" });
     if (!aid) {
@@ -2003,6 +2097,7 @@ export function createApp() {
   });
 
   app.post("/api/game/clearings", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "game:clearing:start", 20, 60_000)) return;
     const parsed = StartClearingSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "ID lãnh thổ không hợp lệ" });
     const territory = getStaticTerritory(parsed.data.territoryId);
@@ -2122,6 +2217,7 @@ export function createApp() {
   });
 
   app.post("/api/game/clearings/:id/complete", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "game:clearing:complete", 30, 60_000)) return;
     const id = Number(req.params.id);
     const territory = Number.isInteger(id) ? getStaticTerritory(id) : undefined;
     if (!territory) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
@@ -2184,6 +2280,7 @@ export function createApp() {
   });
 
   app.delete("/api/game/clearings/:id", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "game:clearing:cancel", 20, 60_000)) return;
     const id = Number(req.params.id);
     const territory = Number.isInteger(id) ? getStaticTerritory(id) : undefined;
     if (!territory) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
@@ -2212,6 +2309,7 @@ export function createApp() {
   });
 
   app.post("/api/game/marches", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "game:march", 35, 60_000)) return;
     const parsed = CreateMarchSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "Lệnh hành quân không hợp lệ" });
     const from = getStaticTerritory(parsed.data.fromTerritoryId);
@@ -2221,6 +2319,13 @@ export function createApp() {
     const sourceClaim = await territoryClaims.findOne({ territoryId: from.id });
     if (!sourceClaim || sourceClaim.playerId !== req.user!.id) {
       return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu lãnh thổ xuất phát" });
+    }
+    const activeMarchCount = await marchOrders.countDocuments({ ownerId: req.user!.id });
+    if (activeMarchCount >= MAX_ACTIVE_MARCHES_PER_PLAYER) {
+      return res.status(409).json({
+        error: "active_march_limit",
+        message: `Bạn chỉ được có tối đa ${MAX_ACTIVE_MARCHES_PER_PLAYER} đạo quân đang hành quân cùng lúc`,
+      });
     }
     const now = new Date();
 
@@ -2322,6 +2427,16 @@ export function createApp() {
         { upsert: true },
       ),
     ]);
+    // Do not acknowledge a march until the durable order is visible again.
+    // This catches partial writes and prevents the client from showing a
+    // locally-created march that cannot survive a reload.
+    const persistedOrder = await marchOrders.findOne({ _id: order._id });
+    if (!persistedOrder) {
+      return res.status(503).json({
+        error: "march_not_persisted",
+        message: "Máy chủ chưa lưu được lệnh hành quân, vui lòng thử lại",
+      });
+    }
     await bumpWorldCacheVersion();
     const payload: CreateMarchResult = { 
       ok: true, 
@@ -2335,6 +2450,7 @@ export function createApp() {
   });
 
   app.post("/api/game/recruit", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "game:recruit", 45, 60_000)) return;
     const parsed = RecruitTroopsSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "bad_request", message: "Loại binh sĩ hoặc số lượng không hợp lệ" });
@@ -2651,6 +2767,8 @@ export function createApp() {
       { $set: { ...parsed.data, updatedAt: now } },
       { upsert: true },
     );
+    cachedGameConfig = normalizeGameConfig(parsed.data);
+    cachedGameConfigExpiresAt = Date.now() + 5000;
     res.json({ ok: true, config: parsed.data });
   });
 

@@ -153,8 +153,12 @@ export async function ensureIndexes() {
     territoryClearings.createIndex({ completesAt: 1 }),
     marchOrders.createIndex({ ownerId: 1 }),
     marchOrders.createIndex({ arrivesAt: 1 }),
+    marchOrders.createIndex({ fromTerritoryId: 1 }),
+    marchOrders.createIndex({ toTerritoryId: 1 }),
     activeBattles.createIndex({ regionId: 1 }),
     activeBattles.createIndex({ resolvesAt: 1 }),
+    activeBattles.createIndex({ attackerId: 1 }),
+    activeBattles.createIndex({ defenderId: 1 }),
     alliances.createIndex({ tag: 1 }, { unique: true }),
     alliances.createIndex({ memberIds: 1 }),
     alliances.createIndex({ leaderId: 1 }),
@@ -165,4 +169,16 @@ export async function ensureIndexes() {
     battleReports.createIndex({ defenderId: 1 }),
     battleReports.createIndex({ createdAt: -1 }),
   ]);
+}
+
+// Repair old bot orders that stored a town id (9000 + territory id) as the
+// march origin. Territory ids are the only ids consumed by the map renderer.
+export async function repairLegacyMarchTerritoryIds() {
+  const { marchOrders } = await collections();
+  const legacy = await marchOrders.find({ fromTerritoryId: { $gte: 9000 } }).toArray();
+  if (legacy.length === 0) return;
+  await Promise.all(legacy.map((march: any) => marchOrders.updateOne(
+    { _id: march._id },
+    { $set: { fromTerritoryId: Number(march.fromTerritoryId) - 9000 } },
+  )));
 }

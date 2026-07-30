@@ -140,6 +140,8 @@ export function createMarch(
 ): Promise<CreateMarchResult> {
   return request<CreateMarchResult>("/api/game/marches", {
     method: "POST",
+    // Keep the command alive when the player reloads immediately after clicking.
+    keepalive: true,
     headers: {
       Authorization: `Bearer ${token}`,
     },

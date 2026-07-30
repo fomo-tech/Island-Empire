@@ -521,6 +521,7 @@ export function GameApp() {
   const gameStateRefreshInFlightRef = useRef(false);
   const gameStateRefreshQueuedRef = useRef(false);
   const lastGameStateRefreshAtRef = useRef(0);
+  const socketHelloCountRef = useRef(0); // counts hello events; >1 = reconnect
   const lastHudSnapshotRef = useRef({
     resources: "",
     missions: "",
@@ -812,6 +813,7 @@ export function GameApp() {
             startClearing(token, engineToServerTerritoryId(regionId))
               .then((result) => {
                 engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+                refreshGameStateWithRetry("pending-clearing-started", 2, 700);
                 engineRef.current?.handleAction("consumeBackendClearingStarts");
               })
               .catch((err) => {
@@ -944,21 +946,29 @@ export function GameApp() {
       engineRef.current?.handleAction?.("prepareBackendWorld");
       setLoadingText("ĐANG TẢI LÃNH THỔ, TÀI NGUYÊN VÀ HÀNH QUÂN");
       setTargetProgress(85);
+      // Wait for the authoritative state before showing the map. Entering
+      // after 4s used to expose a reset client state while the server fetch
+      // was still pending, which looked like marches had been lost on reload.
       loadingGuard = window.setTimeout(() => {
-        enterGame("SERVER ĐANG ĐỒNG BỘ CHẬM, VÀO GAME TRƯỚC");
-      }, 4000);
+        enterGame("SERVER ĐANG ĐỒNG BỘ CHẬM, ĐANG TIẾP TỤC TẢI DỮ LIỆU");
+      }, 12000);
       const fetchWorldData = Promise.race([
         getGameState(token),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Server timeout 5s")), 5000))
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Server timeout 15s")), 15000))
       ]);
 
       fetchWorldData
         .then((world) => {
+          const effectivePlayerId = (world.playerId && world.playerId !== playerId) ? world.playerId : playerId;
+          if (world.playerId && world.playerId !== playerId) {
+            localStorage.setItem(PLAYER_ID_KEY, world.playerId);
+            setPlayerId(world.playerId);
+          }
           const territories = world.territories.map((territory) => ({
             id: serverToEngineTerritoryId(territory.id),
-            ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
+            ownerCode: territory.ownerId === null ? 0 : territory.ownerId === effectivePlayerId ? 1 : 2,
             ownerId: territory.ownerId,
-            ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
+            ownerName: territory.ownerId === null ? "" : territory.ownerId === effectivePlayerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
             ownerFlagColor: territory.ownerFlagColor,
             ownerEmblem: territory.ownerEmblem,
             ownerAllianceTag: territory.ownerAllianceTag,
@@ -974,6 +984,28 @@ export function GameApp() {
             newbieShieldUntil: world.newbieShieldUntil,
             playerProfile: world.playerProfile,
           });
+          // A second pass is intentional: town/ownership hydration can create
+          // the endpoints required to render a persisted march after reload.
+          window.setTimeout(() => {
+            if (!cancelled && world.marches?.length) {
+              world.marches.forEach((march: any) => {
+                try {
+                  engineRef.current?.handleAction("applyBackendMarch", { march });
+                } catch (e) {
+                  console.warn("Failed to re-apply march on second pass:", e);
+                }
+              });
+              const ownMarch = world.marches.find((march: any) => march.ownerId === playerId);
+              if (ownMarch) {
+                engineRef.current?.handleAction("focusBackendMarch", { marchId: ownMarch.id });
+              } else {
+                const ownClearing = world.clearings.find((clearing: any) => clearing.playerId === playerId);
+                if (ownClearing) {
+                  engineRef.current?.handleAction("focusBackendClearing", { territoryId: ownClearing.territoryId });
+                }
+              }
+            }
+          }, 180);
           setResources({ ...world.resources });
           setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
           const offlineSummary = summarizeResourceGain(world.offlineGain, world.offlineSeconds);
@@ -1033,6 +1065,7 @@ export function GameApp() {
             setPlayerId(null);
           }
           enterGame("ĐÃ VÀO GAME CHẾ ĐỘ TRỰC TIẾP");
+          refreshGameStateWithRetry("initial-load-retry", 4, 1200);
         });
     } else {
       setLoadingText("ĐANG VÀO CHẾ ĐỘ KHÁCH");
@@ -1057,6 +1090,14 @@ export function GameApp() {
       }
       if (event.type === "hello") {
         setSocketOnline(true);
+        socketHelloCountRef.current += 1;
+        if (socketHelloCountRef.current > 1) {
+          // Đây là lần kết nối LẠI (sau server reload / mất mạng)
+          // → Fetch toàn bộ game state để phục hồi:
+          //   quân đang hành quân, xây thành đang chạy, trận đánh v.v.
+          // Delay nhỏ để WebSocket handshake hoàn tất trước.
+          setTimeout(() => refreshGameStateFromServer("socket-reconnect", true), 500);
+        }
       }
       if (event.type === "player_state_updated") {
         applyRealtimePlayerState(event);
@@ -1455,6 +1496,14 @@ export function GameApp() {
 
   function applyBackendWorldState(world: any, resetBattles = false) {
     if (!playerId) return;
+    if (world.playerId && world.playerId !== playerId) {
+      localStorage.setItem(PLAYER_ID_KEY, world.playerId);
+      setPlayerId(world.playerId);
+      return;
+    }
+    // Always hydrate battles through the same client shape used by the
+    // initial load. Raw server battles do not have the render timing fields.
+    const battles = mapServerBattlesForClient(world.battles || []);
     const territories = world.territories.map((territory: any) => ({
       id: serverToEngineTerritoryId(territory.id),
       ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
@@ -1469,18 +1518,25 @@ export function GameApp() {
       territories,
       clearings: world.clearings,
       marches: world.marches,
-      battles: world.battles,
+      battles,
       towns: world.towns,
       resources: world.resources,
       newbieShieldUntil: world.newbieShieldUntil,
       playerProfile: world.playerProfile,
     });
+    if (Array.isArray(world.marches) && world.marches.length > 0) {
+      window.setTimeout(() => {
+        world.marches.forEach((march: any) => {
+          engineRef.current?.handleAction("applyBackendMarch", { march });
+        });
+      }, 180);
+    }
     setResources({ ...world.resources });
     setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
     setWorldActivity((prev) => ({
       marches: world.marches,
       clearings: world.clearings,
-      battles: world.battles ? mapServerBattlesForClient(world.battles) : (resetBattles ? [] : prev.battles),
+      battles: world.battles ? battles : (resetBattles ? [] : prev.battles),
       territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
     }));
     setServerHud(summarizeBackendHud(world, playerId, world.resources));
@@ -1507,23 +1563,45 @@ export function GameApp() {
     return true;
   }
 
-  function refreshGameStateFromServer(reason = "manual", force = false) {
-    if (!token || !playerId) return;
+  function refreshGameStateFromServer(reason = "manual", force = false): Promise<boolean> {
+    if (!token || !playerId) return Promise.resolve(false);
     const now = Date.now();
     if (!force && now - lastGameStateRefreshAtRef.current < 4000) {
-      return;
+      return Promise.resolve(false);
     }
     if (gameStateRefreshInFlightRef.current) {
-      return;
+      gameStateRefreshQueuedRef.current = true;
+      return Promise.resolve(false);
     }
     gameStateRefreshInFlightRef.current = true;
     lastGameStateRefreshAtRef.current = now;
-    getGameState(token)
-      .then((world) => applyBackendWorldState(world, reason !== "socket-hint"))
-      .catch((err) => console.warn("Game state resync failed:", err))
+    return getGameState(token)
+      .then((world) => {
+        applyBackendWorldState(world, reason !== "socket-hint");
+        return true;
+      })
+      .catch((err) => {
+        console.warn("Game state resync failed:", err);
+        return false;
+      })
       .finally(() => {
         gameStateRefreshInFlightRef.current = false;
+        if (gameStateRefreshQueuedRef.current) {
+          gameStateRefreshQueuedRef.current = false;
+          window.setTimeout(() => refreshGameStateFromServer(`${reason}:queued`, true), 120);
+        }
       });
+  }
+
+  function refreshGameStateWithRetry(reason = "manual", attempts = 3, delayMs = 900) {
+    const run = (attempt: number) => {
+      refreshGameStateFromServer(`${reason}:${attempt}`, true).then((ok) => {
+        if (!ok && attempt < attempts) {
+          window.setTimeout(() => run(attempt + 1), delayMs * attempt);
+        }
+      });
+    };
+    run(1);
   }
 
   const handleChatSubmit = (e: React.FormEvent) => {
@@ -2208,6 +2286,7 @@ export function GameApp() {
             startClearing(token, engineToServerTerritoryId(regionId))
               .then((result) => {
                 engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+                refreshGameStateWithRetry("clearing-started", 2, 700);
                 setSelectedRegion(null);
                 addSystemLine(`BẮT ĐẦU XÂY THÀNH ${territoryLabel(regionId).toUpperCase()}`);
               })
@@ -2291,6 +2370,7 @@ export function GameApp() {
               engineRef.current?.startNewbieOnboarding(flagColor, emblem, cityName);
               const result = await startClearing(token, engineToServerTerritoryId(regionId));
               engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+              refreshGameStateWithRetry("newbie-clearing-started", 2, 700);
               engineRef.current?.handleAction("setUiOverlayActive", { active: false });
               setKingdomCreationRegion(null);
               addSystemLine(`BẮT ĐẦU XÂY THÀNH TRÌ ${cityName.toUpperCase()}`);
@@ -2388,6 +2468,7 @@ export function GameApp() {
                   ...prev,
                   lastSync: Date.now(),
                 }));
+                refreshGameStateWithRetry("march-created", 2, 700);
                 addWarReport({
                   id: `api-march-${result.march.id}`,
                   kind: effectiveKind === "attack" ? "battle" : "march",

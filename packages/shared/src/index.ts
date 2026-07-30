@@ -203,6 +203,7 @@ export type ActiveBattle = {
 };
 
 export type GameStateResult = {
+  playerId: string;
   territories: TerritoryInfo[];
   clearings: ActiveClearing[];
   marches: MarchOrder[];

@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { RealtimeEnvelope, RealtimeEvent } from "@island/shared";
-import { config } from "../config.js";
+import { config, isAllowedCorsOrigin } from "../config.js";
 import type { AuthUser } from "../security/auth.js";
 
 type Client = {
@@ -18,6 +18,28 @@ type Client = {
 
 let seq = 1;
 let clients = new Set<Client>();
+const ipConnectionCounts = new Map<string, number>();
+const userConnectionCounts = new Map<string, number>();
+const MAX_WS_CONNECTIONS_PER_IP = 24;
+const MAX_WS_CONNECTIONS_PER_USER = 6;
+
+function clientIp(req: { headers: Record<string, any>; socket: { remoteAddress?: string } }) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0]?.trim();
+  return forwarded || req.socket.remoteAddress || "unknown";
+}
+
+function incrementConnection(map: Map<string, number>, key: string, limit: number) {
+  const next = (map.get(key) || 0) + 1;
+  if (next > limit) return false;
+  map.set(key, next);
+  return true;
+}
+
+function decrementConnection(map: Map<string, number>, key: string) {
+  const next = Math.max(0, (map.get(key) || 0) - 1);
+  if (next <= 0) map.delete(key);
+  else map.set(key, next);
+}
 
 function send(client: Client, events: RealtimeEvent[]) {
   if (client.socket.readyState !== client.socket.OPEN) return;
@@ -70,10 +92,25 @@ export function attachRealtime(server: Server) {
   });
 
   wss.on("connection", (socket, req) => {
+    const origin = req.headers.origin;
+    if (origin && !isAllowedCorsOrigin(origin)) {
+      socket.close(1008, "bad_origin");
+      return;
+    }
     const url = new URL(req.url ?? "/ws", `http://${req.headers.host ?? "127.0.0.1"}`);
     const user = authenticate(url);
     if (!user) {
       socket.close(1008, "unauthorized");
+      return;
+    }
+    const ip = clientIp(req as any);
+    if (!incrementConnection(ipConnectionCounts, ip, MAX_WS_CONNECTIONS_PER_IP)) {
+      socket.close(1013, "too_many_connections");
+      return;
+    }
+    if (!incrementConnection(userConnectionCounts, user.id, MAX_WS_CONNECTIONS_PER_USER)) {
+      decrementConnection(ipConnectionCounts, ip);
+      socket.close(1013, "too_many_user_connections");
       return;
     }
 
@@ -119,6 +156,8 @@ export function attachRealtime(server: Server) {
 
     socket.on("close", () => {
       clients.delete(client);
+      decrementConnection(ipConnectionCounts, ip);
+      decrementConnection(userConnectionCounts, user.id);
     });
   });
 
@@ -136,5 +175,5 @@ export function publishRealtime(event: RealtimeEvent, room = "world") {
 }
 
 export function realtimeStats() {
-  return { clients: clients.size };
+  return { clients: clients.size, ipBuckets: ipConnectionCounts.size, userBuckets: userConnectionCounts.size };
 }
