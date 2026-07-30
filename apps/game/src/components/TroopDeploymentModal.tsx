@@ -126,11 +126,11 @@ function InfantryAvatar() {
       <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
 
       <g className="bg-flag">
-        <rect x="24" y="8" width="3.5" height="82" fill="url(#goldRingGradModal)" rx="1" />
-        <polygon points="25.75,2 30.5,14 21,14" fill="#f8fafc" stroke="url(#goldRingGradModal)" strokeWidth="0.8" />
-        <path d="M 27.5,14 Q 48,8 68,16 Q 84,24 64,28 Q 44,32 27.5,28 Z" fill="url(#royalFlagRedModal)" stroke="url(#goldRingGradModal)" strokeWidth="1" />
-        <polygon points="46,16 50,16 50,26 46,26" fill="url(#goldRingGradModal)" />
-        <polygon points="42,20 54,20 54,23 42,23" fill="url(#goldRingGradModal)" />
+        <rect x="20" y="4" width="4" height="86" fill="url(#goldRingGradModal)" rx="1" />
+        <polygon points="22,0 27,10 17,10" fill="#f8fafc" stroke="url(#goldRingGradModal)" strokeWidth="0.8" />
+        <path d="M 22,10 Q 52,4 82,14 Q 92,26 68,32 Q 44,38 22,30 Z" fill="url(#royalFlagRedModal)" stroke="url(#goldRingGradModal)" strokeWidth="1.2" />
+        {/* Crown emblem on flag */}
+        <path d="M 40,17 L 45,23 L 50,17 L 55,23 L 60,17 L 58,27 L 42,27 Z" fill="#fff7d6" />
       </g>
 
       <path d="M 38,44 L 62,44 L 66,75 L 34,75 Z" fill="url(#knightSteelGradModal)" stroke="#cbd5e1" strokeWidth="1" />
@@ -176,9 +176,10 @@ function CavalryAvatar() {
       <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
 
       <g className="bg-flag">
-        <rect x="22" y="10" width="3" height="78" fill="url(#goldLanceGradModal)" rx="1" />
-        <path d="M 25,16 Q 44,10 64,18 Q 80,26 60,30 Q 40,34 25,28 Z" fill="url(#flagBlueGradModal)" stroke="url(#goldLanceGradModal)" strokeWidth="1" />
-        <circle cx="44" cy="22" r="4" fill="url(#goldLanceGradModal)" />
+        <rect x="18" y="4" width="4" height="86" fill="url(#goldLanceGradModal)" rx="1" />
+        <path d="M 20,10 Q 50,4 80,14 Q 90,26 66,32 Q 42,38 20,30 Z" fill="url(#flagBlueGradModal)" stroke="url(#goldLanceGradModal)" strokeWidth="1.2" />
+        {/* Shield emblem on Cavalry flag */}
+        <path d="M 42,17 L 54,17 L 54,23 Q 54,29 48,32 Q 42,29 42,23 Z" fill="#fff7d6" />
       </g>
 
       <path d="M 18,62 Q 28,36 54,44 Q 76,40 86,58 Q 68,82 43,76 Z" fill="url(#horseBrownGradModal)" stroke="#78350f" strokeWidth="1" />
@@ -221,9 +222,10 @@ function ArtilleryAvatar() {
       <circle cx="50" cy="50" r="37.5" fill="none" stroke="rgba(254,240,138,0.4)" strokeWidth="1.2" />
 
       <g className="bg-flag">
-        <rect x="68" y="10" width="3" height="78" fill="url(#bronzeCannonGradModal)" rx="1" />
-        <path d="M 68,16 Q 48,10 28,18 Q 12,26 32,30 Q 52,34 68,28 Z" fill="url(#flagGoldGradModal)" stroke="url(#bronzeCannonGradModal)" strokeWidth="1" />
-        <polygon points="46,18 52,24 46,30" fill="#fff099" />
+        <rect x="74" y="4" width="4" height="86" fill="url(#bronzeCannonGradModal)" rx="1" />
+        <path d="M 76,10 Q 46,4 16,14 Q 6,26 30,32 Q 54,38 76,30 Z" fill="url(#flagGoldGradModal)" stroke="url(#bronzeCannonGradModal)" strokeWidth="1.2" />
+        {/* Star emblem on Artillery flag */}
+        <polygon points="46,15 49,21 55,21 50,25 52,31 46,27 40,31 42,25 37,21 43,21" fill="#fff099" />
       </g>
 
       <rect x="22" y="60" width="56" height="13" rx="3" fill="#78350f" stroke="#451a03" strokeWidth="1.5" />

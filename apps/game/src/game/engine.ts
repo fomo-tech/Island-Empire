@@ -3840,6 +3840,20 @@ export function createIslandEmpireGame(
       pxRect(x - 7 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
       pxRect(x - 2 * s, y - 10 * s, 4 * s, 8 * s, "#fff7d6");
       pxRect(x + 3 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
+    } else if (emblem === "star") {
+      pxRect(x - 2 * s, y - 8 * s, 4 * s, 16 * s, "#fff7d6");
+      pxRect(x - 8 * s, y - 2 * s, 16 * s, 4 * s, "#fff7d6");
+      pxRect(x - 5 * s, y - 5 * s, 10 * s, 10 * s, "#fff7d6");
+    } else if (emblem === "dragon" || emblem === "eagle") {
+      pxRect(x - 8 * s, y - 6 * s, 16 * s, 5 * s, "#fff7d6");
+      pxRect(x - 4 * s, y - 10 * s, 8 * s, 14 * s, "#fff7d6");
+      pxRect(x - 6 * s, y + 4 * s, 12 * s, 3 * s, "#fff7d6");
+    } else if (emblem === "lion") {
+      pxRect(x - 6 * s, y - 8 * s, 12 * s, 10 * s, "#fff7d6");
+      pxRect(x - 4 * s, y + 2 * s, 8 * s, 6 * s, "#fff7d6");
+    } else if (emblem === "swords" || emblem === "tower") {
+      pxRect(x - 7 * s, y - 7 * s, 14 * s, 3 * s, "#fff7d6");
+      pxRect(x - 2 * s, y - 10 * s, 4 * s, 18 * s, "#fff7d6");
     } else {
       pxRect(x - 5 * s, y - 5 * s, 10 * s, 10 * s, "#fff7d6");
     }
@@ -4603,23 +4617,29 @@ export function createIslandEmpireGame(
     // Draw 3D glowing foot ring effect under their feet
     drawTroopFootRing(x, y, color);
 
-    // 1. Waving flag/banner in the background
+    // 1. Large Waving Flag with Player Emblem in the background
     const wave = Math.sin(state.tick * 6) * 1.5;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(x - 6, y - 20 + wave);
-    ctx.bezierCurveTo(x + 2, y - 26 + wave, x + 8, y - 16 + wave, x + 16, y - 22 + wave);
-    ctx.lineTo(x + 16, y - 12 + wave);
-    ctx.bezierCurveTo(x + 8, y - 6 + wave, x + 2, y - 16 + wave, x - 6, y - 8 + wave);
+    ctx.moveTo(x - 8, y - 27 + wave);
+    ctx.bezierCurveTo(x + 2, y - 33 + wave, x + 10, y - 21 + wave, x + 20, y - 28 + wave);
+    ctx.lineTo(x + 20, y - 12 + wave);
+    ctx.bezierCurveTo(x + 10, y - 5 + wave, x + 2, y - 17 + wave, x - 8, y - 11 + wave);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Emblem on Flag
+    drawFlagEmblem(x + 5, y - 20 + wave, emblem, 0.65);
 
     // 2. Spear/Flagpole (Vertical on the left side)
     ctx.strokeStyle = "#fbbf24";
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 2.0;
     ctx.beginPath();
     ctx.moveTo(x - 9, y + 10);
-    ctx.lineTo(x - 9, y - 26);
+    ctx.lineTo(x - 9, y - 31);
     ctx.stroke();
 
     // Spear tip (white diamond)
@@ -4702,97 +4722,170 @@ export function createIslandEmpireGame(
     // Draw 3D glowing foot ring effect under their feet
     drawTroopFootRing(x, y, color);
 
-    const bob = Math.sin(state.tick * 7) * 1.2;
+    const bob = Math.sin(state.tick * 6) * 1.2;
+    const legAnim = Math.sin(state.tick * 9) * 2.5;
 
-    // 1. Horse Legs
-    const ls = Math.sin(state.tick * 10) * 3;
-    ctx.fillStyle = "#5c2f17";
+    // 1. Flowing Horse Tail
+    ctx.strokeStyle = "#1c0a01";
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(x - 11 + ls, y + 7 + bob, 3, 6, 1);
-    ctx.roundRect(x - 6 - ls, y + 7 + bob, 3, 6, 1);
-    ctx.roundRect(x + 3 + ls, y + 7 + bob, 3, 6, 1);
-    ctx.roundRect(x + 8 - ls, y + 7 + bob, 3, 6, 1);
+    ctx.moveTo(x + 12, y + 2 + bob);
+    ctx.quadraticCurveTo(x + 18, y + 4 + bob, x + 16, y + 12 + bob);
+    ctx.stroke();
+
+    // 2. Horse Legs (Realistic bending legs with hooves)
+    ctx.fillStyle = "#5c2f17";
+    // Back legs
+    ctx.beginPath();
+    ctx.roundRect(x + 5 + legAnim, y + 5 + bob, 3.5, 8, 1);
+    ctx.roundRect(x + 9 - legAnim, y + 5 + bob, 3.5, 8, 1);
+    // Front legs
+    ctx.roundRect(x - 10 - legAnim, y + 5 + bob, 3.5, 8, 1);
+    ctx.roundRect(x - 6 + legAnim, y + 5 + bob, 3.5, 8, 1);
     ctx.fill();
 
-    // 2. Horse Body
-    const hb = ctx.createLinearGradient(x - 12, y + bob, x + 12, y + 8 + bob);
-    hb.addColorStop(0, '#9a3412');
-    hb.addColorStop(1, '#431407');
+    // Hooves (black)
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(x + 5 + legAnim, y + 11 + bob, 3.5, 2);
+    ctx.fillRect(x + 9 - legAnim, y + 11 + bob, 3.5, 2);
+    ctx.fillRect(x - 10 - legAnim, y + 11 + bob, 3.5, 2);
+    ctx.fillRect(x - 6 + legAnim, y + 11 + bob, 3.5, 2);
+
+    // 3. Horse Main Body (Sleek 3D Gradient)
+    const hb = ctx.createLinearGradient(x - 14, y - 2 + bob, x + 14, y + 6 + bob);
+    hb.addColorStop(0, "#9a3412");
+    hb.addColorStop(0.6, "#7c2d12");
+    hb.addColorStop(1, "#431407");
     ctx.fillStyle = hb;
     ctx.beginPath();
-    ctx.ellipse(x, y + 2 + bob, 13, 7, 0, 0, TAU);
+    ctx.ellipse(x - 1, y + 1 + bob, 14, 7.5, 0, 0, TAU);
     ctx.fill();
 
-    // Horse neck + head (facing left)
+    // 4. Horse Neck & Head (Facing Left)
     ctx.fillStyle = "#7c2d12";
     ctx.beginPath();
-    ctx.moveTo(x - 9, y + 2 + bob);
-    ctx.bezierCurveTo(x - 15, y - 3 + bob, x - 17, y - 8 + bob, x - 14, y - 11 + bob);
-    ctx.lineTo(x - 8, y - 6 + bob);
+    ctx.moveTo(x - 8, y + 2 + bob);
+    ctx.bezierCurveTo(x - 14, y - 4 + bob, x - 17, y - 10 + bob, x - 13, y - 14 + bob);
+    ctx.lineTo(x - 7, y - 8 + bob);
     ctx.closePath();
     ctx.fill();
-    // Head shape
+
+    // Horse Head
     ctx.beginPath();
-    ctx.ellipse(x - 14, y - 9 + bob, 5, 3.5, -0.4, 0, TAU);
+    ctx.ellipse(x - 14, y - 12 + bob, 5.5, 3.8, -0.4, 0, TAU);
+    ctx.fill();
+
+    // Horse Ear
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y - 15 + bob);
+    ctx.lineTo(x - 14, y - 19 + bob);
+    ctx.lineTo(x - 10, y - 16 + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    // Horse Eye & Nose
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.arc(x - 16, y - 13 + bob, 1.2, 0, TAU);
     ctx.fill();
 
     // Horse Mane
     ctx.fillStyle = "#1c0a01";
     ctx.beginPath();
-    ctx.moveTo(x - 12, y - 9 + bob);
-    ctx.quadraticCurveTo(x - 14, y - 3 + bob, x - 11, y + 1 + bob);
-    ctx.lineTo(x - 9, y - 1 + bob);
+    ctx.moveTo(x - 10, y - 16 + bob);
+    ctx.quadraticCurveTo(x - 14, y - 8 + bob, x - 9, y - 1 + bob);
+    ctx.lineTo(x - 7, y - 3 + bob);
     ctx.closePath();
     ctx.fill();
 
-    // Caparison (saddle cloth)
+    // 5. Saddle Caparison (Colored trim over horse back)
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.ellipse(x, y + bob, 8, 5, 0, 0, TAU);
+    ctx.roundRect(x - 6, y - 2 + bob, 12, 6, 1.5);
     ctx.fill();
-    ctx.strokeStyle = "#ffd700";
+    ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    ctx.ellipse(x, y + bob, 8, 5, 0, 0, TAU);
     ctx.stroke();
 
-    // 3. Knight Rider in center
-    // Torso (color coat)
-    ctx.fillStyle = color;
+    // 6. Mounted Knight Rider
+    // Rider Legs (Grip on saddle)
+    ctx.fillStyle = "#1e293b";
     ctx.beginPath();
-    ctx.roundRect(x - 4, y - 7 + bob, 8, 10, 1.5);
+    ctx.roundRect(x - 3, y + 1 + bob, 6, 6, 1);
     ctx.fill();
 
-    // Helmet (grey cylinder/sphere)
+    // Rider Torso (Armor in faction color)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(x - 4.5, y - 10 + bob, 9, 10, 2);
+    ctx.fill();
+
+    // Shoulder Pauldrons (Grey metal)
+    ctx.fillStyle = "#64748b";
+    ctx.beginPath();
+    ctx.arc(x - 5, y - 8 + bob, 3.2, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + 5, y - 8 + bob, 3.2, 0, TAU);
+    ctx.fill();
+
+    // Rider Helmet (Sleek metallic cylinder/visor)
     ctx.fillStyle = "#cbd5e1";
     ctx.beginPath();
-    ctx.arc(x, y - 12 + bob, 4, 0, TAU);
+    ctx.arc(x, y - 15 + bob, 4.5, 0, TAU);
     ctx.fill();
-    // Helmet visor line
+    ctx.fillRect(x - 4.5, y - 15 + bob, 9, 5);
+
+    // Helmet visor (Dark slit)
     ctx.strokeStyle = "#0f172a";
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(x - 0.5, y - 14 + bob);
-    ctx.lineTo(x - 0.5, y - 10 + bob);
+    ctx.moveTo(x - 2, y - 14 + bob);
+    ctx.lineTo(x + 2, y - 14 + bob);
     ctx.stroke();
 
-    // 4. Lance (Diagonally crossing from bottom-left to top-right)
+    // Helmet Plume / Crest (Faction color)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x - 2, y - 19 + bob);
+    ctx.bezierCurveTo(x - 4, y - 23 + bob, x + 4, y - 24 + bob, x + 2, y - 19 + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    // 7. Knight's Lance & Waving Flag (Diagonal Spear with Banner)
     ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 2.0;
     ctx.beginPath();
-    ctx.moveTo(x - 18, y + 12 + bob);
-    ctx.lineTo(x + 14, y - 14 + bob);
+    ctx.moveTo(x - 16, y + 12 + bob);
+    ctx.lineTo(x + 16, y - 20 + bob);
     ctx.stroke();
 
-    // Lance tip (white diamond)
+    // Spearhead Tip (White diamond)
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
-    ctx.moveTo(x + 14, y - 14 + bob);
-    ctx.lineTo(x + 17, y - 17 + bob);
-    ctx.lineTo(x + 15, y - 19 + bob);
-    ctx.lineTo(x + 12, y - 16 + bob);
+    ctx.moveTo(x + 16, y - 20 + bob);
+    ctx.lineTo(x + 19, y - 24 + bob);
+    ctx.lineTo(x + 17, y - 26 + bob);
+    ctx.lineTo(x + 14, y - 22 + bob);
     ctx.closePath();
     ctx.fill();
+
+    // Large Waving Banner on top of Lance with Player Emblem
+    const wave = Math.sin(state.tick * 6) * 1.5;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y - 19 + bob);
+    ctx.bezierCurveTo(x + 16, y - 26 + bob + wave, x + 24, y - 14 + bob + wave, x + 30, y - 21 + bob + wave);
+    ctx.lineTo(x + 30, y - 10 + bob + wave);
+    ctx.bezierCurveTo(x + 24, y - 3 + bob + wave, x + 16, y - 15 + bob + wave, x + 10, y - 8 + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Emblem on Cavalry Flag
+    drawFlagEmblem(x + 20, y - 15 + bob + wave, emblem, 0.65);
 
     ctx.restore();
   }
@@ -4805,33 +4898,39 @@ export function createIslandEmpireGame(
 
     const recoil = Math.sin(state.tick * 6) * 1.5;
 
-    // 1. Waving flag/banner at the top
-    const wave = Math.sin(state.tick * 5) * 1.0;
+    // 1. Large Waving flag/banner at the top with Player Emblem
+    const wave = Math.sin(state.tick * 5) * 1.2;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(x - 10, y - 16 + wave);
-    ctx.bezierCurveTo(x - 4, y - 20 + wave, x + 2, y - 12 + wave, x + 8, y - 16 + wave);
-    ctx.lineTo(x + 8, y - 10 + wave);
-    ctx.bezierCurveTo(x + 2, y - 6 + wave, x - 4, y - 14 + wave, x - 10, y - 10 + wave);
+    ctx.moveTo(x - 10, y - 27 + wave);
+    ctx.bezierCurveTo(x, y - 33 + wave, x + 8, y - 21 + wave, x + 18, y - 28 + wave);
+    ctx.lineTo(x + 18, y - 12 + wave);
+    ctx.bezierCurveTo(x + 8, y - 5 + wave, x, y - 17 + wave, x - 10, y - 11 + wave);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
-    // Yellow tip on flag
-    ctx.fillStyle = "#fbbf24";
-    ctx.beginPath();
-    ctx.moveTo(x + 8, y - 16 + wave);
-    ctx.lineTo(x + 11, y - 13 + wave);
-    ctx.lineTo(x + 8, y - 10 + wave);
-    ctx.closePath();
-    ctx.fill();
+    // Emblem on Artillery Flag
+    drawFlagEmblem(x + 3, y - 20 + wave, emblem, 0.65);
 
     // Flagpole for flag
-    ctx.strokeStyle = "#78350f";
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 2.0;
     ctx.beginPath();
-    ctx.moveTo(x - 10, y + 4);
-    ctx.lineTo(x - 10, y - 20);
+    ctx.moveTo(x - 11, y + 4);
+    ctx.lineTo(x - 11, y - 30);
     ctx.stroke();
+
+    // Spearhead tip on flagpole
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(x - 11, y - 33);
+    ctx.lineTo(x - 9, y - 29);
+    ctx.lineTo(x - 13, y - 29);
+    ctx.closePath();
+    ctx.fill();
 
     // 2. Carriage (Wooden frame)
     ctx.fillStyle = "#78350f";
@@ -4961,18 +5060,37 @@ export function createIslandEmpireGame(
       drawPixelInfantry(0, 0, troopColor, emblem);
     }
 
-    // March Status Banner above Army (Attack Siege vs Reinforcement)
-    const isAttack = v.isAttack || v.type === "attack" || v.relation === "enemy";
-    const bannerText = isAttack ? "⚔️ QUÂN CÔNG THÀNH" : "🛡️ QUÂN TIẾP VIỆN";
-    const bannerBg = isAttack ? "#450a0a" : "#0f172a";
-    const bannerBorder = isAttack ? "#ef4444" : "#3b82f6";
-    const bannerTextColor = isAttack ? "#fca5a5" : "#93c5fd";
+    // March Status & Owner Text above Army (NO Red Box, NO Emojis)
+    const isAttack = v.isAttack || v.type === "attack" || v.relation === "enemy" || v.kind === "attack";
+    const statusText = isAttack ? "QUÂN CÔNG THÀNH" : "QUÂN TIẾP VIỆN";
+    
+    // Resolve display owner name
+    let displayOwnerName = "BẠN";
+    if (v.ownerId === state.localPlayerId || v.owner === 0) {
+      displayOwnerName = state.localPlayerName || "BẠN";
+    } else if (v.ownerName) {
+      displayOwnerName = v.ownerName;
+    } else if (v.sourceRegionId !== undefined && state.regionOwnerNames[v.sourceRegionId]) {
+      displayOwnerName = state.regionOwnerNames[v.sourceRegionId];
+    } else if (v.ownerId) {
+      const botMap: Record<string, string> = {
+        "bot-tao-thao": "Tào Tháo",
+        "bot-gia-cat-luong": "Gia Cát Lượng",
+        "bot-quang-trung": "Quang Trung",
+        "bot-trieu-tu-long": "Triệu Tử Long",
+        "bot-vo-nguyen-giap": "Võ Nguyên Giáp",
+        "bot-doc-co-cau-bai": "Độc Cô Cầu Bại",
+      };
+      displayOwnerName = botMap[v.ownerId] || (v.ownerId.startsWith("guest-") ? "Khách " + v.ownerId.slice(-4).toUpperCase() : v.ownerId);
+    }
 
-    pxRect(-36, -44, 72, 13, bannerBg);
-    ctx.strokeStyle = bannerBorder;
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(-36, -44, 72, 13);
-    text(bannerText, 0, -35, 10, bannerTextColor, "center");
+    const titleColor = "#ffffff";
+    const statusColor = isAttack ? "#f87171" : "#60a5fa";
+
+    // Line 1: Owner Name (Bold White, Centered, No Emojis, No Red Box)
+    text(displayOwnerName, 0, -42, 12, titleColor, "center");
+    // Line 2: Action Status (Bold Red/Blue, Centered, No Emojis, No Red Box)
+    text(statusText, 0, -28, 11, statusColor, "center");
 
     ctx.restore();
   }
