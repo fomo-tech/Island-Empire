@@ -46,8 +46,13 @@ export function getServerStatus() {
   return request<ServerStatus>("/api/health");
 }
 
+let cachedConfigPromise: Promise<GameConfig> | null = null;
+
 export function getGameConfig(): Promise<GameConfig> {
-  return request<GameConfig>("/api/config");
+  if (!cachedConfigPromise) {
+    cachedConfigPromise = request<GameConfig>("/api/config");
+  }
+  return cachedConfigPromise;
 }
 
 export function loginPlayer(username: string, password: string): Promise<AuthResponse> {

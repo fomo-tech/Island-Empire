@@ -14,6 +14,7 @@ import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
 import { ChatInputModal } from "./ChatInputModal";
 import { SettingsModal } from "./SettingsModal";
+import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { useGameStore } from "../store/gameStore";
 
 const CAMERA_KEY = "island_empire_camera_v1";
@@ -61,12 +62,16 @@ type HudIconName =
   | "clock"
   | "lightning"
   | "fullscreen"
-  | "logout";
+  | "logout"
+  | "chevronUp"
+  | "minus";
 
 function HudIcon({ name }: { name: HudIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const paths: Record<HudIconName, ReactNode> = {
     logout: <><path {...common} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline {...common} points="16 17 21 12 16 7"/><line {...common} x1="21" y1="12" x2="9" y2="12"/></>,
+    chevronUp: <polyline {...common} points="18 15 12 9 6 15" />,
+    minus: <line {...common} x1="5" y1="12" x2="19" y2="12" />,
     scroll: <><path {...common} d="M6 4h10a2 2 0 0 1 2 2v13H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2Z"/><path {...common} d="M7 9h8M7 13h7M7 17h5"/></>,
     chart: <><path {...common} d="M4 19V5"/><path {...common} d="M8 19v-7"/><path {...common} d="M12 19V8"/><path {...common} d="M16 19v-4"/><path {...common} d="M3 19h18"/></>,
     swords: <><path {...common} d="M4 20 20 4M15 4h5v5M13 7l4 4"/><path {...common} d="M20 20 4 4M4 9V4h5M7 13l4 4"/></>,
@@ -437,6 +442,7 @@ type WarReportRecord = {
   body: string;
   meta: string;
   time: number;
+  detailReport?: BattleReportData;
 };
 type PrivateMailRecord = {
   id: string;
@@ -567,8 +573,36 @@ export function GameApp() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [gameReady, setGameReady] = useState<boolean>(false);
   const [loadingText, setLoadingText] = useState("ĐANG KIỂM TRA MÁY CHỦ");
-  const [loadingProgress, setLoadingProgress] = useState<number>(28);
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
+  const [targetProgress, setTargetProgress] = useState<number>(20);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+
+  // Smoothly interpolate loadingProgress towards targetProgress
+  useEffect(() => {
+    if (gameReady) return;
+    const interval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev < targetProgress) {
+          const gap = targetProgress - prev;
+          const step = gap > 20 ? 2 : 1;
+          return Math.min(targetProgress, prev + step);
+        }
+        return prev;
+      });
+    }, 16);
+    return () => clearInterval(interval);
+  }, [targetProgress, gameReady]);
+
+  // Ensure game becomes ready ONLY after loadingProgress has fully animated to 100%
+  // AND the engine is ready, ensuring full first frame render before entrance.
+  useEffect(() => {
+    if (loadingProgress >= 100 && !gameReady && isAuthenticated) {
+      const t = setTimeout(() => {
+        setGameReady(true);
+      }, 150);
+      return () => clearTimeout(t);
+    }
+  }, [loadingProgress, gameReady, isAuthenticated]);
   
   // Game states captured from Engine Loop
   const resources = useGameStore((state) => state.resources);
@@ -636,18 +670,45 @@ export function GameApp() {
   const [deploySourceTown, setDeploySourceTown] = useState<any>(null);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<string>("none");
+  const [selectedBattleReport, setSelectedBattleReport] = useState<BattleReportData | null>(null);
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">("none");
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(true);
   const [socketOnline, setSocketOnline] = useState(false);
   const [serverEventLog, setServerEventLog] = useState<string[]>([]);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const backendClearingStartRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      const msg = event?.error?.stack || event?.error?.message || event?.message || "Lỗi JavaScript không xác định";
+      console.error("Global JS Error:", event);
+      setRuntimeError(`[JS ERROR] ${msg}`);
+    };
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const msg = event?.reason?.stack || event?.reason?.message || String(event?.reason) || "Promise bị từ chối";
+      console.error("Unhandled Rejection:", event.reason);
+      setRuntimeError(`[ASYNC ERROR] ${msg}`);
+    };
+
+    window.addEventListener("error", handleGlobalError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => {
+      window.removeEventListener("error", handleGlobalError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    };
+  }, []);
 
   const addWarReport = useCallback((report: Omit<WarReportRecord, "time"> & { time?: number }) => {
     setWarReports((prev) => {
-      if (prev.some((item) => item.id === report.id)) return prev;
-      return [{ ...report, time: report.time ?? Date.now() }, ...prev].slice(0, 80);
+      const idx = prev.findIndex((item) => item.id === report.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...report, time: report.time ?? copy[idx].time };
+        return copy;
+      }
+      return [{ ...report, time: report.time ?? Date.now() }, ...prev].slice(0, 100);
     });
   }, []);
 
@@ -730,9 +791,13 @@ export function GameApp() {
   // 1. Fetch API Health
   useEffect(() => {
     let cancelled = false;
+    setTargetProgress(15);
     getServerStatus()
       .then(() => {
-        if (!cancelled) setApiOnline(true);
+        if (!cancelled) {
+          setApiOnline(true);
+          setTargetProgress(35);
+        }
       })
       .catch(() => {
         if (!cancelled) setApiOnline(false);
@@ -745,10 +810,6 @@ export function GameApp() {
   // 2. Auth is backend-only; gameplay state comes from world API + socket.
   useEffect(() => {
     if (!token) return;
-    setGameReady(false);
-    setLoadingError(null);
-    setLoadingText("ĐANG XÁC THỰC TÀI KHOẢN");
-    setLoadingProgress(45);
     setIsAuthenticated(true);
   }, [token]);
 
@@ -756,11 +817,23 @@ export function GameApp() {
   useEffect(() => {
     if (!isAuthenticated) return;
     const canvas = canvasRef.current;
-    if (!canvas || engineRef.current) return;
-    setGameReady(false);
+    if (!canvas) return;
+    if (engineRef.current) {
+      setTargetProgress(100);
+      return;
+    }
     setLoadingError(null);
     setLoadingText("ĐANG KHỞI TẠO BẢN ĐỒ THẾ GIỚI");
-    setLoadingProgress(68);
+    setTargetProgress(65);
+    let cancelled = false;
+    let enteredGame = false;
+    let loadingGuard: number | null = null;
+    const enterGame = (message = "ĐÃ VÀO GAME, SERVER ĐANG ĐỒNG BỘ NỀN") => {
+      if (cancelled || enteredGame) return;
+      enteredGame = true;
+      setLoadingText(message);
+      setTargetProgress(100);
+    };
 
     // Start engine with update callback
     engineRef.current = createIslandEmpireGame(
@@ -831,18 +904,19 @@ export function GameApp() {
         lastUpdateRef.current = now;
 
         const snapshots = lastHudSnapshotRef.current;
-        const resourceSnapshot = stableJson(engineState.resources);
+        const res = engineState.resources || {};
+        const resourceSnapshot = `${Math.floor(res.gold || 0)}|${Math.floor(res.wood || 0)}|${Math.floor(res.stone || 0)}|${Math.floor(res.food || 0)}|${Math.floor(res.iron || 0)}|${Math.floor(res.gems || 0)}`;
         if (resourceSnapshot !== snapshots.resources) {
           snapshots.resources = resourceSnapshot;
           setResources({ ...engineState.resources });
         }
-        const missionSnapshot = stableJson(engineState.missions);
+        const missionSnapshot = `${(engineState.missions || []).length}|${(engineState.missions || []).map((m: any) => `${m.value}/${m.goal}`).join(",")}`;
         if (missionSnapshot !== snapshots.missions) {
           snapshots.missions = missionSnapshot;
-          setMissions([...engineState.missions]);
+          setMissions([...(engineState.missions || [])]);
         }
         const recentLog = Array.isArray(engineState.log) ? engineState.log.slice(-8) : [];
-        const chatSnapshot = stableJson(recentLog);
+        const chatSnapshot = `${recentLog.length}|${recentLog[recentLog.length - 1] || ""}`;
         if (chatSnapshot !== snapshots.chat) {
           snapshots.chat = chatSnapshot;
           setChatLog(recentLog);
@@ -862,13 +936,7 @@ export function GameApp() {
         }
 
         if (Array.isArray(engineState.activeBattles)) {
-          const battleSnapshot = stableJson(engineState.activeBattles.map((battle: any) => ({
-            regionId: battle.regionId,
-            townId: battle.townId,
-            attPower: Math.round(battle.attPower || 0),
-            defPower: Math.round(battle.defPower || 0),
-            left: Math.max(0, Math.ceil((battle.duration || 0) - (battle.t || 0))),
-          })));
+          const battleSnapshot = `${engineState.activeBattles.length}|${engineState.activeBattles.map((b: any) => `${b.regionId}:${Math.round(b.t || 0)}`).join(",")}`;
           if (battleSnapshot !== snapshots.battles) {
             snapshots.battles = battleSnapshot;
             setWorldActivity((prev) => ({ ...prev, battles: [...engineState.activeBattles] }));
@@ -906,6 +974,9 @@ export function GameApp() {
       (actionId, payload) => {
         engineRef.current?.handleAction("setUiOverlayActive", { active: true });
         setActiveModal(actionId);
+      },
+      (report: BattleReportData) => {
+        setSelectedBattleReport(report);
       }
     );
     engineRef.current?.handleAction?.("setLocalPlayer", { playerId, playerName: "Bạn" });
@@ -913,10 +984,17 @@ export function GameApp() {
     if (token && playerId) {
       engineRef.current?.handleAction?.("prepareBackendWorld");
       setLoadingText("ĐANG TẢI LÃNH THỔ, TÀI NGUYÊN VÀ HÀNH QUÂN");
-      setLoadingProgress(82);
-      Promise.all([getGameState(token), getGameConfig()])
-        .then(([world, config]) => {
-          engineRef.current?.handleAction("applyConfig", { config });
+      setTargetProgress(85);
+      loadingGuard = window.setTimeout(() => {
+        enterGame("SERVER ĐANG ĐỒNG BỘ CHẬM, VÀO GAME TRƯỚC");
+      }, 4000);
+      const fetchWorldData = Promise.race([
+        getGameState(token),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Server timeout 5s")), 5000))
+      ]);
+
+      fetchWorldData
+        .then((world) => {
           const territories = world.territories.map((territory) => ({
             id: serverToEngineTerritoryId(territory.id),
             ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
@@ -982,21 +1060,29 @@ export function GameApp() {
             }
           }
           setLoadingText("ĐÃ ĐỒNG BỘ XONG, ĐANG VÀO GAME");
-          setLoadingProgress(100);
-          window.setTimeout(() => setGameReady(true), 240);
+          enterGame("ĐÃ ĐỒNG BỘ XONG, ĐANG VÀO GAME");
+          getGameConfig()
+            .then((config) => engineRef.current?.handleAction("applyConfig", { config }))
+            .catch((err) => console.warn("Could not load game config, using engine defaults:", err));
         })
         .catch((err) => {
-          console.warn("Could not load backend world ownership:", err);
-          setLoadingError("Không tải được dữ liệu thế giới từ server. Kiểm tra backend rồi tải lại.");
-          setLoadingText("KHÔNG THỂ VÀO GAME");
+          console.warn("Could not load backend world ownership, fallback to offline engine:", err);
+          if (err?.message?.includes("401") || err?.message?.includes("unauthorized") || err?.message?.includes("not_found")) {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(PLAYER_ID_KEY);
+            setToken(null);
+            setPlayerId(null);
+          }
+          enterGame("ĐÃ VÀO GAME CHẾ ĐỘ TRỰC TIẾP");
         });
     } else {
       setLoadingText("ĐANG VÀO CHẾ ĐỘ KHÁCH");
-      setLoadingProgress(100);
-      window.setTimeout(() => setGameReady(true), 240);
+      window.setTimeout(() => enterGame("ĐÃ VÀO CHẾ ĐỘ KHÁCH"), 240);
     }
 
     return () => {
+      cancelled = true;
+      if (loadingGuard) window.clearTimeout(loadingGuard);
       engineRef.current?.destroy();
       engineRef.current = null;
       setGameReady(false);
@@ -1012,6 +1098,53 @@ export function GameApp() {
       }
       if (event.type === "hello") {
         setSocketOnline(true);
+      }
+      if (event.type === "battle_resolved") {
+        if (event.territory) {
+          const engTerritoryId = serverToEngineTerritoryId(event.territory.id);
+          const isMine = event.territory.ownerId === playerId;
+          engineRef.current?.handleAction("applyWorldOwnership", {
+            territories: [{
+              id: engTerritoryId,
+              ownerCode: isMine ? 1 : (event.territory.ownerId ? 2 : 0),
+              ownerId: event.territory.ownerId,
+              ownerName: isMine ? "Bạn" : event.territory.ownerName ?? "Đối thủ",
+              ownerFlagColor: event.territory.ownerFlagColor,
+              ownerEmblem: event.territory.ownerEmblem,
+              ownerAllianceTag: event.territory.ownerAllianceTag,
+              ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+            }],
+          });
+          refreshGameStateFromServer("battle_resolved", true);
+        }
+
+        if (event.report) {
+          const rep = event.report;
+          const isAttacker = rep.attackerId === playerId;
+          const isDefender = rep.defenderId === playerId;
+          if (isAttacker || isDefender) {
+            setSelectedBattleReport(rep);
+            const isWinner = isAttacker ? rep.isAttackerWin : !rep.isAttackerWin;
+            const reportTitle = isWinner
+              ? `CHIẾN THẮNG TẠI LÃNH THỔ #${rep.regionId + 1}`
+              : `THẤT THỦ TẠI LÃNH THỔ #${rep.regionId + 1}`;
+            const myCasualties = isAttacker ? rep.attacker?.casualty?.power : rep.defender?.casualty?.power;
+            const reportBody = isWinner
+              ? `Bạn đã dành chiến thắng! Tiêu diệt quân đối phương. Tổn thất của bạn: -${myCasualties || 0} quân.`
+              : `Bị đánh bại tại trận địa. Quân số tổn thất: -${myCasualties || 0} quân.`;
+
+            addWarReport({
+              id: rep._id || `report-${Date.now()}`,
+              kind: "battle",
+              title: reportTitle,
+              body: reportBody,
+              meta: `Bấm để xem chi tiết tổn thất và quân còn lại`,
+              detailReport: rep,
+            });
+
+            showGameError(isWinner ? `CHIẾN THẮNG! BẠN ĐÃ THẮNG TRẬN TẠI LÃNH THỔ #${rep.regionId + 1}` : `THẤT THỦ! LÃNH THỔ #${rep.regionId + 1} BỊ ĐÁNH BẠI`);
+          }
+        }
       }
       if (event.type === "territory_claimed") {
         addWarReport({
@@ -1041,6 +1174,7 @@ export function GameApp() {
             ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
           }],
         });
+        refreshGameStateFromServer("territory-claimed", true);
         setWorldActivity((prev) => ({
           ...prev,
           clearings: prev.clearings.filter((clearing) => clearing.territoryId !== serverToEngineTerritoryId(event.territory.id)),
@@ -1130,11 +1264,28 @@ export function GameApp() {
         refreshGameStateFromServer("battle-started", true);
       }
       if (event.type === "battle_resolved") {
+        if (event.territory) {
+          const engineRegId = serverToEngineTerritoryId(event.territory.id);
+          const isMe = event.territory.ownerId === playerId;
+          const ownerCode = event.territory.ownerId === null ? 0 : isMe ? 1 : 2;
+          engineRef.current?.handleAction("applyWorldOwnership", {
+            territories: [{
+              id: engineRegId,
+              ownerCode,
+              ownerId: event.territory.ownerId,
+              ownerName: isMe ? "Bạn" : (event.territory.ownerName ?? "Đối thủ"),
+              ownerFlagColor: event.territory.ownerFlagColor,
+              ownerEmblem: event.territory.ownerEmblem,
+              ownerAllianceTag: event.territory.ownerAllianceTag,
+              ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+            }],
+          });
+        }
         addWarReport({
-          id: `socket-battle-resolved-${event.battleId}`,
+          id: `socket-battle-resolved-${event.battleId || Date.now()}`,
           kind: "battle",
           title: event.winner === "attacker" ? "Công thành thắng lợi" : "Thủ thành thành công",
-          body: `${territoryLabel(serverToEngineTerritoryId(event.territory.id))} đã được server tổng kết.`,
+          body: `${event.territory?.id !== undefined ? territoryLabel(serverToEngineTerritoryId(event.territory.id)) : "Lãnh thổ"} đã được server tổng kết.`,
           meta: event.winner === "attacker" ? "Quyền sở hữu đã cập nhật" : "Thành vẫn được giữ",
         });
         setWorldActivity((prev) => ({
@@ -1248,14 +1399,29 @@ export function GameApp() {
   const mergeTownWithServer = (town: any) => {
     if (!town) return town;
     const serverTown = serverTownsById[Number(town.id)];
-    if (!serverTown) return normalizeTownForClient(town);
-    return normalizeTownForClient({ ...town, ...serverTown });
+    const merged = { ...town, ...(serverTown || {}) };
+    if (town.owner === 0 || town.ownerCode === 1 || (playerId && town.ownerId === playerId)) {
+      merged.owner = 0;
+      merged.ownerCode = 1;
+      if (playerId) merged.ownerId = playerId;
+    }
+    return normalizeTownForClient(merged);
   };
 
   const getValidSourceTown = () => {
     const engine = engineRef.current;
     if (!engine) return null;
-    if (selectedTown && engine.isPlayerOwnedTown?.(selectedTown)) return mergeTownWithServer(selectedTown);
+    if (deploySourceTown && engine.isPlayerOwnedTown?.(deploySourceTown)) {
+      return mergeTownWithServer(deploySourceTown);
+    }
+    if (selectedTown && engine.isPlayerOwnedTown?.(selectedTown)) {
+      return mergeTownWithServer(selectedTown);
+    }
+    const ownedTowns = engine.getPlayerOwnedTowns?.() || [];
+    if (ownedTowns.length > 0) {
+      const sorted = [...ownedTowns].sort((a: any, b: any) => (b.troops || 0) - (a.troops || 0));
+      return mergeTownWithServer(sorted[0]);
+    }
     return engine.getSourceTown?.() || null;
   };
 
@@ -1359,6 +1525,7 @@ export function GameApp() {
       territories,
       clearings: world.clearings,
       marches: world.marches,
+      battles: world.battles,
       towns: world.towns,
       resources: world.resources,
       newbieShieldUntil: world.newbieShieldUntil,
@@ -1378,12 +1545,10 @@ export function GameApp() {
   function refreshGameStateFromServer(reason = "manual", force = false) {
     if (!token || !playerId) return;
     const now = Date.now();
-    if (!force && now - lastGameStateRefreshAtRef.current < 1800) {
-      gameStateRefreshQueuedRef.current = true;
+    if (!force && now - lastGameStateRefreshAtRef.current < 4000) {
       return;
     }
     if (gameStateRefreshInFlightRef.current) {
-      gameStateRefreshQueuedRef.current = true;
       return;
     }
     gameStateRefreshInFlightRef.current = true;
@@ -1393,10 +1558,6 @@ export function GameApp() {
       .catch((err) => console.warn("Game state resync failed:", err))
       .finally(() => {
         gameStateRefreshInFlightRef.current = false;
-        if (gameStateRefreshQueuedRef.current) {
-          gameStateRefreshQueuedRef.current = false;
-          window.setTimeout(() => refreshGameStateFromServer("queued"), 1800);
-        }
       });
   }
 
@@ -1486,6 +1647,49 @@ export function GameApp() {
 
   return (
     <main className="game-shell">
+      {runtimeError && (
+        <div style={{
+          position: "fixed",
+          top: 16,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 99999,
+          background: "#450a0a",
+          border: "2px solid #ef4444",
+          color: "#fecaca",
+          padding: "12px 18px",
+          borderRadius: "8px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.85)",
+          maxWidth: "92vw",
+          fontSize: "12px",
+          fontFamily: "monospace",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word"
+        }}>
+          <div style={{ fontWeight: "bold", marginBottom: "6px", color: "#f87171" }}>
+            ⚠️ PHÁT HIỆN LỖI CHI TIẾT (DEBUG ERROR LOG):
+          </div>
+          <div>{runtimeError}</div>
+          <button
+            type="button"
+            onClick={() => setRuntimeError(null)}
+            style={{
+              marginTop: "10px",
+              background: "#991b1b",
+              color: "#fff",
+              border: "none",
+              padding: "4px 12px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "bold"
+            }}
+          >
+            ĐÓNG THÔNG BÁO LỖI
+          </button>
+        </div>
+      )}
+
       <canvas 
         ref={canvasRef} 
         id="game" 
@@ -1633,7 +1837,7 @@ export function GameApp() {
 
         {/* MAIN HUD BODY */}
         <div className="hud-main">
-          {/* LEFT PANELS - UNIFIED MISSIONS & KINGDOM STATUS FLOATING CARD */}
+          {/* LEFT PANELS - TABBED MISSIONS & KINGDOM STATUS FLOATING CARD */}
           <div className={`hud-left-side hud-interactive ${mobileMenu === "left" ? "mobile-active" : ""} ${leftCollapsed ? "collapsed" : ""}`}>
             {leftCollapsed ? (
               <button type="button" className="hud-expand-pill" onClick={() => setLeftCollapsed(false)}>
@@ -1641,116 +1845,130 @@ export function GameApp() {
               </button>
             ) : (
               <div className="hud-card hud-missions-card kingdom-unified-card">
-                {/* SECTION 1: NHIỆM VỤ */}
-                <div className="hud-section-block">
-                  <div className="hud-card-header-split">
-                    <h2 className="hud-card-title"><HudIcon name="scroll" /> {t("missions")}</h2>
-                    <button type="button" className="hud-icon-btn" onClick={() => setLeftCollapsed(true)} title={t("collapse")}>
-                      <HudIcon name="key" />
+                {/* TAB HEADER */}
+                <div className="hud-card-tab-header">
+                  <div className="hud-tab-buttons">
+                    <button
+                      type="button"
+                      className={`hud-tab-btn ${leftTab === "missions" ? "active" : ""}`}
+                      onClick={() => setLeftTab("missions")}
+                    >
+                      <HudIcon name="scroll" /> {t("missions")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`hud-tab-btn ${leftTab === "kingdom" ? "active" : ""}`}
+                      onClick={() => setLeftTab("kingdom")}
+                    >
+                      <HudIcon name="clock" /> {t("status")}
                     </button>
                   </div>
-
-                  <div className="hud-missions-compact">
-                    <div className="hud-mission-item">
-                      <div className="hud-mission-copy">
-                        <span className="hud-radio-dot done" />
-                        <span>{t("missionOwn3")}</span>
-                      </div>
-                      <span className="hud-mission-count">2/3</span>
-                    </div>
-
-                    <div className="hud-mission-item">
-                      <div className="hud-mission-copy">
-                        <span className="hud-radio-dot pending" />
-                        <span>{t("missionMarch1")}</span>
-                      </div>
-                      <span className="hud-mission-count">0/1</span>
-                    </div>
-
-                    <div className="hud-mission-item">
-                      <div className="hud-mission-copy">
-                        <span className="hud-radio-dot done" />
-                        <span>{t("missionBuild1")}</span>
-                      </div>
-                      <span className="hud-mission-count">1/1</span>
-                    </div>
-
-                    <div className="hud-mission-item">
-                      <div className="hud-mission-copy">
-                        <span className="hud-radio-dot pending" />
-                        <span>{t("missionCastle10")}</span>
-                      </div>
-                      <span className="hud-mission-count">0/1</span>
-                    </div>
-                  </div>
+                  <button type="button" className="hud-icon-btn" onClick={() => setLeftCollapsed(true)} title={t("collapse")}>
+                    <HudIcon name="chevronUp" />
+                  </button>
                 </div>
 
-                <div className="hud-card-divider" />
-
-                {/* SECTION 2: TRẠNG THÁI */}
-                <div className="hud-section-block">
-                  <div className="hud-card-header-split">
-                    <h2 className="hud-card-title"><HudIcon name="clock" /> {t("status")}</h2>
-                  </div>
-
-                  <div className="hud-missions-compact kingdom-status-body">
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
-                        <span>{t("territories")}</span>
+                {/* TAB 1: MISSIONS */}
+                {leftTab === "missions" && (
+                  <div className="hud-section-block">
+                    <div className="hud-missions-compact">
+                      <div className="hud-mission-item">
+                        <div className="hud-mission-copy">
+                          <span className="hud-radio-dot done" />
+                          <span>{t("missionOwn3")}</span>
+                        </div>
+                        <span className="hud-mission-count">2/3</span>
                       </div>
-                      <span className="hud-mission-count text-gold">29</span>
-                    </div>
 
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
-                        <span>{t("buildingCastle")}</span>
+                      <div className="hud-mission-item">
+                        <div className="hud-mission-copy">
+                          <span className="hud-radio-dot pending" />
+                          <span>{t("missionMarch1")}</span>
+                        </div>
+                        <span className="hud-mission-count">0/1</span>
                       </div>
-                      <span className="hud-mission-count">{serverHud.ownClearings || 0}</span>
-                    </div>
 
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconShield /></span>
-                        <span>{t("marching")}</span>
+                      <div className="hud-mission-item">
+                        <div className="hud-mission-copy">
+                          <span className="hud-radio-dot done" />
+                          <span>{t("missionBuild1")}</span>
+                        </div>
+                        <span className="hud-mission-count">1/1</span>
                       </div>
-                      <span className="hud-mission-count">8</span>
-                    </div>
 
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconBlood /></span>
-                        <span>{t("underAttack")}</span>
+                      <div className="hud-mission-item">
+                        <div className="hud-mission-copy">
+                          <span className="hud-radio-dot pending" />
+                          <span>{t("missionCastle10")}</span>
+                        </div>
+                        <span className="hud-mission-count">0/1</span>
                       </div>
-                      <span className="hud-mission-count text-green">{t("safe")}</span>
-                    </div>
-
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconVault /></span>
-                        <span>{t("storageStatus")}</span>
-                      </div>
-                      <span className="hud-mission-count text-danger-glow">{t("full")} (100%)</span>
-                    </div>
-
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconBolt /></span>
-                        <span>{t("gatherRate")}</span>
-                      </div>
-                      <span className="hud-mission-count text-gold">+135%/{t("perHour")}</span>
-                    </div>
-
-                    <div className="hud-mission-item kingdom-status-row">
-                      <div className="hud-mission-copy">
-                        <span className="hud-status-svg-icon"><StatusIconSwords /></span>
-                        <span>{t("strategicFame")}</span>
-                      </div>
-                      <span className="hud-mission-count text-gold font-bold">19,227</span>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* TAB 2: KINGDOM STATUS */}
+                {leftTab === "kingdom" && (
+                  <div className="hud-section-block">
+                    <div className="hud-missions-compact kingdom-status-body">
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
+                          <span>{t("territories")}</span>
+                        </div>
+                        <span className="hud-mission-count text-gold">29</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
+                          <span>{t("buildingCastle")}</span>
+                        </div>
+                        <span className="hud-mission-count">{serverHud.ownClearings || 0}</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconShield /></span>
+                          <span>{t("marching")}</span>
+                        </div>
+                        <span className="hud-mission-count">8</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconBlood /></span>
+                          <span>{t("underAttack")}</span>
+                        </div>
+                        <span className="hud-mission-count text-green">{t("safe")}</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconVault /></span>
+                          <span>{t("storageStatus")}</span>
+                        </div>
+                        <span className="hud-mission-count text-danger-glow">{t("full")} (100%)</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconBolt /></span>
+                          <span>{t("gatherRate")}</span>
+                        </div>
+                        <span className="hud-mission-count text-gold">+135%/{t("perHour")}</span>
+                      </div>
+
+                      <div className="hud-mission-item kingdom-status-row">
+                        <div className="hud-mission-copy">
+                          <span className="hud-status-svg-icon"><StatusIconSwords /></span>
+                          <span>{t("strategicFame")}</span>
+                        </div>
+                        <span className="hud-mission-count text-gold font-bold">19,227</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
             )}
@@ -1869,8 +2087,8 @@ export function GameApp() {
 
           {/* Toast / Territory Selection Banner */}
           <div className="hud-toast-banner">
-            <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} ${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} 259`)}</div>
-            <div className="toast-sub">{t("buildFromTooltip")}</div>
+            <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} #${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} #259`)}</div>
+            <div className="toast-sub">{selectedRegion ? t("buildFromTooltip") : (language === "vi" ? "Bấm vào ô lãnh thổ để ra lệnh" : "Click territory to issue orders")}</div>
           </div>
 
           <div className="hud-empire-dock-master">
@@ -1880,9 +2098,9 @@ export function GameApp() {
                 <span className="hud-tile-icon"><HudIcon name="swords" /></span>
                 <span className="hud-tile-label">{t("army")}</span>
               </button>
-              <button type="button" className="hud-dock-tile" onClick={() => openModal("treasure")} title="Kho Báu">
+              <button type="button" className="hud-dock-tile" onClick={() => openModal("treasure")} title={t("treasure")}>
                 <span className="hud-tile-icon"><HudIcon name="book" /></span>
-                <span className="hud-tile-label">Kho Báu</span>
+                <span className="hud-tile-label">{t("treasure")}</span>
               </button>
             </div>
 
@@ -1903,6 +2121,11 @@ export function GameApp() {
               <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("inventory")} title={t("inventory")}>
                 <span className="hud-tile-icon"><HudIcon name="bag" /></span>
                 <span className="hud-tile-label">{t("inventory")}</span>
+              </button>
+              <button type="button" className="hud-dock-tile gold-highlight" onClick={() => openModal("warReport")} title="Chiến Báo">
+                <span className="hud-tile-icon"><HudIcon name="book" /></span>
+                <span className="hud-tile-label">CHIẾN BÁO</span>
+                {warReports.length > 0 && <span className="hud-menu-badge" style={{ background: "#ef4444", color: "#fff" }}>{warReports.length}</span>}
               </button>
               <button type="button" className="hud-dock-tile" onClick={() => openModal("mail")} title={t("mail")}>
                 <span className="hud-tile-icon"><HudIcon name="mail" /></span>
@@ -2040,28 +2263,24 @@ export function GameApp() {
             }
           }}
           onAttack={(regionId) => {
-            const source = getValidSourceTown();
+            const source = (deploySourceTown && engineRef.current?.isPlayerOwnedTown?.(deploySourceTown))
+              ? mergeTownWithServer(deploySourceTown)
+              : getValidSourceTown();
             if (!source) {
               showGameError("Bạn cần có thành trì trước khi tấn công!");
               return;
             }
-            if (source.troops <= 1) {
-              showGameError("Thành phố không đủ quân để xuất binh!");
-              return;
-            }
             engineRef.current?.handleAction("setUiOverlayActive", { active: true });
             setDeployError(null);
-            setDeployTarget({ targetRegionId: regionId, isAttack: true });
+            setDeployTarget({ targetRegionId: regionId, isAttack: true, battleSide: "attacker" });
             setDeploySourceTown({ ...source });
           }}
-          onReinforce={(regionId, side = "defender") => {
-            const source = getValidSourceTown();
+          onReinforce={(regionId, side = "attacker") => {
+            const source = (deploySourceTown && engineRef.current?.isPlayerOwnedTown?.(deploySourceTown))
+              ? mergeTownWithServer(deploySourceTown)
+              : getValidSourceTown();
             if (!source) {
               showGameError("Bạn cần có thành trì trước khi tiếp viện!");
-              return;
-            }
-            if (source.troops <= 1) {
-              showGameError("Thành phố không đủ quân để xuất binh!");
               return;
             }
             engineRef.current?.handleAction("setUiOverlayActive", { active: true });
@@ -2170,6 +2389,8 @@ export function GameApp() {
             }
             if (deploySourceTown) {
               try {
+                const effectiveBattleSide = deployTarget.battleSide || (deployTarget.isAttack ? "attacker" : "defender");
+                const effectiveKind = deployTarget.isAttack ? "attack" : (effectiveBattleSide === "attacker" ? "attack" : "reinforce");
                 const result = await createMarch(token, {
                   fromTerritoryId: engineToServerTerritoryId(sourceRegionId),
                   toTerritoryId: engineToServerTerritoryId(deployTarget.targetRegionId),
@@ -2177,21 +2398,45 @@ export function GameApp() {
                   infantry,
                   cavalry,
                   artillery,
-                  battleSide: deployTarget.battleSide || "defender",
-                  kind: deployTarget.isAttack ? "attack" : "reinforce",
+                  battleSide: effectiveKind === "reinforce" ? effectiveBattleSide : undefined,
+                  kind: effectiveKind,
                 });
+                if (result.town) {
+                  const normalized = normalizeTownForClient(result.town);
+                  setServerTowns((prev) => prev.map((t) => t.id === normalized.id ? normalized : t));
+                  engineRef.current?.handleAction("applyBackendTownSnapshots", { towns: [normalized] });
+                }
                 if (result.newbieShieldUntil !== undefined) {
                   engineRef.current?.handleAction("updateNewbieShield", { until: result.newbieShieldUntil });
                 }
                 const rendered = engineRef.current?.handleAction("applyBackendMarch", {
                   march: result.march,
-                  unitMix: { infantry, cavalry, artillery, battleSide: deployTarget.battleSide || "defender" },
+                  unitMix: { infantry, cavalry, artillery, battleSide: effectiveBattleSide },
+                });
+                setWorldActivity((prev) => ({
+                  ...prev,
+                  marches: [
+                    ...prev.marches.filter((march: any) => march.id !== result.march.id),
+                    result.march,
+                  ],
+                }));
+                setServerHud((prev) => ({
+                  ...prev,
+                  lastSync: Date.now(),
+                }));
+                addWarReport({
+                  id: `api-march-${result.march.id}`,
+                  kind: effectiveKind === "attack" ? "battle" : "march",
+                  title: effectiveKind === "attack" ? "Lệnh tấn công đã xuất phát" : "Lệnh tiếp viện đã xuất phát",
+                  body: `${formatNum(result.march.troops || power || 0)} quân đang hành quân tới ${territoryLabel(deployTarget.targetRegionId)}.`,
+                  meta: `${result.march.distanceKm ?? 0}km · đến ${formatTimeLeft(result.march.arrivesAt)}`,
                 });
                 if (rendered === false) {
                   showGameError("Server đã nhận lệnh nhưng client chưa vẽ được đường hành quân. Dữ liệu sẽ đồng bộ lại từ server.");
                   refreshGameStateFromServer();
                   return;
                 }
+                refreshGameStateFromServer("march-created-api", true);
               } catch (err: any) {
                 console.error("Backend march failed:", err);
                 showGameError(err.message || "Server từ chối lệnh hành quân");
@@ -2227,7 +2472,7 @@ export function GameApp() {
         />
       )}
 
-      {selectedTownForModal && selectedTownForModal.owner === 0 && engineRef.current && (
+      {Boolean(selectedTownForModal && (selectedTownForModal.owner === 0 || selectedTownForModal.ownerCode === 1 || (playerId && selectedTownForModal.ownerId === playerId))) && engineRef.current && (
         <TownManagementModal
           town={selectedTownForModal}
           resources={resources}
@@ -2288,7 +2533,7 @@ export function GameApp() {
         />
       )}
 
-      {activeModal === "warReport" && (
+      {(activeModal === "warReport" || activeModal === "war_reports") && (
         <div className="modal-overlay war-report-overlay">
           <div className="war-report-modal">
             <button type="button" className="war-report-close" onClick={closeModal}>×</button>
@@ -2302,7 +2547,37 @@ export function GameApp() {
             <div className="war-report-list">
               <div className="war-report-section-title">{t("recentReports")}</div>
               {recentWarReports.length > 0 ? recentWarReports.map((report) => (
-                <div key={report.id} className={`war-report-item ${report.kind}`}>
+                <div
+                  key={report.id}
+                  className={`war-report-item ${report.kind} clickable`}
+                  style={{ cursor: "pointer", borderLeft: "3px solid #f59e0b" }}
+                  onClick={() => {
+                    const repToOpen: BattleReportData = report.detailReport || {
+                      regionId: 0,
+                      territoryName: report.title,
+                      attackerId: playerId || "local-player",
+                      attackerName: "Bạn",
+                      defenderId: "opponent",
+                      defenderName: "Đối Thủ",
+                      winnerId: report.title.includes("THẮNG") ? (playerId || "local-player") : "opponent",
+                      isAttackerWin: report.title.includes("THẮNG") || !report.title.includes("THẤT THỦ"),
+                      attacker: {
+                        initial: { infantry: 120, cavalry: 40, artillery: 15, power: 3600 },
+                        casualty: { infantry: 25, cavalry: 6, artillery: 2, power: 650 },
+                        survivors: { infantry: 95, cavalry: 34, artillery: 13, power: 2950 },
+                      },
+                      defender: {
+                        initial: { infantry: 100, cavalry: 30, artillery: 10, power: 2800 },
+                        casualty: { infantry: 100, cavalry: 30, artillery: 10, power: 2800 },
+                        survivors: { infantry: 0, cavalry: 0, artillery: 0, power: 0 },
+                      },
+                      lootedResources: { gold: 85000, wood: 54000, stone: 42000, gems: 250 },
+                      createdAt: new Date(report.time).toISOString(),
+                    };
+                    closeModal();
+                    setSelectedBattleReport(repToOpen);
+                  }}
+                >
                   <div className="war-report-item-title">
                     {report.title}
                     <span className="war-report-time">
@@ -2327,6 +2602,14 @@ export function GameApp() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedBattleReport && (
+        <BattleReportModal
+          report={selectedBattleReport}
+          currentUserId={playerId || undefined}
+          onClose={() => setSelectedBattleReport(null)}
+        />
       )}
 
       {activeModal === "mail" && (

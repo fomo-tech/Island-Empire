@@ -97,6 +97,30 @@ export type AllianceAidDocument = {
   claimedAt?: Date;
 };
 
+export type BattleReportDocument = {
+  _id: string;
+  regionId: number;
+  territoryName: string;
+  attackerId: string;
+  attackerName: string;
+  defenderId: string | null;
+  defenderName: string;
+  winnerId: string;
+  isAttackerWin: boolean;
+  attacker: {
+    initial: { infantry: number; cavalry: number; artillery: number; power: number };
+    casualty: { infantry: number; cavalry: number; artillery: number; power: number };
+    survivors: { infantry: number; cavalry: number; artillery: number; power: number };
+  };
+  defender: {
+    initial: { infantry: number; cavalry: number; artillery: number; power: number };
+    casualty: { infantry: number; cavalry: number; artillery: number; power: number };
+    survivors: { infantry: number; cavalry: number; artillery: number; power: number };
+  };
+  lootedResources: { gold: number; wood: number; stone: number; gems: number };
+  createdAt: Date;
+};
+
 export async function collections() {
   const db = await getDb();
   return {
@@ -109,11 +133,12 @@ export async function collections() {
     activeBattles: db.collection<ActiveBattleDocument>("active_battles"),
     alliances: db.collection<AllianceDocument>("alliances"),
     allianceAids: db.collection<AllianceAidDocument>("alliance_aids"),
+    battleReports: db.collection<BattleReportDocument>("battle_reports"),
   };
 }
 
 export async function ensureIndexes() {
-  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids } = await collections();
+  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids, battleReports } = await collections();
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
     players.createIndex({ lastSeenAt: -1 }),
@@ -134,5 +159,8 @@ export async function ensureIndexes() {
     allianceAids.createIndex({ toPlayerId: 1, status: 1 }),
     allianceAids.createIndex({ fromPlayerId: 1, createdAt: -1 }),
     allianceAids.createIndex({ allianceId: 1, createdAt: -1 }),
+    battleReports.createIndex({ attackerId: 1 }),
+    battleReports.createIndex({ defenderId: 1 }),
+    battleReports.createIndex({ createdAt: -1 }),
   ]);
 }

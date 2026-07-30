@@ -178,13 +178,16 @@ const HourglassIcon = () => (
   </svg>
 );
 
-const BannerFlagIcon = () => (
-  <svg viewBox="0 0 40 60" width="32" height="48" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))" }}>
-    <path d="M4 2h32v44l-16-10-16 10V2z" fill="#8c2a1e" stroke="#ca8a04" strokeWidth="2" />
-    <rect x="2" y="0" width="36" height="5" fill="#ffd34d" rx="1" />
-    <path d="M14 14h12v14h-12z" fill="#ffd34d" stroke="#ca8a04" strokeWidth="1" />
-  </svg>
-);
+const BannerFlagIcon = ({ color }: { color?: string }) => {
+  const flagColor = color || "#8c2a1e";
+  return (
+    <svg viewBox="0 0 40 60" width="32" height="48" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))" }}>
+      <path d="M4 2h32v44l-16-10-16 10V2z" fill={flagColor} stroke="#ca8a04" strokeWidth="2" />
+      <rect x="2" y="0" width="36" height="5" fill="#ffd34d" rx="1" />
+      <path d="M14 14h12v14h-12z" fill="#ffd34d" stroke="#ca8a04" strokeWidth="1" />
+    </svg>
+  );
+};
 
 const BookIcon = () => (
   <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 5, verticalAlign: "middle" }}>
@@ -447,22 +450,42 @@ export function TerritoryTooltip({
   const renderActionButtons = () => {
     if (isUnderBattle) {
       const isPlayerOwned = effectiveOwnership === 1;
-      if (isPlayerOwned) {
-        return (
-          <>
-            <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
-              <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
-            </button>
-            <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
-          </>
-        );
-      }
+      const activeBattle = engineState.activeBattles?.find((b: any) => b.regionId === id);
+      const remSec = activeBattle
+        ? Math.max(0, Math.ceil((activeBattle.duration || activeBattle.durationSeconds || 25) - (activeBattle.t || 0)))
+        : 15;
+      const totalDur = activeBattle ? (activeBattle.duration || activeBattle.durationSeconds || 25) : 25;
+      const progressPct = Math.round(Math.max(0, Math.min(1, 1 - remSec / totalDur)) * 100);
+
       return (
         <>
-          <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
-            <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
-          </button>
-          <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
+          <div className="rt-clearing-box remote" style={{ borderColor: "#ef4444", marginBottom: 12, background: "rgba(30, 10, 10, 0.9)" }}>
+            <div className="rt-clearing-header">
+              <span className="rt-clearing-title-text" style={{ color: "#fca5a5" }}>
+                CHIẾN SỰ ĐANG DIỄN RA KHỐC LIỆT
+              </span>
+              <span className="rt-clearing-pct-text" style={{ color: "#ffd34d" }}>Còn {remSec}s</span>
+            </div>
+            <div className="rt-clearing-bar-track">
+              <div className="rt-clearing-bar-fill" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #ef4444 0%, #f59e0b 100%)" }} />
+            </div>
+            <div className="rt-clearing-subtext">Trận đánh đang đếm ngược tổng kết trên Server</div>
+          </div>
+          {isPlayerOwned ? (
+            <>
+              <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
+                <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
+              </button>
+              <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
+                <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
+              </button>
+              <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
+            </>
+          )}
         </>
       );
     }
@@ -577,13 +600,15 @@ export function TerritoryTooltip({
     return null;
   };
 
+  const territoryFlagColor = engineState.regionOwnerFlagColors?.[id] || (effectiveOwnership === 1 ? (engineState.newbieFlagColor || "#2563eb") : undefined);
+
   const tooltipElement = (
     <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none" }}>
       <div className="rt-tooltip-card" style={{ pointerEvents: "auto" }}>
         {/* Header */}
         <div className="rt-tooltip-header">
           <div className="rt-header-top-row">
-            <BannerFlagIcon />
+            <BannerFlagIcon color={territoryFlagColor} />
             <div className="rt-header-info">
               <div className="rt-header-title-bar">
                 <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id + 1}` : `LÃNH THỔ #${id + 1}`}</div>

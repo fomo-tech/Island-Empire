@@ -301,7 +301,7 @@ function calcYields(rx: number, ry: number, biome: number, isIslet: boolean) {
   };
 }
 
-function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; rx: number; ry: number }) {
+function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; rx: number; ry: number; coastal?: boolean }) {
   const specials: string[] = [];
   const area = t.rx * t.ry;
 
@@ -315,8 +315,8 @@ function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; 
     specials.push("Xưởng đúc pháo");
   }
 
-  // Natural Harbor ("Bến tàu tự nhiên")
-  if (t.isIslet || t.id % 3 === 0 || t.id % 5 === 0 || t.id % 7 === 0) {
+  // Natural Harbor ("Bến tàu tự nhiên") - chỉ xuất hiện ở vùng ven biển
+  if (t.isIslet || t.coastal) {
     specials.push("Bến tàu tự nhiên");
   }
 
@@ -520,25 +520,11 @@ function toPublicClearing(clearing: { territoryId: number; playerId: string; sta
   };
 }
 
-function toPublicMarch(order: {
-  _id: string;
-  ownerId: string;
-  fromTerritoryId: number;
-  toTerritoryId: number;
-  troops: number;
-  infantry?: number;
-  cavalry?: number;
-  artillery?: number;
-  distanceKm?: number;
-  travelSeconds?: number;
-  usesShip?: boolean;
-  battleSide?: "attacker" | "defender";
-  kind: "attack" | "reinforce" | "move";
-  startedAt: Date;
-  arrivesAt: Date;
-}) {
+function toPublicMarch(order: any) {
+  const startedAtDate = order.startedAt instanceof Date ? order.startedAt : new Date(order.startedAt);
+  const arrivesAtDate = order.arrivesAt instanceof Date ? order.arrivesAt : new Date(order.arrivesAt);
   return {
-    id: order._id,
+    id: order._id || order.id,
     ownerId: order.ownerId,
     fromTerritoryId: order.fromTerritoryId,
     toTerritoryId: order.toTerritoryId,
@@ -547,35 +533,20 @@ function toPublicMarch(order: {
     cavalry: order.cavalry ?? 0,
     artillery: order.artillery ?? 0,
     distanceKm: order.distanceKm ?? 0,
-    travelSeconds: order.travelSeconds ?? Math.max(1, Math.round((order.arrivesAt.getTime() - order.startedAt.getTime()) / 1000)),
+    travelSeconds: order.travelSeconds ?? Math.max(1, Math.round((arrivesAtDate.getTime() - startedAtDate.getTime()) / 1000)),
     usesShip: order.usesShip ?? false,
     battleSide: order.battleSide,
-    kind: order.kind,
-    startedAt: order.startedAt.toISOString(),
-    arrivesAt: order.arrivesAt.toISOString(),
+    kind: order.kind ?? "attack",
+    startedAt: startedAtDate.toISOString(),
+    arrivesAt: arrivesAtDate.toISOString(),
   };
 }
 
-function toPublicBattle(battle: {
-  _id: string;
-  regionId: number;
-  townId?: number;
-  attackerId: string;
-  defenderId: string | null;
-  attackerPower: number;
-  defenderPower: number;
-  attackerInfantry: number;
-  attackerCavalry: number;
-  attackerArtillery: number;
-  defenderInfantry: number;
-  defenderCavalry: number;
-  defenderArtillery: number;
-  startedAt: Date;
-  resolvesAt: Date;
-  durationSeconds: number;
-}): ActiveBattle {
+function toPublicBattle(battle: any): ActiveBattle {
+  const startedAtDate = battle.startedAt instanceof Date ? battle.startedAt : new Date(battle.startedAt);
+  const resolvesAtDate = battle.resolvesAt instanceof Date ? battle.resolvesAt : new Date(battle.resolvesAt);
   return {
-    id: battle._id,
+    id: battle._id || battle.id,
     regionId: battle.regionId,
     townId: battle.townId,
     attackerId: battle.attackerId,
@@ -588,10 +559,21 @@ function toPublicBattle(battle: {
     defenderInfantry: battle.defenderInfantry,
     defenderCavalry: battle.defenderCavalry,
     defenderArtillery: battle.defenderArtillery,
-    startedAt: battle.startedAt.toISOString(),
-    resolvesAt: battle.resolvesAt.toISOString(),
+    startedAt: startedAtDate.toISOString(),
+    resolvesAt: resolvesAtDate.toISOString(),
     durationSeconds: battle.durationSeconds,
   };
+}
+
+async function publishPlayerState(playerId: string, reason: string, resources?: ResourceBag | null, towns?: any[] | null, newbieShieldUntil?: Date | string | null) {
+  publishRealtime({
+    type: "player_state_updated",
+    playerId,
+    resources: resources ? normalizeResources(resources) : undefined,
+    towns: Array.isArray(towns) ? towns : undefined,
+    newbieShieldUntil: newbieShieldUntil ? new Date(newbieShieldUntil).toISOString() : null,
+    reason,
+  }, `player:${playerId}`);
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -803,12 +785,9 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
 }
 
 async function buildGameStatePayload(playerId: string): Promise<GameStateResult> {
-  await processArrivedMarches();
-  await processActiveBattles();
-  await processCompletedClearings();
   const { territoryClearings, marchOrders, activeBattles, players, saves } = await collections();
   const [world, clearings, marches, battles, resourceState, player, save] = await Promise.all([
-    buildWorldTerritoriesPayload(),
+    cachedWorldTerritoriesPayload(),
     territoryClearings.find({}).toArray(),
     marchOrders.find({}).toArray(),
     activeBattles.find({}).toArray(),
@@ -897,13 +876,99 @@ async function processArrivedMarches(now = new Date()) {
       continue;
     }
     const targetClaim = await territoryClaims.findOne({ territoryId: territory.id });
-    if (march.kind !== "attack" || !targetClaim || targetClaim.playerId === march.ownerId) {
+
+    // Case A: Unclaimed wild land -> Instantly capture on march arrival
+    if (!targetClaim || !targetClaim.playerId) {
+      if (march.kind === "attack") {
+        const attackerPlayer = await players.findOne({ _id: march.ownerId });
+        const attackerSave = (await saves.findOne({ playerId: march.ownerId })) as any;
+        const attackerTowns = Array.isArray(attackerSave?.towns) ? removeTownForTerritory(attackerSave.towns, territory) : [];
+        const newTown = normalizeTownSnapshotForState({
+          ...defaultTownSnapshotForTerritory(territory, march.ownerId),
+          ownerId: march.ownerId,
+          infantryCount: march.infantry || 50,
+          cavalryCount: march.cavalry || 10,
+          artilleryCount: march.artillery || 5,
+          troops: march.troops || 65,
+        }, march.ownerId, territory);
+        attackerTowns.push(newTown);
+
+        await Promise.all([
+          territoryClaims.updateOne(
+            { territoryId: territory.id },
+            { $set: { playerId: march.ownerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
+            { upsert: true }
+          ),
+          saves.updateOne(
+            { playerId: march.ownerId },
+            { $set: { towns: attackerTowns, updatedAt: now }, $setOnInsert: { _id: `save:${march.ownerId}`, playerId: march.ownerId, resources: DEFAULT_PLAYER_RESOURCES } },
+            { upsert: true }
+          ),
+          marchOrders.deleteOne({ _id: march._id }),
+        ]);
+
+        const publicTerritory = {
+          ...territory,
+          ownerId: march.ownerId,
+          ownerName: attackerPlayer?.name || "Bạn",
+          ownerFlagColor: attackerPlayer?.flagColor || "#2f70d7",
+          ownerEmblem: attackerPlayer?.emblem || "shield",
+        };
+        publishRealtime({ type: "territory_claimed", territory: publicTerritory });
+        publishRealtime({ type: "march_removed", marchId: march._id, territoryId: territory.id, reason: "territory_claimed" });
+        await publishPlayerState(march.ownerId, "march_claimed_territory", attackerPlayer?.resources, attackerTowns);
+        continue;
+      } else {
+        await marchOrders.deleteOne({ _id: march._id });
+        publishRealtime({ type: "march_removed", marchId: march._id, territoryId: territory.id, reason: "arrived_home" });
+        continue;
+      }
+    }
+
+    // Case B: Own town -> Arrived safely
+    if (targetClaim.playerId === march.ownerId) {
       await marchOrders.deleteOne({ _id: march._id });
+      publishRealtime({ type: "march_removed", marchId: march._id, territoryId: territory.id, reason: "arrived_home" });
       continue;
     }
     const existingBattle = await activeBattles.findOne({ regionId: territory.id });
     if (existingBattle) {
+      const isAttackerSide = march.ownerId === existingBattle.attackerId || march.kind === "attack";
+      const marchInfantry = Math.max(0, Math.floor(Number(march.infantry || 0) || 0));
+      const marchCavalry = Math.max(0, Math.floor(Number(march.cavalry || 0) || 0));
+      const marchArtillery = Math.max(0, Math.floor(Number(march.artillery || 0) || 0));
+      const addedPower = battleAttackPower({ infantry: marchInfantry, cavalry: marchCavalry, artillery: marchArtillery }, gameConfig);
+
+      if (isAttackerSide) {
+        existingBattle.attackerInfantry = (existingBattle.attackerInfantry || 0) + marchInfantry;
+        existingBattle.attackerCavalry = (existingBattle.attackerCavalry || 0) + marchCavalry;
+        existingBattle.attackerArtillery = (existingBattle.attackerArtillery || 0) + marchArtillery;
+        existingBattle.attackerPower = (existingBattle.attackerPower || 0) + addedPower;
+      } else {
+        existingBattle.defenderInfantry = (existingBattle.defenderInfantry || 0) + marchInfantry;
+        existingBattle.defenderCavalry = (existingBattle.defenderCavalry || 0) + marchCavalry;
+        existingBattle.defenderArtillery = (existingBattle.defenderArtillery || 0) + marchArtillery;
+        existingBattle.defenderPower = (existingBattle.defenderPower || 0) + addedPower;
+      }
+
+      await activeBattles.updateOne(
+        { _id: existingBattle._id },
+        {
+          $set: {
+            attackerInfantry: existingBattle.attackerInfantry,
+            attackerCavalry: existingBattle.attackerCavalry,
+            attackerArtillery: existingBattle.attackerArtillery,
+            attackerPower: existingBattle.attackerPower,
+            defenderInfantry: existingBattle.defenderInfantry,
+            defenderCavalry: existingBattle.defenderCavalry,
+            defenderArtillery: existingBattle.defenderArtillery,
+            defenderPower: existingBattle.defenderPower,
+          },
+        }
+      );
       await marchOrders.deleteOne({ _id: march._id });
+      publishRealtime({ type: "battle_started", battle: toPublicBattle(existingBattle), consumedMarchId: march._id });
+      publishRealtime({ type: "march_removed", marchId: march._id, territoryId: territory.id, reason: "joined_battle" });
       continue;
     }
     const defenderSave = (await saves.findOne({ playerId: targetClaim.playerId })) as any;
@@ -945,7 +1010,8 @@ async function processArrivedMarches(now = new Date()) {
     };
     await activeBattles.insertOne(battle);
     await marchOrders.deleteOne({ _id: march._id });
-    publishRealtime({ type: "battle_started", battle: toPublicBattle(battle) });
+    publishRealtime({ type: "battle_started", battle: toPublicBattle(battle), consumedMarchId: march._id });
+    publishRealtime({ type: "march_removed", marchId: march._id, territoryId: territory.id, reason: "battle_started" });
   }
   if (arrived.length > 0) {
     await bumpWorldCacheVersion();
@@ -973,12 +1039,28 @@ async function processActiveBattles(now = new Date()) {
     const troopValue = (infantry: number, cavalry: number, artillery: number) =>
       infantry * gameConfig.infantryTroopsValue + cavalry * gameConfig.cavalryTroopsValue + artillery * gameConfig.artilleryTroopsValue;
 
+    const attackerPlayer = await players.findOne({ _id: battle.attackerId });
+    const defenderPlayer = battle.defenderId ? await players.findOne({ _id: battle.defenderId }) : null;
+    let attackerSurvivors = { infantry: 0, cavalry: 0, artillery: 0, power: 0 };
+    let attackerCasualties = { infantry: battle.attackerInfantry, cavalry: battle.attackerCavalry, artillery: battle.attackerArtillery, power: battle.attackerPower };
+    let defenderSurvivors = { infantry: 0, cavalry: 0, artillery: 0, power: 0 };
+    let defenderCasualties = { infantry: battle.defenderInfantry, cavalry: battle.defenderCavalry, artillery: battle.defenderArtillery, power: battle.defenderPower };
+    let lootedResources = emptyResources();
+
     if (attackerWins) {
       const survivorRatio = winnerRatio;
       const nextInfantry = Math.max(1, Math.floor(battle.attackerInfantry * survivorRatio));
       const nextCavalry = Math.max(0, Math.floor(battle.attackerCavalry * survivorRatio));
       const nextArtillery = Math.max(0, Math.floor(battle.attackerArtillery * survivorRatio));
       const nextTroops = troopValue(nextInfantry, nextCavalry, nextArtillery);
+      attackerSurvivors = { infantry: nextInfantry, cavalry: nextCavalry, artillery: nextArtillery, power: nextTroops };
+      attackerCasualties = {
+        infantry: Math.max(0, battle.attackerInfantry - nextInfantry),
+        cavalry: Math.max(0, battle.attackerCavalry - nextCavalry),
+        artillery: Math.max(0, battle.attackerArtillery - nextArtillery),
+        power: Math.max(0, battle.attackerPower - nextTroops),
+      };
+
       const attackerSave = (await saves.findOne({ playerId: battle.attackerId })) as any;
       const defenderSave = battle.defenderId ? (await saves.findOne({ playerId: battle.defenderId })) as any : null;
       const attackerTowns = Array.isArray(attackerSave?.towns) ? removeTownForTerritory(attackerSave.towns, territory) : [];
@@ -994,11 +1076,8 @@ async function processActiveBattles(now = new Date()) {
       attackerTowns.push(capturedTown);
       const defenderTowns = Array.isArray(defenderSave?.towns) ? removeTownForTerritory(defenderSave.towns, territory) : [];
       const lootPercent = clampNumber(gameConfig.lootPercent, 0, 100) / 100;
-      const defenderPlayer = battle.defenderId ? await players.findOne({ _id: battle.defenderId }) : null;
-      const attackerPlayer = await players.findOne({ _id: battle.attackerId });
       const defenderResources = normalizeResources(defenderPlayer?.resources);
       const attackerResources = normalizeResources(attackerPlayer?.resources);
-      const lootedResources = emptyResources();
       RESOURCE_KEYS.forEach((key) => {
         lootedResources[key] = Math.floor((defenderResources[key] || 0) * lootPercent);
         defenderResources[key] = Math.max(0, defenderResources[key] - lootedResources[key]);
@@ -1061,6 +1140,14 @@ async function processActiveBattles(now = new Date()) {
       const nextCavalry = Math.max(0, Math.floor(battle.defenderCavalry * survivorRatio));
       const nextArtillery = Math.max(0, Math.floor(battle.defenderArtillery * survivorRatio));
       const nextTroops = troopValue(nextInfantry, nextCavalry, nextArtillery);
+      defenderSurvivors = { infantry: nextInfantry, cavalry: nextCavalry, artillery: nextArtillery, power: nextTroops };
+      defenderCasualties = {
+        infantry: Math.max(0, battle.defenderInfantry - nextInfantry),
+        cavalry: Math.max(0, battle.defenderCavalry - nextCavalry),
+        artillery: Math.max(0, battle.defenderArtillery - nextArtillery),
+        power: Math.max(0, battle.defenderPower - nextTroops),
+      };
+
       const defenderSave = (await saves.findOne({ playerId: battle.defenderId })) as any;
       const defenderTowns = Array.isArray(defenderSave?.towns) ? removeTownForTerritory(defenderSave.towns, territory) : [];
       const keptTown = normalizeTownSnapshotForState({
@@ -1078,12 +1165,15 @@ async function processActiveBattles(now = new Date()) {
         { upsert: true },
       );
       const retreatRatio = clampNumber(gameConfig.retreatPercent, 0, 100) / 100;
+      let retreatInfantry = 0;
+      let retreatCavalry = 0;
+      let retreatArtillery = 0;
       if (retreatRatio > 0) {
         const sourceTerritory = getStaticTerritory(battle.fromTerritoryId);
         if (sourceTerritory) {
-          const retreatInfantry = Math.floor(battle.attackerInfantry * retreatRatio);
-          const retreatCavalry = Math.floor(battle.attackerCavalry * retreatRatio);
-          const retreatArtillery = Math.floor(battle.attackerArtillery * retreatRatio);
+          retreatInfantry = Math.floor(battle.attackerInfantry * retreatRatio);
+          retreatCavalry = Math.floor(battle.attackerCavalry * retreatRatio);
+          retreatArtillery = Math.floor(battle.attackerArtillery * retreatRatio);
           if (retreatInfantry + retreatCavalry + retreatArtillery > 0) {
             const attackerSave = (await saves.findOne({ playerId: battle.attackerId })) as any;
             const attackerTowns = Array.isArray(attackerSave?.towns) ? removeTownForTerritory(attackerSave.towns, sourceTerritory) : [];
@@ -1105,9 +1195,47 @@ async function processActiveBattles(now = new Date()) {
           }
         }
       }
+      attackerSurvivors = {
+        infantry: retreatInfantry,
+        cavalry: retreatCavalry,
+        artillery: retreatArtillery,
+        power: troopValue(retreatInfantry, retreatCavalry, retreatArtillery),
+      };
+      attackerCasualties = {
+        infantry: Math.max(0, battle.attackerInfantry - retreatInfantry),
+        cavalry: Math.max(0, battle.attackerCavalry - retreatCavalry),
+        artillery: Math.max(0, battle.attackerArtillery - retreatArtillery),
+        power: Math.max(0, battle.attackerPower - attackerSurvivors.power),
+      };
     }
 
+    const { battleReports } = await collections();
+    const reportDoc = {
+      _id: `report:${territory.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      regionId: territory.id,
+      territoryName: `LÃNH THỔ #${territory.id + 1}`,
+      attackerId: battle.attackerId,
+      attackerName: attackerPlayer?.name || "Bá Vương",
+      defenderId: battle.defenderId || null,
+      defenderName: defenderPlayer?.name || "Thủ Thành",
+      winnerId: attackerWins ? battle.attackerId : (battle.defenderId || "defender"),
+      isAttackerWin: attackerWins,
+      attacker: {
+        initial: { infantry: battle.attackerInfantry, cavalry: battle.attackerCavalry, artillery: battle.attackerArtillery, power: battle.attackerPower },
+        casualty: attackerCasualties,
+        survivors: attackerSurvivors,
+      },
+      defender: {
+        initial: { infantry: battle.defenderInfantry, cavalry: battle.defenderCavalry, artillery: battle.defenderArtillery, power: battle.defenderPower },
+        casualty: defenderCasualties,
+        survivors: defenderSurvivors,
+      },
+      lootedResources,
+      createdAt: now,
+    };
+    await battleReports.insertOne(reportDoc as any);
     await activeBattles.deleteOne({ _id: battle._id });
+
     const claim = await territoryClaims.findOne({ territoryId: territory.id });
     const [player, alliance] = claim?.playerId
       ? await Promise.all([
@@ -1129,6 +1257,7 @@ async function processActiveBattles(now = new Date()) {
       battleId: battle._id,
       territory: publicTerritory,
       winner: attackerWins ? "attacker" : "defender",
+      report: reportDoc,
     });
     publishRealtime({ type: "territory_claimed", territory: publicTerritory });
   }
@@ -1179,6 +1308,236 @@ async function processCompletedClearings(now = new Date()) {
   if (completed.length > 0) {
     await bumpWorldCacheVersion();
     publishRealtime({ type: "world_state_hint", reason: "server_resync" });
+  }
+}
+
+let worldTickInFlight = false;
+
+async function processWorldTick(now = new Date(), includeBots = false, tickCounter = 0) {
+  if (worldTickInFlight) return false;
+  worldTickInFlight = true;
+  try {
+    await processArrivedMarches(now);
+    await processActiveBattles(new Date());
+    await processCompletedClearings(new Date());
+    if (includeBots && tickCounter % 5 === 0) {
+      await processBotAISimulation(new Date());
+    }
+    return true;
+  } finally {
+    worldTickInFlight = false;
+  }
+}
+
+const BOT_CONFIGS = [
+  { id: "bot-tao-thao", name: "Tào Tháo", flagColor: "#ef4444", emblem: "dragon" },
+  { id: "bot-gia-cat-luong", name: "Gia Cát Lượng", flagColor: "#2563eb", emblem: "feather" },
+  { id: "bot-trieu-tu-long", name: "Triệu Tử Long", flagColor: "#f59e0b", emblem: "spear" },
+  { id: "bot-quang-trung", name: "Quang Trung", flagColor: "#10b981", emblem: "sun" },
+  { id: "bot-vo-nguyen-giap", name: "Võ Nguyên Giáp", flagColor: "#8b5cf6", emblem: "star" },
+  { id: "bot-doc-co-cau-bai", name: "Độc Cô Cầu Bại", flagColor: "#ec4899", emblem: "sword" },
+];
+
+async function ensureSeededBots() {
+  const { players, saves, territoryClaims } = await collections();
+  const now = new Date();
+
+  for (let i = 0; i < BOT_CONFIGS.length; i++) {
+    const cfg = BOT_CONFIGS[i];
+    const existing = await players.findOne({ _id: cfg.id });
+    if (!existing) {
+      await players.insertOne({
+        _id: cfg.id,
+        email: `${cfg.id}@bot.game`,
+        passwordHash: "bot-hash",
+        name: cfg.name,
+        role: "player",
+        isBot: true,
+        flagColor: cfg.flagColor,
+        emblem: cfg.emblem,
+        onboardingState: "settled",
+        createdAt: now,
+        lastSeenAt: now,
+        lastResourceCollectedAt: now,
+        resources: DEFAULT_PLAYER_RESOURCES,
+      } as any);
+
+      const ALL_LANDS = Array.from({ length: 60 }, (_, idx) => getStaticTerritory(idx)).filter((t): t is NonNullable<typeof t> => Boolean(t));
+      const starterLandId = (i * 12 + 5) % ALL_LANDS.length;
+      const staticT = getStaticTerritory(starterLandId);
+      if (staticT) {
+        const claim = await territoryClaims.findOne({ territoryId: starterLandId });
+        if (!claim) {
+          const botTown = defaultTownSnapshotForTerritory(staticT, cfg.id, 9000 + starterLandId);
+          await Promise.all([
+            territoryClaims.insertOne({ _id: `territory:${starterLandId}`, territoryId: starterLandId, playerId: cfg.id, claimedAt: now }),
+            saves.updateOne(
+              { playerId: cfg.id },
+              { $set: { towns: [botTown], updatedAt: now }, $setOnInsert: { _id: `save:${cfg.id}`, playerId: cfg.id, resources: DEFAULT_PLAYER_RESOURCES } },
+              { upsert: true }
+            ),
+          ]);
+        }
+      }
+    }
+  }
+}
+
+async function processBotAISimulation(now = new Date()) {
+  try {
+    const { players, saves, territoryClaims, territoryClearings, marchOrders } = await collections();
+    const bots = await players.find({ isBot: true }).toArray();
+    if (!bots || bots.length === 0) return;
+
+    const ALL_LANDS = Array.from({ length: 60 }, (_, idx) => getStaticTerritory(idx)).filter((t): t is NonNullable<typeof t> => Boolean(t));
+    const calcTroopVal = (inf: number, cav: number, art: number) => inf * 18 + cav * 34 + art * 58;
+
+    for (const bot of bots) {
+      const claims = await territoryClaims.find({ playerId: bot._id }).toArray();
+      const botTerritoryIds = new Set(claims.map((c: any) => c.territoryId));
+
+      const botSave = (await saves.findOne({ playerId: bot._id })) as any;
+      let botTowns = Array.isArray(botSave?.towns) ? botSave.towns : [];
+
+      if (claims.length === 0) {
+        const allClaimedIds = new Set((await territoryClaims.find({}).toArray()).map((c: any) => c.territoryId));
+        const unclaimed = ALL_LANDS.filter(l => !allClaimedIds.has(l.id));
+        if (unclaimed.length > 0) {
+          const pick = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+          const starterTown = defaultTownSnapshotForTerritory(pick, bot._id, 9000 + pick.id);
+          await territoryClaims.insertOne({ _id: `territory:${pick.id}`, territoryId: pick.id, playerId: bot._id, claimedAt: now });
+          await saves.updateOne(
+            { playerId: bot._id },
+            { $set: { towns: [starterTown], updatedAt: now }, $setOnInsert: { _id: `save:${bot._id}`, playerId: bot._id, resources: DEFAULT_PLAYER_RESOURCES } },
+            { upsert: true }
+          );
+          await bumpWorldCacheVersion();
+          publishRealtime({
+            type: "territory_claimed",
+            territory: {
+              ...pick,
+              ownerId: bot._id,
+              ownerName: bot.name,
+              ownerFlagColor: bot.flagColor ?? "#ef4444",
+              ownerEmblem: bot.emblem ?? "dragon",
+            },
+          });
+        }
+        continue;
+      }
+
+      // 1. Train troops for bot towns over time
+      let updatedTowns = false;
+      botTowns = botTowns.map((town: any) => {
+        const inf = Math.min(600, (town.infantryCount || 100) + Math.floor(Math.random() * 6 + 2));
+        const cav = Math.min(250, (town.cavalryCount || 30) + Math.floor(Math.random() * 3 + 1));
+        const art = Math.min(100, (town.artilleryCount || 10) + Math.floor(Math.random() * 2));
+        const totalTroops = calcTroopVal(inf, cav, art);
+        updatedTowns = true;
+        return {
+          ...town,
+          infantryCount: inf,
+          cavalryCount: cav,
+          artilleryCount: art,
+          troops: totalTroops,
+        };
+      });
+
+      if (updatedTowns) {
+        await saves.updateOne({ playerId: bot._id }, { $set: { towns: botTowns, updatedAt: now } });
+      }
+
+      // 2. Bot Decision A: Expand / Clear wild territory
+      const activeClearing = await territoryClearings.findOne({ playerId: bot._id });
+      if (!activeClearing && Math.random() < 0.40) {
+        const allClaimedIds = new Set((await territoryClaims.find({}).toArray()).map((c: any) => c.territoryId));
+        let wildTargetId = -1;
+
+        for (const tid of botTerritoryIds) {
+          const staticT = getStaticTerritory(tid);
+          if (staticT) {
+            const neighbors = ALL_LANDS.filter(n => n.id !== staticT.id && Math.hypot(n.x - staticT.x, n.y - staticT.y) < 320);
+            const wildNeighbors = neighbors.filter(n => !allClaimedIds.has(n.id));
+            if (wildNeighbors.length > 0) {
+              wildTargetId = wildNeighbors[Math.floor(Math.random() * wildNeighbors.length)].id;
+              break;
+            }
+          }
+        }
+
+        if (wildTargetId >= 0) {
+          const durationMs = 15000 + Math.floor(Math.random() * 10000);
+          const arrivesAt = new Date(now.getTime() + durationMs);
+          const completesAt = new Date(arrivesAt.getTime() + durationMs);
+          await territoryClearings.updateOne(
+            { territoryId: wildTargetId },
+            {
+              $set: {
+                territoryId: wildTargetId,
+                playerId: bot._id,
+                startedAt: now,
+                arrivesAt,
+                completesAt,
+              },
+              $setOnInsert: { _id: `clearing:${wildTargetId}` },
+            },
+            { upsert: true }
+          );
+          await bumpWorldCacheVersion();
+          publishRealtime({
+            type: "world_state_hint",
+            reason: "server_resync"
+          });
+        }
+      }
+
+      // 3. Bot Decision B: Launch March Attack
+      const activeMarches = await marchOrders.countDocuments({ ownerId: bot._id });
+      if (activeMarches < 2 && Math.random() < 0.30 && botTowns.length > 0) {
+        const enemyClaims = await territoryClaims.find({ playerId: { $ne: bot._id } }).toArray();
+        if (enemyClaims.length > 0) {
+          const targetClaim = enemyClaims[Math.floor(Math.random() * enemyClaims.length)];
+          const sourceTown = botTowns[Math.floor(Math.random() * botTowns.length)];
+
+          if (sourceTown && (sourceTown.troops || 0) > 80) {
+            const attInf = Math.floor((sourceTown.infantryCount || 100) * 0.5);
+            const attCav = Math.floor((sourceTown.cavalryCount || 30) * 0.5);
+            const attArt = Math.floor((sourceTown.artilleryCount || 10) * 0.5);
+            const attPower = calcTroopVal(attInf, attCav, attArt);
+
+            sourceTown.infantryCount = Math.max(10, (sourceTown.infantryCount || 100) - attInf);
+            sourceTown.cavalryCount = Math.max(0, (sourceTown.cavalryCount || 30) - attCav);
+            sourceTown.artilleryCount = Math.max(0, (sourceTown.artilleryCount || 10) - attArt);
+            sourceTown.troops = calcTroopVal(sourceTown.infantryCount, sourceTown.cavalryCount, sourceTown.artilleryCount);
+            await saves.updateOne({ playerId: bot._id }, { $set: { towns: botTowns, updatedAt: now } });
+
+            const marchDuration = 15000 + Math.floor(Math.random() * 15000);
+            const marchId = `march:${bot._id}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`;
+            const marchDoc = {
+              _id: marchId,
+              id: marchId,
+              ownerId: bot._id,
+              ownerName: bot.name,
+              fromTerritoryId: Number(sourceTown.id ?? sourceTown.regionId ?? 0),
+              toTerritoryId: Number(targetClaim.territoryId),
+              isAttack: true,
+              kind: "attack" as const,
+              power: attPower,
+              troops: attInf + attCav + attArt,
+              infantry: attInf,
+              cavalry: attCav,
+              artillery: attArt,
+              startedAt: now.toISOString(),
+              arrivesAt: new Date(now.getTime() + marchDuration).toISOString(),
+            };
+            await marchOrders.insertOne(marchDoc as any);
+            publishRealtime({ type: "march_created", march: marchDoc });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Bot AI simulation error:", err);
   }
 }
 
@@ -1417,6 +1776,22 @@ export function createApp() {
     res.json({ token: signToken({ id, role: "player" }), playerId: id });
   });
 
+  app.get("/api/reports", requireAuth, async (req, res) => {
+    try {
+      const { battleReports } = await collections();
+      const reports = await battleReports
+        .find({
+          $or: [{ attackerId: req.user!.id }, { defenderId: req.user!.id }],
+        })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .toArray();
+      res.json({ ok: true, reports });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e.message || "Failed to fetch battle reports" });
+    }
+  });
+
   app.post("/api/player/profile", requireAuth, async (req, res) => {
     const parsed = z.object({
       flagColor: z.string().min(3).max(20).optional(),
@@ -1451,6 +1826,10 @@ export function createApp() {
   });
 
   app.get("/api/game/state", requireAuth, async (_req, res) => {
+    setTimeout(() => {
+      processWorldTick(new Date(), false)
+        .catch((err) => console.error("Deferred state tick error:", err));
+    }, 0).unref?.();
     const payload = await buildGameStatePayload(_req.user!.id);
     res.setHeader("X-World-Cache", "partial");
     res.json(payload);
@@ -1670,7 +2049,6 @@ export function createApp() {
       ? { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 } 
       : territoryBuildCost(territory);
 
-    console.log("[DEBUG CLEARINGS] playerId:", req.user!.id, "ownedCount:", ownedCount, "isStarterClaim:", isStarterClaim, "buildCost:", buildCost);
     const resourceState = await collectPlayerResources(req.user!.id, now);
     if (!existing && !canAfford(resourceState.resources, buildCost)) {
       return res.status(409).json({
@@ -2372,8 +2750,37 @@ export function createApp() {
     res.json({ ok: true, message: `Lãnh thổ ${id} đã giao cho ${playerId.data}.` });
   });
 
+  // ─── ADMIN: Seed AI Bots ──────────────────────────────────────────────────
+  app.post("/api/admin/territories/seed-bots", requireAuth, requireAdmin, async (_req, res) => {
+    await ensureSeededBots();
+    await bumpWorldCacheVersion();
+    res.json({ ok: true, message: "Đã khởi tạo và kích hoạt 6 Bot AI thông minh (Tào Tháo, Gia Cát Lượng, Triệu Tử Long...)." });
+  });
+
+  // ─── SERVER BACKGROUND BOT AI & TICK SIMULATION LOOP ────────────────────
+  ensureSeededBots().catch(console.error);
+  let tickCounter = 0;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      tickCounter++;
+      await processWorldTick(now, true, tickCounter);
+    } catch (e) {
+      console.error("Background tick error:", e);
+    }
+  }, 4000).unref();
+
   app.use((_req, res) => {
     res.status(404).json({ error: "not_found", message: "Route not found" });
+  });
+
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    console.error("Express API Error:", err);
+    res.status(500).json({
+      error: "internal_server_error",
+      message: err?.message || String(err) || "Lỗi máy chủ nội bộ",
+      stack: err?.stack || null
+    });
   });
 
   return app;

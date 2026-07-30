@@ -364,18 +364,18 @@ export function TroopDeploymentModal({
   const cavalryAvailable = Math.max(0, Math.floor(sourceTown.cavalryCount ?? 0));
   const artilleryAvailable = Math.max(0, Math.floor(sourceTown.artilleryCount ?? 0));
   const totalUnitsAvailable = Math.max(0, infantryAvailable + cavalryAvailable + artilleryAvailable);
-  const maxDeployUnits = Math.max(0, totalUnitsAvailable - 1);
+  const maxDeployUnits = totalUnitsAvailable;
 
-  const maxInfantry = Math.min(infantryAvailable, maxDeployUnits);
-  const maxCavalry = Math.min(cavalryAvailable, maxDeployUnits);
-  const maxArtillery = Math.min(artilleryAvailable, maxDeployUnits);
+  const maxInfantry = infantryAvailable;
+  const maxCavalry = cavalryAvailable;
+  const maxArtillery = artilleryAvailable;
 
-  const [infantry, setInfantry] = useState(() => Math.min(1, maxInfantry));
+  const [infantry, setInfantry] = useState(() => Math.min(maxInfantry, Math.max(1, maxInfantry)));
   const [cavalry, setCavalry] = useState(0);
   const [artillery, setArtillery] = useState(0);
 
   useEffect(() => {
-    setInfantry(Math.min(1, maxInfantry));
+    setInfantry(Math.min(maxInfantry, Math.max(1, maxInfantry)));
     setCavalry(0);
     setArtillery(0);
   }, [sourceTown.id, maxInfantry]);
@@ -386,32 +386,17 @@ export function TroopDeploymentModal({
 
   const handleInfantryChange = (val: number) => {
     const cleanVal = Math.max(0, Math.min(maxInfantry, val));
-    const selectedUnits = cleanVal + cavalry + artillery;
-    if (selectedUnits <= maxDeployUnits) {
-      setInfantry(cleanVal);
-    } else {
-      setInfantry(Math.max(0, maxDeployUnits - cavalry - artillery));
-    }
+    setInfantry(cleanVal);
   };
 
   const handleCavalryChange = (val: number) => {
     const cleanVal = Math.max(0, Math.min(maxCavalry, val));
-    const selectedUnits = infantry + cleanVal + artillery;
-    if (selectedUnits <= maxDeployUnits) {
-      setCavalry(cleanVal);
-    } else {
-      setCavalry(Math.max(0, maxDeployUnits - infantry - artillery));
-    }
+    setCavalry(cleanVal);
   };
 
   const handleArtilleryChange = (val: number) => {
     const cleanVal = Math.max(0, Math.min(maxArtillery, val));
-    const selectedUnits = infantry + cavalry + cleanVal;
-    if (selectedUnits <= maxDeployUnits) {
-      setArtillery(cleanVal);
-    } else {
-      setArtillery(Math.max(0, maxDeployUnits - infantry - cavalry));
-    }
+    setArtillery(cleanVal);
   };
 
   const handleConfirm = () => {
@@ -419,8 +404,8 @@ export function TroopDeploymentModal({
       alert("Vui lòng chọn ít nhất 1 binh sĩ để xuất binh!");
       return;
     }
-    if (currentUnitsSent >= totalUnitsAvailable) {
-      alert("Phải để lại ít nhất 1 quân phòng thủ trong thành!");
+    if (currentUnitsSent > totalUnitsAvailable) {
+      alert("Số lượng quân xuất chiến vượt quá số quân hiện có trong thành!");
       return;
     }
     onConfirm(infantry, cavalry, artillery);

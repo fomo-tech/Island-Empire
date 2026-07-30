@@ -332,11 +332,19 @@ export function TownManagementModal({
     };
   }, []);
 
-  const flashTraining = (unit: "infantry" | "cavalry" | "artillery", action: () => void) => {
+  const flashTraining = async (unit: "infantry" | "cavalry" | "artillery", action: () => Promise<void> | void) => {
+    if (trainingUnit) return;
     setTrainingUnit(unit);
-    if (trainingTimerRef.current) window.clearTimeout(trainingTimerRef.current);
-    trainingTimerRef.current = window.setTimeout(() => setTrainingUnit(null), 450);
-    action();
+    try {
+      await action();
+    } catch (e) {
+      console.error("Training error:", e);
+    } finally {
+      if (trainingTimerRef.current) window.clearTimeout(trainingTimerRef.current);
+      trainingTimerRef.current = window.setTimeout(() => {
+        setTrainingUnit(null);
+      }, 350);
+    }
   };
 
   const config = gameConfig || {

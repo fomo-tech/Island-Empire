@@ -379,8 +379,8 @@
     const pts = [];
     for (let i = 0; i < 6; i++) {
       const angle = (Math.PI / 3) * i - Math.PI / 6;
-      const px = Math.round((cx + radius * Math.cos(angle)) / 4) * 4;
-      const py = Math.round((cy + radius * Math.sin(angle) * 0.82) / 4) * 4;
+      const px = Math.round((cx + radius * Math.cos(angle)) * 2) / 2;
+      const py = Math.round((cy + radius * Math.sin(angle) * 0.82) * 2) / 2;
       pts.push([px, py]);
     }
     return pts;
@@ -393,8 +393,8 @@
       const a = (i / count) * TAU;
       const chip = hash(seed * 97 + i * 13) * 0.18 - 0.09;
       const wave = 1 + Math.sin(a * 4 + seed) * 0.12 + Math.cos(a * 8 - seed * 0.5) * 0.08 + chip;
-      const x = Math.round((cx + Math.cos(a) * rx * wave) / 4) * 4;
-      const y = Math.round((cy + Math.sin(a) * ry * wave) / 4) * 4;
+      const x = Math.round((cx + Math.cos(a) * rx * wave) * 2) / 2;
+      const y = Math.round((cy + Math.sin(a) * ry * wave) * 2) / 2;
       pts.push([x, y]);
     }
     return pts;
@@ -413,8 +413,8 @@
     ctx.beginPath();
     points.forEach(([x, y], i) => {
       const wob = wobble ? (hash(wobbleSeed + i * 19) - 0.5) * wobble : 0;
-      const px = Math.round((x + (dx || 0) + wob) / 4) * 4;
-      const py = Math.round((y + (dy || 0) + wob * 0.35) / 4) * 4;
+      const px = Math.round((x + (dx || 0) + wob) * 2) / 2;
+      const py = Math.round((y + (dy || 0) + wob * 0.35) * 2) / 2;
       if (i === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     });
@@ -482,15 +482,20 @@
       const sandHighlight = organicPath(r.x, r.y, rx + 1, ry + 1, seed * 1.7 + 0.3);
       ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
       fillPath(sandHighlight);
-    } else {
-      // Internal region border shadow / separation between biomes
-      const boundary = organicPath(r.x + 2, r.y + 4, rx + 3, ry + 3, seed * 1.7 + 0.25);
-      fillPath(boundary, "rgba(20, 26, 22, 0.35)");
     }
 
     // Main territory body shape
     const land = organicPath(r.x, r.y, rx, ry, seed * 1.7 + 0.4);
     fillPath(land, biome.a);
+
+    // Seam filler to eliminate subpixel gap between adjacent land hexes
+    ctx.strokeStyle = biome.a;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(land[0][0], land[0][1]);
+    for (let i = 1; i < land.length; i++) ctx.lineTo(land[i][0], land[i][1]);
+    ctx.closePath();
+    ctx.stroke();
 
     ctx.save();
     // Clip to territory boundary for smooth internal pixel texturing
@@ -559,10 +564,13 @@
       ctx.fillRect(r.x - rx - 16, r.y - ry - 16, rx * 2 + 32, ry * 2 + 32);
     }
 
-    // Outer pixel border around region line
-    ctx.strokeStyle = biome.edge;
-    ctx.lineWidth = 3;
+    // Soft light dashed cell border line to distinguish region boundaries
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.globalAlpha = inland ? 0.52 : 0.85;
+    ctx.lineWidth = inland ? 1.25 : 2.5;
+    if (inland) ctx.setLineDash([5, 3]);
     ctx.stroke();
+    if (inland) ctx.setLineDash([]);
 
     ctx.restore();
 

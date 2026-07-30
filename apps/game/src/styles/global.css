@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap');
 
 * {
   box-sizing: border-box;
@@ -11,8 +11,11 @@ body,
   min-height: 100%;
   height: 100%;
   background: #07131d;
-  color: #f6e7bd;
-  font-family: "Courier New", monospace;
+  color: #ffffff;
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -1232,7 +1235,7 @@ canvas {
   background: linear-gradient(180deg, #ffe285 0%, #d49520 50%, #946109 100%);
   border-radius: 14px;
   box-shadow: 0 0 16px rgba(255, 211, 77, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: width 0.3s ease;
+  transition: none;
 }
 
 .game-loading-pct {
@@ -1354,9 +1357,9 @@ canvas {
 /* TOP BAR STYLING */
 .hud-topbar {
   position: absolute;
-  top: 8px;
-  left: 12px;
-  right: 12px;
+  top: 10px;
+  left: 14px;
+  right: 14px;
   display: flex;
   flex-wrap: nowrap;
   justify-content: space-between;
@@ -1374,19 +1377,20 @@ canvas {
   display: flex;
   align-items: center;
   gap: 10px;
+  height: 42px;
   background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
-  padding: 4px 16px 4px 4px;
-  border-radius: 22px;
+  padding: 0 16px 0 4px;
+  border-radius: 21px;
   border: 1.5px solid #b38f4f;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(179, 143, 79, 0.15);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 0 10px rgba(179, 143, 79, 0.15);
+  backdrop-filter: blur(10px);
 }
 
 .hud-profile-crest {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: 1.8px solid #ffd34d;
+  border: 1.5px solid #ffd34d;
   background: linear-gradient(135deg, #b38f4f 0%, #3d2d18 100%);
   display: flex;
   align-items: center;
@@ -1397,8 +1401,8 @@ canvas {
 }
 
 .hud-profile-crest .hud-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .hud-profile-info {
@@ -1453,17 +1457,17 @@ canvas {
 .hud-resources {
   flex: 1;
   min-width: 0;
-  display: flex;
+  height: 42px;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: center;
-  gap: 14px;
-  background: linear-gradient(180deg, rgba(16, 28, 41, 0.92) 0%, rgba(8, 14, 21, 0.96) 100%);
-  padding: 6px 14px;
-  border-radius: 22px;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
+  padding: 0 10px;
+  border-radius: 21px;
   border: 1.5px solid #b38f4f;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(179, 143, 79, 0.15);
-  backdrop-filter: blur(8px);
-  overflow-x: auto;
-  scrollbar-width: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 0 10px rgba(179, 143, 79, 0.15);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
 }
 
@@ -1472,10 +1476,16 @@ canvas {
 }
 
 .hud-res-item {
-  flex-shrink: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(179, 143, 79, 0.22);
 }
 
 .hud-res-icon {
@@ -1486,14 +1496,14 @@ canvas {
 
 .hud-res-icon svg,
 .vector-res-svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-block;
   vertical-align: middle;
 }
 
 .hud-res-val {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 0.5px;
@@ -1504,40 +1514,56 @@ canvas {
   border: 1px solid #ffd34d;
   color: #ffd34d;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
 /* 3. TOP RIGHT SYSTEM CONTROLS */
 .hud-sys-controls {
   flex-shrink: 0;
   pointer-events: auto;
+  height: 42px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
+  padding: 0 8px;
+  border-radius: 21px;
+  border: 1.5px solid #b38f4f;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 0 10px rgba(179, 143, 79, 0.15);
+  backdrop-filter: blur(10px);
 }
 
 .hud-sys-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: 1.5px solid #b38f4f;
-  background: linear-gradient(180deg, rgba(20, 35, 50, 0.95) 0%, rgba(8, 14, 21, 0.98) 100%);
+  border: 1px solid rgba(179, 143, 79, 0.4);
+  background: rgba(0, 0, 0, 0.35);
   color: #ffd34d;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: all 0.15s ease;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.hud-sys-btn:hover {
+  transform: translateY(-1px);
+  border-color: #ffd34d;
+  background: rgba(179, 143, 79, 0.25);
+  box-shadow: 0 0 10px rgba(255, 211, 77, 0.4);
 }
 
 .hud-sys-btn:hover {
@@ -1570,13 +1596,15 @@ canvas {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  padding: 0 12px;
+  padding: 64px 14px 80px 14px;
   box-sizing: border-box;
+  pointer-events: none;
 }
 
-/* LEFT MISSIONS FLOATING CARD */
+/* LEFT MISSIONS & KINGDOM STATUS FLOATING CARD */
 .hud-left-side {
-  width: 240px;
+  width: 245px;
+  max-height: calc(100vh - 160px);
   display: flex;
   flex-direction: column;
 }
@@ -1584,19 +1612,83 @@ canvas {
 .hud-missions-card {
   background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
   border: 1.5px solid #b38f4f;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 10px 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(179, 143, 79, 0.12);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
 }
 
-.hud-card-header-split {
+.hud-card-tab-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(179, 143, 79, 0.25);
+}
+
+.hud-tab-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(179, 143, 79, 0.25);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hud-tab-btn:hover {
+  color: #ffd34d;
+  border-color: rgba(255, 211, 77, 0.4);
+}
+
+.hud-tab-btn.active {
+  background: linear-gradient(180deg, rgba(179, 143, 79, 0.3) 0%, rgba(61, 45, 24, 0.4) 100%);
+  border-color: #ffd34d;
+  color: #ffd34d;
+  box-shadow: 0 0 8px rgba(255, 211, 77, 0.25);
+}
+
+.hud-tab-btn .hud-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.hud-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(179, 143, 79, 0.4);
+  background: rgba(0, 0, 0, 0.4);
+  color: #ffd34d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hud-icon-btn:hover {
+  background: rgba(179, 143, 79, 0.3);
+  border-color: #ffd34d;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 211, 77, 0.4);
+}
+
+.hud-icon-btn .hud-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .kingdom-profile-subbanner {
@@ -2033,23 +2125,25 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   z-index: 100;
 }
 
 .hud-toast-banner {
-  background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
-  border: 1.5px solid #b38f4f;
+  background: linear-gradient(180deg, rgba(16, 28, 41, 0.96) 0%, rgba(8, 14, 21, 0.98) 100%);
+  border: 1.5px solid #ffd34d;
   border-radius: 18px;
   padding: 5px 18px;
   font-size: 11px;
   font-weight: 800;
   color: #ffd34d;
   letter-spacing: 0.8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.8), 0 0 12px rgba(255, 211, 77, 0.25);
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-bottom: 2px;
+  z-index: 105;
 }
 
 .hud-toast-banner .hud-icon {
@@ -6499,9 +6593,9 @@ canvas {
 .ob-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 8, 15, 0.85);
+  background: rgba(4, 8, 15, 0.88);
   backdrop-filter: blur(12px);
-  z-index: 1000;
+  z-index: 100000;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -8758,4 +8852,231 @@ canvas {
   .kc-emblem-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Battle Report Modal Styles */
+.battle-report-detail-modal {
+  width: 780px !important;
+  max-width: 95vw !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+.rt-attack-header.winner-bg {
+  background: linear-gradient(180deg, rgba(146, 96, 14, 0.95) 0%, rgba(45, 27, 4, 0.98) 100%) !important;
+  border-bottom: 2px solid #f59e0b !important;
+}
+
+.rt-attack-header.loser-bg {
+  background: linear-gradient(180deg, rgba(120, 20, 20, 0.95) 0%, rgba(40, 6, 6, 0.98) 100%) !important;
+  border-bottom: 2px solid #ef4444 !important;
+}
+
+.br-vs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.br-side-card {
+  flex: 1;
+  background: rgba(10, 18, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.br-side-card.win {
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.br-side-card.lose {
+  border-color: #ef4444;
+}
+
+.br-side-card .role-tag {
+  font-size: 11px;
+  color: #94a3b8;
+  letter-spacing: 1px;
+  display: block;
+}
+
+.br-side-card .player-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 4px 0;
+}
+
+.br-side-card .result-tag {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.br-side-card.win .result-tag {
+  color: #fef08a;
+}
+
+.br-side-card.lose .result-tag {
+  color: #fca5a5;
+}
+
+.br-vs-badge {
+  font-size: 18px;
+  font-weight: 900;
+  color: #f59e0b;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #f59e0b;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.br-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.br-stats-table th {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #f8fafc;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  text-align: left;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.br-stats-table td {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 19, 32, 0.85);
+  vertical-align: middle;
+}
+
+.br-stats-table tr:nth-child(even) td {
+  background: rgba(15, 25, 42, 0.9);
+}
+
+.br-stats-table tr.total-row td {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-top: 2px solid #f59e0b !important;
+  border-bottom: 2px solid #f59e0b !important;
+  font-weight: 700;
+}
+
+.unit-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.infantry-pill {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid #3b82f6;
+  color: #60a5fa;
+}
+
+.cavalry-pill {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+
+.artillery-pill {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #f87171;
+}
+
+.total-pill {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.4) 100%);
+  border: 1px solid #f59e0b;
+  color: #ffd700;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.stat-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.stat-line.casualty strong {
+  color: #f43f5e;
+}
+
+.stat-line.survivor strong {
+  color: #10b981;
+}
+
+.br-loot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.br-loot-card {
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.br-loot-card:hover {
+  transform: translateY(-2px);
+}
+
+.br-loot-card.gold-card {
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.br-loot-card.wood-card {
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  box-shadow: 0 0 12px rgba(217, 119, 6, 0.2);
+}
+
+.br-loot-card.stone-card {
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.br-loot-card.gem-card {
+  border: 1px solid rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
+}
+
+.br-loot-card .loot-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  display: block;
+}
+
+.br-loot-card .loot-val {
+  font-size: 16px;
+  font-weight: 800;
+  margin-top: 6px;
+  display: block;
 }
