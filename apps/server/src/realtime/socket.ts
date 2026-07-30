@@ -18,6 +18,28 @@ type Client = {
 
 let seq = 1;
 let clients = new Set<Client>();
+const roomClients = new Map<string, Set<Client>>();
+
+function joinRoom(client: Client, room: string) {
+  client.rooms.add(room);
+  let roomSet = roomClients.get(room);
+  if (!roomSet) {
+    roomSet = new Set<Client>();
+    roomClients.set(room, roomSet);
+  }
+  roomSet.add(client);
+}
+
+function removeClient(client: Client) {
+  if (!clients.delete(client)) return;
+  client.rooms.forEach((room) => {
+    const roomSet = roomClients.get(room);
+    if (!roomSet) return;
+    roomSet.delete(client);
+    if (roomSet.size === 0) roomClients.delete(room);
+  });
+  client.rooms.clear();
+}
 
 function send(client: Client, events: RealtimeEvent[]) {
   if (client.socket.readyState !== client.socket.OPEN) return;
@@ -43,7 +65,7 @@ setInterval(() => {
   clients.forEach((client) => {
     if (!client.alive) {
       client.socket.terminate();
-      clients.delete(client);
+      removeClient(client);
       return;
     }
     client.alive = false;
@@ -82,12 +104,14 @@ export function attachRealtime(server: Server) {
       user,
       socket,
       alive: true,
-      rooms: new Set(["world", `player:${user.id}`]),
+      rooms: new Set(),
       queue: [],
       lastMessageAt: Date.now(),
       messageCount: 0,
     };
     clients.add(client);
+    joinRoom(client, "world");
+    joinRoom(client, `player:${user.id}`);
 
     send(client, [{ type: "hello", playerId: user.id, serverTime: new Date().toISOString() }]);
 
@@ -118,7 +142,7 @@ export function attachRealtime(server: Server) {
     });
 
     socket.on("close", () => {
-      clients.delete(client);
+      removeClient(client);
     });
   });
 
@@ -126,8 +150,9 @@ export function attachRealtime(server: Server) {
 }
 
 export function publishRealtime(event: RealtimeEvent, room = "world") {
-  clients.forEach((client) => {
-    if (!client.rooms.has(room)) return;
+  const targets = roomClients.get(room);
+  if (!targets) return;
+  targets.forEach((client) => {
     if (client.queue.length > 120) {
       client.queue.splice(0, client.queue.length - 80);
     }
@@ -136,5 +161,5 @@ export function publishRealtime(event: RealtimeEvent, room = "world") {
 }
 
 export function realtimeStats() {
-  return { clients: clients.size };
+  return { clients: clients.size, rooms: roomClients.size };
 }

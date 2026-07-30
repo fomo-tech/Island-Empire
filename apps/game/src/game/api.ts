@@ -292,3 +292,11 @@ export function recruitTroops(
     body: JSON.stringify(payload),
   });
 }
+
+export function getBattleReports(token: string): Promise<{ ok: boolean; reports: any[] }> {
+  return request<{ ok: boolean; reports: any[] }>("/api/reports", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}

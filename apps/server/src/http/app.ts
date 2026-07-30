@@ -330,8 +330,12 @@ function calcSpecialResources(t: { id: number; isIslet: boolean; biome: number; 
   return Array.from(new Set(specials));
 }
 
+let staticTerritoryListCache: Omit<TerritoryInfo, "ownerId">[] | null = null;
+let staticTerritoryByIdCache: Map<number, Omit<TerritoryInfo, "ownerId">> | null = null;
+
 // Static territory list matching the game engine
 function buildStaticTerritoryList(): Omit<TerritoryInfo, "ownerId">[] {
+  if (staticTerritoryListCache) return staticTerritoryListCache;
   const territories: Omit<TerritoryInfo, "ownerId">[] = [];
   const baseList = generateWorldTerritories();
 
@@ -353,11 +357,14 @@ function buildStaticTerritoryList(): Omit<TerritoryInfo, "ownerId">[] {
     });
   });
 
+  staticTerritoryListCache = territories;
+  staticTerritoryByIdCache = new Map(territories.map((territory) => [territory.id, territory]));
   return territories;
 }
 
 function getStaticTerritory(id: number) {
-  return buildStaticTerritoryList().find((territory) => territory.id === id);
+  if (!staticTerritoryByIdCache) buildStaticTerritoryList();
+  return staticTerritoryByIdCache?.get(id);
 }
 
 function townIdForTerritory(territoryId: number, requestedTownId?: number) {
@@ -635,8 +642,14 @@ async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
   const ownerByTerritory = new Map(claims.map((claim) => [claim.territoryId, claim.playerId]));
   const ownerIds = [...new Set(claims.map((claim) => claim.playerId))];
   const [ownerDocs, allianceDocs] = await Promise.all([
-    ownerIds.length > 0 ? players.find({ _id: { $in: ownerIds } }).toArray() : [],
-    ownerIds.length > 0 ? alliances.find({ memberIds: { $in: ownerIds } }).toArray() : [],
+    ownerIds.length > 0 ? players.find(
+      { _id: { $in: ownerIds } },
+      { projection: { name: 1, flagColor: 1, emblem: 1 } },
+    ).toArray() : [],
+    ownerIds.length > 0 ? alliances.find(
+      { memberIds: { $in: ownerIds } },
+      { projection: { tag: 1, emblem: 1, memberIds: 1 } },
+    ).toArray() : [],
   ]);
   const nameByOwner = new Map(ownerDocs.map((player) => [player._id, player.name]));
   const flagColorByOwner = new Map(ownerDocs.map((player) => [player._id, player.flagColor]));
@@ -665,9 +678,8 @@ async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
 
 function productionForClaims(claims: Array<{ territoryId: number }>): ResourceBag {
   const production = emptyResources();
-  const staticById = new Map(buildStaticTerritoryList().map((territory) => [territory.id, territory]));
   claims.forEach((claim) => {
-    const territory = staticById.get(claim.territoryId);
+    const territory = getStaticTerritory(claim.territoryId);
     if (!territory) return;
     production.gold += territory.yieldGold * 2.5;
     production.wood += territory.yieldWood * 2.5;
@@ -696,6 +708,12 @@ function territoryBuildCost(territory: Pick<TerritoryInfo,
     iron: Math.round(20 + territory.yieldIron * 95 + territory.yieldSulfur * 30),
     gems: Math.round(Math.max(0, territory.yieldGems - 0.28) * 22),
   });
+}
+
+function clearingBuildCostForRefund(clearing: { buildCost?: Partial<ResourceBag>; isStarterClaim?: boolean }, territory: Parameters<typeof territoryBuildCost>[0], ownedCount: number) {
+  if (clearing.buildCost) return clearing.buildCost;
+  if (clearing.isStarterClaim || ownedCount === 0) return emptyResources();
+  return territoryBuildCost(territory);
 }
 
 function canAfford(resources: ResourceBag, cost: Partial<ResourceBag>) {
@@ -786,10 +804,11 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
 
 async function buildGameStatePayload(playerId: string): Promise<GameStateResult> {
   const { territoryClearings, marchOrders, activeBattles, players, saves } = await collections();
+  const now = new Date();
   const [world, clearings, marches, battles, resourceState, player, save] = await Promise.all([
     cachedWorldTerritoriesPayload(),
     territoryClearings.find({}).toArray(),
-    marchOrders.find({}).toArray(),
+    marchOrders.find({ arrivesAt: { $gt: now } }).toArray(),
     activeBattles.find({}).toArray(),
     collectPlayerResources(playerId),
     players.findOne({ _id: playerId }),
@@ -859,10 +878,16 @@ function normalizeGameConfig(doc?: Partial<GameConfig> | null): GameConfig {
   return { ...DEFAULT_CONFIG, ...(doc || {}) };
 }
 
+let gameConfigCache: { value: GameConfig; expiresAt: number } | null = null;
+const GAME_CONFIG_CACHE_MS = 5000;
+
 async function loadGameConfig(): Promise<GameConfig> {
+  if (gameConfigCache && gameConfigCache.expiresAt > Date.now()) return gameConfigCache.value;
   const { configs } = await collections();
   const doc = await configs.findOne({ _id: "game_settings" });
-  return normalizeGameConfig(doc || null);
+  const value = normalizeGameConfig(doc || null);
+  gameConfigCache = { value, expiresAt: Date.now() + GAME_CONFIG_CACHE_MS };
+  return value;
 }
 
 async function processArrivedMarches(now = new Date()) {
@@ -1332,6 +1357,8 @@ async function processCompletedClearings(now = new Date()) {
 }
 
 let worldTickInFlight = false;
+let lastStateTickAt = 0;
+const STATE_TICK_MIN_INTERVAL_MS = 1000;
 
 async function processWorldTick(now = new Date(), includeBots = false, tickCounter = 0) {
   if (worldTickInFlight) return false;
@@ -1347,6 +1374,13 @@ async function processWorldTick(now = new Date(), includeBots = false, tickCount
   } finally {
     worldTickInFlight = false;
   }
+}
+
+async function processStateTickIfDue(now = new Date()) {
+  const currentMs = now.getTime();
+  if (currentMs - lastStateTickAt < STATE_TICK_MIN_INTERVAL_MS) return false;
+  lastStateTickAt = currentMs;
+  return processWorldTick(now, false);
 }
 
 const BOT_CONFIGS = [
@@ -1621,6 +1655,8 @@ async function toPublicAllianceAid(aid: {
   };
 }
 
+let worldTerritoriesInFlight: { key: string; promise: Promise<WorldTerritoriesResult> } | null = null;
+
 async function buildAllianceState(playerId: string): Promise<AllianceStateResult> {
   const { alliances, allianceAids, players } = await collections();
   const [mine, docs, aidInbox, aidOutbox, player] = await Promise.all([
@@ -1644,9 +1680,17 @@ async function cachedWorldTerritoriesPayload() {
   const key = `island:world:territories:v${version}`;
   const cached = await cacheGetJson<WorldTerritoriesResult>(key);
   if (cached) return cached;
-  const payload = await buildWorldTerritoriesPayload();
-  await cacheSetJson(key, payload, 8);
-  return payload;
+  if (!worldTerritoriesInFlight || worldTerritoriesInFlight.key !== key) {
+    const promise = (async () => {
+      const payload = await buildWorldTerritoriesPayload();
+      await cacheSetJson(key, payload, 8);
+      return payload;
+    })().finally(() => {
+      if (worldTerritoriesInFlight?.key === key) worldTerritoriesInFlight = null;
+    });
+    worldTerritoriesInFlight = { key, promise };
+  }
+  return worldTerritoriesInFlight.promise;
 }
 
 
@@ -1848,10 +1892,12 @@ export function createApp() {
   });
 
   app.get("/api/game/state", requireAuth, async (_req, res) => {
-    setTimeout(() => {
-      processWorldTick(new Date(), false)
-        .catch((err) => console.error("Deferred state tick error:", err));
-    }, 0).unref?.();
+    // Keep state requests fresh without letting every polling client trigger a DB-heavy world tick.
+    try {
+      await processStateTickIfDue(new Date());
+    } catch (err) {
+      console.error("Pre-state tick error:", err);
+    }
     const payload = await buildGameStatePayload(_req.user!.id);
     res.setHeader("X-World-Cache", "partial");
     res.json(payload);
@@ -2067,8 +2113,8 @@ export function createApp() {
     
     const isStarterClaim = (ownedCount === 0);
 
-    const buildCost = isStarterClaim 
-      ? { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 } 
+    const buildCost = isStarterClaim
+      ? emptyResources()
       : territoryBuildCost(territory);
 
     const resourceState = await collectPlayerResources(req.user!.id, now);
@@ -2080,6 +2126,7 @@ export function createApp() {
         resources: resourceState.resources,
       });
     }
+    const nextResources = existing ? resourceState.resources : subtractCost(resourceState.resources, buildCost);
     const gameSettings = await loadGameConfig();
     const clearingSeconds = calcClearingSeconds(territory.rx, territory.ry, territory.biome, gameSettings.settlerSpeed, gameSettings.gameHourSeconds);
     
@@ -2121,6 +2168,8 @@ export function createApp() {
       _id: `clearing:${territory.id}`,
       territoryId: territory.id,
       playerId: req.user!.id,
+      buildCost,
+      isStarterClaim,
       startedAt: now,
       arrivesAt,
       completesAt,
@@ -2141,14 +2190,14 @@ export function createApp() {
       }
       await players.updateOne(
         { _id: req.user!.id },
-        { $set: { onboardingState: "claiming", lastSeenAt: now, resources: subtractCost(resourceState.resources, buildCost) } },
+        { $set: { onboardingState: "claiming", lastSeenAt: now, resources: nextResources } },
       );
       await bumpWorldCacheVersion();
     }
     const payload: StartClearingResult = { ok: true, clearing: toPublicClearing(clearing) };
     publishRealtime({ type: "territory_clearing_started", clearing: payload.clearing });
     if (!existing) {
-      await publishPlayerState(req.user!.id, "clearing_started", subtractCost(resourceState.resources, buildCost), null);
+      await publishPlayerState(req.user!.id, "clearing_started", nextResources, null);
     }
     res.json(payload);
   });
@@ -2162,8 +2211,14 @@ export function createApp() {
     if (existingClaim && existingClaim.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
     }
+    if (existingClaim && existingClaim.playerId === req.user!.id) {
+      return res.status(409).json({ error: "already_owned", message: "Bạn đã sở hữu lãnh thổ này" });
+    }
     const clearing = await territoryClearings.findOne({ territoryId: territory.id, playerId: req.user!.id });
     const now = new Date();
+    if (!clearing) {
+      return res.status(404).json({ error: "no_active_clearing", message: "Bạn cần bắt đầu xây thành và trả chi phí trước khi hoàn tất" });
+    }
     if (clearing && clearing.completesAt.getTime() > now.getTime()) {
       return res.status(409).json({ error: "clearing_not_ready", message: "Xây thành chưa hoàn tất", readyAt: clearing.completesAt.toISOString() });
     }
@@ -2222,7 +2277,7 @@ export function createApp() {
     const resourceState = await collectPlayerResources(req.user!.id, now);
     const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
     const capacity = resourceCapacityForOwnedTerritories(ownedCount);
-    const refund = territoryBuildCost(territory);
+    const refund = clearingBuildCostForRefund(clearing, territory, ownedCount);
     const nextResources = { ...resourceState.resources };
     RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(capacity[key], Math.floor(nextResources[key] + Math.floor(refund[key] || 0)));
@@ -2538,10 +2593,21 @@ export function createApp() {
     if (!staticTerritory) {
       return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
     }
-    const { players, territoryClaims, territoryClearings, alliances } = await collections();
+    const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
     const existing = await territoryClaims.findOne({ territoryId: id });
     if (existing && existing.playerId !== req.user!.id) {
       return res.status(409).json({ error: "territory_taken", message: "Lãnh thổ này đã có người chiếm" });
+    }
+    if (existing && existing.playerId === req.user!.id) {
+      return res.status(409).json({ error: "already_owned", message: "Bạn đã sở hữu lãnh thổ này" });
+    }
+    const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
+    if (ownedCount > 0) {
+      return res.status(410).json({
+        error: "clearing_required",
+        message: "Xây thành mới phải qua lệnh khai hoang và tốn tài nguyên",
+        cost: territoryBuildCost(staticTerritory),
+      });
     }
     const now = new Date();
     await territoryClaims.updateOne(
@@ -2551,6 +2617,19 @@ export function createApp() {
     );
     await territoryClearings.deleteMany({ territoryId: id });
     await players.updateOne({ _id: req.user!.id }, { $set: { onboardingState: "settled", lastSeenAt: now } });
+    const resourceState = await collectPlayerResources(req.user!.id, now);
+    const saveDoc = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(saveDoc?.towns) ? removeTownForTerritory(saveDoc.towns, staticTerritory) : [];
+    const town = normalizeTownSnapshotForState(defaultTownSnapshotForTerritory(staticTerritory, req.user!.id), req.user!.id, staticTerritory);
+    towns.push(town);
+    await saves.updateOne(
+      { playerId: req.user!.id },
+      {
+        $set: { towns, updatedAt: now },
+        $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES },
+      },
+      { upsert: true },
+    );
     const [player, alliance] = await Promise.all([
       players.findOne({ _id: req.user!.id }),
       alliances.findOne({ memberIds: req.user!.id }),
@@ -2569,6 +2648,7 @@ export function createApp() {
       },
     };
     publishRealtime({ type: "territory_claimed", territory: payload.territory });
+    await publishPlayerState(req.user!.id, "starter_territory_claimed", resourceState.resources, towns);
     res.json(payload);
   });
 
@@ -2658,6 +2738,7 @@ export function createApp() {
       { $set: { ...parsed.data, updatedAt: now } },
       { upsert: true },
     );
+    gameConfigCache = { value: normalizeGameConfig(parsed.data), expiresAt: Date.now() + GAME_CONFIG_CACHE_MS };
     res.json({ ok: true, config: parsed.data });
   });
 

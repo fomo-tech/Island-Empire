@@ -1457,18 +1457,46 @@ canvas {
 .hud-resources {
   flex: 1;
   min-width: 0;
-  height: 42px;
+  height: 44px;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: center;
-  gap: 6px;
-  background: linear-gradient(180deg, rgba(16, 28, 41, 0.94) 0%, rgba(8, 14, 21, 0.98) 100%);
-  padding: 0 10px;
-  border-radius: 21px;
-  border: 1.5px solid #b38f4f;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 0 10px rgba(179, 143, 79, 0.15);
-  backdrop-filter: blur(10px);
+  gap: 0;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 211, 77, 0.06), rgba(56, 189, 248, 0.08) 45%, rgba(255, 211, 77, 0.06)),
+    linear-gradient(180deg, rgba(12, 30, 42, 0.88) 0%, rgba(5, 13, 20, 0.96) 100%);
+  padding: 0 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 211, 77, 0.46);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(12px) saturate(1.15);
   pointer-events: auto;
+}
+
+.hud-resources::before,
+.hud-resources::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  pointer-events: none;
+}
+
+.hud-resources::before {
+  top: 5px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 232, 138, 0.86), rgba(125, 211, 252, 0.64), transparent);
+}
+
+.hud-resources::after {
+  bottom: 5px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 118, 110, 0.45), rgba(255, 211, 77, 0.42), transparent);
 }
 
 .hud-resources::-webkit-scrollbar {
@@ -1477,45 +1505,60 @@ canvas {
 
 .hud-res-item {
   min-width: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(179, 143, 79, 0.22);
+  gap: 7px;
+  height: 100%;
+  padding: 0 10px;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+}
+
+.hud-res-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 211, 77, 0.34), transparent);
 }
 
 .hud-res-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 0 6px rgba(255, 211, 77, 0.28));
 }
 
 .hud-res-icon svg,
 .vector-res-svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: inline-block;
   vertical-align: middle;
 }
 
 .hud-res-val {
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff7d6;
+  letter-spacing: 0;
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(255, 211, 77, 0.22);
 }
 
 .hud-res-add-btn {
-  background: linear-gradient(180deg, #4a3a12 0%, #1c1507 100%);
-  border: 1px solid #ffd34d;
-  color: #ffd34d;
+  background: radial-gradient(circle at 35% 30%, #fff7b0 0%, #ffd34d 32%, #7c4a03 100%);
+  border: 1px solid rgba(255, 247, 214, 0.85);
+  color: #171006;
   border-radius: 50%;
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   font-size: 11px;
   font-weight: bold;
   cursor: pointer;
@@ -1523,6 +1566,7 @@ canvas {
   align-items: center;
   justify-content: center;
   margin-left: 2px;
+  box-shadow: 0 0 10px rgba(255, 211, 77, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 /* 3. TOP RIGHT SYSTEM CONTROLS */
@@ -7894,15 +7938,18 @@ canvas {
     width: 100% !important;
     display: flex !important;
     align-items: center;
-    gap: 5px !important;
-    padding: 3px 6px !important;
-    background: rgba(8, 18, 28, 0.90) !important;
-    border: 1.5px solid #b38f4f !important;
-    border-radius: 20px !important;
+    gap: 0 !important;
+    height: 38px !important;
+    padding: 0 10px !important;
+    background:
+      linear-gradient(90deg, rgba(255, 211, 77, 0.07), rgba(56, 189, 248, 0.08), rgba(255, 211, 77, 0.07)),
+      rgba(8, 18, 28, 0.92) !important;
+    border: 1px solid rgba(255, 211, 77, 0.48) !important;
+    border-radius: 19px !important;
     overflow-x: auto !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 
   .hud-resources::-webkit-scrollbar {
@@ -7910,17 +7957,18 @@ canvas {
   }
 
   .hud-res-item {
-    min-width: 68px !important;
-    height: 25px !important;
-    padding: 2px 5px 2px 22px !important;
-    border-radius: 12px !important;
+    min-width: 72px !important;
+    height: 100% !important;
+    padding: 0 8px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
     font-size: 10.5px !important;
   }
 
   .hud-res-icon {
-    width: 16px !important;
-    height: 16px !important;
-    left: 4px !important;
+    width: 18px !important;
+    height: 18px !important;
   }
 
   /* Left Side Panel (Missions & Status Card) */

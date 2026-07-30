@@ -5,6 +5,7 @@ type CacheEntry = { value: string; expiresAt: number };
 
 const memoryCache = new Map<string, CacheEntry>();
 let memoryWorldVersion = 1;
+let worldVersionRedisCheckedAt = 0;
 let redisDisabled = false;
 
 function encodeCommand(parts: Array<string | number>) {
@@ -116,39 +117,50 @@ async function redisCommand(parts: Array<string | number>): Promise<string | num
 }
 
 export async function getWorldCacheVersion() {
+  if (Date.now() - worldVersionRedisCheckedAt < 1000) return memoryWorldVersion;
+  worldVersionRedisCheckedAt = Date.now();
   const redisValue = await redisCommand(["GET", "island:world:version"]);
   const parsed = typeof redisValue === "string" ? Number(redisValue) : Number(redisValue);
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    memoryWorldVersion = parsed;
+    return parsed;
+  }
   return memoryWorldVersion;
 }
 
 export async function bumpWorldCacheVersion() {
   memoryWorldVersion += 1;
+  worldVersionRedisCheckedAt = Date.now();
   const redisValue = await redisCommand(["INCR", "island:world:version"]);
   const parsed = Number(redisValue);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : memoryWorldVersion;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    memoryWorldVersion = parsed;
+    return parsed;
+  }
+  return memoryWorldVersion;
 }
 
 export async function cacheGetJson<T>(key: string): Promise<T | null> {
+  const entry = memoryCache.get(key);
+  if (entry && entry.expiresAt > Date.now()) {
+    try {
+      return JSON.parse(entry.value) as T;
+    } catch {
+      memoryCache.delete(key);
+    }
+  } else if (entry) {
+    memoryCache.delete(key);
+  }
   const redisValue = await redisCommand(["GET", key]);
   if (typeof redisValue === "string") {
+    memoryCache.set(key, { value: redisValue, expiresAt: Date.now() + 8000 });
     try {
       return JSON.parse(redisValue) as T;
     } catch {
-      return null;
+      memoryCache.delete(key);
     }
   }
-  const entry = memoryCache.get(key);
-  if (!entry || entry.expiresAt <= Date.now()) {
-    memoryCache.delete(key);
-    return null;
-  }
-  try {
-    return JSON.parse(entry.value) as T;
-  } catch {
-    memoryCache.delete(key);
-    return null;
-  }
+  return null;
 }
 
 export async function cacheSetJson(key: string, value: unknown, ttlSeconds: number) {

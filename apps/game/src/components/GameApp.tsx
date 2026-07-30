@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
-import { cancelClearing, completeClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
+import { cancelClearing, completeClearing, createMarch, getBattleReports, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
 import { connectGameSocket } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
@@ -1012,7 +1012,7 @@ export function GameApp() {
             territories,
             clearings: world.clearings,
             marches: world.marches,
-            battles: mapServerBattlesForClient(world.battles || []),
+            battles: world.battles || [],
             towns: world.towns,
             resources: world.resources,
             newbieShieldUntil: world.newbieShieldUntil,
@@ -1039,6 +1039,25 @@ export function GameApp() {
             territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
           });
           setServerHud(summarizeBackendHud(world, playerId, world.resources));
+          getBattleReports(token)
+            .then((res) => {
+              if (res.ok && Array.isArray(res.reports)) {
+                res.reports.forEach((report) => {
+                  const attackerWins = report.isAttackerWin;
+                  const territoryId = report.regionId;
+                  const labelStr = `Lãnh thổ #${territoryId + 1}`;
+                  addWarReport({
+                    id: report.id || report._id,
+                    kind: "battle",
+                    title: `[LỊCH SỬ] Công thành ${labelStr}`,
+                    body: `Công: ${report.attackerName} (${Math.round(report.attacker?.initial?.power || 0)} lực) | Thủ: ${report.defenderName} (${Math.round(report.defender?.initial?.power || 0)} lực). Kết quả: ${attackerWins ? "TẤN CÔNG THẮNG" : "PHÒNG THỦ THẮNG"}.`,
+                    meta: `Tổn thất Công: -${Math.round(report.attacker?.casualty?.power || 0)} | Thủ: -${Math.round(report.defender?.casualty?.power || 0)}`,
+                    time: report.createdAt ? new Date(report.createdAt).getTime() : Date.now(),
+                  });
+                });
+              }
+            })
+            .catch((err) => console.warn("Failed to load historical battle reports:", err));
           setMissions([
             { text: "SỞ HỮU 3 LÃNH THỔ", value: Math.min(territories.filter((territory) => territory.ownerCode === 1).length, 3), goal: 3 },
             { text: "CÓ 1 ĐẠO QUÂN ĐANG HÀNH QUÂN", value: Math.min(world.marches.filter((march: any) => march.ownerId === playerId).length, 1), goal: 1 },

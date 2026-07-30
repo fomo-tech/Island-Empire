@@ -377,7 +377,7 @@ export function TerritoryTooltip({
 
   const y = engine.territoryYield ? engine.territoryYield(id) : { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
   const dur = engine.clearingDuration ? engine.clearingDuration(id) : 45;
-  const buildCost = engine.territoryBuildCost ? engine.territoryBuildCost(id) : { gold: 0, wood: 0, stone: 0, food: 0 };
+  const buildCost = engine.territoryBuildCost ? engine.territoryBuildCost(id) : { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
 
   const formatYield = (value: number) => value >= 1 ? value.toFixed(1) : value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
   const resourceRows = [
@@ -390,6 +390,16 @@ export function TerritoryTooltip({
     { key: "sulfur", label: "Lưu huỳnh", value: y.sulfur, className: "sulfur", icon: <SulfurIcon /> },
     { key: "gems", label: "Đá quý", value: y.gems, className: "gems", icon: <GemIcon /> },
   ];
+  const buildCostRows = [
+    { key: "gold", value: buildCost.gold, icon: <CoinIcon /> },
+    { key: "wood", value: buildCost.wood, icon: <WoodIcon /> },
+    { key: "stone", value: buildCost.stone, icon: <StoneIcon /> },
+    { key: "food", value: buildCost.food, icon: <FoodIcon /> },
+    { key: "iron", value: buildCost.iron, icon: <IronIcon /> },
+    { key: "coal", value: buildCost.coal, icon: <CoalIcon /> },
+    { key: "sulfur", value: buildCost.sulfur, icon: <SulfurIcon /> },
+    { key: "gems", value: buildCost.gems, icon: <GemIcon /> },
+  ].filter((item) => Math.floor(Number(item.value || 0)) > 0);
 
   const towns = engine.getTowns ? engine.getTowns() : [];
   const mainTown = towns.find((t: any) => t.owner === 0);
@@ -580,10 +590,9 @@ export function TerritoryTooltip({
           <div className="rt-cost-card">
             <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ XÂY THÀNH</span><span className="line" /></div>
             <div className="rt-cost-chips-grid">
-              <div className="rt-cost-chip-item"><CoinIcon /> <b>{buildCost.gold}</b></div>
-              <div className="rt-cost-chip-item"><WoodIcon /> <b>{buildCost.wood}</b></div>
-              <div className="rt-cost-chip-item"><StoneIcon /> <b>{buildCost.stone}</b></div>
-              <div className="rt-cost-chip-item"><FoodIcon /> <b>{buildCost.food}</b></div>
+              {buildCostRows.map((item) => (
+                <div className="rt-cost-chip-item" key={item.key}>{item.icon} <b>{Math.floor(Number(item.value || 0))}</b></div>
+              ))}
             </div>
           </div>
           <div className="rt-note-info"><span className="info-icon">ⓘ</span> Xây xong sẽ lập thành trì mới.</div>
