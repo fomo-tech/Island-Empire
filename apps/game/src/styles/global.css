@@ -12971,3 +12971,109 @@ img[src*="/assets/icons/"] {
   background: var(--gold-primary) !important;
   border-radius: 3px !important;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   12. KINGDOM CREATION MODAL SPECIFIC EUROPEAN STRATEGY OVERRIDES
+   ────────────────────────────────────────────────────────────────────────── */
+
+.kc-card {
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 0h16v3H3v13H0V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 0H8v3h13v13h3V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 24h16v-3H3V8H0v16z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 24H8v-3h13V8h3v16z'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgba(16, 28, 41, 0.99) 0%, rgba(6, 10, 16, 0.99) 100%) !important;
+  background-position: 
+    top 4px left 4px,
+    top 4px right 4px,
+    bottom 4px left 4px,
+    bottom 4px right 4px,
+    center center !important;
+  background-repeat: no-repeat !important;
+  background-size: 22px 22px !important;
+  border: 3px double var(--gold-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    0 32px 80px rgba(0, 0, 0, 0.96),
+    inset 0 0 25px rgba(250, 204, 21, 0.15) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.kc-header {
+  background: linear-gradient(90deg, rgba(127,29,29,0) 0%, rgba(153,27,27,0.88) 15%, rgba(153,27,27,0.98) 50%, rgba(153,27,27,0.88) 85%, rgba(127,29,29,0) 100%) !important;
+  border-top: 1.5px solid var(--gold-primary) !important;
+  border-bottom: 1.5px solid var(--gold-primary) !important;
+  padding: 14px 28px !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7) !important;
+  border-radius: 4px !important;
+}
+
+.kc-preview {
+  border: 3px double #ca8a04 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+  background: #101d24 !important;
+  border-radius: 8px !important;
+}
+
+/* Aged Parchment design for emblem choices and input field */
+.kc-emblem-choice,
+.kc-input {
+  background: #f2ebcf !important;
+  color: #2c1e15 !important;
+  border: 1.5px solid #ca8a04 !important;
+  box-shadow: 
+    inset 0 0 10px rgba(139, 90, 43, 0.2),
+    0 2px 5px rgba(0,0,0,0.3) !important;
+  border-radius: 6px !important;
+  font-family: 'Georgia', 'Times New Roman', serif !important;
+  transition: all 0.2s ease !important;
+}
+
+.kc-emblem-choice *,
+.kc-input::placeholder {
+  color: #2c1e15 !important;
+  font-family: 'Georgia', 'Times New Roman', serif !important;
+}
+
+.kc-emblem-choice:hover,
+.kc-emblem-choice.selected {
+  border-color: #ffd700 !important;
+  box-shadow: 
+    inset 0 0 10px rgba(139, 90, 43, 0.1),
+    0 0 10px rgba(250, 204, 21, 0.3) !important;
+}
+
+/* Premium beveled gold primary and dark secondary buttons */
+.kc-btn-primary {
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold-primary) 100%) !important;
+  color: #0f172a !important;
+  border: 1.5px solid var(--gold-primary) !important;
+  font-weight: 800 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.45) !important;
+  text-shadow: none !important;
+}
+
+.kc-btn-primary:hover {
+  filter: brightness(1.1) !important;
+  box-shadow: 0 4px 16px rgba(250, 204, 21, 0.35) !important;
+}
+
+.kc-btn-secondary {
+  background: rgba(15, 23, 42, 0.6) !important;
+  color: var(--gold-light) !important;
+  border: 1px solid rgba(179, 143, 79, 0.4) !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+}
+
+.kc-btn-secondary:hover {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: var(--gold-primary) !important;
+}
+
+.kc-color-choice.selected {
+  border-color: var(--gold-primary) !important;
+  box-shadow: 0 0 12px var(--gold-primary) !important;
+}

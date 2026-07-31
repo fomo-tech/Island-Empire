@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { getGameConfig } from "../game/api";
 import { GameConfig } from "@island/shared";
 
@@ -161,6 +161,45 @@ function CastleSkinArt({ variant }: { variant: SkinVariant }) {
   );
 }
 
+function PremiumCastleCanvas({
+  skinId,
+  variant,
+  getSkinSprite,
+  large = false,
+}: {
+  skinId: string;
+  variant: SkinVariant;
+  getSkinSprite?: (skinId: string) => HTMLCanvasElement | undefined;
+  large?: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const sprite = getSkinSprite?.(skinId);
+    if (!canvas || !sprite) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(sprite, 0, 0, canvas.width, canvas.height);
+  }, [getSkinSprite, skinId]);
+
+  return (
+    <div className={`premium-castle-preview premium-castle-preview--${variant} ${large ? "is-large" : ""}`}>
+      <div className="premium-castle-aura" />
+      <canvas ref={canvasRef} width={320} height={320} aria-label={`Xem trước skin ${skinId}`} />
+      <div className="premium-castle-fx" aria-hidden="true">
+        <i /><i /><i /><i /><i /><i />
+      </div>
+      {variant === "gold" && <div className="premium-gold-runes" aria-hidden="true" />}
+      {variant === "fire" && <><div className="premium-fire-flame flame-left" /><div className="premium-fire-flame flame-right" /></>}
+      {variant === "wind" && <><div className="premium-wind-ring ring-one" /><div className="premium-wind-ring ring-two" /></>}
+    </div>
+  );
+}
+
 // ─── 3D VECTOR RESOURCE SVGS (No Emojis) ──────────────────────────────────
 
 const ResFoodIcon = () => (
@@ -210,9 +249,10 @@ const ResGoldIcon = () => (
 interface ShopModalProps {
   onClose: () => void;
   resources: { gems: number; gold: number };
+  getSkinSprite?: (skinId: string) => HTMLCanvasElement | undefined;
 }
 
-export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
+export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources, getSkinSprite }) => {
   const [activeTab, setActiveTab] = useState<"resources" | "skins">("resources");
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,7 +410,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
                     </div>
                     
                     <div className={`skin-visual-box skin-visual-box--${skin.variant}`}>
-                      <CastleSkinArt variant={skin.variant} />
+                      <PremiumCastleCanvas skinId={skin.id} variant={skin.variant} getSkinSprite={getSkinSprite} />
                       <div className="skin-visual-vignette" />
                     </div>
 
@@ -434,7 +474,12 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
                 <div className="preview-sandbox-panel">
                   <div className={`skin-preview-stage skin-preview-stage--${previewSkin.variant}`}>
                     <div className="skin-preview-sky-lines" />
-                    <CastleSkinArt variant={previewSkin.variant} />
+                    <PremiumCastleCanvas
+                      skinId={previewSkin.id}
+                      variant={previewSkin.variant}
+                      getSkinSprite={getSkinSprite}
+                      large
+                    />
                     <div className="skin-preview-ground" />
                     <div className="sandbox-watermark">MÔ PHỎNG NGOẠI TRANG TRÊN BẢN ĐỒ</div>
                   </div>

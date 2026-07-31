@@ -2919,6 +2919,7 @@ export function GameApp({
       {activeModal === "shop" && (
         <ShopModal
           resources={resources}
+          getSkinSprite={(skinId) => engineRef.current?.getPremiumCastleSprite(skinId)}
           onClose={closeModal}
         />
       )}

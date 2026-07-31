@@ -29,6 +29,7 @@ export type GameEngineHandle = {
   isHidingTerritoryAssets: () => boolean;
   toggleHideTerritoryAssets: (forceValue?: boolean) => boolean;
   getCastleSprite: (flagColor: string, emblem: string) => HTMLCanvasElement;
+  getPremiumCastleSprite: (skinId: string) => HTMLCanvasElement;
 };
 
 export function createIslandEmpireGame(
@@ -62,6 +63,7 @@ export function createIslandEmpireGame(
     handleAction: () => {},
     startNewbieOnboarding: () => {},
     cancelNewbieOnboarding: () => {},
+    getPremiumCastleSprite: () => document.createElement("canvas"),
   };
   ctx.imageSmoothingEnabled = false;
 
@@ -3975,7 +3977,7 @@ export function createIslandEmpireGame(
   const miniCastleSpriteCacheMap = new Map<string, HTMLCanvasElement>();
 
   function getCachedGrandCastleSprite(flagColor: string, emblem: string): HTMLCanvasElement {
-    const key = `grand_v16_${emblem}_${flagColor}`;
+    const key = `grand_v17_${emblem}_${flagColor}`;
     let cached = castleSpriteCacheMap.get(key);
     if (cached) return cached;
 
@@ -4088,7 +4090,178 @@ export function createIslandEmpireGame(
     const bannerWave = Math.sin(state.tick * 0.2) * 2.5;
     const bannerCol = (flagColor && typeof flagColor === "string" && flagColor.length >= 3) ? flagColor : "#2563eb";
 
-    if (emblem === "dragon") {
+    if (emblem === "premium_gold") {
+      const ivoryLeft = "#5f5542";
+      const ivoryRight = "#a99a78";
+      const ivoryTop = "#eee0b7";
+      const goldLeft = "#8f530e";
+      const goldRight = "#f0bf43";
+
+      isoCube(0, 40, 252, 18, 50, "#42351f", "#78613a", "#c2a75e");
+      isoCube(0, 24, 224, 54, 42, ivoryLeft, ivoryRight, ivoryTop);
+      isoCylinder(-76, 0, 22, 92, "#564b39", "#b5a47d", "#f0dfb6");
+      isoRoof(-76, -92, 54, 38, 24, goldLeft, goldRight);
+      isoCylinder(76, 0, 22, 92, "#564b39", "#b5a47d", "#f0dfb6");
+      isoRoof(76, -92, 54, 38, 24, goldLeft, goldRight);
+      isoCylinder(-101, 24, 27, 96, "#4c4232", "#a99873", "#ead8ad");
+      isoRoof(-101, -72, 66, 44, 28, goldLeft, goldRight);
+      isoCylinder(101, 24, 27, 96, "#4c4232", "#a99873", "#ead8ad");
+      isoRoof(101, -72, 66, 44, 28, goldLeft, goldRight);
+      isoCube(0, 10, 122, 122, 36, "#544936", "#aa9870", "#f3e2b8");
+      isoCube(0, -92, 88, 38, 28, "#695a3f", "#b9a477", "#f7e8bd");
+      isoRoof(0, -130, 112, 48, 34, "#a16212", "#f5cb55");
+
+      const drawPremiumWindow = (wx: number, wy: number) => {
+        const aura = offCtx.createRadialGradient(cx + wx, cy + wy, 1, cx + wx, cy + wy, 20);
+        aura.addColorStop(0, "rgba(255, 247, 174, 0.98)");
+        aura.addColorStop(0.46, "rgba(245, 178, 42, 0.66)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + wx, cy + wy, 20, 0, Math.PI * 2);
+        offCtx.fill();
+        r(wx - 4, wy - 9, 8, 18, "#fff0a0");
+      };
+      drawPremiumWindow(-101, -20);
+      drawPremiumWindow(101, -20);
+      drawPremiumWindow(-30, -52);
+      drawPremiumWindow(30, -52);
+      r(-22, 0, 44, 44, "#271c10");
+      offCtx.fillStyle = "#271c10";
+      offCtx.beginPath();
+      offCtx.arc(cx, cy, 22, Math.PI, 0);
+      offCtx.fill();
+      drawFlagEmblem(cx, cy - 68, "dragon", 0.82, offCtx);
+      isoCylinder(0, -178, 3, 27, "#936316", "#f6da70", "#fff9d1");
+      offCtx.fillStyle = "#b4232f";
+      offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 203 + bannerWave);
+      offCtx.lineTo(cx + 50, cy - 209 + bannerWave);
+      offCtx.lineTo(cx + 42, cy - 190 + bannerWave);
+      offCtx.lineTo(cx + 50, cy - 171 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 177 + bannerWave);
+      offCtx.closePath();
+      offCtx.fill();
+      offCtx.strokeStyle = "#ffe47a";
+      offCtx.lineWidth = 2;
+      offCtx.stroke();
+      drawFlagEmblem(cx + 26, cy - 190 + bannerWave, "dragon", 0.88, offCtx);
+    }
+    else if (emblem === "premium_fire") {
+      const basaltLeft = "#161519";
+      const basaltRight = "#494047";
+      const basaltTop = "#74656a";
+
+      isoCube(0, 40, 252, 20, 50, "#0c0b0d", "#31272a", "#5c3b38");
+      isoCube(0, 24, 224, 58, 42, basaltLeft, basaltRight, basaltTop);
+      isoCube(-98, 24, 58, 108, 30, "#100f12", "#44383e", "#725b60");
+      isoRoof(-98, -84, 70, 58, 26, "#5b100e", "#e13f1d");
+      isoCube(98, 24, 58, 108, 30, "#100f12", "#44383e", "#725b60");
+      isoRoof(98, -84, 70, 58, 26, "#5b100e", "#e13f1d");
+      isoCube(-55, 0, 42, 106, 24, "#17151a", "#514148", "#806268");
+      isoRoof(-55, -106, 52, 48, 20, "#6c120e", "#f05a22");
+      isoCube(55, 0, 42, 106, 24, "#17151a", "#514148", "#806268");
+      isoRoof(55, -106, 52, 48, 20, "#6c120e", "#f05a22");
+      isoCube(0, 12, 114, 126, 34, "#121115", "#4b3b43", "#796068");
+      isoCube(0, -94, 78, 34, 26, "#21191d", "#5f4548", "#95695e");
+      isoRoof(0, -128, 100, 54, 30, "#74140e", "#ff6425");
+
+      const drawLavaWindow = (wx: number, wy: number, h = 24) => {
+        const aura = offCtx.createRadialGradient(cx + wx, cy + wy, 1, cx + wx, cy + wy, 22);
+        aura.addColorStop(0, "rgba(255, 210, 86, 1)");
+        aura.addColorStop(0.45, "rgba(255, 76, 25, 0.78)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + wx, cy + wy, 22, 0, Math.PI * 2);
+        offCtx.fill();
+        r(wx - 4, wy - h / 2, 8, h, "#ff8b2b");
+      };
+      drawLavaWindow(-98, -25, 28);
+      drawLavaWindow(98, -25, 28);
+      drawLavaWindow(-28, -48);
+      drawLavaWindow(28, -48);
+      offCtx.strokeStyle = "#ff5a22";
+      offCtx.lineWidth = 3;
+      offCtx.beginPath();
+      offCtx.moveTo(cx - 74, cy + 18);
+      offCtx.lineTo(cx - 55, cy - 2);
+      offCtx.lineTo(cx - 64, cy - 24);
+      offCtx.moveTo(cx + 72, cy + 20);
+      offCtx.lineTo(cx + 54, cy - 4);
+      offCtx.lineTo(cx + 63, cy - 27);
+      offCtx.stroke();
+      r(-22, 0, 44, 44, "#080608");
+      drawFlagEmblem(cx, cy - 66, "dragon", 0.8, offCtx);
+      isoCylinder(0, -182, 3, 29, "#7b3718", "#ff9a3e", "#fff0a1");
+      offCtx.fillStyle = "#6f0c0c";
+      offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 209 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 215 + bannerWave);
+      offCtx.lineTo(cx + 41, cy - 196 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 177 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 183 + bannerWave);
+      offCtx.closePath();
+      offCtx.fill();
+      offCtx.strokeStyle = "#ff6a28";
+      offCtx.lineWidth = 2;
+      offCtx.stroke();
+      drawFlagEmblem(cx + 26, cy - 196 + bannerWave, "dragon", 0.88, offCtx);
+    }
+    else if (emblem === "premium_wind") {
+      const pearlLeft = "#3c5c63";
+      const pearlRight = "#91b9ba";
+      const pearlTop = "#e2f1e9";
+      const cyanLeft = "#07566b";
+      const cyanRight = "#35cfdd";
+
+      isoCube(0, 40, 248, 18, 50, "#27434b", "#527b80", "#8fb6b2");
+      isoCube(0, 24, 218, 52, 42, pearlLeft, pearlRight, pearlTop);
+      isoCylinder(-94, 22, 25, 100, "#315058", "#9ac4c2", "#e5f3e8");
+      isoRoof(-94, -78, 62, 52, 26, cyanLeft, cyanRight);
+      isoCylinder(94, 22, 25, 100, "#315058", "#9ac4c2", "#e5f3e8");
+      isoRoof(94, -78, 62, 52, 26, cyanLeft, cyanRight);
+      isoCylinder(-54, 0, 18, 112, "#385a61", "#a5ccca", "#edf8ef");
+      isoRoof(-54, -112, 46, 48, 20, "#08677a", "#45dce4");
+      isoCylinder(54, 0, 18, 112, "#385a61", "#a5ccca", "#edf8ef");
+      isoRoof(54, -112, 46, 48, 20, "#08677a", "#45dce4");
+      isoCube(0, 12, 108, 120, 34, pearlLeft, "#9dc5c3", "#edf7ed");
+      isoCube(0, -88, 74, 36, 26, "#4b7378", "#add2ce", "#f3fbf2");
+      isoRoof(0, -124, 94, 56, 30, cyanLeft, "#5de8ec");
+
+      const drawWindWindow = (wx: number, wy: number) => {
+        const aura = offCtx.createRadialGradient(cx + wx, cy + wy, 1, cx + wx, cy + wy, 22);
+        aura.addColorStop(0, "rgba(216, 255, 255, 1)");
+        aura.addColorStop(0.46, "rgba(45, 218, 230, 0.7)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + wx, cy + wy, 22, 0, Math.PI * 2);
+        offCtx.fill();
+        r(wx - 4, wy - 11, 8, 22, "#baffff");
+      };
+      drawWindWindow(-94, -22);
+      drawWindWindow(94, -22);
+      drawWindWindow(-27, -49);
+      drawWindWindow(27, -49);
+      r(-21, 0, 42, 44, "#17383e");
+      drawFlagEmblem(cx, cy - 65, "eagle", 0.78, offCtx);
+      isoCylinder(0, -180, 3, 28, "#397f86", "#b8ffff", "#ffffff");
+      offCtx.fillStyle = "#147f91";
+      offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 206 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 212 + bannerWave);
+      offCtx.lineTo(cx + 41, cy - 193 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 174 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 180 + bannerWave);
+      offCtx.closePath();
+      offCtx.fill();
+      offCtx.strokeStyle = "#a9fbff";
+      offCtx.lineWidth = 2;
+      offCtx.stroke();
+      drawFlagEmblem(cx + 26, cy - 193 + bannerWave, "eagle", 0.88, offCtx);
+    }
+    else if (emblem === "dragon") {
       const wallRedLeft = "#6f1d1b";
       const wallRedRight = "#b53529";
       const wallRedTop = "#e27454";
@@ -9811,6 +9984,11 @@ export function createIslandEmpireGame(
     territoryBuildCost,
     getCastleSprite: (flagColor: string, emblem: string) => {
       return getCachedGrandCastleSprite(flagColor, emblem);
+    },
+    getPremiumCastleSprite: (skinId: string) => {
+      if (skinId === "skin_hoa_long_dien") return getCachedGrandCastleSprite("#8f1712", "premium_fire");
+      if (skinId === "skin_phong_long_cac") return getCachedGrandCastleSprite("#147f91", "premium_wind");
+      return getCachedGrandCastleSprite("#b4232f", "premium_gold");
     }
   };
 }
