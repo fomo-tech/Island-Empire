@@ -12386,3 +12386,588 @@ img[src*="/assets/icons/"] {
   filter: brightness(1.1) !important;
   box-shadow: 0 4px 16px rgba(250, 204, 21, 0.3) !important;
 }
+
+/* Premium castle skin gallery */
+.shop-modal-container {
+  width: min(1120px, calc(100vw - 36px));
+  max-width: 1120px;
+  max-height: min(880px, calc(100dvh - 36px));
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.shop-skins-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.shop-skin-card {
+  min-width: 0;
+  padding: 14px;
+  gap: 10px;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(19, 31, 44, 0.98), rgba(7, 13, 20, 0.98));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.48);
+  isolation: isolate;
+}
+
+.shop-skin-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.2;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 22px, rgba(255, 255, 255, 0.045) 23px 24px);
+}
+
+.shop-skin-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.58);
+}
+
+.skin-card-header {
+  min-height: 42px;
+  gap: 8px;
+}
+
+.skin-rarity {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(246, 231, 189, 0.52);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 1.2px;
+}
+
+.skin-name {
+  font-family: "Cinzel", "Outfit", Georgia, serif !important;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.skin-visual-box {
+  height: 190px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #07111a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.skin-visual-box--gold {
+  background:
+    radial-gradient(circle at 50% 76%, rgba(201, 139, 24, 0.28), transparent 50%),
+    linear-gradient(180deg, #102031 0%, #121512 100%);
+}
+
+.skin-visual-box--fire {
+  background:
+    radial-gradient(circle at 50% 80%, rgba(183, 39, 17, 0.32), transparent 52%),
+    linear-gradient(180deg, #1a151d 0%, #100708 100%);
+}
+
+.skin-visual-box--wind {
+  background:
+    radial-gradient(circle at 50% 74%, rgba(30, 174, 190, 0.27), transparent 52%),
+    linear-gradient(180deg, #112c3a 0%, #07191f 100%);
+}
+
+.castle-skin-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+  filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.62));
+}
+
+.skin-visual-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.65);
+}
+
+.skin-desc {
+  min-height: 48px;
+  font-size: 11px;
+}
+
+.skin-aura-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinAuraPulse 3.2s ease-in-out infinite;
+}
+
+.skin-castle-body {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: skinCastleHover 4.8s ease-in-out infinite;
+}
+
+.skin-banner {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: skinBannerWave 1.35s ease-in-out infinite;
+}
+
+.skin-orbit-runes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinRuneOrbit 12s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(255, 216, 103, 0.8));
+}
+
+.skin-guardian {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinGuardianFlight 6.5s ease-in-out infinite;
+}
+
+.skin-dragon-wing {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.skin-dragon-wing--left {
+  animation: skinWingLeft 0.42s ease-in-out infinite;
+}
+
+.skin-dragon-wing--right {
+  animation: skinWingRight 0.42s ease-in-out infinite;
+}
+
+.skin-particle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinParticleRise 2.7s ease-out infinite;
+}
+
+.skin-particle--gold {
+  fill: #ffe684;
+  filter: drop-shadow(0 0 5px #f5b929);
+}
+
+.skin-particle--fire {
+  fill: #ff6a24;
+  filter: drop-shadow(0 0 5px #ef3d17);
+}
+
+.skin-particle--wind {
+  fill: #bafcff;
+  filter: drop-shadow(0 0 5px #43dce8);
+}
+
+.skin-flame {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: skinFlameFlicker 0.58s ease-in-out infinite alternate;
+}
+
+.skin-flame--two {
+  animation-delay: -0.24s;
+}
+
+.skin-flame--three {
+  animation-delay: -0.41s;
+}
+
+.skin-lava-cracks {
+  animation: skinLavaPulse 1.7s ease-in-out infinite;
+}
+
+.skin-smoke circle {
+  animation: skinSmokeRise 3.4s ease-out infinite;
+}
+
+.skin-smoke circle:nth-child(2),
+.skin-smoke circle:nth-child(4) {
+  animation-delay: -1.4s;
+}
+
+.skin-wind-rings {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinWindOrbit 5.4s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(83, 232, 242, 0.75));
+}
+
+.skin-clouds {
+  opacity: 0.72;
+  animation: skinCloudDrift 5.5s ease-in-out infinite alternate;
+}
+
+.skin-crystal {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skinCrystalPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes skinAuraPulse {
+  0%, 100% { opacity: 0.58; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes skinCastleHover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes skinBannerWave {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-5deg) scaleX(0.92); }
+}
+
+@keyframes skinRuneOrbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes skinGuardianFlight {
+  0%, 100% { transform: translate(0, 5px) scale(0.9); opacity: 0.55; }
+  48% { transform: translate(184px, -12px) scale(1.04); opacity: 1; }
+  52% { transform: translate(184px, -12px) scaleX(-1) scaleY(1.04); opacity: 1; }
+  98% { transform: translate(0, 5px) scaleX(-0.9) scaleY(0.9); opacity: 0.55; }
+}
+
+@keyframes skinWingLeft {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-22deg) scaleY(0.7); }
+}
+
+@keyframes skinWingRight {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(22deg) scaleY(0.7); }
+}
+
+@keyframes skinParticleRise {
+  0% { opacity: 0; transform: translateY(12px) scale(0.7); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-42px) scale(1.15); }
+}
+
+@keyframes skinFlameFlicker {
+  from { transform: scaleY(0.82) skewX(-3deg); opacity: 0.75; }
+  to { transform: scaleY(1.12) skewX(4deg); opacity: 1; }
+}
+
+@keyframes skinLavaPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes skinSmokeRise {
+  0% { opacity: 0; transform: translateY(8px) scale(0.7); }
+  35% { opacity: 0.42; }
+  100% { opacity: 0; transform: translateY(-28px) scale(1.35); }
+}
+
+@keyframes skinWindOrbit {
+  to { transform: rotate(360deg); stroke-dashoffset: -90; }
+}
+
+@keyframes skinCloudDrift {
+  from { transform: translateX(-7px); opacity: 0.48; }
+  to { transform: translateX(7px); opacity: 0.84; }
+}
+
+@keyframes skinCrystalPulse {
+  0%, 100% { transform: scale(0.9) translateY(1px); opacity: 0.72; }
+  50% { transform: scale(1.12) translateY(-3px); opacity: 1; }
+}
+
+.shop-preview-container {
+  width: min(1040px, calc(100vw - 42px));
+  max-width: 1040px;
+  height: min(610px, calc(100dvh - 42px));
+  padding: 22px;
+  border-radius: 8px;
+}
+
+.preview-info-panel {
+  width: 340px;
+  flex: 0 0 340px;
+}
+
+.preview-sandbox-panel {
+  border-radius: 4px;
+  background: #07111a;
+}
+
+.skin-preview-stage {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.skin-preview-stage--gold {
+  background:
+    radial-gradient(circle at 50% 72%, rgba(197, 139, 33, 0.35), transparent 48%),
+    linear-gradient(180deg, #14283a, #10140f);
+}
+
+.skin-preview-stage--fire {
+  background:
+    radial-gradient(circle at 50% 74%, rgba(176, 38, 18, 0.42), transparent 50%),
+    linear-gradient(180deg, #22151b, #100708);
+}
+
+.skin-preview-stage--wind {
+  background:
+    radial-gradient(circle at 50% 70%, rgba(35, 173, 190, 0.34), transparent 50%),
+    linear-gradient(180deg, #153849, #07191f);
+}
+
+.skin-preview-stage .castle-skin-art {
+  width: min(96%, 650px);
+  height: auto;
+  z-index: 3;
+  transform: translateY(14px);
+}
+
+.skin-preview-ground {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 11%;
+  height: 21%;
+  z-index: 1;
+  border-top: 1px solid rgba(232, 189, 76, 0.32);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(232, 189, 76, 0.08) 40px),
+    repeating-linear-gradient(0deg, transparent 0 29px, rgba(232, 189, 76, 0.07) 30px);
+  transform: perspective(380px) rotateX(62deg);
+  transform-origin: bottom;
+}
+
+.skin-preview-sky-lines {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  z-index: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 48px, rgba(255, 255, 255, 0.12) 49px);
+}
+
+.skin-preview-stage .sandbox-watermark {
+  z-index: 5;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+@media (max-width: 900px) {
+  .shop-skins-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-modal-container {
+    width: min(680px, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+    padding: 14px;
+  }
+
+  .shop-gems-balance {
+    position: static;
+    width: fit-content;
+    margin-top: 10px;
+  }
+
+  .preview-layout {
+    flex-direction: column;
+  }
+
+  .preview-info-panel {
+    width: 100%;
+    flex-basis: auto;
+    padding-right: 0;
+  }
+
+  .skin-preview-stage {
+    min-height: 330px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-modal-container .castle-skin-art *,
+  .shop-modal-container .castle-skin-art,
+  .shop-preview-container .castle-skin-art * {
+    animation: none !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   11. AAA PARCHMENT & OBSIDIAN MEDIEVAL STRATEGY UI
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Main Container Frame with Ornate Gold Corners */
+.ob-modal-container,
+.onboarding-guide-modal,
+.war-report-modal,
+.town-modal,
+.settings-modal,
+.shop-modal-container {
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 0h16v3H3v13H0V0z'/%3E%3C/svg%3E"), /* top-left */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 0H8v3h13v13h3V0z'/%3E%3C/svg%3E"), /* top-right */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 24h16v-3H3V8H0v16z'/%3E%3C/svg%3E"), /* bottom-left */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 24H8v-3h13V8h3v16z'/%3E%3C/svg%3E"), /* bottom-right */
+    linear-gradient(180deg, rgba(16, 28, 41, 0.99) 0%, rgba(6, 10, 16, 0.99) 100%) !important;
+  background-position: 
+    top 4px left 4px,
+    top 4px right 4px,
+    bottom 4px left 4px,
+    bottom 4px right 4px,
+    center center !important;
+  background-repeat: no-repeat !important;
+  background-size: 
+    22px 22px,
+    22px 22px,
+    22px 22px,
+    22px 22px,
+    auto !important;
+  border: 3px double var(--gold-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    0 32px 80px rgba(0, 0, 0, 0.96),
+    inset 0 0 25px rgba(250, 204, 21, 0.15) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+/* Royal Velvet Header Banners */
+.ob-modal-header,
+.guide-modal-header,
+.shop-header,
+.war-report-modal .war-report-title {
+  background: linear-gradient(90deg, rgba(127,29,29,0) 0%, rgba(153,27,27,0.88) 15%, rgba(153,27,27,0.98) 50%, rgba(153,27,27,0.88) 85%, rgba(127,29,29,0) 100%) !important;
+  border-top: 1.5px solid var(--gold-primary) !important;
+  border-bottom: 1.5px solid var(--gold-primary) !important;
+  padding: 14px 28px !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7) !important;
+  border-radius: 4px !important;
+}
+
+/* Base modal titles inside headers */
+.ob-modal-title,
+.detail-title,
+.war-report-title,
+.town-modal h3,
+.ob-modal-container h2,
+.ob-modal-container h3,
+.onboarding-guide-modal .title,
+.shop-title,
+.preview-skin-name {
+  font-family: 'Cinzel', 'Outfit', 'Georgia', serif !important;
+  font-weight: 900 !important;
+  color: var(--gold-primary) !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.95), 
+    0 0 12px rgba(250, 204, 21, 0.35) !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+}
+
+/* Aged Parchment Scroll Cards (Nền giấy da dê cổ kính bên trong) */
+.guide-step-card,
+.sub-item-card,
+.shop-pack-card,
+.shop-skin-card,
+.war-report-item,
+.settings-modal .settings-row,
+.settings-modal .settings-section,
+.town-modal .building-item,
+.town-modal .upgrade-option,
+.town-modal .option-card,
+.army-modal .army-row,
+.ally-modal .ally-member-row,
+.troop-deployment-modal .troop-slider-row,
+.guide-steps-sidebar button,
+.guide-detail-content {
+  background: #f2ebcf !important;
+  color: #2c1e15 !important;
+  border: 1.5px solid #ca8a04 !important;
+  box-shadow: 
+    inset 0 0 16px rgba(139, 90, 43, 0.25),
+    0 3px 8px rgba(0, 0, 0, 0.45) !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Force dark chestnut ink text color inside parchment cards */
+.guide-step-card *,
+.sub-item-card *,
+.shop-pack-card *,
+.shop-skin-card *,
+.war-report-item *,
+.settings-row *,
+.building-item *,
+.upgrade-option *,
+.option-card *,
+.army-row *,
+.ally-member-row *,
+.troop-slider-row * {
+  color: #2c1e15 !important;
+  font-family: 'Georgia', 'Times New Roman', serif !important;
+}
+
+/* Hover glow for Parchment cards */
+.guide-step-card:hover,
+.shop-pack-card:hover,
+.shop-skin-card:hover,
+.war-report-item:hover,
+.building-item:hover {
+  border-color: #ffd700 !important;
+  box-shadow: 
+    inset 0 0 16px rgba(139, 90, 43, 0.15),
+    0 0 12px rgba(250, 204, 21, 0.25) !important;
+}
+
+/* Crimson Wax Seals (Huy hiệu hình dấu sáp niêm phong) */
+.step-number-badge,
+.coming-soon-badge,
+.hud-tile-badge-square,
+.hud-rail-badge,
+.indicator-dots .dot.active {
+  background: radial-gradient(circle, #dc2626 0%, #991b1b 75%, #7f1d1d 100%) !important;
+  border: 1.5px solid var(--gold-primary) !important;
+  color: var(--gold-light) !important;
+  box-shadow: 
+    0 4px 8px rgba(0,0,0,0.6), 
+    inset 0 0 6px rgba(255,255,255,0.45) !important;
+  border-radius: 50% !important;
+  font-weight: 900 !important;
+  font-family: 'Outfit', sans-serif !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7) !important;
+}
+
+/* System scrollbars matching parchment wood styling */
+.ob-modal-container *::-webkit-scrollbar,
+.onboarding-guide-modal *::-webkit-scrollbar,
+.war-report-modal *::-webkit-scrollbar,
+.shop-modal-container *::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.ob-modal-container *::-webkit-scrollbar-track,
+.onboarding-guide-modal *::-webkit-scrollbar-track,
+.war-report-modal *::-webkit-scrollbar-track,
+.shop-modal-container *::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-radius: 3px !important;
+}
+
+.ob-modal-container *::-webkit-scrollbar-thumb,
+.onboarding-guide-modal *::-webkit-scrollbar-thumb,
+.war-report-modal *::-webkit-scrollbar-thumb,
+.shop-modal-container *::-webkit-scrollbar-thumb {
+  background: var(--gold-primary) !important;
+  border-radius: 3px !important;
+}
