@@ -34,6 +34,9 @@ export type GameConfig = {
   artilleryCostIron: number;
   artilleryCostSulfur: number;
   artilleryTroopsValue: number;
+  infantryPopulationCost: number;
+  cavalryPopulationCost: number;
+  artilleryPopulationCost: number;
   settlerSpeed: number;
   infantrySpeed: number;
   cavalrySpeed: number;
@@ -90,7 +93,11 @@ export type TownSnapshot = {
     warehouse?: number;
   };
   storage?: Partial<ResourceBag>;
-  storageCapacity?: number;
+  storageCapacity?: number | ResourceBag;
+  productionPerSecond?: Partial<ResourceBag>;
+  populationCapacity?: number;
+  populationPerSecond?: number;
+  lastPopulationAt?: string;
   maxTroops?: number;
 };
 
@@ -230,6 +237,8 @@ export type GameStateResult = {
   productionPerSecond: ResourceBag;
   offlineGain: ResourceBag;
   offlineSeconds: number;
+  serverTime: string;
+  resourceUpdatedAt: string;
   newbieShieldUntil?: string | null;
   playerProfile?: { flagColor: string; emblem: string } | null;
 };
@@ -251,7 +260,18 @@ export type CreateMarchResult = {
 export type RealtimeEvent =
   | { type: "hello"; playerId: string; serverTime: string }
   | { type: "world_chat"; playerId: string; playerName: string; message: string; sentAt: string }
-  | { type: "player_state_updated"; playerId: string; resources?: ResourceBag; towns?: any[]; newbieShieldUntil?: string | null; reason?: string }
+  | {
+      type: "player_state_updated";
+      playerId: string;
+      resources?: ResourceBag;
+      resourceCapacity?: ResourceBag;
+      productionPerSecond?: ResourceBag;
+      resourceUpdatedAt?: string;
+      serverTime?: string;
+      towns?: TownSnapshot[];
+      newbieShieldUntil?: string | null;
+      reason?: string;
+    }
   | { type: "territory_clearing_started"; clearing: ActiveClearing }
   | { type: "territory_clearing_cancelled"; territoryId: number; playerId: string }
   | { type: "territory_claimed"; territory: TerritoryInfo }

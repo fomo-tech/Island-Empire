@@ -13552,3 +13552,286 @@ img[src*="/assets/icons/"] {
 .ka-search-input-box input {
   color: #2c1e15 !important;
 }
+
+/* ============================================================
+   TRẠNG THÁI QUỐC GIA — National Status Drawer
+   Medieval European Tactical Theme
+   ============================================================ */
+
+.hud-national-status-drawer {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  scrollbar-width: thin;
+  scrollbar-color: #ca8a04 transparent;
+}
+
+/* Ruler Profile Card */
+.hud-ruler-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(30,18,8,0.85) 0%, rgba(50,30,10,0.9) 100%);
+  border: 1.5px solid #ca8a04;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0 6px 0;
+  box-shadow: inset 0 0 14px rgba(200,150,50,0.12), 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.hud-ruler-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #ca8a04;
+  object-fit: cover;
+  box-shadow: 0 0 8px rgba(202,138,4,0.5);
+  flex-shrink: 0;
+}
+
+.hud-ruler-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-ruler-name {
+  font-family: 'Georgia', 'Palatino', serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: #f5deb3;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hud-ruler-title {
+  font-family: 'Georgia', 'Palatino', serif;
+  font-size: 10px;
+  color: #ca8a04;
+  font-style: italic;
+  letter-spacing: 0.3px;
+}
+
+/* Status Indicator */
+.hud-national-status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  margin: 4px 0;
+  border: 1px solid rgba(202,138,4,0.3);
+  background: rgba(0,0,0,0.25);
+}
+
+.hud-status-peace {
+  font-family: 'Georgia', serif;
+  font-size: 10.5px;
+  color: #86efac;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.hud-status-war {
+  font-family: 'Georgia', serif;
+  font-size: 10.5px;
+  color: #fca5a5;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  animation: pulse-war 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-war {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* National Stats Grid */
+.hud-national-stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.hud-national-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20,12,4,0.6);
+  border: 1px solid rgba(202,138,4,0.25);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+.hud-stat-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.hud-stat-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.hud-stat-label {
+  font-family: 'Georgia', serif;
+  font-size: 9px;
+  color: rgba(202,138,4,0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hud-stat-value {
+  font-family: 'Georgia', 'Palatino', serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #f5deb3;
+}
+
+.hud-stat-sub {
+  font-size: 9px;
+  color: rgba(245,222,179,0.5);
+  font-weight: normal;
+}
+
+/* Production Section */
+.hud-production-section {
+  margin: 6px 0;
+  background: rgba(15,10,4,0.5);
+  border: 1px solid rgba(202,138,4,0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.hud-production-header {
+  font-family: 'Georgia', serif;
+  font-size: 9.5px;
+  color: #ca8a04;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(202,138,4,0.2);
+}
+
+.hud-production-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+}
+
+.hud-prod-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  background: rgba(30,18,8,0.5);
+  border-radius: 4px;
+  border: 1px solid rgba(202,138,4,0.15);
+}
+
+.hud-prod-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.hud-prod-value {
+  font-family: 'Georgia', serif;
+  font-size: 10px;
+  font-weight: bold;
+  color: #86efac;
+}
+
+/* Settlements Section */
+.hud-settlements-section {
+  margin: 6px 0;
+}
+
+.hud-settlements-header {
+  font-family: 'Georgia', serif;
+  font-size: 9.5px;
+  color: #ca8a04;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(202,138,4,0.25);
+}
+
+.hud-settlements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hud-national-town-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: rgba(20,12,4,0.6);
+  border: 1px solid rgba(202,138,4,0.2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  text-align: left;
+}
+
+.hud-national-town-item:hover {
+  background: rgba(202,138,4,0.15);
+  border-color: rgba(202,138,4,0.55);
+  transform: translateX(2px);
+}
+
+.hud-national-town-item:active {
+  transform: translateX(0px);
+  background: rgba(202,138,4,0.25);
+}
+
+.hud-town-kind-badge {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.hud-town-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hud-town-name {
+  font-family: 'Georgia', serif;
+  font-size: 10.5px;
+  font-weight: bold;
+  color: #f5deb3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-town-meta {
+  font-size: 9px;
+  color: rgba(202,138,4,0.7);
+  font-family: monospace;
+}
+
+.hud-town-locate-arrow {
+  font-size: 16px;
+  color: rgba(202,138,4,0.6);
+  flex-shrink: 0;
+  font-weight: bold;
+  transition: color 0.15s;
+}
+
+.hud-national-town-item:hover .hud-town-locate-arrow {
+  color: #ca8a04;
+}

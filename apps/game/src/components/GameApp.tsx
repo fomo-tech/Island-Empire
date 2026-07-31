@@ -737,6 +737,7 @@ export function GameApp({
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">("none");
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
+  const [productionPerSecond, setProductionPerSecond] = useState<Record<string,number>>({});
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   const [socketOnline, setSocketOnline] = useState(false);
   const [serverEventLog, setServerEventLog] = useState<string[]>([]);
@@ -1105,6 +1106,7 @@ export function GameApp({
             }
           }, 180);
           setResources({ ...world.resources });
+          if (world.productionPerSecond) setProductionPerSecond(world.productionPerSecond as Record<string,number>);
           setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
           const offlineSummary = summarizeResourceGain(world.offlineGain, world.offlineSeconds);
           if (offlineSummary) {
@@ -1671,6 +1673,7 @@ export function GameApp({
       }, 180);
     }
     setResources({ ...world.resources });
+    if (world.productionPerSecond) setProductionPerSecond(world.productionPerSecond as Record<string,number>);
     setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
     setWorldActivity((prev) => ({
       marches: world.marches,
@@ -2127,24 +2130,24 @@ export function GameApp({
               <div className="hud-left-command-cluster">
                 {/* Vertical Rail (matching Mockup) */}
                 <nav className="hud-sidebar-vertical-rail hud-interactive" aria-label="Điều hướng vương quốc">
-                  {/* 1. Nhiệm vụ */}
+                  {/* 1. Trạng thái quốc gia */}
                   <button
                     type="button"
-                    className={`hud-rail-button-v ${leftTab === "missions" && !leftCollapsed ? "active" : ""}`}
+                    className={`hud-rail-button-v ${!leftCollapsed ? "active" : ""}`}
                     onClick={() => {
-                      if (leftTab === "missions" && !leftCollapsed) {
+                      if (!leftCollapsed) {
                         setLeftCollapsed(true);
                       } else {
                         setLeftCollapsed(false);
                         setLeftTab("missions");
                       }
                     }}
-                    title={t("missions")}
+                    title="Trạng thái quốc gia"
                   >
                     <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_scroll.png" className="hud-rail-icon-png" alt="scroll" />
+                      <img src="/assets/icons/icon_tower.png" className="hud-rail-icon-png" alt="kingdom" />
                     </div>
-                    <span>Nhiệm vụ</span>
+                    <span>Quốc gia</span>
                   </button>
 
                   {/* 2. Bản đồ */}
@@ -2201,87 +2204,135 @@ export function GameApp({
                   </button>
                 </nav>
 
-                {/* Quest Drawer Card (matching Mockup) */}
-                <div className={`hud-quest-drawer-card hud-interactive ${leftCollapsed ? "collapsed" : ""}`}>
+                {/* National Status Drawer */}
+                <div className={`hud-quest-drawer-card hud-national-status-drawer hud-interactive ${leftCollapsed ? "collapsed" : ""}`}>
+                  {/* Header */}
                   <div className="hud-quest-drawer-header">
                     <span className="hud-quest-title">
-                      <img src="/assets/icons/icon_scroll.png" className="hud-quest-header-icon-png" alt="missions" /> {t("missions")}
+                      <img src="/assets/icons/icon_tower.png" className="hud-quest-header-icon-png" alt="kingdom" /> TRẠNG THÁI QUỐC GIA
                     </span>
-                    <span className="hud-quest-ratio">3/5</span>
                   </div>
 
-                  <div className="hud-quest-list">
-                    <div className="hud-quest-item">
-                      <div className="hud-quest-meta">
-                        <span className="hud-quest-desc">{t("missionOwn3")}</span>
-                        <span className="hud-quest-progress-val">2/3</span>
-                      </div>
-                      <div className="hud-quest-progress-bar-track">
-                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "66%" }} />
-                      </div>
-                    </div>
-
-                    <div className="hud-quest-item">
-                      <div className="hud-quest-meta">
-                        <span className="hud-quest-desc">{t("missionMarch1")}</span>
-                        <span className="hud-quest-progress-val">0/1</span>
-                      </div>
-                      <div className="hud-quest-progress-bar-track">
-                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
-                      </div>
-                    </div>
-
-                    <div className="hud-quest-item completed">
-                      <div className="hud-quest-meta">
-                        <span className="hud-quest-desc">{t("missionBuild1")}</span>
-                        <span className="hud-quest-check">✓ 1/1</span>
-                      </div>
-                      <div className="hud-quest-progress-bar-track">
-                        <div className="hud-quest-progress-bar-fill green" style={{ width: "100%" }} />
-                      </div>
-                    </div>
-
-                    <div className="hud-quest-item">
-                      <div className="hud-quest-meta">
-                        <span className="hud-quest-desc">{t("missionCastle10")}</span>
-                        <span className="hud-quest-progress-val">0/1</span>
-                      </div>
-                      <div className="hud-quest-progress-bar-track">
-                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
-                      </div>
-                    </div>
-
-                    <div className="hud-quest-item">
-                      <div className="hud-quest-meta">
-                        <span className="hud-quest-desc">Tham gia 1 chiến dịch</span>
-                        <span className="hud-quest-progress-val">0/1</span>
-                      </div>
-                      <div className="hud-quest-progress-bar-track">
-                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
+                  {/* 1. Hồ sơ Hoàng đế */}
+                  <div className="hud-ruler-profile-card">
+                    <img src="/assets/avatars/emperor.png" className="hud-ruler-avatar" alt="Emperor" />
+                    <div className="hud-ruler-info">
+                      <div className="hud-ruler-name">{playerId ? `Lãnh Chúa #${playerId.slice(-4).toUpperCase()}` : "Lãnh Chúa Vô Danh"}</div>
+                      <div className="hud-ruler-title">
+                        {serverHud.strategicPower > 100000 ? "⚜ Đại Hoàng Đế" :
+                         serverHud.strategicPower > 50000 ? "♛ Đế Vương" :
+                         serverHud.strategicPower > 20000 ? "⚔ Công Tước" :
+                         serverHud.strategicPower > 5000  ? "◈ Bá Tước" : "✦ Lãnh Chúa"}
                       </div>
                     </div>
                   </div>
 
-                  {/* Collapsible Battlefield Section */}
-                  <div className="hud-battlefield-section">
-                    <div className="hud-battlefield-header">
-                      <span className="hud-battlefield-title">
-                        <img src="/assets/icons/icon_report.png" className="hud-quest-header-icon-png" alt="battlefield" /> CHIẾN TRƯỜNG
-                      </span>
-                      <span className="hud-battlefield-toggle">▼</span>
+                  {/* 2. Trạng thái chiến sự */}
+                  <div className="hud-national-status-indicator">
+                    {serverHud.ownMarches > 0 ? (
+                      <span className="hud-status-war">⚔ Đang xuất quân ({serverHud.ownMarches} đạo)</span>
+                    ) : (
+                      <span className="hud-status-peace">☮ Hòa bình — Thịnh trị</span>
+                    )}
+                  </div>
+
+                  {/* 3. Chỉ số quốc lực */}
+                  <div className="hud-national-stats-grid">
+                    <div className="hud-national-stat-item">
+                      <span className="hud-stat-icon">🏰</span>
+                      <div className="hud-stat-detail">
+                        <div className="hud-stat-label">Lãnh thổ</div>
+                        <div className="hud-stat-value">{serverHud.ownedTerritories} <span className="hud-stat-sub">/ {serverHud.totalTerritories} ô</span></div>
+                      </div>
                     </div>
-                    <div className="hud-battlefield-body">
-                      <div className="hud-battle-item">
-                        <span className="hud-battle-icon-mask">
-                          <img src="/assets/icons/icon_guild.png" className="hud-battle-icon-png" alt="guild" />
-                        </span>
-                        <div className="hud-battle-info">
-                          <div className="hud-battle-name">Chiến tranh bang hội</div>
-                          <div className="hud-battle-timer">Kết thúc sau: <span className="time-highlight">12:45:32</span></div>
-                        </div>
+                    <div className="hud-national-stat-item">
+                      <span className="hud-stat-icon">⚔</span>
+                      <div className="hud-stat-detail">
+                        <div className="hud-stat-label">Quân lực</div>
+                        <div className="hud-stat-value">{serverHud.ownedTroops.toLocaleString()} <span className="hud-stat-sub">binh</span></div>
+                      </div>
+                    </div>
+                    <div className="hud-national-stat-item">
+                      <span className="hud-stat-icon">⭐</span>
+                      <div className="hud-stat-detail">
+                        <div className="hud-stat-label">Uy thế</div>
+                        <div className="hud-stat-value">{serverHud.strategicPower.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
+
+                  {/* 4. Sản lượng tài nguyên */}
+                  {Object.values(productionPerSecond).some(v => v > 0) && (
+                    <div className="hud-production-section">
+                      <div className="hud-production-header">📦 Sản lượng mỗi giờ</div>
+                      <div className="hud-production-grid">
+                        {productionPerSecond.gold > 0 && (
+                          <div className="hud-prod-item">
+                            <span className="hud-prod-icon">🪙</span>
+                            <span className="hud-prod-value">+{Math.round((productionPerSecond.gold || 0) * 3600).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {productionPerSecond.wood > 0 && (
+                          <div className="hud-prod-item">
+                            <span className="hud-prod-icon">🪵</span>
+                            <span className="hud-prod-value">+{Math.round((productionPerSecond.wood || 0) * 3600).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {productionPerSecond.stone > 0 && (
+                          <div className="hud-prod-item">
+                            <span className="hud-prod-icon">🪨</span>
+                            <span className="hud-prod-value">+{Math.round((productionPerSecond.stone || 0) * 3600).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {productionPerSecond.iron > 0 && (
+                          <div className="hud-prod-item">
+                            <span className="hud-prod-icon">⚙</span>
+                            <span className="hud-prod-value">+{Math.round((productionPerSecond.iron || 0) * 3600).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {productionPerSecond.food > 0 && (
+                          <div className="hud-prod-item">
+                            <span className="hud-prod-icon">🌾</span>
+                            <span className="hud-prod-value">+{Math.round((productionPerSecond.food || 0) * 3600).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5. Danh sách thành trì */}
+                  {serverTownsById && Object.values(serverTownsById).length > 0 && (
+                    <div className="hud-settlements-section">
+                      <div className="hud-settlements-header">🏯 Thành trì ({Object.values(serverTownsById).length})</div>
+                      <div className="hud-settlements-list">
+                        {Object.values(serverTownsById).slice(0, 8).map((town: any) => (
+                          <button
+                            key={town.id}
+                            type="button"
+                            className="hud-national-town-item"
+                            onClick={() => {
+                              if (town.x != null && town.y != null) {
+                                engineRef.current?.handleAction("centerCamera", { townId: town.id, x: town.x, y: town.y });
+                                setLeftCollapsed(true);
+                              }
+                            }}
+                            title={`Định vị ${town.kind === "capital" ? "Hoàng Thành" : town.kind === "sub_capital" ? "Phó Đô" : "Quân Khu"} Lv.${town.level ?? town.lvl ?? 1}`}
+                          >
+                            <span className="hud-town-kind-badge">
+                              {town.kind === "capital" ? "👑" : town.kind === "sub_capital" ? "🏛" : "⚔"}
+                            </span>
+                            <div className="hud-town-info">
+                              <div className="hud-town-name">
+                                {town.kind === "capital" ? "Hoàng Thành" : town.kind === "sub_capital" ? "Phó Đô" : "Quân Khu"}
+                              </div>
+                              <div className="hud-town-meta">Lv.{town.level ?? town.lvl ?? 1} · ID #{town.id}</div>
+                            </div>
+                            <span className="hud-town-locate-arrow">›</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

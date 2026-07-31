@@ -93,6 +93,7 @@ const RecruitTroopsSchema = z.object({
   townId: z.number().int().nonnegative().optional(),
   unitType: z.enum(["infantry", "cavalry", "artillery"]),
   count: z.number().int().positive().max(MAX_RECRUIT_BATCH).default(1),
+  requestId: z.string().trim().min(12).max(120).optional(),
 });
 
 const CreateAllianceSchema = z.object({
@@ -131,12 +132,72 @@ const DEFAULT_PLAYER_RESOURCES: ResourceBag = {
   sulfur: 80,
   gems: 420,
 };
-const BASE_RESOURCE_CAPACITY = 3200;
-const TERRITORY_RESOURCE_CAPACITY = 850;
+const BASE_RESOURCE_CAPACITY: ResourceBag = {
+  gold: 1800,
+  wood: 2800,
+  stone: 2400,
+  food: 3200,
+  iron: 1400,
+  coal: 900,
+  sulfur: 520,
+  gems: 240,
+};
+const TERRITORY_RESOURCE_CAPACITY: ResourceBag = {
+  gold: 900,
+  wood: 1400,
+  stone: 1200,
+  food: 1600,
+  iron: 700,
+  coal: 500,
+  sulfur: 300,
+  gems: 120,
+};
 const MAX_OFFLINE_RESOURCE_SECONDS = 24 * 60 * 60;
 
 type ActionBucket = { count: number; resetAt: number };
 const actionBuckets = new Map<string, ActionBucket>();
+const playerMutationLocks = new Map<string, Promise<void>>();
+const recruitRequestResults = new Map<string, { expiresAt: number; result: any }>();
+
+async function acquirePlayerMutationLock(playerId: string) {
+  const previous = playerMutationLocks.get(playerId) || Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  playerMutationLocks.set(playerId, previous.then(() => current));
+  await previous;
+  return () => {
+    release();
+    if (playerMutationLocks.get(playerId) === current) playerMutationLocks.delete(playerId);
+  };
+}
+
+function cachedRecruitResult(playerId: string, requestId?: string) {
+  if (!requestId) return null;
+  const key = `${playerId}:${requestId}`;
+  const cached = recruitRequestResults.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    recruitRequestResults.delete(key);
+    return null;
+  }
+  return cached.result;
+}
+
+function rememberRecruitResult(playerId: string, requestId: string | undefined, result: any) {
+  if (!requestId) return;
+  if (recruitRequestResults.size > 10_000) {
+    const now = Date.now();
+    recruitRequestResults.forEach((entry, key) => {
+      if (entry.expiresAt <= now) recruitRequestResults.delete(key);
+    });
+  }
+  recruitRequestResults.set(`${playerId}:${requestId}`, {
+    expiresAt: Date.now() + 10 * 60_000,
+    result,
+  });
+}
 
 function consumeActionLimit(playerId: string, action: string, limit: number, windowMs: number) {
   const now = Date.now();
@@ -251,8 +312,7 @@ function compactResourceDelta(resources: Partial<ResourceBag>) {
 function resourceCapacityForOwnedTerritories(ownedCount: number): ResourceBag {
   const cap = emptyResources();
   RESOURCE_KEYS.forEach((key) => {
-    const rarePenalty = key === "gems" || key === "sulfur" ? 0.55 : 1;
-    cap[key] = Math.round((BASE_RESOURCE_CAPACITY + ownedCount * TERRITORY_RESOURCE_CAPACITY) * rarePenalty);
+    cap[key] = BASE_RESOURCE_CAPACITY[key] + Math.max(0, ownedCount) * TERRITORY_RESOURCE_CAPACITY[key];
   });
   return cap;
 }
@@ -587,12 +647,49 @@ function territoryStartingPopulationForTown(territory: Pick<TerritoryInfo, "rx" 
   return Math.max(80, Math.round(base + territoryAreaFactorForTown(territory) * 28 * biomePopMult * isletPenalty));
 }
 
-function townStorageCapacityForTerritory(town: any, territory?: Pick<TerritoryInfo, "rx" | "ry">) {
+function townStorageCapacityForTerritory(town: any, territory?: Pick<TerritoryInfo, "rx" | "ry">): ResourceBag {
   const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
   const warehouse = Math.max(0, Math.floor(Number(town?.buildings?.warehouse || 0) || 0));
   const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
-  const areaBonus = territory ? Math.round(territoryAreaFactorForTown(territory) * 120) : 0;
-  return 250 + warehouse * 650 + fort * 180 + level * 120 + areaBonus;
+  const areaFactor = territory ? territoryAreaFactorForTown(territory) : 1;
+  const capacity = emptyResources();
+  RESOURCE_KEYS.forEach((key) => {
+    const base = TERRITORY_RESOURCE_CAPACITY[key];
+    const warehouseBonus = base * warehouse * 0.55;
+    const fortBonus = (key === "food" || key === "iron" || key === "sulfur") ? base * fort * 0.1 : 0;
+    const levelBonus = base * Math.max(0, level - 1) * 0.12;
+    capacity[key] = Math.max(1, Math.round((base + warehouseBonus + fortBonus + levelBonus) * areaFactor));
+  });
+  return capacity;
+}
+
+function townPopulationCapacityForTerritory(town: any, territory?: Pick<TerritoryInfo, "rx" | "ry">) {
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
+  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
+  const areaBonus = territory ? Math.round(territoryAreaFactorForTown(territory) * 18) : 18;
+  return Math.max(80, 64 + level * 36 + fort * 24 + areaBonus);
+}
+
+function townPopulationGrowthPerSecond(town: any) {
+  const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1));
+  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
+  return Math.round(((1 / 120) + Math.max(0, level - 1) * (1 / 160) + fort * (1 / 240)) * 100000) / 100000;
+}
+
+function settleTownPopulation(town: any, now = new Date()) {
+  const capacity = Math.max(1, Math.floor(Number(town?.populationCapacity) || townPopulationCapacityForTerritory(town)));
+  const current = Math.max(0, Math.min(capacity, Number(town?.population ?? 0) || 0));
+  const lastAt = town?.lastPopulationAt ? new Date(town.lastPopulationAt) : now;
+  const elapsedSeconds = Number.isFinite(lastAt.getTime())
+    ? Math.max(0, Math.min(MAX_OFFLINE_RESOURCE_SECONDS, Math.floor((now.getTime() - lastAt.getTime()) / 1000)))
+    : 0;
+  const rate = townPopulationGrowthPerSecond(town);
+  return {
+    population: Math.min(capacity, Math.floor((current + rate * elapsedSeconds) * 100) / 100),
+    populationCapacity: capacity,
+    populationPerSecond: rate,
+    lastPopulationAt: now.toISOString(),
+  };
 }
 
 function defaultTownSnapshotForTerritory(territory: NonNullable<ReturnType<typeof getStaticTerritory>>, playerId: string, townId?: number) {
@@ -621,14 +718,20 @@ function defaultTownSnapshotForTerritory(territory: NonNullable<ReturnType<typeo
     },
     storage: {},
     storageCapacity: townStorageCapacityForTerritory({ level: 2 }, territory),
+    productionPerSecond: compactResourceDelta(productionForClaims([{ territoryId: territory.id }])),
+    populationCapacity: townPopulationCapacityForTerritory({ level: 2 }, territory),
+    populationPerSecond: townPopulationGrowthPerSecond({ level: 2 }),
+    lastPopulationAt: new Date().toISOString(),
     maxTroops: population * 10,
   };
 }
 
-function normalizeTownSnapshotForState(town: any, playerId: string, territory?: NonNullable<ReturnType<typeof getStaticTerritory>> | TerritoryInfo) {
+function normalizeTownSnapshotForState(town: any, playerId: string, territory?: NonNullable<ReturnType<typeof getStaticTerritory>> | TerritoryInfo, now = new Date()) {
   const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl ?? 2) || 2));
   const startingPopulation = territory ? territoryStartingPopulationForTown(territory, 1) : 32;
-  const population = Math.max(startingPopulation, Math.floor(Number(town?.population ?? startingPopulation) || startingPopulation));
+  const storedPopulation = town?.population === undefined || town?.population === null
+    ? startingPopulation
+    : Math.max(0, Number(town.population) || 0);
   const buildings = {
     barracks: 0,
     lumberCamp: 0,
@@ -642,15 +745,25 @@ function normalizeTownSnapshotForState(town: any, playerId: string, territory?: 
   };
   const normalized = {
     ...town,
+    level,
+    lvl: level,
+    population: storedPopulation,
     buildings,
   };
   const storageCapacity = townStorageCapacityForTerritory(normalized, territory);
+  const populationState = settleTownPopulation({
+    ...normalized,
+    populationCapacity: townPopulationCapacityForTerritory(normalized, territory),
+  }, now);
+  const territoryProduction = territory
+    ? productionForClaims([{ territoryId: territory.id }])
+    : emptyResources();
   return {
     ...town,
     level,
     lvl: level,
     ownerId: town?.ownerId || playerId,
-    population,
+    ...populationState,
     troops: Math.max(0, Math.floor(Number(town?.troops ?? 0) || 0)),
     infantryCount: Math.max(0, Math.floor(Number(town?.infantryCount ?? town?.troops ?? 0) || 0)),
     cavalryCount: Math.max(0, Math.floor(Number(town?.cavalryCount ?? 0) || 0)),
@@ -658,7 +771,8 @@ function normalizeTownSnapshotForState(town: any, playerId: string, territory?: 
     buildings,
     storage: { ...(town?.storage || {}) },
     storageCapacity,
-    maxTroops: population * 10,
+    productionPerSecond: territoryProduction,
+    maxTroops: populationState.populationCapacity * 10,
   };
 }
 
@@ -667,11 +781,12 @@ function townSnapshotsForPlayer(
   territories: Array<NonNullable<ReturnType<typeof getStaticTerritory>> | TerritoryInfo>,
   playerId: string,
   resources?: ResourceBag,
+  now = new Date(),
 ) {
   const towns = Array.isArray(saveTowns)
     ? saveTowns.map((town) => {
       const territory = territories.find((item) => Math.hypot((town?.x ?? 0) - item.x, (town?.y ?? 0) - item.y) < 96);
-      return normalizeTownSnapshotForState(town, playerId, territory);
+      return normalizeTownSnapshotForState(town, playerId, territory, now);
     })
     : [];
   territories
@@ -688,32 +803,27 @@ function townSnapshotsForPlayer(
         ownerId: playerId,
         x: territory.x,
         y: territory.y,
-      }, playerId, territory);
+      }, playerId, territory, now);
       if (existingIndex >= 0) towns[existingIndex] = normalized;
       else towns.push(normalized);
     });
   if (resources && towns.length > 0) {
-    const totalResources = RESOURCE_KEYS.reduce((sum, key) => sum + Math.max(0, Math.floor(resources[key] || 0)), 0);
-    const totalCapacity = towns.reduce((sum: number, town: any) => sum + Math.max(1, Math.floor(Number(town.storageCapacity || 1))), 0);
-    towns.forEach((town: any, townIndex: number) => {
-      const townCapacity = Math.max(1, Math.floor(Number(town.storageCapacity || 1)));
-      const townBudget = totalResources <= 0
-        ? 0
-        : Math.min(
-          townCapacity,
-          townIndex === towns.length - 1
-            ? Math.max(0, Math.min(totalResources, totalCapacity) - towns.slice(0, townIndex).reduce((sum: number, item: any) => sum + Object.values(item.storage || {}).reduce((innerSum: number, value: any) => innerSum + Math.max(0, Math.floor(Number(value) || 0)), 0), 0))
-            : Math.floor(Math.min(totalResources, totalCapacity) * townCapacity / Math.max(1, totalCapacity)),
-        );
+    towns.forEach((town: any) => {
+      town.storage = emptyResources();
+    });
+    RESOURCE_KEYS.forEach((key) => {
+      const resourceTotal = Math.max(0, Math.floor(resources[key] || 0));
+      const totalCapacity = towns.reduce((sum: number, town: any) => {
+        const capacities = normalizeResources(town.storageCapacity as Partial<ResourceBag>);
+        return sum + Math.max(1, Math.floor(capacities[key] || 1));
+      }, 0);
       let assigned = 0;
-      town.storage = {};
-      RESOURCE_KEYS.forEach((key, keyIndex) => {
-        const resourceTotal = Math.max(0, Math.floor(resources[key] || 0));
-        const share = totalResources <= 0
-          ? 0
-          : keyIndex === RESOURCE_KEYS.length - 1
-            ? Math.max(0, townBudget - assigned)
-            : Math.min(Math.floor(townBudget * resourceTotal / totalResources), townBudget - assigned);
+      towns.forEach((town: any, townIndex: number) => {
+        const capacities = normalizeResources(town.storageCapacity as Partial<ResourceBag>);
+        const townCapacity = Math.max(1, Math.floor(capacities[key] || 1));
+        const share = townIndex === towns.length - 1
+          ? Math.max(0, Math.min(townCapacity, resourceTotal - assigned))
+          : Math.min(townCapacity, Math.floor(resourceTotal * townCapacity / Math.max(1, totalCapacity)));
         town.storage[key] = share;
         assigned += share;
       });
@@ -790,10 +900,23 @@ function toPublicBattle(battle: any): ActiveBattle {
 }
 
 async function publishPlayerState(playerId: string, reason: string, resources?: ResourceBag | null, towns?: any[] | null, newbieShieldUntil?: Date | string | null) {
+  let resourceCapacity: ResourceBag | undefined;
+  let productionPerSecond: ResourceBag | undefined;
+  if (resources) {
+    const { territoryClaims } = await collections();
+    const claims = await territoryClaims.find({ playerId }).toArray();
+    resourceCapacity = resourceCapacityForOwnedTerritories(claims.length);
+    productionPerSecond = productionForClaims(claims);
+  }
+  const now = new Date().toISOString();
   publishRealtime({
     type: "player_state_updated",
     playerId,
     resources: resources ? normalizeResources(resources) : undefined,
+    resourceCapacity,
+    productionPerSecond,
+    resourceUpdatedAt: resources ? now : undefined,
+    serverTime: now,
     towns: Array.isArray(towns) ? towns : undefined,
     newbieShieldUntil: newbieShieldUntil ? new Date(newbieShieldUntil).toISOString() : null,
     reason,
@@ -1045,6 +1168,8 @@ async function collectPlayerResources(playerId: string, now = new Date()) {
     productionPerSecond,
     offlineGain: gained,
     offlineSeconds: elapsedSeconds,
+    serverTime: now.toISOString(),
+    resourceUpdatedAt: now.toISOString(),
     newbieShieldUntil: shieldDate ? new Date(shieldDate).toISOString() : null,
   };
 }
@@ -1060,6 +1185,17 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
     players.findOne({ _id: playerId }),
     saves.findOne({ playerId }),
   ]);
+  const towns = townSnapshotsForPlayer(save?.towns, world.territories, playerId, resourceState.resources);
+  if (towns.length > 0) {
+    await saves.updateOne(
+      { playerId },
+      {
+        $set: { towns, resources: resourceState.resources, updatedAt: new Date() },
+        $setOnInsert: { _id: `save:${playerId}`, playerId },
+      },
+      { upsert: true },
+    );
+  }
   return {
     playerId,
     activeMap: player?.activeMap === "conquest" ? "conquest" : "world",
@@ -1067,7 +1203,7 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
     clearings: clearings.map(toPublicClearing),
     marches: marches.map(toPublicMarch),
     battles: battles.map(toPublicBattle),
-    towns: townSnapshotsForPlayer(save?.towns, world.territories, playerId, resourceState.resources),
+    towns,
     ...resourceState,
     playerProfile: player ? { flagColor: player.flagColor ?? "#2f70d7", emblem: player.emblem ?? "shield" } : null,
   };
@@ -1114,6 +1250,9 @@ const DEFAULT_CONFIG: GameConfig = {
   artilleryCostIron: 85,
   artilleryCostSulfur: 25,
   artilleryTroopsValue: 58,
+  infantryPopulationCost: 4,
+  cavalryPopulationCost: 7,
+  artilleryPopulationCost: 12,
   settlerSpeed: 35,
   infantrySpeed: DEFAULT_MARCH_CONFIG.infantrySpeed,
   cavalrySpeed: DEFAULT_MARCH_CONFIG.cavalrySpeed,
@@ -3253,6 +3392,9 @@ export function createApp() {
     artilleryCostIron: z.number().nonnegative(),
     artilleryCostSulfur: z.number().nonnegative(),
     artilleryTroopsValue: z.number().positive(),
+    infantryPopulationCost: z.number().int().positive(),
+    cavalryPopulationCost: z.number().int().positive(),
+    artilleryPopulationCost: z.number().int().positive(),
     settlerSpeed: z.number().positive(),
     infantrySpeed: z.number().positive(),
     cavalrySpeed: z.number().positive(),
