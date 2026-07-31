@@ -2310,57 +2310,7 @@ export function GameApp({
                 </div>
               </div>
 
-              {/* Selected Town / Territory Info Card */}
-              {selectedTown && (
-                <div className="hud-selected-town-card hud-card">
-                  <div className="hud-town-card-header">
-                    <div>
-                      <h3 className="hud-town-name">THÀNH ELDORIA</h3>
-                      <span className="hud-town-lvl">Lv. 12</span>
-                    </div>
-                    <button type="button" className="hud-close-btn" onClick={() => {
-                      engineRef.current?.handleAction("setUiOverlayActive", { active: false });
-                      setSelectedTown(null);
-                    }}>✕</button>
-                  </div>
-                  
-                  <div className="hud-town-card-body">
-                    <div className="hud-town-preview-img">
-                      <HudIcon name="castle" />
-                    </div>
-                    <div className="hud-town-stats">
-                      <div className="hud-town-stat-row">
-                        <span>Chủ sở hữu</span>
-                        <strong>Đế Quốc Phục Hưng</strong>
-                      </div>
-                      <div className="hud-town-stat-row">
-                        <span>Dân số</span>
-                        <strong>1.200</strong>
-                      </div>
-                      <div className="hud-town-stat-row">
-                        <span>Quân đội</span>
-                        <strong>350</strong>
-                      </div>
-                      <div className="hud-town-stat-row">
-                        <span>Liên minh</span>
-                        <strong>Không có</strong>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="hud-town-card-actions">
-                    <button type="button" className="hud-town-btn primary" onClick={() => openModal("army")}>
-                      <HudIcon name="swords" /> CHIẾM LÃNH THỔ
-                    </button>
-                    <button type="button" className="hud-town-btn secondary" onClick={() => handleAction("map")}>
-                      <HudIcon name="anchor" /> DO THÁM
-                    </button>
-                    <button type="button" className="hud-town-btn tertiary">
-                      <HudIcon name="info" /> THÔNG TIN
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 

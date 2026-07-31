@@ -12774,29 +12774,54 @@ img[src*="/assets/icons/"] {
 .premium-castle-preview::before {
   content: "";
   position: absolute;
-  left: 18%;
-  right: 18%;
-  top: 8%;
+  left: 24%;
+  right: 24%;
+  top: 13%;
   aspect-ratio: 1;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.42;
-  mask-image: radial-gradient(circle, #000 0 28%, transparent 68%);
+  opacity: 0.3;
+  mask-image: radial-gradient(circle, #000 0 24%, transparent 64%);
+  filter: blur(1px);
+}
+
+.premium-castle-preview::after {
+  content: "";
+  position: absolute;
+  top: 7%;
+  bottom: 8%;
+  left: -38%;
+  width: 28%;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 28%,
+    rgba(255, 246, 205, 0.42) 50%,
+    rgba(255, 255, 255, 0.04) 72%,
+    transparent 100%
+  );
+  filter: blur(5px);
+  transform: skewX(-13deg);
+  mix-blend-mode: screen;
+  animation: premiumCastleShimmer 5.8s ease-in-out infinite;
 }
 
 .premium-castle-preview--gold::before {
-  background: repeating-conic-gradient(from 0deg, rgba(255, 225, 111, 0.78) 0 5deg, transparent 5deg 18deg);
-  animation: premiumRadiance 18s linear infinite;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 225, 111, 0.58) 0 3deg, transparent 3deg 22deg);
+  animation: premiumRadiance 24s linear infinite;
 }
 
 .premium-castle-preview--fire::before {
-  background: repeating-conic-gradient(from 0deg, rgba(255, 73, 24, 0.62) 0 4deg, transparent 4deg 22deg);
-  animation: premiumRadiance 12s linear infinite reverse;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 88, 34, 0.48) 0 3deg, transparent 3deg 26deg);
+  animation: premiumRadiance 18s linear infinite reverse;
 }
 
 .premium-castle-preview--wind::before {
-  background: repeating-conic-gradient(from 0deg, rgba(104, 240, 247, 0.55) 0 3deg, transparent 3deg 28deg);
-  animation: premiumRadiance 22s linear infinite;
+  background: repeating-conic-gradient(from 0deg, rgba(123, 247, 251, 0.44) 0 2deg, transparent 2deg 30deg);
+  animation: premiumRadiance 28s linear infinite;
 }
 
 .premium-castle-preview canvas {
@@ -12805,12 +12830,26 @@ img[src*="/assets/icons/"] {
   z-index: 3 !important;
   display: block;
   width: auto !important;
-  height: 118% !important;
+  height: 94% !important;
   max-width: 100%;
   aspect-ratio: 1;
   background: transparent !important;
-  transform: translateY(7%);
-  filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.72));
+  transform: translateY(3%);
+  filter:
+    drop-shadow(0 14px 12px rgba(0, 0, 0, 0.76))
+    drop-shadow(0 0 5px rgba(255, 226, 133, 0.2));
+}
+
+.premium-castle-preview--fire canvas {
+  filter:
+    drop-shadow(0 14px 12px rgba(0, 0, 0, 0.78))
+    drop-shadow(0 0 8px rgba(255, 77, 29, 0.34));
+}
+
+.premium-castle-preview--wind canvas {
+  filter:
+    drop-shadow(0 14px 12px rgba(0, 0, 0, 0.72))
+    drop-shadow(0 0 8px rgba(91, 232, 239, 0.32));
 }
 
 .premium-castle-preview.is-large {
@@ -12820,20 +12859,20 @@ img[src*="/assets/icons/"] {
 }
 
 .premium-castle-preview.is-large canvas {
-  height: min(112%, 600px) !important;
-  transform: translateY(6%);
+  height: min(92%, 510px) !important;
+  transform: translateY(2%);
 }
 
 .premium-castle-aura {
   position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: 10%;
-  height: 34%;
+  left: 19%;
+  right: 19%;
+  bottom: 14%;
+  height: 27%;
   z-index: 1;
   border-radius: 50%;
-  opacity: 0.72;
-  animation: premiumAuraBreath 2.8s ease-in-out infinite;
+  opacity: 0.62;
+  animation: premiumAuraBreath 3.6s ease-in-out infinite;
 }
 
 .premium-castle-preview--gold .premium-castle-aura {
@@ -12894,24 +12933,26 @@ img[src*="/assets/icons/"] {
 
 .premium-gold-runes {
   position: absolute;
-  left: 15%;
-  right: 15%;
-  bottom: 10%;
-  height: 24%;
+  left: 22%;
+  right: 22%;
+  bottom: 15%;
+  height: 18%;
   z-index: 2;
-  border: 2px dashed rgba(255, 222, 102, 0.72);
+  border: 1px solid rgba(255, 222, 102, 0.68);
   border-radius: 50%;
   transform: perspective(220px) rotateX(67deg);
-  box-shadow: 0 0 10px rgba(255, 209, 70, 0.44);
-  animation: premiumRuneSpin 9s linear infinite;
+  box-shadow:
+    0 0 8px rgba(255, 209, 70, 0.38),
+    inset 0 0 12px rgba(255, 229, 142, 0.14);
+  animation: premiumRuneSpin 13s linear infinite;
 }
 
 .premium-fire-flame {
   position: absolute;
-  bottom: 20%;
+  bottom: 23%;
   z-index: 4;
-  width: 20px;
-  height: 43px;
+  width: 15px;
+  height: 34px;
   background: linear-gradient(180deg, #fff3a3, #ff6b21 46%, rgba(142, 17, 9, 0));
   clip-path: polygon(52% 0, 76% 32%, 67% 55%, 100% 78%, 58% 100%, 11% 84%, 28% 54%, 17% 35%);
   filter: drop-shadow(0 0 7px #ff4c1e);
@@ -12920,18 +12961,18 @@ img[src*="/assets/icons/"] {
 }
 
 .premium-fire-flame.flame-left {
-  left: 19%;
+  left: 24%;
 }
 
 .premium-fire-flame.flame-right {
-  right: 19%;
+  right: 24%;
   animation-delay: -0.34s;
 }
 
 .premium-wind-ring {
   position: absolute;
-  left: 10%;
-  right: 10%;
+  left: 18%;
+  right: 18%;
   z-index: 4;
   border: 2px solid rgba(107, 244, 250, 0.72);
   border-left-color: transparent;
@@ -12943,16 +12984,16 @@ img[src*="/assets/icons/"] {
 }
 
 .premium-wind-ring.ring-one {
-  bottom: 17%;
-  height: 28%;
+  bottom: 21%;
+  height: 21%;
 }
 
 .premium-wind-ring.ring-two {
-  left: 20%;
-  right: 20%;
-  bottom: 30%;
-  height: 18%;
-  opacity: 0.62;
+  left: 27%;
+  right: 27%;
+  bottom: 33%;
+  height: 13%;
+  opacity: 0.52;
   animation-direction: reverse;
   animation-duration: 3.6s;
 }
@@ -12983,6 +13024,13 @@ img[src*="/assets/icons/"] {
 
 @keyframes premiumRadiance {
   to { transform: rotate(360deg); }
+}
+
+@keyframes premiumCastleShimmer {
+  0%, 68% { left: -38%; opacity: 0; }
+  74% { opacity: 0.55; }
+  88% { opacity: 0.2; }
+  94%, 100% { left: 112%; opacity: 0; }
 }
 
 @media (max-width: 900px) {
@@ -13020,7 +13068,14 @@ img[src*="/assets/icons/"] {
 @media (prefers-reduced-motion: reduce) {
   .shop-modal-container .castle-skin-art *,
   .shop-modal-container .castle-skin-art,
-  .shop-preview-container .castle-skin-art * {
+  .shop-preview-container .castle-skin-art *,
+  .premium-castle-preview::before,
+  .premium-castle-preview::after,
+  .premium-castle-aura,
+  .premium-castle-fx i,
+  .premium-gold-runes,
+  .premium-fire-flame,
+  .premium-wind-ring {
     animation: none !important;
   }
 }
