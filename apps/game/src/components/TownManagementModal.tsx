@@ -19,7 +19,9 @@ interface TownManagementModalProps {
       warehouse?: number;
     };
     storage?: Partial<ResourceBag>;
-    storageCapacity?: number;
+    storageCapacity?: number | ResourceBag;
+    populationCapacity?: number;
+    populationPerSecond?: number;
     maxTroops?: number;
   };
   resources: ResourceBag;
@@ -361,13 +363,18 @@ export function TownManagementModal({
     artilleryCostGold: 240,
     artilleryCostStone: 120,
     artilleryCostIron: 85,
+    artilleryCostCoal: 35,
     artilleryCostSulfur: 25,
     artilleryTroopsValue: 58,
   };
   const extraCosts = {
     infantry: { food: config.infantryCostFood || 0 },
     cavalry: { food: config.cavalryCostFood || 0, iron: config.cavalryCostIron || 0 },
-    artillery: { iron: config.artilleryCostIron || 0, sulfur: config.artilleryCostSulfur || 0 },
+    artillery: {
+      iron: config.artilleryCostIron || 0,
+      coal: config.artilleryCostCoal || 0,
+      sulfur: config.artilleryCostSulfur || 0,
+    },
   };
 
   const population = Math.max(0, Math.floor(town.population || 32));
@@ -376,13 +383,40 @@ export function TownManagementModal({
   const hasSiegeWorkshop = (buildings.siegeWorkshop || 0) > 0 || specialResources.includes("Xưởng đúc pháo") || specialResources.includes("Xưởng pháo");
   const warehouseLevel = buildings.warehouse || 0;
   const maxDefending = Math.max(10, Math.floor(town.maxTroops ?? population * 10));
-  const storageCap = Math.max(1, Math.floor(town.storageCapacity ?? (250 + warehouseLevel * 650 + (buildings.fort || 0) * 180 + (town.lvl || 1) * 120)));
+  const storageCap = typeof town.storageCapacity === "number"
+    ? Math.max(1, Math.floor(town.storageCapacity))
+    : Math.max(
+        1,
+        Object.values(town.storageCapacity || {}).reduce((sum, value) => sum + Math.max(0, Math.floor(Number(value) || 0)), 0),
+      );
   const storedTotal = Object.values(town.storage || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const storageCapacityByType = typeof town.storageCapacity === "number"
+    ? null
+    : town.storageCapacity;
+  const storageRows = storageCapacityByType
+    ? [
+        [
+          ["Vàng", "gold"],
+          ["Gỗ", "wood"],
+          ["Đá", "stone"],
+          ["Lương", "food"],
+        ],
+        [
+          ["Sắt", "iron"],
+          ["Than", "coal"],
+          ["Lưu huỳnh", "sulfur"],
+          ["Ngọc", "gems"],
+        ],
+      ].map((row) => row.map(([label, key]) => {
+        const resourceKey = key as keyof ResourceBag;
+        return `${label} ${Math.floor(Number(town.storage?.[resourceKey] || 0))}/${Math.floor(Number(storageCapacityByType[resourceKey] || 0))}`;
+      }).join(" · "))
+    : [];
   const specialText = specialResources.length ? specialResources.join(" · ") : "Chưa có";
 
-  const infantryPop = populationCost(config.infantryTroopsValue);
-  const cavalryPop = populationCost(config.cavalryTroopsValue);
-  const artilleryPop = populationCost(config.artilleryTroopsValue);
+  const infantryPop = config.infantryPopulationCost ?? populationCost(config.infantryTroopsValue);
+  const cavalryPop = config.cavalryPopulationCost ?? populationCost(config.cavalryTroopsValue);
+  const artilleryPop = config.artilleryPopulationCost ?? populationCost(config.artilleryTroopsValue);
 
   // Derived troop counts for ownership labels matching Screenshot 2 ("Sở hữu: 62")
   const totalTroops = town.troops || 0;
@@ -413,6 +447,7 @@ export function TownManagementModal({
     resources.gold >= config.artilleryCostGold &&
     resources.stone >= config.artilleryCostStone &&
     resources.iron >= extraCosts.artillery.iron &&
+    resources.coal >= extraCosts.artillery.coal &&
     resources.sulfur >= extraCosts.artillery.sulfur;
   const canTrainArtillery =
     hasSiegeWorkshop &&
@@ -456,7 +491,10 @@ export function TownManagementModal({
               <span className="stat-label">CẤP ĐỘ / DÂN SỐ</span>
               <div className="stat-val-row">
                 <span className="stat-val text-gold">Lv. {town.lvl}</span>
-                <span className="stat-val-inline">{population} dân</span>
+                <span className="stat-val-inline">
+                  {Math.floor(population)} / {Math.floor(town.populationCapacity || population)} dân
+                  {(town.populationPerSecond || 0) > 0 ? ` · +${((town.populationPerSecond || 0) * 3600).toFixed(0)}/giờ` : ""}
+                </span>
               </div>
             </div>
           </div>
@@ -482,6 +520,9 @@ export function TownManagementModal({
             <div className="stat-info">
               <span className="stat-label">KHO TÀI NGUYÊN</span>
               <span className="stat-val">{Math.floor(storedTotal)} / {storageCap} tài nguyên</span>
+              {storageRows.map((row) => (
+                <span className="stat-subline" key={row}>{row}</span>
+              ))}
             </div>
           </div>
         </div>
@@ -548,6 +589,7 @@ export function TownManagementModal({
                 <ResourceCost label="Vàng" value={config.artilleryCostGold} enough={resources.gold >= config.artilleryCostGold} />
                 <ResourceCost label="Đá" value={config.artilleryCostStone} enough={resources.stone >= config.artilleryCostStone} />
                 <ResourceCost label="Sắt" value={extraCosts.artillery.iron} enough={resources.iron >= extraCosts.artillery.iron} />
+                <ResourceCost label="Than" value={extraCosts.artillery.coal} enough={resources.coal >= extraCosts.artillery.coal} />
                 <ResourceCost label="Lưu huỳnh" value={extraCosts.artillery.sulfur} enough={resources.sulfur >= extraCosts.artillery.sulfur} />
               </div>
             </div>

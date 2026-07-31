@@ -263,8 +263,13 @@ export interface RecruitTroopsResult {
   count: number;
   unitCountAdded?: number;
   troopsAdded?: number;
+  populationSpent?: number;
   town?: Record<string, unknown>;
   resources?: Record<string, number>;
+  resourceCapacity?: Record<string, number>;
+  productionPerSecond?: Record<string, number>;
+  resourceUpdatedAt?: string;
+  serverTime?: string;
   message?: string;
 }
 
@@ -275,13 +280,19 @@ export function recruitTroops(
     territoryId?: number;
     townId?: number;
     count?: number;
+    requestId?: string;
   },
 ): Promise<RecruitTroopsResult> {
+  const requestId = payload.requestId || (
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `recruit-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+  );
   return request<RecruitTroopsResult>("/api/game/recruit", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, requestId }),
   });
 }

@@ -56,23 +56,26 @@ export function AdminApp() {
     artilleryDefensePower: 3,
     townLevelDefense: 40,
     fortLevelDefense: 120,
-    lootPercent: 20,
     retreatPercent: 35,
     infantryCostGold: 100,
     infantryCostWood: 30,
     infantryCostFood: 55,
     infantryTroopsValue: 18,
+    infantryPopulationCost: 4,
     cavalryCostGold: 170,
     cavalryCostWood: 40,
     cavalryCostStone: 45,
     cavalryCostFood: 90,
     cavalryCostIron: 12,
     cavalryTroopsValue: 34,
+    cavalryPopulationCost: 7,
     artilleryCostGold: 240,
     artilleryCostStone: 120,
     artilleryCostIron: 85,
+    artilleryCostCoal: 35,
     artilleryCostSulfur: 25,
     artilleryTroopsValue: 58,
+    artilleryPopulationCost: 12,
     settlerSpeed: 18,
     infantrySpeed: 24,
     cavalrySpeed: 42,
@@ -130,23 +133,26 @@ export function AdminApp() {
       artilleryDefensePower: Number(form.get("artilleryDefensePower")),
       townLevelDefense: Number(form.get("townLevelDefense")),
       fortLevelDefense: Number(form.get("fortLevelDefense")),
-      lootPercent: Number(form.get("lootPercent")),
       retreatPercent: Number(form.get("retreatPercent")),
       infantryCostGold: Number(form.get("infantryCostGold")),
       infantryCostWood: Number(form.get("infantryCostWood")),
       infantryCostFood: Number(form.get("infantryCostFood")),
       infantryTroopsValue: Number(form.get("infantryTroopsValue")),
+      infantryPopulationCost: Number(form.get("infantryPopulationCost")),
       cavalryCostGold: Number(form.get("cavalryCostGold")),
       cavalryCostWood: Number(form.get("cavalryCostWood")),
       cavalryCostStone: Number(form.get("cavalryCostStone")),
       cavalryCostFood: Number(form.get("cavalryCostFood")),
       cavalryCostIron: Number(form.get("cavalryCostIron")),
       cavalryTroopsValue: Number(form.get("cavalryTroopsValue")),
+      cavalryPopulationCost: Number(form.get("cavalryPopulationCost")),
       artilleryCostGold: Number(form.get("artilleryCostGold")),
       artilleryCostStone: Number(form.get("artilleryCostStone")),
       artilleryCostIron: Number(form.get("artilleryCostIron")),
+      artilleryCostCoal: Number(form.get("artilleryCostCoal")),
       artilleryCostSulfur: Number(form.get("artilleryCostSulfur")),
       artilleryTroopsValue: Number(form.get("artilleryTroopsValue")),
+      artilleryPopulationCost: Number(form.get("artilleryPopulationCost")),
       settlerSpeed: Number(form.get("settlerSpeed")),
       infantrySpeed: Number(form.get("infantrySpeed")),
       cavalrySpeed: Number(form.get("cavalrySpeed")),
@@ -639,10 +645,6 @@ export function AdminApp() {
                     <input type="number" name="fortLevelDefense" defaultValue={configData.fortLevelDefense} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
-                    % cướp kho khi thắng
-                    <input type="number" name="lootPercent" defaultValue={configData.lootPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
-                  </label>
-                  <label style={{ display: "grid", gap: 6 }}>
                     % quân rút khi thủ thắng
                     <input type="number" name="retreatPercent" defaultValue={configData.retreatPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
@@ -685,7 +687,7 @@ export function AdminApp() {
                 </div>
 
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ BỘ BINH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Bộ binh)
                     <input type="number" name="infantryCostGold" defaultValue={configData.infantryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -702,10 +704,14 @@ export function AdminApp() {
                     Lực lượng cộng thêm
                     <input type="number" name="infantryTroopsValue" defaultValue={configData.infantryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="infantryPopulationCost" defaultValue={configData.infantryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
                 </div>
 
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ KỊ BÌNH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Kị binh)
                     <input type="number" name="cavalryCostGold" defaultValue={configData.cavalryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -730,10 +736,14 @@ export function AdminApp() {
                     Lực lượng cộng thêm
                     <input type="number" name="cavalryTroopsValue" defaultValue={configData.cavalryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="cavalryPopulationCost" defaultValue={configData.cavalryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
                 </div>
 
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ PHÁO BINH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Pháo binh)
                     <input type="number" name="artilleryCostGold" defaultValue={configData.artilleryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -747,12 +757,20 @@ export function AdminApp() {
                     <input type="number" name="artilleryCostIron" defaultValue={configData.artilleryCostIron} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
+                    Giá Than (Pháo binh)
+                    <input type="number" name="artilleryCostCoal" defaultValue={configData.artilleryCostCoal} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
                     Giá Lưu huỳnh (Pháo binh)
                     <input type="number" name="artilleryCostSulfur" defaultValue={configData.artilleryCostSulfur} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
                     Lực lượng cộng thêm
                     <input type="number" name="artilleryTroopsValue" defaultValue={configData.artilleryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="artilleryPopulationCost" defaultValue={configData.artilleryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 

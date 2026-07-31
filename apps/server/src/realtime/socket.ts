@@ -239,3 +239,7 @@ export function publishRealtime(event: RealtimeEvent, room = "world") {
 export function realtimeStats() {
   return { clients: clients.size, ipBuckets: ipConnectionCounts.size, userBuckets: userConnectionCounts.size };
 }
+
+export function connectedPlayerIds() {
+  return [...new Set([...clients].map((client) => client.user.id))];
+}

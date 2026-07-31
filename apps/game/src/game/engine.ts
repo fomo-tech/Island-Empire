@@ -136,6 +136,7 @@ export function createIslandEmpireGame(
     cavalryCostFood: 90,
     cavalryCostIron: 12,
     artilleryCostIron: 85,
+    artilleryCostCoal: 35,
     artilleryCostSulfur: 25,
     infantryPopulationCost: 4,
     cavalryPopulationCost: 7,

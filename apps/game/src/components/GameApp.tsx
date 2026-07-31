@@ -17,6 +17,7 @@ import { ChatInputModal } from "./ChatInputModal";
 import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { useGameStore } from "../store/gameStore";
+import type { ResourceBag } from "@island/shared";
 
 const CAMERA_KEY = "island_empire_camera_v1";
 const TOKEN_KEY = "island_empire_token";
@@ -617,6 +618,17 @@ export function GameApp({
   const gameStateRefreshQueuedRef = useRef(false);
   const lastGameStateRefreshAtRef = useRef(0);
   const socketHelloCountRef = useRef(0); // counts hello events; >1 = reconnect
+  const economyClockRef = useRef<{
+    resources: ResourceBag;
+    capacity: ResourceBag;
+    productionPerSecond: ResourceBag;
+    updatedAt: number;
+  }>({
+    resources: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+    capacity: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+    productionPerSecond: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+    updatedAt: Date.now(),
+  });
   const lastHudSnapshotRef = useRef({
     resources: "",
     missions: "",
@@ -690,10 +702,55 @@ export function GameApp({
   const [level, setLevel] = useState(25);
   const [toastMessage, setToastMessage] = useState("CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH");
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
-  // Tick every second so march countdowns update in real-time
+  function applyResourceSnapshot(snapshot: {
+    resources?: Partial<ResourceBag>;
+    resourceCapacity?: Partial<ResourceBag>;
+    productionPerSecond?: Partial<ResourceBag>;
+    resourceUpdatedAt?: string;
+    serverTime?: string;
+  }) {
+    if (!snapshot.resources) return;
+    const previous = economyClockRef.current;
+    const resources = { ...previous.resources, ...snapshot.resources };
+    const capacity = { ...previous.capacity, ...(snapshot.resourceCapacity || {}) };
+    const productionPerSecond = { ...previous.productionPerSecond, ...(snapshot.productionPerSecond || {}) };
+    economyClockRef.current = {
+      resources,
+      capacity,
+      productionPerSecond,
+      updatedAt: Date.now(),
+    };
+    setResources(resources);
+  }
+
+  // Tick every second for countdowns and smooth server-authoritative economy display.
   const [_tick, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
+    const id = setInterval(() => {
+      setTick(t => t + 1);
+      const economy = economyClockRef.current;
+      const elapsedSeconds = Math.max(0, (Date.now() - economy.updatedAt) / 1000);
+      const next = { ...economy.resources };
+      (Object.keys(next) as Array<keyof ResourceBag>).forEach((key) => {
+        const capacity = Math.max(0, economy.capacity[key] || 0);
+        const estimated = economy.resources[key] + (economy.productionPerSecond[key] || 0) * elapsedSeconds;
+        const capped = capacity > 0 && economy.resources[key] < capacity
+          ? Math.min(capacity, estimated)
+          : economy.resources[key];
+        next[key] = Math.floor(capped * 100) / 100;
+      });
+      setResources(next);
+      setServerTowns((towns) => towns.map((town: any) => {
+        const rate = Math.max(0, Number(town.populationPerSecond || 0));
+        const capacity = Math.max(0, Number(town.populationCapacity || town.population || 0));
+        if (rate <= 0 || capacity <= 0 || Number(town.population || 0) >= capacity) return town;
+        return {
+          ...town,
+          population: Math.min(capacity, Math.floor((Number(town.population || 0) + rate) * 100) / 100),
+          lastPopulationAt: new Date().toISOString(),
+        };
+      }));
+    }, 1000);
     return () => clearInterval(id);
   }, []);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
@@ -1105,7 +1162,7 @@ export function GameApp({
               }
             }
           }, 180);
-          setResources({ ...world.resources });
+          applyResourceSnapshot(world);
           if (world.productionPerSecond) setProductionPerSecond(world.productionPerSecond as Record<string,number>);
           setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
           const offlineSummary = summarizeResourceGain(world.offlineGain, world.offlineSeconds);
@@ -1443,7 +1500,11 @@ export function GameApp({
         setKingdomCreationRegion(null);
         setSelectedTown(null);
         setSelectedRegion(null);
-        setResources({ gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 });
+        applyResourceSnapshot({
+          resources: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+          resourceCapacity: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+          productionPerSecond: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+        });
         engineRef.current?.handleAction("setToast", { message: "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI" });
         addPrivateReportMail(
           "Vương quốc thất thủ",
@@ -1613,7 +1674,7 @@ export function GameApp({
         territoryId: engineToServerTerritoryId(territoryId),
       });
       if (res.resources) {
-        setResources((prev) => ({ ...prev, ...res.resources }));
+        applyResourceSnapshot(res);
         engineRef.current?.handleAction("syncResources", { resources: res.resources });
       }
       if (res.town) {
@@ -1672,7 +1733,7 @@ export function GameApp({
         });
       }, 180);
     }
-    setResources({ ...world.resources });
+    applyResourceSnapshot(world);
     if (world.productionPerSecond) setProductionPerSecond(world.productionPerSecond as Record<string,number>);
     setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
     setWorldActivity((prev) => ({
@@ -1687,7 +1748,7 @@ export function GameApp({
   function applyRealtimePlayerState(event: any) {
     if (!playerId || event?.playerId !== playerId) return false;
     if (event.resources) {
-      setResources({ ...event.resources });
+      applyResourceSnapshot(event);
       engineRef.current?.handleAction("syncResources", { resources: event.resources });
     }
     if (Array.isArray(event.towns)) {
@@ -1819,12 +1880,20 @@ export function GameApp({
   );
   const attackTargetName = activePlayerBattle?.regionName || activeEnemyMarch?.targetName || null;
 
-  const currentStorageCap = Math.max(1000, serverHud.ownedTerritories * 600 + 400);
-  const totalStoredRes = (resources.gold || 0) + (resources.wood || 0) + (resources.stone || 0);
-  const storagePercent = Math.min(100, Math.round((totalStoredRes / currentStorageCap) * 100));
+  const economyTelemetry = economyClockRef.current;
+  const currentStorageCap = (Object.values(economyTelemetry.capacity) as number[]).reduce((sum, value) => sum + Math.max(0, value || 0), 0);
+  const totalStoredRes = (Object.values(resources) as number[]).reduce((sum, value) => sum + Math.max(0, value || 0), 0);
+  const storagePercent = currentStorageCap > 0
+    ? Math.min(100, Math.round((totalStoredRes / currentStorageCap) * 100))
+    : 0;
   const isStorageFull = storagePercent >= 90;
-
-  const gatherRatePerHour = serverHud.ownedTerritories * 45 + 30;
+  const resourceCapacity = (key: keyof ResourceBag) => Math.max(0, economyTelemetry.capacity[key] || 0);
+  const resourceRatePerHour = (key: keyof ResourceBag) => Math.max(0, (economyTelemetry.productionPerSecond[key] || 0) * 3600);
+  const resourceValueWithCapacity = (key: keyof ResourceBag) => {
+    const value = String(Math.max(0, Math.floor(resources[key] || 0)));
+    const capacity = resourceCapacity(key);
+    return capacity > 0 ? `${value}/${Math.floor(capacity)}` : value;
+  };
 
   return (
     <main className="game-shell">
@@ -2013,29 +2082,43 @@ export function GameApp({
                 <div className="hud-res-item res-food" title={t("food")}>
                   <span className="hud-res-icon"><VectorFoodIcon /></span>
                   <div className="hud-res-details">
-                    <span className="hud-res-val">{formatResourceVal(resources.food || 0)}</span>
-                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                    <span className="hud-res-val">{resourceValueWithCapacity("food")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("food"))}/h</span>
                   </div>
                 </div>
                 <div className="hud-res-item res-wood" title={t("wood")}>
                   <span className="hud-res-icon"><VectorWoodIcon /></span>
                   <div className="hud-res-details">
-                    <span className="hud-res-val">{formatResourceVal(resources.wood || 0)}</span>
-                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                    <span className="hud-res-val">{resourceValueWithCapacity("wood")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("wood"))}/h</span>
                   </div>
                 </div>
                 <div className="hud-res-item res-stone" title={t("stone")}>
                   <span className="hud-res-icon"><VectorStoneIcon /></span>
                   <div className="hud-res-details">
-                    <span className="hud-res-val">{formatResourceVal(resources.stone || 0)}</span>
-                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                    <span className="hud-res-val">{resourceValueWithCapacity("stone")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("stone"))}/h</span>
                   </div>
                 </div>
                 <div className="hud-res-item res-iron" title={t("iron")}>
                   <span className="hud-res-icon"><VectorIronIcon /></span>
                   <div className="hud-res-details">
-                    <span className="hud-res-val">{formatResourceVal(resources.iron || 0)}</span>
-                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                    <span className="hud-res-val">{resourceValueWithCapacity("iron")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("iron"))}/h</span>
+                  </div>
+                </div>
+                <div className="hud-res-item res-coal" title={t("coal")}>
+                  <span className="hud-res-icon"><VectorCoalIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{resourceValueWithCapacity("coal")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("coal"))}/h</span>
+                  </div>
+                </div>
+                <div className="hud-res-item res-sulfur" title={t("sulfur")}>
+                  <span className="hud-res-icon"><VectorSulfurIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{resourceValueWithCapacity("sulfur")}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(resourceRatePerHour("sulfur"))}/h</span>
                   </div>
                 </div>
               </div>
@@ -2044,40 +2127,12 @@ export function GameApp({
               <div className="hud-res-group premium-group">
                 <div className="hud-res-item res-gems" title={t("gems")}>
                   <span className="hud-res-icon"><VectorGemsIcon /></span>
-                  <span className="hud-res-val">{formatNum(resources.gems || 0)}</span>
+                  <span className="hud-res-val">{resourceValueWithCapacity("gems")}</span>
                   <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
                 </div>
                 <div className="hud-res-item res-gold" title={t("gold")}>
                   <span className="hud-res-icon"><VectorGoldIcon /></span>
-                  <span className="hud-res-val">{formatResourceVal(resources.gold || 0)}</span>
-                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
-                </div>
-                <div className="hud-res-item res-diamonds" title="Kim cương">
-                  <span className="hud-res-icon">
-                    <svg viewBox="0 0 64 64" className="vector-res-svg">
-                      <defs>
-                        <linearGradient id="diaLight" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#38bdf8" />
-                          <stop offset="100%" stopColor="#0284c7" />
-                        </linearGradient>
-                        <linearGradient id="diaDark" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#0369a1" />
-                          <stop offset="100%" stopColor="#0c4a6e" />
-                        </linearGradient>
-                        <linearGradient id="diaTop" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#e0f2fe" />
-                          <stop offset="100%" stopColor="#7dd3fc" />
-                        </linearGradient>
-                      </defs>
-                      <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#diaDark)" stroke="#0c4a6e" strokeWidth="1.5" />
-                      <polygon points="32,58 10,24 32,24" fill="url(#diaLight)" stroke="#0c4a6e" strokeWidth="1.5" />
-                      <polygon points="32,58 32,24 54,24" fill="url(#diaLight)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
-                      <polygon points="10,24 20,8 32,24" fill="url(#diaTop)" stroke="#0c4a6e" strokeWidth="1.5" />
-                      <polygon points="54,24 44,8 32,24" fill="url(#diaTop)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
-                      <polygon points="20,8 44,8 32,24" fill="#f0f9ff" stroke="#0c4a6e" strokeWidth="1.5" />
-                    </svg>
-                  </span>
-                  <span className="hud-res-val">{formatNum(Math.floor((resources.gems || 0) * 1.5) + 20)}</span>
+                  <span className="hud-res-val">{resourceValueWithCapacity("gold")}</span>
                   <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
                 </div>
               </div>
@@ -2239,21 +2294,21 @@ export function GameApp({
                   {/* 3. Chỉ số quốc lực */}
                   <div className="hud-national-stats-grid">
                     <div className="hud-national-stat-item">
-                      <span className="hud-stat-icon">🏰</span>
+                      <span className="hud-stat-icon-medieval"><HudIcon name="castle" /></span>
                       <div className="hud-stat-detail">
                         <div className="hud-stat-label">Lãnh thổ</div>
                         <div className="hud-stat-value">{serverHud.ownedTerritories} <span className="hud-stat-sub">/ {serverHud.totalTerritories} ô</span></div>
                       </div>
                     </div>
                     <div className="hud-national-stat-item">
-                      <span className="hud-stat-icon">⚔</span>
+                      <span className="hud-stat-icon-medieval"><HudIcon name="swords" /></span>
                       <div className="hud-stat-detail">
                         <div className="hud-stat-label">Quân lực</div>
                         <div className="hud-stat-value">{serverHud.ownedTroops.toLocaleString()} <span className="hud-stat-sub">binh</span></div>
                       </div>
                     </div>
                     <div className="hud-national-stat-item">
-                      <span className="hud-stat-icon">⭐</span>
+                      <span className="hud-stat-icon-medieval"><HudIcon name="crown" /></span>
                       <div className="hud-stat-detail">
                         <div className="hud-stat-label">Uy thế</div>
                         <div className="hud-stat-value">{serverHud.strategicPower.toLocaleString()}</div>
@@ -2264,35 +2319,37 @@ export function GameApp({
                   {/* 4. Sản lượng tài nguyên */}
                   {Object.values(productionPerSecond).some(v => v > 0) && (
                     <div className="hud-production-section">
-                      <div className="hud-production-header">📦 Sản lượng mỗi giờ</div>
+                      <div className="hud-production-header">
+                        <span className="hud-prod-header-icon"><HudIcon name="bag" /></span> Sản lượng mỗi giờ
+                      </div>
                       <div className="hud-production-grid">
                         {productionPerSecond.gold > 0 && (
                           <div className="hud-prod-item">
-                            <span className="hud-prod-icon">🪙</span>
+                            <span className="hud-prod-icon-medieval"><HudIcon name="gold" /></span>
                             <span className="hud-prod-value">+{Math.round((productionPerSecond.gold || 0) * 3600).toLocaleString()}</span>
                           </div>
                         )}
                         {productionPerSecond.wood > 0 && (
                           <div className="hud-prod-item">
-                            <span className="hud-prod-icon">🪵</span>
+                            <span className="hud-prod-icon-medieval"><HudIcon name="wood" /></span>
                             <span className="hud-prod-value">+{Math.round((productionPerSecond.wood || 0) * 3600).toLocaleString()}</span>
                           </div>
                         )}
                         {productionPerSecond.stone > 0 && (
                           <div className="hud-prod-item">
-                            <span className="hud-prod-icon">🪨</span>
+                            <span className="hud-prod-icon-medieval"><HudIcon name="stone" /></span>
                             <span className="hud-prod-value">+{Math.round((productionPerSecond.stone || 0) * 3600).toLocaleString()}</span>
                           </div>
                         )}
                         {productionPerSecond.iron > 0 && (
                           <div className="hud-prod-item">
-                            <span className="hud-prod-icon">⚙</span>
+                            <span className="hud-prod-icon-medieval"><HudIcon name="iron" /></span>
                             <span className="hud-prod-value">+{Math.round((productionPerSecond.iron || 0) * 3600).toLocaleString()}</span>
                           </div>
                         )}
                         {productionPerSecond.food > 0 && (
                           <div className="hud-prod-item">
-                            <span className="hud-prod-icon">🌾</span>
+                            <span className="hud-prod-icon-medieval"><HudIcon name="food" /></span>
                             <span className="hud-prod-value">+{Math.round((productionPerSecond.food || 0) * 3600).toLocaleString()}</span>
                           </div>
                         )}
@@ -2303,7 +2360,9 @@ export function GameApp({
                   {/* 5. Danh sách thành trì */}
                   {serverTownsById && Object.values(serverTownsById).length > 0 && (
                     <div className="hud-settlements-section">
-                      <div className="hud-settlements-header">🏯 Thành trì ({Object.values(serverTownsById).length})</div>
+                      <div className="hud-settlements-header">
+                        <span className="hud-settlements-header-icon"><HudIcon name="castle" /></span> Thành trì ({Object.values(serverTownsById).length})
+                      </div>
                       <div className="hud-settlements-list">
                         {Object.values(serverTownsById).slice(0, 8).map((town: any) => (
                           <button
@@ -2318,8 +2377,14 @@ export function GameApp({
                             }}
                             title={`Định vị ${town.kind === "capital" ? "Hoàng Thành" : town.kind === "sub_capital" ? "Phó Đô" : "Quân Khu"} Lv.${town.level ?? town.lvl ?? 1}`}
                           >
-                            <span className="hud-town-kind-badge">
-                              {town.kind === "capital" ? "👑" : town.kind === "sub_capital" ? "🏛" : "⚔"}
+                            <span className="hud-town-kind-badge-medieval">
+                              {town.kind === "capital" ? (
+                                <HudIcon name="crown" />
+                              ) : town.kind === "sub_capital" ? (
+                                <HudIcon name="castle" />
+                              ) : (
+                                <HudIcon name="swords" />
+                              )}
                             </span>
                             <div className="hud-town-info">
                               <div className="hud-town-name">
@@ -2336,7 +2401,6 @@ export function GameApp({
                 </div>
               </div>
             )}
-
             {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
             <div className="hud-right-side hud-interactive">
               {/* Minimap card with Gold Trim (matching Mockup) */}
@@ -2628,7 +2692,7 @@ export function GameApp({
                 .then((result) => {
                   if (result.resources) {
                     engineRef.current?.handleAction("syncResources", { resources: result.resources });
-                    setResources((prev) => ({ ...prev, ...result.resources }));
+                    applyResourceSnapshot(result);
                   }
                 })
                 .catch((err) => {

@@ -17,7 +17,6 @@ export type GameConfig = {
   artilleryDefensePower: number;
   townLevelDefense: number;
   fortLevelDefense: number;
-  lootPercent: number;
   retreatPercent: number;
   infantryCostGold: number;
   infantryCostWood: number;
@@ -32,6 +31,7 @@ export type GameConfig = {
   cavalryCostFood: number;
   cavalryCostIron: number;
   artilleryCostIron: number;
+  artilleryCostCoal: number;
   artilleryCostSulfur: number;
   artilleryTroopsValue: number;
   infantryPopulationCost: number;
