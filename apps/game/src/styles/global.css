@@ -12771,6 +12771,34 @@ img[src*="/assets/icons/"] {
   isolation: isolate;
 }
 
+.premium-castle-preview::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 8%;
+  aspect-ratio: 1;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.42;
+  mask-image: radial-gradient(circle, #000 0 28%, transparent 68%);
+}
+
+.premium-castle-preview--gold::before {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 225, 111, 0.78) 0 5deg, transparent 5deg 18deg);
+  animation: premiumRadiance 18s linear infinite;
+}
+
+.premium-castle-preview--fire::before {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 73, 24, 0.62) 0 4deg, transparent 4deg 22deg);
+  animation: premiumRadiance 12s linear infinite reverse;
+}
+
+.premium-castle-preview--wind::before {
+  background: repeating-conic-gradient(from 0deg, rgba(104, 240, 247, 0.55) 0 3deg, transparent 3deg 28deg);
+  animation: premiumRadiance 22s linear infinite;
+}
+
 .premium-castle-preview canvas {
   position: relative !important;
   inset: auto !important;
@@ -12951,6 +12979,10 @@ img[src*="/assets/icons/"] {
 
 @keyframes premiumWindSpin {
   to { transform: perspective(240px) rotateX(68deg) rotateZ(360deg); }
+}
+
+@keyframes premiumRadiance {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 900px) {
@@ -13267,4 +13299,117 @@ img[src*="/assets/icons/"] {
 .kc-color-choice.selected {
   border-color: var(--gold-primary) !important;
   box-shadow: 0 0 12px var(--gold-primary) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   13. UNIFIED MEDIEVAL MODAL STYLING CLASSES
+   ────────────────────────────────────────────────────────────────────────── */
+
+.medieval-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: grid;
+  place-items: center;
+  z-index: 12000;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.medieval-modal-container {
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 0h16v3H3v13H0V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 0H8v3h13v13h3V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M0 24h16v-3H3V8H0v16z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b38f4f'%3E%3Cpath d='M24 24H8v-3h13V8h3v16z'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgba(16, 28, 41, 0.99) 0%, rgba(6, 10, 16, 0.99) 100%) !important;
+  background-position: 
+    top 4px left 4px,
+    top 4px right 4px,
+    bottom 4px left 4px,
+    bottom 4px right 4px,
+    center center !important;
+  background-repeat: no-repeat !important;
+  background-size: 22px 22px !important;
+  border: 3px double var(--gold-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    0 32px 80px rgba(0, 0, 0, 0.96),
+    inset 0 0 25px rgba(250, 204, 21, 0.15) !important;
+  backdrop-filter: blur(20px) !important;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.medieval-modal-close-btn {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  background: transparent;
+  border: none;
+  color: rgba(232, 189, 76, 0.6);
+  font-size: 32px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s ease;
+  z-index: 105;
+}
+
+.medieval-modal-close-btn:hover {
+  color: var(--gold-light);
+}
+
+.medieval-modal-header {
+  background: linear-gradient(90deg, rgba(127,29,29,0) 0%, rgba(153,27,27,0.88) 15%, rgba(153,27,27,0.98) 50%, rgba(153,27,27,0.88) 85%, rgba(127,29,29,0) 100%) !important;
+  border-top: 1.5px solid var(--gold-primary) !important;
+  border-bottom: 1.5px solid var(--gold-primary) !important;
+  padding: 12px 28px !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7) !important;
+  border-radius: 4px !important;
+  text-align: center;
+}
+
+.medieval-modal-title {
+  font-family: 'Cinzel', 'Outfit', 'Georgia', serif !important;
+  font-weight: 900 !important;
+  color: var(--gold-primary) !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.95), 
+    0 0 12px rgba(250, 204, 21, 0.35) !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+  font-size: 20px !important;
+}
+
+.medieval-modal-subtitle {
+  font-family: 'Georgia', serif !important;
+  color: rgba(246, 231, 189, 0.7) !important;
+  font-size: 12px !important;
+  margin: 4px 0 0 0 !important;
+  text-transform: none !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+}
+
+.medieval-modal-body {
+  overflow-y: auto;
+  max-height: calc(85vh - 120px);
+}
+
+.medieval-modal-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.medieval-modal-body::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 3px;
+}
+
+.medieval-modal-body::-webkit-scrollbar-thumb {
+  background: var(--gold-primary);
+  border-radius: 3px;
 }

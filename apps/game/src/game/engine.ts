@@ -4136,16 +4136,16 @@ export function createIslandEmpireGame(
       offCtx.fillStyle = "#b4232f";
       offCtx.beginPath();
       offCtx.moveTo(cx + 2, cy - 192 + bannerWave);
-      offCtx.lineTo(cx + 50, cy - 198 + bannerWave);
-      offCtx.lineTo(cx + 42, cy - 180 + bannerWave);
-      offCtx.lineTo(cx + 50, cy - 162 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 197 + bannerWave);
+      offCtx.lineTo(cx + 34, cy - 180 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 163 + bannerWave);
       offCtx.lineTo(cx + 2, cy - 168 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#ffe47a";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 180 + bannerWave, "dragon", 0.88, offCtx);
+      drawFlagEmblem(cx + 21, cy - 180 + bannerWave, "dragon", 0.72, offCtx);
     }
     else if (emblem === "premium_fire") {
       const basaltLeft = "#161519";
@@ -4197,16 +4197,16 @@ export function createIslandEmpireGame(
       offCtx.fillStyle = "#6f0c0c";
       offCtx.beginPath();
       offCtx.moveTo(cx + 2, cy - 191 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 197 + bannerWave);
-      offCtx.lineTo(cx + 41, cy - 179 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 161 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 196 + bannerWave);
+      offCtx.lineTo(cx + 34, cy - 179 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 162 + bannerWave);
       offCtx.lineTo(cx + 2, cy - 167 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#ff6a28";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 179 + bannerWave, "dragon", 0.88, offCtx);
+      drawFlagEmblem(cx + 21, cy - 179 + bannerWave, "dragon", 0.72, offCtx);
     }
     else if (emblem === "premium_wind") {
       const pearlLeft = "#3c5c63";
@@ -4250,16 +4250,16 @@ export function createIslandEmpireGame(
       offCtx.fillStyle = "#147f91";
       offCtx.beginPath();
       offCtx.moveTo(cx + 2, cy - 192 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 198 + bannerWave);
-      offCtx.lineTo(cx + 41, cy - 180 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 162 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 197 + bannerWave);
+      offCtx.lineTo(cx + 34, cy - 180 + bannerWave);
+      offCtx.lineTo(cx + 40, cy - 163 + bannerWave);
       offCtx.lineTo(cx + 2, cy - 168 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#a9fbff";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 180 + bannerWave, "eagle", 0.88, offCtx);
+      drawFlagEmblem(cx + 21, cy - 180 + bannerWave, "eagle", 0.72, offCtx);
     }
     else if (emblem === "dragon") {
       const wallRedLeft = "#6f1d1b";
