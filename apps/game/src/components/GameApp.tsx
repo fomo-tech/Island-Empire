@@ -2146,30 +2146,11 @@ export function GameApp({
                     </div>
                     <span>Nhiệm vụ</span>
                   </button>
-                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("warReport")} title="Sự kiện">
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_event.png" className="hud-rail-icon-png" alt="event" />
-                      <span className="hud-rail-badge" />
-                    </div>
-                    <span>Sự kiện</span>
-                  </button>
-                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("settings")} title="Công nghệ">
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_tech.png" className="hud-rail-icon-png" alt="tech" />
-                    </div>
-                    <span>Công nghệ</span>
-                  </button>
                   <button type="button" className="hud-rail-button-v" onClick={() => openModal("army")} title={t("army")}>
                     <div className="hud-rail-icon-wrapper">
                       <img src="/assets/icons/icon_military.png" className="hud-rail-icon-png" alt="military" />
                     </div>
                     <span>Quân đội</span>
-                  </button>
-                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("ally")} title="Bang hội">
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_guild.png" className="hud-rail-icon-png" alt="guild" />
-                    </div>
-                    <span>Bang hội</span>
                   </button>
                   <button type="button" className="hud-rail-button-v" onClick={() => openModal("shop")} title="Cửa hàng">
                     <div className="hud-rail-icon-wrapper">
@@ -2339,10 +2320,6 @@ export function GameApp({
               <button type="button" className="hud-dock-tile-square" onClick={() => openModal("warReport")} title="Chiến báo">
                 <span className="hud-tile-icon-square"><img src="/assets/icons/icon_report.png" className="hud-dock-icon-png" alt="report" /></span>
                 <span className="hud-tile-label-square">Chiến báo</span>
-              </button>
-              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("treasure")} title="Kho báu">
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_chest.png" className="hud-dock-icon-png" alt="treasure" /></span>
-                <span className="hud-tile-label-square">Kho báu</span>
               </button>
               <button type="button" className="hud-dock-tile-square" onClick={() => openModal("mail")} title={t("mail")}>
                 <span className="hud-tile-icon-square"><img src="/assets/icons/icon_mail.png" className="hud-dock-icon-png" alt="mail" /></span>
