@@ -1,81 +1,165 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { getGameConfig } from "../game/api";
 import { GameConfig } from "@island/shared";
 
-// ─── 3D CASTLE SVG SCHEMES (Premium Game Assets) ──────────────────────────
+type SkinVariant = "gold" | "fire" | "wind";
 
-const GoldenCastleSVG = () => (
-  <svg viewBox="0 0 100 100" className="castle-svg">
-    <defs>
-      <linearGradient id="goldCastGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#fbbf24" />
-        <stop offset="50%" stopColor="#f59e0b" />
-        <stop offset="100%" stopColor="#b45309" />
-      </linearGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#goldCastGrad)" opacity="0.15" filter="blur(4px)" />
-    <rect x="25" y="55" width="50" height="25" fill="url(#goldCastGrad)" rx="2" />
-    <rect x="28" y="47" width="8" height="12" fill="url(#goldCastGrad)" />
-    <rect x="42" y="47" width="8" height="12" fill="url(#goldCastGrad)" />
-    <rect x="56" y="47" width="8" height="12" fill="url(#goldCastGrad)" />
-    <rect x="70" y="47" width="8" height="12" fill="url(#goldCastGrad)" />
-    <rect x="18" y="40" width="12" height="42" fill="url(#goldCastGrad)" rx="1" />
-    <polygon points="15,40 24,20 33,40" fill="#d97706" />
-    <rect x="22" y="48" width="4" height="8" fill="#78350f" rx="1" />
-    <rect x="70" y="40" width="12" height="42" fill="url(#goldCastGrad)" rx="1" />
-    <polygon points="67,40 76,20 85,40" fill="#d97706" />
-    <rect x="74" y="48" width="4" height="8" fill="#78350f" rx="1" />
-    <path d="M 38,55 C 38,35 62,35 62,55 Z" fill="#d97706" />
-    <path d="M 44,80 C 44,70 56,70 56,80 Z" fill="#451a03" />
-    <line x1="24" y1="20" x2="24" y2="12" stroke="#b45309" strokeWidth="1" />
-    <polygon points="24,12 34,15 24,18" fill="#ef4444" />
-    <line x1="76" y1="20" x2="76" y2="12" stroke="#b45309" strokeWidth="1" />
-    <polygon points="76,12 86,15 76,18" fill="#ef4444" />
-  </svg>
-);
+function CastleSkinArt({ variant }: { variant: SkinVariant }) {
+  const uid = useId().replace(/:/g, "");
+  const wallId = `skin-wall-${variant}-${uid}`;
+  const roofId = `skin-roof-${variant}-${uid}`;
+  const auraId = `skin-aura-${variant}-${uid}`;
+  const glowId = `skin-glow-${variant}-${uid}`;
+  const palettes = {
+    gold: {
+      wallA: "#5d4824", wallB: "#c99c42", roofA: "#7b3d12", roofB: "#ffd76a",
+      auraA: "#fff4a8", auraB: "#d89616",
+    },
+    fire: {
+      wallA: "#161419", wallB: "#51414a", roofA: "#5f100d", roofB: "#f04a1d",
+      auraA: "#ffb02e", auraB: "#9f1610",
+    },
+    wind: {
+      wallA: "#35535c", wallB: "#b4d1cf", roofA: "#075b70", roofB: "#3dd9e8",
+      auraA: "#b9fbff", auraB: "#158ca4",
+    },
+  } as const;
+  const palette = palettes[variant];
 
-const FireCastleSVG = () => (
-  <svg viewBox="0 0 100 100" className="castle-svg">
-    <defs>
-      <linearGradient id="fireCastGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#ef4444" />
-        <stop offset="60%" stopColor="#b91c1c" />
-        <stop offset="100%" stopColor="#450a0a" />
-      </linearGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#fireCastGrad)" opacity="0.2" filter="blur(6px)" />
-    <rect x="25" y="58" width="50" height="22" fill="#1c1917" rx="1" stroke="#dc2626" strokeWidth="1" />
-    <path d="M 16,80 L 22,35 L 28,80 Z" fill="url(#fireCastGrad)" />
-    <polygon points="22,35 22,20 18,30" fill="#f87171" />
-    <path d="M 72,80 L 78,35 L 84,80 Z" fill="url(#fireCastGrad)" />
-    <polygon points="78,35 78,20 82,30" fill="#f87171" />
-    <circle cx="50" cy="52" r="14" fill="#f97316" stroke="#b91c1c" strokeWidth="2" />
-    <polygon points="50,30 44,48 56,48" fill="#ef4444" />
-    <path d="M 32,70 L 38,74 L 42,68 M 68,70 L 62,74 L 58,68" stroke="#f97316" strokeWidth="1.5" fill="none" />
-    <path d="M 45,80 C 45,72 55,72 55,80 Z" fill="#0c0a09" stroke="#ea580c" strokeWidth="1" />
-  </svg>
-);
+  return (
+    <svg viewBox="0 0 320 260" className={`castle-skin-art castle-skin-art--${variant}`} aria-hidden="true">
+      <defs>
+        <linearGradient id={wallId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={palette.wallB} />
+          <stop offset="0.48" stopColor={palette.wallA} />
+          <stop offset="1" stopColor="#111820" />
+        </linearGradient>
+        <linearGradient id={roofId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={palette.roofB} />
+          <stop offset="0.58" stopColor={palette.roofA} />
+          <stop offset="1" stopColor="#24150d" />
+        </linearGradient>
+        <radialGradient id={auraId}>
+          <stop offset="0" stopColor={palette.auraA} stopOpacity=".72" />
+          <stop offset=".48" stopColor={palette.auraB} stopOpacity=".28" />
+          <stop offset="1" stopColor={palette.auraB} stopOpacity="0" />
+        </radialGradient>
+        <filter id={glowId} x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
 
-const WindCastleSVG = () => (
-  <svg viewBox="0 0 100 100" className="castle-svg">
-    <defs>
-      <linearGradient id="windCastGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#22d3ee" />
-        <stop offset="50%" stopColor="#0891b2" />
-        <stop offset="100%" stopColor="#083344" />
-      </linearGradient>
-    </defs>
-    <circle cx="50" cy="50" r="38" fill="none" stroke="url(#windCastGrad)" strokeWidth="2" opacity="0.3" strokeDasharray="5 5" />
-    <path d="M 28,68 L 32,60 L 68,60 L 72,68 L 50,84 Z" fill="url(#windCastGrad)" />
-    <rect x="35" y="42" width="30" height="18" fill="#0e7490" rx="1" />
-    <path d="M 31,42 L 69,42 L 50,35 Z" fill="#22d3ee" />
-    <rect x="42" y="24" width="16" height="18" fill="url(#windCastGrad)" />
-    <polygon points="38,24 62,24 50,8" fill="#0891b2" />
-    <circle cx="50" cy="5" r="3" fill="#e0f7fa" />
-    <path d="M 20,55 Q 26,50 30,58 M 80,55 Q 74,50 70,58" stroke="#22d3ee" strokeWidth="1" fill="none" opacity="0.6" />
-    <rect x="46" y="50" width="8" height="10" fill="#02141a" rx="1" />
-  </svg>
-);
+      <ellipse className="skin-aura-pulse" cx="160" cy="190" rx="135" ry="83" fill={`url(#${auraId})`} />
+      <ellipse cx="160" cy="226" rx="119" ry="22" fill="rgba(0,0,0,.58)" />
+
+      {variant === "gold" && (
+        <>
+          <g className="skin-orbit-runes" fill="none" stroke="#ffd867">
+            <ellipse cx="160" cy="200" rx="124" ry="28" strokeWidth="2" strokeDasharray="9 8" />
+            <path d="M45 198l9-8 9 8-9 8zm202 0l9-8 9 8-9 8zM151 224l9-8 9 8-9 8z" fill="#ffd867" />
+          </g>
+          <g className="skin-castle-body">
+            <path d="M42 205l118 27 118-27-118-31z" fill="#47361e" stroke="#e9bc55" strokeWidth="2" />
+            <path d="M54 147l106 24 106-24v61l-106 24-106-24z" fill={`url(#${wallId})`} stroke="#f2c55e" strokeWidth="2" />
+            <path d="M54 147l106 24 106-24-106-27z" fill="#d1a44c" />
+            <path d="M73 102h42v108H73zM205 102h42v108h-42z" fill={`url(#${wallId})`} stroke="#f3c85f" strokeWidth="2" />
+            <path d="M65 104l29-45 29 45zm132 0l29-45 29 45z" fill={`url(#${roofId})`} stroke="#ffe58a" strokeWidth="2" />
+            <path d="M119 119h82v99h-82z" fill={`url(#${wallId})`} stroke="#f3c85f" strokeWidth="2" />
+            <path d="M108 121l52-61 52 61z" fill={`url(#${roofId})`} stroke="#ffe58a" strokeWidth="2" />
+            <path d="M137 79h46v42h-46z" fill="#8d641f" stroke="#ffd867" strokeWidth="2" />
+            <path d="M128 80l32-35 32 35z" fill={`url(#${roofId})`} stroke="#fff0a5" strokeWidth="2" />
+            <path d="M143 218v-33c0-24 34-24 34 0v33z" fill="#24170f" stroke="#eebd54" strokeWidth="2" />
+            <g className="skin-lit-windows" fill="#fff1a1" filter={`url(#${glowId})`}>
+              <rect x="86" y="125" width="13" height="22" rx="6" /><rect x="221" y="125" width="13" height="22" rx="6" />
+              <rect x="146" y="139" width="12" height="23" rx="6" /><rect x="166" y="139" width="12" height="23" rx="6" />
+            </g>
+            <path className="skin-banner" d="M159 45V18m2 2l31 8-31 11z" stroke="#ffe98e" strokeWidth="3" fill="#b4232f" />
+            <path d="M148 96l12-9 12 9-4 16h-16z" fill="#f8d66e" stroke="#fff2ae" strokeWidth="2" />
+          </g>
+          <g className="skin-guardian skin-guardian--gold" fill="#ffd867" filter={`url(#${glowId})`}>
+            <path className="skin-dragon-wing skin-dragon-wing--left" d="M43 67c-22-15-30-3-34 10 17-8 30 4 43 14z" />
+            <path className="skin-dragon-wing skin-dragon-wing--right" d="M69 67c22-15 30-3 34 10-17-8-30 4-43 14z" />
+            <path d="M48 66c7-13 17-13 24 0l-5 24-9 12-8-13z" />
+            <circle cx="60" cy="57" r="8" /><path d="M64 51l11-7-5 12zM55 50l-8-8 2 13z" />
+          </g>
+          {[44, 76, 111, 214, 248, 276].map((x, index) => (
+            <circle key={x} className="skin-particle skin-particle--gold" cx={x} cy={190 - (index % 3) * 35} r={index % 2 ? 3 : 2} style={{ animationDelay: `${index * -0.45}s` }} />
+          ))}
+        </>
+      )}
+
+      {variant === "fire" && (
+        <>
+          <g className="skin-castle-body">
+            <path d="M38 207l122 27 122-27-122-35z" fill="#170f11" stroke="#9f2819" strokeWidth="2" />
+            <path d="M51 147l109 26 109-26v62l-109 25-109-25z" fill={`url(#${wallId})`} stroke="#9d2b1d" strokeWidth="2" />
+            <path d="M66 96h46v116H66zM208 96h46v116h-46z" fill={`url(#${wallId})`} stroke="#c83a22" strokeWidth="2" />
+            <path d="M59 98l30-55 30 55zm142 0l30-55 30 55z" fill={`url(#${roofId})`} />
+            <path d="M112 122h96v101h-96z" fill="#211b20" stroke="#d33d23" strokeWidth="2" />
+            <path d="M102 124l58-69 58 69z" fill={`url(#${roofId})`} />
+            <path d="M137 92h46v35h-46z" fill="#35191b" stroke="#df4928" strokeWidth="2" />
+            <path d="M128 94l32-51 32 51z" fill="#8e1e14" />
+            <path d="M141 222v-34c0-26 38-26 38 0v34z" fill="#090708" stroke="#f15a26" strokeWidth="2" />
+            <g className="skin-lava-cracks" fill="none" stroke="#ff6b26" strokeWidth="3" filter={`url(#${glowId})`}>
+              <path d="M67 160l18 12-9 14 20 17M237 151l-17 17 10 12-18 20M136 143l14 16-7 17m40-35l-14 18 8 15" />
+            </g>
+            <g className="skin-lit-windows" fill="#ffad37" filter={`url(#${glowId})`}>
+              <rect x="82" y="120" width="13" height="25" rx="6" /><rect x="225" y="120" width="13" height="25" rx="6" />
+              <rect x="144" y="138" width="12" height="25" rx="6" /><rect x="166" y="138" width="12" height="25" rx="6" />
+            </g>
+            <path className="skin-banner" d="M159 43V16m2 2l31 8-31 12z" stroke="#ff9a3c" strokeWidth="3" fill="#6f0c0c" />
+          </g>
+          <g className="skin-flames" fill="#ff6a21" filter={`url(#${glowId})`}>
+            <path className="skin-flame skin-flame--one" d="M69 100c-9-16 5-22 1-37 18 17 22 28 12 42z" />
+            <path className="skin-flame skin-flame--two" d="M226 99c-9-17 8-24 3-39 18 18 20 30 10 44z" />
+            <path className="skin-flame skin-flame--three" d="M151 95c-8-18 7-26 4-44 19 20 20 34 9 48z" />
+          </g>
+          <g className="skin-smoke" fill="#66545b">
+            <circle cx="72" cy="53" r="12" /><circle cx="81" cy="40" r="9" /><circle cx="228" cy="48" r="13" /><circle cx="238" cy="33" r="8" />
+          </g>
+          {[43, 69, 101, 215, 247, 280].map((x, index) => (
+            <circle key={x} className="skin-particle skin-particle--fire" cx={x} cy={205 - (index % 3) * 28} r={index % 2 ? 3 : 2} style={{ animationDelay: `${index * -0.38}s` }} />
+          ))}
+        </>
+      )}
+
+      {variant === "wind" && (
+        <>
+          <g className="skin-wind-rings" fill="none" stroke="#69f4ff">
+            <ellipse cx="160" cy="184" rx="130" ry="34" strokeWidth="3" strokeDasharray="34 16" />
+            <ellipse cx="160" cy="164" rx="105" ry="25" strokeWidth="2" strokeDasharray="17 12" opacity=".7" />
+          </g>
+          <g className="skin-clouds" fill="#d8fbff">
+            <path d="M28 199c9-18 28-14 33-2 13-13 35-3 34 12H28zM224 194c8-16 26-13 31-2 13-11 33-2 32 12h-63z" />
+          </g>
+          <g className="skin-castle-body">
+            <path d="M53 207l107 26 107-26-107-29z" fill="#244850" stroke="#7ceef4" strokeWidth="2" />
+            <path d="M67 148l93 23 93-23v61l-93 24-93-24z" fill={`url(#${wallId})`} stroke="#86edf1" strokeWidth="2" />
+            <path d="M80 106h40v105H80zM200 106h40v105h-40z" fill={`url(#${wallId})`} stroke="#8ff4f5" strokeWidth="2" />
+            <path d="M72 108l28-46 28 46zm120 0l28-46 28 46z" fill={`url(#${roofId})`} stroke="#a6fbff" strokeWidth="2" />
+            <path d="M119 119h82v103h-82z" fill={`url(#${wallId})`} stroke="#91f0f1" strokeWidth="2" />
+            <path d="M108 121l52-64 52 64z" fill={`url(#${roofId})`} stroke="#b7fdff" strokeWidth="2" />
+            <path d="M140 83h40v39h-40z" fill="#2c727d" stroke="#8ef5f6" strokeWidth="2" />
+            <path d="M131 85l29-42 29 42z" fill="#0d8498" stroke="#abfbff" strokeWidth="2" />
+            <path d="M143 222v-33c0-24 34-24 34 0v33z" fill="#102f36" stroke="#83e7e9" strokeWidth="2" />
+            <g className="skin-lit-windows" fill="#b8ffff" filter={`url(#${glowId})`}>
+              <rect x="94" y="130" width="12" height="22" rx="6" /><rect x="214" y="130" width="12" height="22" rx="6" />
+              <rect x="145" y="143" width="11" height="23" rx="6" /><rect x="165" y="143" width="11" height="23" rx="6" />
+            </g>
+            <path className="skin-banner" d="M159 43V17m2 2l30 8-30 11z" stroke="#c6ffff" strokeWidth="3" fill="#147f91" />
+          </g>
+          <g className="skin-crystal" filter={`url(#${glowId})`}>
+            <path d="M160 24l10 18-10 17-10-17z" fill="#baffff" stroke="#54e5f2" strokeWidth="2" />
+          </g>
+          {[39, 70, 109, 212, 250, 282].map((x, index) => (
+            <circle key={x} className="skin-particle skin-particle--wind" cx={x} cy={202 - (index % 3) * 31} r={index % 2 ? 3 : 2} style={{ animationDelay: `${index * -0.5}s` }} />
+          ))}
+        </>
+      )}
+    </svg>
+  );
+}
 
 // ─── 3D VECTOR RESOURCE SVGS (No Emojis) ──────────────────────────────────
 
@@ -184,8 +268,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
       price: config?.shopSkinLongBaoThanhPrice ?? 1500,
       desc: "Thành trì rồng vàng hoàng kim tối thượng với vầng hào quang rực rỡ hộ vệ.",
       themeColor: "#ffd700",
-      dragonClass: "golden-dragon",
-      castleSVG: <GoldenCastleSVG />,
+      variant: "gold" as SkinVariant,
       perks: ["Hào quang Long Vương hộ thể (+5% phòng thủ)", "Hiệu ứng rồng bay quanh thành trên bản đồ", "Cờ phướn hoàng gia phất phơ"]
     },
     {
@@ -194,8 +277,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
       price: config?.shopSkinHoaLongDienPrice ?? 2000,
       desc: "Điện thờ rồng lửa đỏ rực bùng cháy ngọn lửa dung nham thiêu rụi mọi đạo quân xâm lược.",
       themeColor: "#ff4500",
-      dragonClass: "fire-dragon",
-      castleSVG: <FireCastleSVG />,
+      variant: "fire" as SkinVariant,
       perks: ["Hiệu ứng khói bụi dung nham xung quanh", "Hỏa long hộ vệ tuần tra quanh lăng lũy", "Vết nứt magma rực sáng trong đêm"]
     },
     {
@@ -204,8 +286,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
       price: config?.shopSkinPhongLongCacPrice ?? 1800,
       desc: "Lầu gác rồng phong lôi thanh tao, phiêu dật giữa những luồng lốc xoáy lấp lánh.",
       themeColor: "#00ffff",
-      dragonClass: "wind-dragon",
-      castleSVG: <WindCastleSVG />,
+      variant: "wind" as SkinVariant,
       perks: ["Vòng tròn gió lốc mờ ảo bao phủ tháp", "Phong long bay dạo thảnh thơi giữa mây gió", "Pha lê đỉnh spire phát sáng xanh thanh tao"]
     }
   ];
@@ -279,29 +360,18 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
             ) : (
               <div className="shop-skins-grid">
                 {skinPacks.map((skin) => (
-                  <div className="shop-skin-card" key={skin.id} style={{ borderColor: skin.themeColor }}>
-                    
-                    {/* Dragon Flight Loop */}
-                    <div className={`dragon-flight-wrapper ${skin.dragonClass}`}>
-                      <svg className="dragon-flyer" viewBox="0 0 100 100">
-                        <g className="dragon-body-group">
-                          <path className="wing-flap-l" d="M35,45 Q15,30 30,55 Z" fill={skin.themeColor} />
-                          <path className="wing-flap-r" d="M65,45 Q85,30 70,55 Z" fill={skin.themeColor} />
-                          <path d="M42,50 Q50,38 58,50 Q50,62 42,50 Z" fill={skin.themeColor} />
-                          <circle cx="50" cy="40" r="5" fill={skin.themeColor} />
-                          <path d="M50,56 L50,68 L47,72 L50,68 L53,72 Z" stroke={skin.themeColor} strokeWidth="1.5" fill="none" />
-                        </g>
-                      </svg>
-                    </div>
-
+                  <div className={`shop-skin-card shop-skin-card--${skin.variant}`} key={skin.id} style={{ borderColor: skin.themeColor }}>
                     <div className="skin-card-header">
-                      <h4 className="skin-name" style={{ color: skin.themeColor }}>{skin.name}</h4>
-                      <span className="coming-soon-badge">Coming Soon</span>
+                      <div>
+                        <span className="skin-rarity">HUYỀN THOẠI</span>
+                        <h4 className="skin-name" style={{ color: skin.themeColor }}>{skin.name}</h4>
+                      </div>
+                      <span className="coming-soon-badge">SẮP RA MẮT</span>
                     </div>
                     
-                    <div className="skin-visual-box">
-                      {skin.castleSVG}
-                      <div className="dragon-glow-ring" style={{ boxShadow: `0 0 18px ${skin.themeColor}` }} />
+                    <div className={`skin-visual-box skin-visual-box--${skin.variant}`}>
+                      <CastleSkinArt variant={skin.variant} />
+                      <div className="skin-visual-vignette" />
                     </div>
 
                     <p className="skin-desc" style={{ minHeight: 46 }}>{skin.desc}</p>
@@ -360,41 +430,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources }) => {
                   </div>
                 </div>
 
-                {/* Right Side 3D Sa Ban Grid */}
+                {/* Right Side animated skin showcase */}
                 <div className="preview-sandbox-panel">
-                  <div className="sandbox-environment">
-                    {/* Simulated 3D Grass Plot */}
-                    <div className="sandbox-grass-plot">
-                      <div className="grid-line-x" />
-                      <div className="grid-line-y" />
-                      
-                      {/* Ambient trees surrounding */}
-                      <div className="sandbox-prop tree-1">🌲</div>
-                      <div className="sandbox-prop tree-2">🌲</div>
-                      <div className="sandbox-prop tree-3">🌲</div>
-                      
-                      {/* Castle at center */}
-                      <div className="sandbox-castle-wrapper">
-                        {previewSkin.castleSVG}
-                        {/* Glow floor light ring */}
-                        <div className="sandbox-glow-ring" style={{ border: `2.5px solid ${previewSkin.themeColor}`, boxShadow: `0 0 25px ${previewSkin.themeColor}` }} />
-                      </div>
-
-                      {/* Giant Dragon flying above sa ban */}
-                      <div className={`sandbox-dragon-orbit ${previewSkin.dragonClass}`}>
-                        <svg className="sandbox-dragon-flyer" viewBox="0 0 100 100">
-                          <g className="dragon-body-group">
-                            <path className="wing-flap-l" d="M35,45 Q15,30 30,55 Z" fill={previewSkin.themeColor} />
-                            <path className="wing-flap-r" d="M65,45 Q85,30 70,55 Z" fill={previewSkin.themeColor} />
-                            <path d="M42,50 Q50,38 58,50 Q50,62 42,50 Z" fill={previewSkin.themeColor} />
-                            <circle cx="50" cy="40" r="5" fill={previewSkin.themeColor} />
-                            <path d="M50,56 L50,68 L47,72 L50,68 L53,72 Z" stroke={previewSkin.themeColor} strokeWidth="1.5" fill="none" />
-                          </g>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <div className="sandbox-watermark">SA BÀN XEM TRƯỚC 3D</div>
+                  <div className={`skin-preview-stage skin-preview-stage--${previewSkin.variant}`}>
+                    <div className="skin-preview-sky-lines" />
+                    <CastleSkinArt variant={previewSkin.variant} />
+                    <div className="skin-preview-ground" />
+                    <div className="sandbox-watermark">MÔ PHỎNG NGOẠI TRANG TRÊN BẢN ĐỒ</div>
                   </div>
                 </div>
               </div>

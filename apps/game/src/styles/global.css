@@ -12249,3 +12249,140 @@ img[src*="/assets/icons/"] {
     min-height: 300px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   10. MEDIEVAL EUROPEAN STRATEGY GAME MODAL SYNC
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Core Modal Containers */
+.ob-modal-container,
+.onboarding-guide-modal,
+.war-report-modal,
+.town-modal,
+.settings-modal,
+.shop-modal-container {
+  background: linear-gradient(180deg, rgba(16, 28, 41, 0.98) 0%, rgba(8, 14, 21, 0.99) 100%) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1.5px solid var(--gold-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    0 24px 70px rgba(0, 0, 0, 0.95),
+    inset 0 0 20px rgba(250, 204, 21, 0.12) !important;
+  color: var(--gold-light) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Golden Corners (Medieval Ornate Corner Plates) */
+.ob-modal-container::before,
+.onboarding-guide-modal::before,
+.war-report-modal::before,
+.shop-modal-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-top: 3px solid var(--gold-primary) !important;
+  border-left: 3px solid var(--gold-primary) !important;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.ob-modal-container::after,
+.onboarding-guide-modal::after,
+.war-report-modal::after,
+.shop-modal-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border-bottom: 3px solid var(--gold-primary) !important;
+  border-right: 3px solid var(--gold-primary) !important;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Typography Upgrades (Serif over Pixel retro fonts) */
+.ob-modal-container *,
+.onboarding-guide-modal *,
+.war-report-modal *,
+.shop-modal-container * {
+  font-family: 'Outfit', sans-serif !important;
+}
+
+.ob-modal-title,
+.detail-title,
+.war-report-title,
+.town-modal h3,
+.ob-modal-container h2,
+.ob-modal-container h3,
+.onboarding-guide-modal .title,
+.shop-title,
+.preview-skin-name {
+  font-family: 'Cinzel', 'Outfit', 'Georgia', serif !important;
+  font-weight: 900 !important;
+  color: var(--gold-primary) !important;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.9), 
+    0 0 10px rgba(250, 204, 21, 0.3) !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+}
+
+/* Scrollbars - Mun wood and bronze gold */
+.ob-modal-container *::-webkit-scrollbar,
+.onboarding-guide-modal *::-webkit-scrollbar,
+.war-report-modal *::-webkit-scrollbar,
+.shop-modal-container *::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.ob-modal-container *::-webkit-scrollbar-track,
+.onboarding-guide-modal *::-webkit-scrollbar-track,
+.war-report-modal *::-webkit-scrollbar-track,
+.shop-modal-container *::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5) !important;
+  border-radius: 3px !important;
+}
+
+.ob-modal-container *::-webkit-scrollbar-thumb,
+.onboarding-guide-modal *::-webkit-scrollbar-thumb,
+.war-report-modal *::-webkit-scrollbar-thumb,
+.shop-modal-container *::-webkit-scrollbar-thumb {
+  background: var(--gold-primary) !important;
+  border-radius: 3px !important;
+}
+
+.ob-modal-container *::-webkit-scrollbar-thumb:hover,
+.onboarding-guide-modal *::-webkit-scrollbar-thumb:hover,
+.war-report-modal *::-webkit-scrollbar-thumb:hover,
+.shop-modal-container *::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-light) !important;
+}
+
+/* Premium Medieval Buttons */
+.guide-start-btn,
+.ob-modal-container button[type="submit"],
+.settings-modal button[type="submit"],
+.town-modal button[type="submit"] {
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold-primary) 100%) !important;
+  color: #0f172a !important;
+  border: 1px solid var(--gold-primary) !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 800 !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  text-shadow: none !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+}
+
+.guide-start-btn:hover,
+.ob-modal-container button[type="submit"]:hover {
+  filter: brightness(1.1) !important;
+  box-shadow: 0 4px 16px rgba(250, 204, 21, 0.3) !important;
+}

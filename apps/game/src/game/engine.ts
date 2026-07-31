@@ -4817,7 +4817,7 @@ export function createIslandEmpireGame(
   const militaryDistrictSpriteCacheMap = new Map<string, HTMLCanvasElement>();
 
   function getCachedMilitaryDistrictSprite(flagColor: string, emblem: string): HTMLCanvasElement {
-    const key = `military_v14_${emblem}_${flagColor}`;
+    const key = `military_v15_${emblem}_${flagColor}`;
     let cached = militaryDistrictSpriteCacheMap.get(key);
     if (cached) return cached;
 
@@ -4887,6 +4887,11 @@ export function createIslandEmpireGame(
       offCtx.fill();
     };
 
+    const r = (dx: number, dy: number, w: number, h: number, color: string) => {
+      offCtx.fillStyle = color;
+      offCtx.fillRect(Math.floor(cx + dx), Math.floor(cy + dy), Math.ceil(w), Math.ceil(h));
+    };
+
     // Ground Shadow
     const shadowGrad = offCtx.createRadialGradient(cx, cy + 42, 12, cx, cy + 42, 118);
     shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.85)");
@@ -4900,41 +4905,101 @@ export function createIslandEmpireGame(
     const bannerWave = Math.sin(state.tick * 0.25) * 2.5;
     const bannerCol = flagColor || "#dc2626";
 
-    // 1. Outer 3D Wooden Palisade Walls
-    isoCube(-68, 38, 56, 16, 26, "#78350f", "#92400e", "#b45309");
-    isoCube(68, 38, 56, 16, 26, "#78350f", "#92400e", "#b45309");
-    isoCube(0, 38, 88, 12, 18, "#78350f", "#92400e", "#b45309");
+    const stoneLeft = "#3d4549";
+    const stoneRight = "#707b80";
+    const stoneTop = "#aeb5b4";
+    const timberLeft = "#4b2f1b";
+    const timberRight = "#8b5b2b";
+    const timberTop = "#c18a4b";
+    const roofLeft = getDarkerColor(bannerCol, 0.42);
+    const roofRight = bannerCol;
 
-    // 2. Left 3D Outpost Watchtower
-    isoCube(-56, 22, 22, 68, 16, "#451a03", "#78350f", "#92400e");
-    isoCube(-56, -46, 28, 16, 22, "#78350f", "#92400e", "#b45309");
-    isoRoof(-56, -62, 34, 18, 26, "#1e293b", bannerCol);
+    // Raised stone platform and packed-earth drill yard.
+    isoCube(0, 42, 250, 14, 56, "#292f32", "#515b60", "#838b8b");
+    isoCube(0, 29, 222, 6, 48, "#65523a", "#8b7049", "#b99a62");
 
-    // 3. Right 3D Outpost Watchtower
-    isoCube(56, 22, 22, 68, 16, "#451a03", "#78350f", "#92400e");
-    isoCube(56, -46, 28, 16, 22, "#78350f", "#92400e", "#b45309");
-    isoRoof(56, -62, 34, 18, 26, "#1e293b", bannerCol);
+    // Rear curtain wall and watchtowers.
+    isoCube(0, 2, 202, 34, 34, stoneLeft, stoneRight, stoneTop);
+    for (const tx of [-91, 91]) {
+      isoCube(tx, 8, 42, 76, 24, "#31383c", "#687378", "#aeb5b4");
+      isoCube(tx, -55, 50, 13, 28, timberLeft, timberRight, timberTop);
+      isoRoof(tx, -68, 58, 27, 24, roofLeft, roofRight);
+    }
 
-    // 4. Central 3D Command Tent
-    isoCube(0, 26, 62, 38, 36, "#f1f5f9", "#e2e8f0", "#cbd5e1");
-    isoCube(0, 26, 20, 24, 38, "#0f172a", "#1e293b", "#334155");
-    isoRoof(0, -12, 76, 32, 42, getDarkerColor(bannerCol, 0.3), bannerCol);
+    // Barracks flank the open training yard.
+    isoCube(-58, 22, 62, 40, 30, timberLeft, timberRight, timberTop);
+    isoRoof(-58, -18, 72, 25, 34, "#2b211a", roofRight);
+    isoCube(58, 22, 62, 40, 30, timberLeft, timberRight, timberTop);
+    isoRoof(58, -18, 72, 25, 34, "#2b211a", roofRight);
 
-    // 5. Spire Banner Pole & Waving Flag
-    isoCylinder(0, -44, 3, 38, "#d97706", "#fbbf24", "#ffffff");
+    // Central command hall remains lower than a capital keep.
+    isoCube(0, -3, 76, 76, 28, "#343c40", "#778288", "#bdc2bf");
+    isoRoof(0, -79, 92, 38, 30, roofLeft, roofRight);
+
+    // Weapon racks in the yard.
+    offCtx.save();
+    offCtx.strokeStyle = "#2a1a0f";
+    offCtx.lineWidth = 5;
+    offCtx.lineCap = "round";
+    for (const rackX of [-27, 27]) {
+      offCtx.beginPath();
+      offCtx.moveTo(cx + rackX - 10, cy + 11);
+      offCtx.lineTo(cx + rackX + 10, cy + 31);
+      offCtx.moveTo(cx + rackX + 10, cy + 11);
+      offCtx.lineTo(cx + rackX - 10, cy + 31);
+      offCtx.stroke();
+      r(rackX - 14, 20, 28, 4, "#b98a4b");
+    }
+    offCtx.restore();
+
+    // Front palisade, fortified gatehouse and portcullis.
+    isoCube(-72, 34, 72, 32, 28, timberLeft, timberRight, timberTop);
+    isoCube(72, 34, 72, 32, 28, timberLeft, timberRight, timberTop);
+    for (const postX of [-101, -86, -71, -56, -41, 41, 56, 71, 86, 101]) {
+      isoCube(postX, 34, 10, 43, 10, "#3a2415", "#7a4c25", "#bd8141");
+    }
+    isoCube(0, 31, 58, 58, 26, "#30383c", "#68747a", "#b8bfbd");
+    isoCube(0, -17, 66, 12, 28, timberLeft, timberRight, timberTop);
+    r(-18, 5, 36, 43, "#11171a");
+    offCtx.fillStyle = "#11171a";
+    offCtx.beginPath();
+    offCtx.arc(cx, cy + 5, 18, Math.PI, 0);
+    offCtx.fill();
+    for (let gx = -14; gx <= 14; gx += 7) r(gx, 1, 3, 47, "#89969c");
+    for (let gy = 13; gy <= 41; gy += 10) r(-17, gy, 34, 3, "#89969c");
+
+    const drawTorch = (tx: number, ty: number) => {
+      const aura = offCtx.createRadialGradient(cx + tx, cy + ty, 1, cx + tx, cy + ty, 17);
+      aura.addColorStop(0, "rgba(254, 240, 138, 0.95)");
+      aura.addColorStop(0.4, "rgba(249, 115, 22, 0.62)");
+      aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+      offCtx.fillStyle = aura;
+      offCtx.beginPath();
+      offCtx.arc(cx + tx, cy + ty, 17, 0, Math.PI * 2);
+      offCtx.fill();
+      r(tx - 3, ty - 5, 6, 10, "#f59e0b");
+      r(tx - 1, ty - 3, 2, 6, "#fff7ae");
+    };
+    drawTorch(-28, -5);
+    drawTorch(28, -5);
+
+    // Command standard carries the player's selected dynasty emblem.
+    drawFlagEmblem(cx, cy - 47, emblem, 0.7, offCtx);
+    isoCylinder(0, -117, 3, 31, "#7c4a16", "#efc65e", "#fff7d6");
 
     offCtx.fillStyle = bannerCol;
     offCtx.beginPath();
-    offCtx.moveTo(cx + 2, cy - 82 + bannerWave);
-    offCtx.lineTo(cx + 34, cy - 86 + bannerWave);
-    offCtx.lineTo(cx + 28, cy - 70 + bannerWave);
-    offCtx.lineTo(cx + 34, cy - 54 + bannerWave);
-    offCtx.lineTo(cx + 2, cy - 58 + bannerWave);
+    offCtx.moveTo(cx + 2, cy - 146 + bannerWave);
+    offCtx.lineTo(cx + 42, cy - 151 + bannerWave);
+    offCtx.lineTo(cx + 35, cy - 136 + bannerWave);
+    offCtx.lineTo(cx + 42, cy - 121 + bannerWave);
+    offCtx.lineTo(cx + 2, cy - 126 + bannerWave);
     offCtx.closePath();
     offCtx.fill();
     offCtx.strokeStyle = "#fbbf24";
     offCtx.lineWidth = 1.4;
     offCtx.stroke();
+    drawFlagEmblem(cx + 22, cy - 136 + bannerWave, emblem, 0.72, offCtx);
 
     militaryDistrictSpriteCacheMap.set(key, offCanvas);
     return offCanvas;
