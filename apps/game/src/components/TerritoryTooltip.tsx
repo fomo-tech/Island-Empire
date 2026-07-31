@@ -347,6 +347,32 @@ export function TerritoryTooltip({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const cardElement = document.querySelector(".rt-tooltip-card");
+      const arrowPointer = document.querySelector(".rt-tooltip-arrow-pointer");
+      
+      // If clicking outside the tooltip box, close it smoothly
+      if (
+        cardElement && 
+        !cardElement.contains(event.target as Node) &&
+        (!arrowPointer || !arrowPointer.contains(event.target as Node))
+      ) {
+        onClose?.();
+      }
+    }
+    
+    // Register listener after a micro delay to avoid capturing the activation click
+    const registerTimer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(registerTimer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [onClose]);
+
   const { id, isIslet, ownership } = region;
   const engineState = engine.getState();
   const effectiveOwnership = engine.getRegionOwnership?.(id) ?? ownership;
