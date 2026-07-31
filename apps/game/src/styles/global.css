@@ -13413,3 +13413,87 @@ img[src*="/assets/icons/"] {
   background: var(--gold-primary);
   border-radius: 3px;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   14. KINGDOM ARMY MODAL (QUÂN LỰC VƯƠNG QUỐC) PARCHMENT OVERRIDES
+   ────────────────────────────────────────────────────────────────────────── */
+
+.ka-stat-card {
+  background: #f2ebcf !important;
+  color: #2c1e15 !important;
+  border: 1.2px solid #ca8a04 !important;
+  box-shadow: inset 0 0 10px rgba(139, 90, 43, 0.15) !important;
+}
+
+.ka-stat-card * {
+  color: #2c1e15 !important;
+}
+
+.ka-table-container {
+  background: #f2ebcf !important;
+  border: 1.5px solid #ca8a04 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 15px rgba(139, 90, 43, 0.2) !important;
+  overflow: hidden;
+}
+
+.ka-table th {
+  background: #e5dcb7 !important;
+  color: #2c1e15 !important;
+  border-bottom: 2px solid #ca8a04 !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 800 !important;
+}
+
+.ka-table td {
+  color: #2c1e15 !important;
+  border-bottom: 1px solid rgba(139, 90, 43, 0.15) !important;
+}
+
+.ka-table td * {
+  color: #2c1e15 !important;
+}
+
+.ka-table tr:hover {
+  background: rgba(139, 90, 43, 0.08) !important;
+}
+
+.ka-filter-bar {
+  background: rgba(0,0,0,0.15) !important;
+  border: 1px solid rgba(255,255,255,0.05) !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+}
+
+.ka-tab-btn {
+  background: rgba(15,23,42,0.6) !important;
+  color: var(--gold-light) !important;
+  border: 1px solid rgba(179,143,79,0.3) !important;
+}
+
+.ka-tab-btn.active {
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold-primary) 100%) !important;
+  color: #0f172a !important;
+  border-color: var(--gold-primary) !important;
+}
+
+.ka-footer-bar {
+  background: linear-gradient(90deg, rgba(127,29,29,0) 0%, rgba(153,27,27,0.85) 50%, rgba(127,29,29,0) 100%) !important;
+  border-top: 1.5px solid var(--gold-primary) !important;
+  border-bottom: 1.5px solid var(--gold-primary) !important;
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.5) !important;
+  border-radius: 4px !important;
+}
+
+.ka-footer-bar * {
+  color: var(--gold-light) !important;
+}
+
+.ka-search-input-box {
+  background: #f2ebcf !important;
+  border: 1.2px solid #ca8a04 !important;
+}
+
+.ka-search-input-box input {
+  color: #2c1e15 !important;
+}

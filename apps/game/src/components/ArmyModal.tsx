@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { MedievalModal } from "./MedievalModal";
 
 interface Town {
   id: number;
@@ -144,17 +145,8 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
   });
 
   return (
-    <div className="ob-modal-overlay" onMouseDown={onClose}>
-      <div className="ka-modal-container kingdom-army-modal" onMouseDown={(e) => e.stopPropagation()}>
-        
-        {/* Header (100% Match Reference Art) */}
-        <div className="ka-modal-header">
-          <div className="ka-title-box">
-            <ShieldCrestSVG />
-            <h2 className="title">QUÂN LỰC VƯƠNG QUỐC</h2>
-          </div>
-          <button type="button" onClick={onClose} className="rt-close-btn pos-top-right">✕</button>
-        </div>
+    <MedievalModal title="⚔️ QUÂN LỰC VƯƠNG QUỐC" onClose={onClose} width="980px" maxWidth="96vw">
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* Top 5 Stat Cards Overview Bar */}
         <div className="ka-top-stats-grid">
@@ -360,8 +352,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
             <ShieldCrestSVG /> <span>QUẢN LÝ QUÂN SỰ</span>
           </button>
         </div>
-
       </div>
-    </div>
+    </MedievalModal>
   );
 };
