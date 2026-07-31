@@ -5,9 +5,17 @@ import type {
   CreateMarchResult,
   GameConfig,
   GameStateResult,
+  PlayerSyncResult,
+  ResourceBag,
+  ShopInventory,
+  ShopProduct,
+  ShopPurchase,
+  BattleReport,
+  PlayerMail,
   ServerStatus,
   StartClearingResult,
   WorldTerritoriesResult,
+  MarchSourceOptionsResult,
 } from "@island/shared";
 
 function getApiUrl() {
@@ -119,6 +127,104 @@ export function getGameState(token: string): Promise<GameStateResult> {
   });
 }
 
+export function getPlayerSync(token: string): Promise<PlayerSyncResult> {
+  return request<PlayerSyncResult>("/api/player/sync", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getBattleReports(token: string): Promise<{ ok: true; reports: BattleReport[]; unreadCount: number }> {
+  return request("/api/reports", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function markBattleReportRead(token: string, reportId: string): Promise<{ ok: true; unreadCount: number }> {
+  return request(`/api/reports/${encodeURIComponent(reportId)}/read`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  });
+}
+
+export function markAllBattleReportsRead(token: string): Promise<{ ok: true; unreadCount: number }> {
+  return request("/api/reports/read-all", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  });
+}
+
+export function sendPlayerMail(token: string, input: {
+  recipientId: string;
+  title: string;
+  body: string;
+  requestId: string;
+}): Promise<{ ok: true; mail: PlayerMail; duplicate?: boolean }> {
+  return request("/api/mail/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
+}
+
+export function markPlayerMailRead(token: string, mailId: string): Promise<{ ok: true; unreadCount: number; readAt: string }> {
+  return request(`/api/mail/${encodeURIComponent(mailId)}/read`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  });
+}
+
+export function getShopCatalog(token: string): Promise<{ ok: true; products: ShopProduct[]; testMode: boolean }> {
+  return request("/api/shop/catalog", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function purchaseShopProduct(
+  token: string,
+  productId: string,
+  requestId: string,
+  equipTarget?: "capital" | "military_district",
+): Promise<{
+  ok: true;
+  duplicate?: boolean;
+  purchase: ShopPurchase;
+  inventory: ShopInventory;
+  resources: ResourceBag;
+}> {
+  return request("/api/shop/purchase", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ productId, requestId, equipTarget }),
+  });
+}
+
+export function equipShopSkin(token: string, skinId: string, target: "capital" | "military_district"): Promise<{
+  ok: true;
+  inventory: ShopInventory;
+}> {
+  return request("/api/shop/equip", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ skinId, target }),
+  });
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  playerId: string;
+  name: string;
+  flagColor: string;
+  emblem: string;
+  townCount: number;
+  totalTroops: number;
+}
+
+export function getMilitaryLeaderboard(token: string): Promise<{ ok: true; leaderboard: LeaderboardEntry[] }> {
+  return request("/api/leaderboard/military", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+
 export function startClearing(token: string, territoryId: number): Promise<StartClearingResult> {
   return request<StartClearingResult>("/api/game/clearings", {
     method: "POST",
@@ -151,6 +257,7 @@ export function cancelClearing(token: string, territoryId: number): Promise<{ ok
 export function createMarch(
   token: string,
   payload: {
+    requestId?: string;
     fromTerritoryId: number;
     toTerritoryId: number;
     troops: number;
@@ -169,6 +276,20 @@ export function createMarch(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function getMarchSourceOptions(
+  token: string,
+  toTerritoryId: number,
+  kind: "attack" | "reinforce" | "move" = "attack",
+): Promise<MarchSourceOptionsResult> {
+  return request<MarchSourceOptionsResult>("/api/game/marches/sources", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ toTerritoryId, kind }),
   });
 }
 

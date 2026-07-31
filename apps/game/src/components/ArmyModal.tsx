@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import type { ArmyStateSnapshot } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 
 interface Town {
@@ -11,7 +12,7 @@ interface Town {
 }
 
 interface ArmyModalProps {
-  towns: Town[];
+  army: ArmyStateSnapshot | null;
   onCenterCamera: (town: Town) => void;
   onClose: () => void;
 }
@@ -132,12 +133,21 @@ const CastleThumbnailSmall = () => (
   </svg>
 );
 
-export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onClose }) => {
+export const ArmyModal: React.FC<ArmyModalProps> = ({ army, onCenterCamera, onClose }) => {
   const [activeTab, setActiveTab] = useState<"all" | "cities" | "garrisons">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const playerTowns = towns.filter((t) => t.owner === 0);
-  const totalTroops = playerTowns.reduce((sum, t) => sum + t.troops, 0);
+  const playerTowns: Town[] = (army?.towns || []).map((town) => ({
+    id: town.townId,
+    x: town.x,
+    y: town.y,
+    lvl: town.level,
+    owner: 0,
+    troops: town.troops,
+  }));
+  const totalTroops = army?.totalTroops || 0;
+  const garrisonTroops = army?.garrisonTroops || 0;
+  const marchingCount = army?.marches.length || 0;
 
   const filteredTowns = playerTowns.filter((town) => {
     if (searchQuery.trim() === "") return true;
@@ -145,7 +155,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
   });
 
   return (
-    <MedievalModal title="⚔️ QUÂN LỰC VƯƠNG QUỐC" onClose={onClose} width="980px" maxWidth="96vw">
+    <MedievalModal title="QUÂN LỰC VƯƠNG QUỐC" onClose={onClose} width="980px" maxWidth="96vw">
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* Top 5 Stat Cards Overview Bar */}
@@ -161,7 +171,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
             <HelmetIconSVG />
             <div className="info">
               <span className="label">TỔNG QUÂN SỐ</span>
-              <span className="val">{totalTroops.toLocaleString("vi-VN")} <small>binh sĩ</small></span>
+              <span className="val">{garrisonTroops.toLocaleString("vi-VN")} <small>binh sĩ</small></span>
             </div>
           </div>
           <div className="ka-stat-card">
@@ -182,7 +192,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
             <SwordsIconSVG />
             <div className="info">
               <span className="label">ĐANG HÀNH QUÂN</span>
-              <span className="val">3 <small>đoàn</small></span>
+              <span className="val">{marchingCount} <small>đoàn</small></span>
             </div>
           </div>
         </div>
@@ -209,7 +219,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
               className={`ka-tab-btn ${activeTab === "garrisons" ? "active" : ""}`}
               onClick={() => setActiveTab("garrisons")}
             >
-              ĐỒN TRÚ (3)
+              ĐỒN TRÚ ({playerTowns.length})
             </button>
           </div>
 
@@ -321,7 +331,9 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
         <div className="ka-footer-bar">
           <div className="ka-footer-left">
             <span className="title">THÔNG TIN TỔNG QUAN</span>
-            <span className="date">Cập nhật lần cuối: 12:45:30 20/05/2025</span>
+            <span className="date">
+              Cập nhật lần cuối: {army?.serverTime ? new Date(army.serverTime).toLocaleString("vi-VN") : "Đang đồng bộ"}
+            </span>
           </div>
 
           <div className="ka-footer-stats">
@@ -329,21 +341,21 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({ towns, onCenterCamera, onC
               <SwordsIconSVG />
               <div className="info">
                 <span className="label">SỨC MẠNH QUÂN SỰ</span>
-                <span className="val gold">2.456.789</span>
+                <span className="val gold">{totalTroops.toLocaleString("vi-VN")}</span>
               </div>
             </div>
             <div className="stat">
               <HelmetIconSVG />
               <div className="info">
                 <span className="label">SỨC CHỨA TỐI ĐA</span>
-                <span className="val white">210.000</span>
+                <span className="val white">{playerTowns.reduce((sum, town) => sum + (army?.towns.find((item) => item.townId === town.id)?.maxTroops || 0), 0).toLocaleString("vi-VN")}</span>
               </div>
             </div>
             <div className="stat">
               <ChartIconSVG />
               <div className="info">
                 <span className="label">TỈ LỆ SỬ DỤNG</span>
-                <span className="val green">80%</span>
+                <span className="val green">{Math.round((totalTroops / Math.max(1, playerTowns.reduce((sum, town) => sum + (army?.towns.find((item) => item.townId === town.id)?.maxTroops || 0), 0))) * 100)}%</span>
               </div>
             </div>
           </div>

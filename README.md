@@ -36,3 +36,7 @@ Mặc định:
 npm run typecheck
 npm run build
 ```
+
+## Realtime và hiệu suất
+
+Kiến trúc command, worker nền, socket, chỉ tiêu độ trễ và kế hoạch mở rộng nhiều server được ghi tại [`docs/REALTIME_PERFORMANCE.md`](docs/REALTIME_PERFORMANCE.md).

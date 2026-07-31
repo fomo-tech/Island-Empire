@@ -57,6 +57,13 @@ export function AdminApp() {
     townLevelDefense: 40,
     fortLevelDefense: 120,
     retreatPercent: 35,
+    troopRecoveryEnabled: true,
+    troopRecoverySeconds: 600,
+    troopRecoveryOfflineLimit: 24,
+    capitalTroopCapacityMultiplier: 2,
+    strongholdTroopCapacityMultiplier: 1,
+    seaInvasionMaxDistanceKm: 1200,
+    battleStateBroadcastSeconds: 2,
     infantryCostGold: 100,
     infantryCostWood: 30,
     infantryCostFood: 55,
@@ -134,6 +141,13 @@ export function AdminApp() {
       townLevelDefense: Number(form.get("townLevelDefense")),
       fortLevelDefense: Number(form.get("fortLevelDefense")),
       retreatPercent: Number(form.get("retreatPercent")),
+      troopRecoveryEnabled: form.get("troopRecoveryEnabled") === "on",
+      troopRecoverySeconds: Number(form.get("troopRecoverySeconds")),
+      troopRecoveryOfflineLimit: Number(form.get("troopRecoveryOfflineLimit")),
+      capitalTroopCapacityMultiplier: Number(form.get("capitalTroopCapacityMultiplier")),
+      strongholdTroopCapacityMultiplier: Number(form.get("strongholdTroopCapacityMultiplier")),
+      seaInvasionMaxDistanceKm: Number(configData.seaInvasionMaxDistanceKm || 1200),
+      battleStateBroadcastSeconds: Number(form.get("battleStateBroadcastSeconds")),
       infantryCostGold: Number(form.get("infantryCostGold")),
       infantryCostWood: Number(form.get("infantryCostWood")),
       infantryCostFood: Number(form.get("infantryCostFood")),
@@ -281,15 +295,8 @@ export function AdminApp() {
       <main className="admin-shell">
         <form className="login-panel" onSubmit={onLogin}>
           <div className="login-logo">
-            <svg width="48" height="48" viewBox="0 0 48 48">
-              <polygon points="24,3 44,18 37,42 11,42 4,18" fill="#1a3a5a" stroke="#f0c030" strokeWidth="2"/>
-              <polygon points="24,8 40,20 34,40 14,40 8,20" fill="#0d2035"/>
-              <rect x="18" y="22" width="12" height="14" fill="#f0c030" opacity="0.85"/>
-              <rect x="21" y="16" width="6" height="8" fill="#ffd34d"/>
-              <rect x="23" y="12" width="2" height="6" fill="#fff"/>
-            </svg>
+            <img src="/logo.png" alt="Hex Rivals Logo" style={{ width: 100, height: 100, objectFit: "contain", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))" }} />
           </div>
-          <h1>Island Empire</h1>
           <p className="login-sub">ADMIN PANEL</p>
           <label>
             Tài khoản
@@ -413,7 +420,7 @@ export function AdminApp() {
                 />
               </div>
               <div className="info-box">
-                <p>Hệ thống Island Empire đang chạy bình thường. Chọn tab <strong>Người chơi</strong> hoặc <strong>Lãnh thổ</strong> để quản lý.</p>
+                <p>Hệ thống Hex Rivals đang chạy bình thường. Chọn tab <strong>Người chơi</strong> hoặc <strong>Lãnh thổ</strong> để quản lý.</p>
               </div>
             </section>
           )}
@@ -609,7 +616,34 @@ export function AdminApp() {
 
               {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
 
-              <form onSubmit={handleConfigSubmit} style={{ maxWidth: 600, display: "grid", gap: 16, background: "rgba(13, 20, 31, 0.4)", padding: 24, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+              <form key={`config-${configData.updatedAt ?? "local"}`} onSubmit={handleConfigSubmit} style={{ maxWidth: 760, display: "grid", gap: 16, background: "rgba(13, 20, 31, 0.4)", padding: 24, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: 0 }}>BỔ SUNG QUÂN TỰ ĐỘNG & TUYẾN BIỂN</h3>
+                <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="checkbox" name="troopRecoveryEnabled" defaultChecked={configData.troopRecoveryEnabled} />
+                  Bật bổ sung quân tự động tại từng lãnh thổ
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Chu kỳ mỗi quân (giây)
+                    <input type="number" name="troopRecoverySeconds" defaultValue={configData.troopRecoverySeconds} min={10} max={86400} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Tối đa bù khi offline
+                    <input type="number" name="troopRecoveryOfflineLimit" defaultValue={configData.troopRecoveryOfflineLimit} min={1} max={1000} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Nhịp máu giao tranh (giây)
+                    <input type="number" name="battleStateBroadcastSeconds" defaultValue={configData.battleStateBroadcastSeconds} min={1} max={30} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Sức chứa Hoàng Thành (x dân số)
+                    <input type="number" name="capitalTroopCapacityMultiplier" defaultValue={configData.capitalTroopCapacityMultiplier} min={1} max={10} step="0.1" required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Sức chứa Pháo đài (x dân số)
+                    <input type="number" name="strongholdTroopCapacityMultiplier" defaultValue={configData.strongholdTroopCapacityMultiplier} min={0.5} max={10} step="0.1" required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: 0 }}>CHIẾN ĐẤU & GIAO TRANH</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
@@ -686,7 +720,7 @@ export function AdminApp() {
                   </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ BỘ BINH</h3>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG BỘ BINH / QUÂN</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Bộ binh)
@@ -710,7 +744,7 @@ export function AdminApp() {
                   </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ KỊ BÌNH</h3>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG KỊ BINH / QUÂN</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Kị binh)
@@ -742,7 +776,7 @@ export function AdminApp() {
                   </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ PHÁO BINH</h3>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG PHÁO BINH / KHẨU</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Pháo binh)

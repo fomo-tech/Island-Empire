@@ -43,6 +43,13 @@ export type GameConfig = {
   artillerySpeed: number;
   shipSpeed: number;
   gameHourSeconds: number;
+  troopRecoveryEnabled: boolean;
+  troopRecoverySeconds: number;
+  troopRecoveryOfflineLimit: number;
+  capitalTroopCapacityMultiplier: number;
+  strongholdTroopCapacityMultiplier: number;
+  seaInvasionMaxDistanceKm: number;
+  battleStateBroadcastSeconds: number;
   shopResourcePackAmount: number;
   shopResourcePackPriceGems: number;
   shopSkinLongBaoThanhPrice: number;
@@ -73,6 +80,8 @@ export type AdminPlayer = {
 
 export type TownSnapshot = {
   id: number;
+  territoryId?: number;
+  kind?: "capital" | "sub_capital" | "military_district";
   level: number;
   ownerId: string;
   troops: number;
@@ -99,6 +108,160 @@ export type TownSnapshot = {
   populationPerSecond?: number;
   lastPopulationAt?: string;
   maxTroops?: number;
+  troopCapacity?: number;
+  reservedTroops?: number;
+  trainingSpecialty?: "infantry" | "cavalry" | "artillery";
+  nextTroopRecoveryAt?: string;
+  troopRecoverySeconds?: number;
+  troopRecoveryBlockedReason?: "full" | "resources" | "battle" | "isolated" | null;
+  recoveryCost?: Partial<ResourceBag>;
+};
+
+export type NationTownStatus = {
+  townId: number;
+  territoryId: number;
+  kind: "capital" | "sub_capital" | "military_district";
+  level: number;
+  x: number;
+  y: number;
+  troops: number;
+  maxTroops: number;
+  population: number;
+  populationCapacity: number;
+  storageUsed: number;
+  storageCapacity: number;
+  storageUsagePercent: number;
+  status: "normal" | "under_attack" | "building";
+};
+
+export type NationStatusAlert = {
+  code: "under_attack" | "building" | "storage_near_full" | "population_near_full";
+  count: number;
+  severity: "info" | "warning" | "danger";
+};
+
+export type NationStatusSnapshot = {
+  playerId: string;
+  playerName: string;
+  rank: "Lãnh Chúa" | "Bá Tước" | "Công Tước" | "Đế Vương" | "Đại Hoàng Đế";
+  status: "peace" | "marching" | "building" | "under_attack";
+  ownedTerritories: number;
+  totalTerritories: number;
+  townCount: number;
+  ownedTroops: number;
+  outboundTroops: number;
+  ownMarches: number;
+  ownClearings: number;
+  activeBattles: number;
+  strategicPower: number;
+  population: number;
+  populationCapacity: number;
+  resources: ResourceBag;
+  resourceCapacity: ResourceBag;
+  productionPerSecond: ResourceBag;
+  towns: NationTownStatus[];
+  alerts: NationStatusAlert[];
+  serverTime: string;
+};
+
+export type ArmyStateSnapshot = {
+  playerId: string;
+  garrisonTroops: number;
+  outboundTroops: number;
+  totalTroops: number;
+  infantry: number;
+  cavalry: number;
+  artillery: number;
+  marches: MarchOrder[];
+  battles: ActiveBattle[];
+  towns: Array<{
+    townId: number;
+    territoryId: number;
+    kind: "capital" | "sub_capital" | "military_district";
+    level: number;
+    x: number;
+    y: number;
+    troops: number;
+    infantry: number;
+    cavalry: number;
+    artillery: number;
+    maxTroops: number;
+  }>;
+  version: number;
+  serverTime: string;
+};
+
+export type BattleReport = {
+  id: string;
+  regionId: number;
+  territoryName: string;
+  attackerId: string;
+  attackerName: string;
+  defenderId: string | null;
+  defenderName: string;
+  winnerId: string;
+  isAttackerWin: boolean;
+  attacker: any;
+  defender: any;
+  lootedResources: Partial<ResourceBag>;
+  createdAt: string;
+  read: boolean;
+};
+
+export type PlayerMail = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  title: string;
+  body: string;
+  sentAt: string;
+  readAt: string | null;
+};
+
+export type ShopProduct = {
+  id: string;
+  type: "resource_pack" | "skin";
+  name: string;
+  description: string;
+  priceGems: number;
+  testPrice: boolean;
+  resources?: Partial<ResourceBag>;
+  skinId?: string;
+  skinTarget?: "capital" | "military_district";
+};
+
+export type ShopInventory = {
+  ownedSkins: string[];
+  equippedCapitalSkin: string | null;
+  equippedDistrictSkin: string | null;
+  version: number;
+};
+
+export type ShopPurchase = {
+  id: string;
+  productId: string;
+  priceGems: number;
+  grantedResources?: Partial<ResourceBag>;
+  grantedSkinId?: string;
+  createdAt: string;
+};
+
+export type PlayerSyncResult = {
+  ok: true;
+  gameState: GameStateResult;
+  nationState: NationStatusSnapshot;
+  armyState: ArmyStateSnapshot;
+  reportUnreadCount: number;
+  mailUnreadCount: number;
+  reports: BattleReport[];
+  inbox: PlayerMail[];
+  sent: PlayerMail[];
+  shopCatalog: ShopProduct[];
+  shopInventory: ShopInventory;
+  version: number;
+  serverTime: string;
 };
 
 export type SaveSnapshot = {
@@ -146,6 +309,7 @@ export type TerritoryInfo = {
   parentTerritoryId?: number;
   coastal?: boolean;
   connectionType?: "land" | "sea";
+  isolated?: boolean;
   // Computed game balance fields
   clearingSeconds: number;   // time to clear (khai hoang)
   yieldGold: number;         // gold per second when owned
@@ -158,6 +322,7 @@ export type TerritoryInfo = {
   yieldGems: number;         // gems per second when owned
   primaryResource: string;   // dominant resource label
   specialResources?: string[]; // strategic unlocks: horse pasture, harbor, etc.
+  trainingSpecialty?: "infantry" | "cavalry" | "artillery";
 };
 
 export type AdminTerritoriesResult = {
@@ -219,9 +384,39 @@ export type ActiveBattle = {
   defenderInfantry: number;
   defenderCavalry: number;
   defenderArtillery: number;
+  usesShip?: boolean;
   startedAt: string;
   resolvesAt: string;
   durationSeconds: number;
+  attackerMaxHp?: number;
+  attackerCurrentHp?: number;
+  defenderMaxHp?: number;
+  defenderCurrentHp?: number;
+  hpUpdatedAt?: string;
+  battleVersion?: number;
+};
+
+export type MarchSourceOption = {
+  townId: number;
+  territoryId: number;
+  valid: boolean;
+  routeType: "land" | "sea" | null;
+  usesShip: boolean;
+  hasPort: boolean;
+  distanceKm: number;
+  travelSeconds: number;
+  infantry: number;
+  cavalry: number;
+  artillery: number;
+  troops: number;
+  reason?: string;
+};
+
+export type MarchSourceOptionsResult = {
+  ok: true;
+  targetTerritoryId: number;
+  recommendedTownId: number | null;
+  sources: MarchSourceOption[];
 };
 
 export type GameStateResult = {
@@ -241,6 +436,7 @@ export type GameStateResult = {
   resourceUpdatedAt: string;
   newbieShieldUntil?: string | null;
   playerProfile?: { flagColor: string; emblem: string } | null;
+  nationStatus?: NationStatusSnapshot;
 };
 
 export type StartClearingResult = {
@@ -252,6 +448,7 @@ export type CompleteClearingResult = ClaimTerritoryResult;
 
 export type CreateMarchResult = {
   ok: true;
+  duplicate?: boolean;
   march: MarchOrder;
   town?: any;
   newbieShieldUntil?: string | null;
@@ -269,6 +466,7 @@ export type RealtimeEvent =
       resourceUpdatedAt?: string;
       serverTime?: string;
       towns?: TownSnapshot[];
+      nationStatus?: NationStatusSnapshot;
       newbieShieldUntil?: string | null;
       reason?: string;
     }
@@ -278,7 +476,36 @@ export type RealtimeEvent =
   | { type: "march_created"; march: MarchOrder; sourceTown?: any }
   | { type: "march_removed"; marchId: string; territoryId?: number; reason?: string }
   | { type: "battle_started"; battle: ActiveBattle; consumedMarchId?: string }
+  | { type: "battle_state_updated"; battles: ActiveBattle[]; serverTime: string }
   | { type: "battle_resolved"; battleId?: string; territory?: TerritoryInfo; winner?: "attacker" | "defender"; report?: any }
+  | {
+      type: "troop_recovery_updated";
+      playerId: string;
+      towns: TownSnapshot[];
+      resources: ResourceBag;
+      resourceCapacity?: ResourceBag;
+      productionPerSecond?: ResourceBag;
+      updates: Array<{
+        townId: number;
+        territoryId: number;
+        specialty: "infantry" | "cavalry" | "artillery";
+        recovered: number;
+        blockedReason: TownSnapshot["troopRecoveryBlockedReason"];
+        nextTroopRecoveryAt?: string;
+        troops: number;
+        troopCapacity?: number;
+        reservedTroops?: number;
+      }>;
+      serverTime: string;
+    }
+  | { type: "battle_report_created"; report: BattleReport; unreadCount: number; version: number; serverTime: string }
+  | { type: "battle_report_read"; reportId?: string; unreadCount: number; version: number; serverTime: string }
+  | { type: "mail_received"; mail: PlayerMail; unreadCount: number; version: number; serverTime: string }
+  | { type: "mail_read"; mailId?: string; unreadCount: number; version: number; serverTime: string }
+  | { type: "shop_purchase_completed"; purchase: ShopPurchase; inventory: ShopInventory; resources: ResourceBag; version: number; serverTime: string }
+  | { type: "shop_inventory_updated"; inventory: ShopInventory; version: number; serverTime: string }
+  | { type: "nation_state_updated"; state: NationStatusSnapshot; version: number; serverTime: string }
+  | { type: "army_state_updated"; state: ArmyStateSnapshot; version: number; serverTime: string }
   | { type: "player_eliminated"; playerId: string; reason: "all_towns_captured" }
   | { type: "territories_pruned"; playerId: string; prunedTerritoryIds: number[] }
   | { type: "world_state_hint"; reason: "reconnect" | "server_resync" }

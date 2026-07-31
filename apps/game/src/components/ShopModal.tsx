@@ -1,8 +1,51 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { getGameConfig } from "../game/api";
-import { GameConfig } from "@island/shared";
+import { equipShopSkin, purchaseShopProduct } from "../game/api";
+import type { ResourceBag, ShopInventory, ShopProduct } from "@island/shared";
+import { MedievalModal } from "./MedievalModal";
+import {
+  EuroBullet,
+  EuroFlourishLeft,
+  EuroFlourishRight,
+  EuroInfoIcon,
+  EuroClockIcon,
+  EuroRefreshIcon,
+} from "./EuroIcons";
 
 type SkinVariant = "gold" | "fire" | "wind";
+
+const TransparentChestImage: React.FC<{ src: string; alt: string; className: string }> = ({ src, alt, className }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r < 45 && g < 45 && b < 52) {
+          const avg = (r + g + b) / 3;
+          data[i + 3] = Math.max(0, Math.floor((avg - 15) * 5));
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    };
+  }, [src]);
+
+  return <canvas ref={canvasRef} className={className} title={alt} />;
+};
 
 function CastleSkinArt({ variant }: { variant: SkinVariant }) {
   const uid = useId().replace(/:/g, "");
@@ -200,8 +243,6 @@ function PremiumCastleCanvas({
   );
 }
 
-// ─── 3D VECTOR RESOURCE SVGS (No Emojis) ──────────────────────────────────
-
 const ResFoodIcon = () => (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <path d="M32 6v52M32 16q10-8 20 0M32 30q10-8 20 0M32 44q10-8 20 0M32 16q-10-8-20 0M32 30q-10-8-20 0M32 44q-10-8-20 0" stroke="#facc15" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -244,252 +285,515 @@ const ResGoldIcon = () => (
   </svg>
 );
 
-// ─── MAIN MODAL INTERACTION ───────────────────────────────────────────────
-
 interface ShopModalProps {
   onClose: () => void;
-  resources: { gems: number; gold: number };
+  token: string;
+  resources: ResourceBag;
+  catalog: ShopProduct[];
+  inventory: ShopInventory;
+  onResources: (resources: ResourceBag) => void;
+  onInventory: (inventory: ShopInventory) => void;
+  onNotify: (message: string) => void;
   getSkinSprite?: (skinId: string) => HTMLCanvasElement | undefined;
 }
 
-export const ShopModal: React.FC<ShopModalProps> = ({ onClose, resources, getSkinSprite }) => {
+export const ShopModal: React.FC<ShopModalProps> = ({
+  onClose,
+  token,
+  resources,
+  catalog,
+  inventory,
+  onResources,
+  onInventory,
+  onNotify,
+  getSkinSprite,
+}) => {
   const [activeTab, setActiveTab] = useState<"resources" | "skins">("resources");
-  const [config, setConfig] = useState<GameConfig | null>(null);
-  const [loading, setLoading] = useState(true);
   const [previewSkin, setPreviewSkin] = useState<any | null>(null);
+  const [busyProductId, setBusyProductId] = useState<string | null>(null);
 
-  useEffect(() => {
-    getGameConfig()
-      .then(setConfig)
-      .finally(() => setLoading(false));
-  }, []);
+  const [openedPacks, setOpenedPacks] = useState<Set<string>>(new Set());
+  const [rewardModalPack, setRewardModalPack] = useState<any | null>(null);
 
-  const resPackAmount = config?.shopResourcePackAmount ?? 50000;
-  const resPackPrice = config?.shopResourcePackPriceGems ?? 100;
+  const buyProduct = async (productId: string) => {
+    if (busyProductId) return;
+    setBusyProductId(productId);
+    try {
+      const product = effectiveCatalog.find((item) => item.id === productId);
+      const result = await purchaseShopProduct(
+        token,
+        productId,
+        crypto.randomUUID(),
+        product?.skinId ? product.skinTarget || "capital" : undefined,
+      );
+      onResources(result.resources);
+      onInventory(result.inventory);
+      if (product?.skinId) {
+        onNotify(result.duplicate ? "Ngoại trang đã được trang bị" : "Mua và trang bị ngoại trang thành công");
+      } else {
+        setOpenedPacks((prev) => new Set(prev).add(productId));
+        const packObj = resourcePacks.find((p) => p.id === productId);
+        if (packObj) {
+          setRewardModalPack(packObj);
+        } else {
+          onNotify(result.duplicate ? "Giao dịch đã được xử lý trước đó" : "Mua hàng thành công");
+        }
+      }
+    } catch (error: any) {
+      onNotify(error?.message || "Không thể hoàn tất giao dịch");
+    } finally {
+      setBusyProductId(null);
+    }
+  };
 
-  // Resource Packs now contain ALL 5 resources in a single bundle
-  const resourcePacks = [
+  const equipSkin = async (skinId: string) => {
+    if (busyProductId) return;
+    setBusyProductId(skinId);
+    try {
+      const result = await equipShopSkin(token, skinId, "capital");
+      onInventory(result.inventory);
+      onNotify("Đã trang bị ngoại trang Hoàng Thành");
+    } catch (error: any) {
+      onNotify(error?.message || "Không thể trang bị ngoại trang");
+    } finally {
+      setBusyProductId(null);
+    }
+  };
+
+  const defaultCatalog: ShopProduct[] = [
     {
       id: "pack_basic_all",
-      name: "Rương Tài Nguyên Khởi Đầu",
-      desc: "Gói tổng hợp cung cấp đầy đủ các loại quân nhu thiết yếu để kiến thiết quốc gia giai đoạn đầu.",
-      price: resPackPrice,
-      badge: "Phổ Biến",
-      color: "#f59e0b",
-      contents: [
-        { name: "Lúa mì", amount: resPackAmount, icon: <ResFoodIcon /> },
-        { name: "Gỗ sồi", amount: resPackAmount, icon: <ResWoodIcon /> },
-        { name: "Đá tảng", amount: resPackAmount, icon: <ResStoneIcon /> },
-        { name: "Sắt đúc", amount: resPackAmount, icon: <ResIronIcon /> },
-        { name: "Vàng ròng", amount: Math.floor(resPackAmount * 0.8), icon: <ResGoldIcon /> }
-      ]
+      type: "resource_pack",
+      name: "Rương Quân Nhu Khởi Đầu",
+      description: "Bổ sung đồng đều lương thực và vật liệu vào kho quốc gia.",
+      priceGems: 199,
+      testPrice: true,
+      resources: { food: 1500, wood: 1500, stone: 1500, iron: 1500, gold: 1200 },
     },
     {
       id: "pack_royal_all",
-      name: "Rương Tài Nguyên Hoàng Gia",
-      desc: "Đại lượng lương thực và khoáng sản khổng lồ từ kho bạc hoàng gia phục vụ chiến tranh quy mô lớn.",
-      price: Math.floor(resPackPrice * 2.5),
-      badge: "Kinh Tế nhất",
-      color: "#ffd700",
-      contents: [
-        { name: "Lúa mì", amount: resPackAmount * 3, icon: <ResFoodIcon /> },
-        { name: "Gỗ sồi", amount: resPackAmount * 3, icon: <ResWoodIcon /> },
-        { name: "Đá tảng", amount: resPackAmount * 3, icon: <ResStoneIcon /> },
-        { name: "Sắt đúc", amount: resPackAmount * 3, icon: <ResIronIcon /> },
-        { name: "Vàng ròng", amount: Math.floor(resPackAmount * 3 * 0.8), icon: <ResGoldIcon /> }
-      ]
-    }
+      type: "resource_pack",
+      name: "Rương Quân Nhu Hoàng Gia",
+      description: "Kho quân nhu lớn dành cho chiến dịch dài ngày.",
+      priceGems: 499,
+      testPrice: true,
+      resources: { food: 3000, wood: 3000, stone: 3000, iron: 3000, gold: 2400 },
+    },
   ];
+
+  const effectiveCatalog = catalog && catalog.length > 0 ? catalog : defaultCatalog;
+
+  const resourceIcons: Partial<Record<keyof ResourceBag, React.ReactNode>> = {
+    food: <img src="/assets/icons/resource_food_european.png" alt="Lúa mì" style={{ width: 20, height: 20, objectFit: "contain" }} />,
+    wood: <img src="/assets/icons/resource_wood_european.png" alt="Gỗ sồi" style={{ width: 20, height: 20, objectFit: "contain" }} />,
+    stone: <img src="/assets/icons/resource_stone_european.png" alt="Đá tảng" style={{ width: 20, height: 20, objectFit: "contain" }} />,
+    iron: <img src="/assets/icons/resource_iron_european.png" alt="Sắt đúc" style={{ width: 20, height: 20, objectFit: "contain" }} />,
+    gold: <img src="/assets/icons/resource_gold_european.png" alt="Vàng ròng" style={{ width: 20, height: 20, objectFit: "contain" }} />,
+  };
+  const resourceNames: Partial<Record<keyof ResourceBag, string>> = {
+    food: "Lúa mì",
+    wood: "Gỗ sồi",
+    stone: "Đá tảng",
+    iron: "Sắt đúc",
+    gold: "Vàng ròng",
+  };
+  const resourcePacks = effectiveCatalog
+    .filter((product) => product.type === "resource_pack")
+    .map((product, index) => ({
+      ...product,
+      desc: product.description,
+      price: product.priceGems,
+      badge: product.testPrice ? "GIÁ THỬ NGHIỆM" : index === 0 ? "Phổ biến" : "Hoàng gia",
+      color: index === 0 ? "#f59e0b" : "#ffd700",
+      contents: Object.entries(product.resources || {}).map(([key, amount]) => ({
+        name: resourceNames[key as keyof ResourceBag] || key,
+        amount: Number(amount || 0),
+        icon: resourceIcons[key as keyof ResourceBag],
+      })),
+    }));
 
   const skinPacks = [
     {
       id: "skin_long_bao_thanh",
       name: "Long Bảo Thành",
-      price: config?.shopSkinLongBaoThanhPrice ?? 1500,
+      price: catalog.find((product) => product.id === "skin_long_bao_thanh")?.priceGems ?? 1500,
+      testPrice: catalog.find((product) => product.id === "skin_long_bao_thanh")?.testPrice ?? false,
       desc: "Thành trì rồng vàng hoàng kim tối thượng với vầng hào quang rực rỡ hộ vệ.",
       themeColor: "#ffd700",
       variant: "gold" as SkinVariant,
-      perks: ["Hào quang Long Vương hộ thể (+5% phòng thủ)", "Hiệu ứng rồng bay quanh thành trên bản đồ", "Cờ phướn hoàng gia phất phơ"]
+      perks: [
+        "Hào quang Long Vương (+5% phòng thủ)",
+        "Rồng Vàng hộ thể lượn quanh thành trì",
+        "Cờ phướn Hoàng Gia rực rỡ phất phơ"
+      ]
     },
     {
       id: "skin_hoa_long_dien",
       name: "Hỏa Long Điện",
-      price: config?.shopSkinHoaLongDienPrice ?? 2000,
+      price: catalog.find((product) => product.id === "skin_hoa_long_dien")?.priceGems ?? 2000,
+      testPrice: catalog.find((product) => product.id === "skin_hoa_long_dien")?.testPrice ?? false,
       desc: "Điện thờ rồng lửa đỏ rực bùng cháy ngọn lửa dung nham thiêu rụi mọi đạo quân xâm lược.",
       themeColor: "#ff4500",
       variant: "fire" as SkinVariant,
-      perks: ["Hiệu ứng khói bụi dung nham xung quanh", "Hỏa long hộ vệ tuần tra quanh lăng lũy", "Vết nứt magma rực sáng trong đêm"]
+      perks: [
+        "Hiệu ứng khói bụi dung nham phun trào",
+        "Hỏa Long tuần tra quanh lăng lũy",
+        "Vết nứt Magma phát sáng trong đêm"
+      ]
     },
     {
       id: "skin_phong_long_cac",
       name: "Phong Long Các",
-      price: config?.shopSkinPhongLongCacPrice ?? 1800,
-      desc: "Lầu gác rồng phong lôi thanh tao, phiêu dật giữa những luồng lốc xoáy lấp lánh.",
-      themeColor: "#00ffff",
+      price: catalog.find((product) => product.id === "skin_phong_long_cac")?.priceGems ?? 2500,
+      testPrice: catalog.find((product) => product.id === "skin_phong_long_cac")?.testPrice ?? false,
+      desc: "Tòa lâu đài ngự trên đỉnh mây ngàn, hội tụ phong lôi bão tố & tinh thể linh thiêng.",
+      themeColor: "#38bdf8",
       variant: "wind" as SkinVariant,
-      perks: ["Vòng tròn gió lốc mờ ảo bao phủ tháp", "Phong long bay dạo thảnh thơi giữa mây gió", "Pha lê đỉnh spire phát sáng xanh thanh tao"]
+      perks: [
+        "Vòng xoáy Phong Lôi cuồn cuộn bao bọc",
+        "Tinh thể lơ lửng tỏa cực quang huyền ảo",
+        "Mây bão bồng bềnh vương quanh chân tháp"
+      ]
     }
   ];
 
-  return (
-    <div className="modal-overlay shop-modal-overlay">
-      <div className="modal-container shop-modal-container">
-        <button onClick={onClose} className="shop-close-btn">×</button>
-        
-        <header className="shop-header">
-          <h2 className="shop-title">🏛️ CỬA HÀNG HOÀNG GIA</h2>
-          <p className="shop-subtitle">Mua sắm các gói tài nguyên tổng hợp quân nhu và skin ngoại trang thành trì độc quyền</p>
-          <div className="shop-gems-balance">
-            <span>Ngọc của bạn:</span>
-            <strong className="gems-val">💎 {resources.gems}</strong>
-          </div>
-        </header>
+  const handleBuy = async (productId: string) => {
+    setBusyProductId(productId);
+    try {
+      await buyProduct(productId);
+    } finally {
+      setBusyProductId(null);
+    }
+  };
 
-        {/* Navigation Tabs */}
-        <nav className="shop-tabs">
-          <button 
-            type="button" 
-            className={`shop-tab-btn ${activeTab === "resources" ? "active" : ""}`}
+  return (
+    <MedievalModal
+      title=""
+      onClose={onClose}
+      width="95vw"
+      maxWidth="1080px"
+    >
+      <div className="euro-shop-modal-body">
+        {/* Top Hero Castle Banner Card */}
+        <div className="euro-hero-banner">
+          <div className="euro-hero-content">
+            <div className="euro-hero-title-group">
+              <img src="/assets/icons/icon_gold_crown.png" alt="Crown" className="euro-crown-icon" />
+              <div>
+                <h2 className="euro-hero-title">CỬA HÀNG HOÀNG GIA</h2>
+                <p className="euro-hero-subtitle">Mua sắm các gói tài nguyên quân nhu & ngoại trang thành trì độc quyền</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Gem Balance Pill Overlapping Hero Bottom */}
+          <div className="euro-gems-capsule">
+            <span className="euro-gems-label">NGỌC CỦA BẠN:</span>
+            <img src="/assets/icons/icon_red_gem.png" alt="Red Gem" className="euro-red-gem-icon" />
+            <strong className="euro-gems-val">{Math.floor(resources.gems || 0).toLocaleString()}</strong>
+          </div>
+        </div>
+
+        {/* 3D Metallic Navigation Tabs */}
+        <nav className="euro-shop-tabs">
+          <button
+            type="button"
+            className={`euro-tab-btn euro-tab-btn--blue ${activeTab === "resources" ? "active" : ""}`}
             onClick={() => setActiveTab("resources")}
           >
-            📦 GÓI TÀI NGUYÊN TỔNG HỢP
+            <img src="/assets/icons/icon_chest.png" alt="Quân nhu" style={{ width: 22, height: 22, objectFit: "contain" }} />
+            <span>QUÂN NHU</span>
           </button>
-          <button 
-            type="button" 
-            className={`shop-tab-btn ${activeTab === "skins" ? "active" : ""}`}
+          <button
+            type="button"
+            className={`euro-tab-btn euro-tab-btn--grey ${activeTab === "skins" ? "active" : ""}`}
             onClick={() => setActiveTab("skins")}
           >
-            🏰 SKIN THÀNH TRÌ RỒNG
+            <img src="/assets/icons/icon_shop.png" alt="Ngoại trang" style={{ width: 22, height: 22, objectFit: "contain" }} />
+            <span>NGOẠI TRANG THÀNH TRÌ</span>
           </button>
         </nav>
 
-        {loading ? (
-          <div className="shop-loading">Đang tải cấu hình cửa hàng...</div>
-        ) : (
-          <div className="shop-content-scroll">
-            {activeTab === "resources" ? (
-              <div className="shop-resources-grid">
-                {resourcePacks.map((pack) => (
-                  <div className="shop-pack-card" key={pack.id} style={{ borderLeft: `4px solid ${pack.color}` }}>
-                    <div className="pack-details">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <h4 className="pack-name">{pack.name}</h4>
-                        <span className="coming-soon-badge" style={{ background: "rgba(245, 158, 11, 0.15)", color: pack.color, borderColor: pack.color }}>{pack.badge}</span>
-                      </div>
-                      <p className="pack-desc">{pack.desc}</p>
-                      
-                      {/* Unified Resource Contents Display */}
-                      <div className="pack-contents-row" style={{ display: "flex", gap: 12, marginTop: 10, background: "rgba(0,0,0,0.2)", padding: "8px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.05)" }}>
-                        {pack.contents.map((item, idx) => (
-                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                            {item.icon}
-                            <span>{item.name}: <strong>+{item.amount.toLocaleString()}</strong></span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="pack-buy-action" style={{ alignSelf: "center" }}>
-                      <div className="pack-price">💎 {pack.price}</div>
-                      <button type="button" className="shop-buy-btn disabled" disabled>
-                        COMING SOON
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="shop-skins-grid">
-                {skinPacks.map((skin) => (
-                  <div className={`shop-skin-card shop-skin-card--${skin.variant}`} key={skin.id} style={{ borderColor: skin.themeColor }}>
-                    <div className="skin-card-header">
-                      <div>
-                        <span className="skin-rarity">HUYỀN THOẠI</span>
-                        <h4 className="skin-name" style={{ color: skin.themeColor }}>{skin.name}</h4>
-                      </div>
-                      <span className="coming-soon-badge">SẮP RA MẮT</span>
-                    </div>
-                    
-                    <div className={`skin-visual-box skin-visual-box--${skin.variant}`}>
-                      <PremiumCastleCanvas skinId={skin.id} variant={skin.variant} getSkinSprite={getSkinSprite} />
-                      <div className="skin-visual-vignette" />
-                    </div>
+        {activeTab === "resources" ? (
+          <div className="euro-cards-grid">
+            {resourcePacks.map((pack, packIndex) => {
+              const isStarter = packIndex % 2 === 0;
 
-                    <p className="skin-desc" style={{ minHeight: 46 }}>{skin.desc}</p>
-                    
-                    <div className="skin-buy-row">
-                      <div className="skin-price">
-                        <span>Giá:</span>
-                        <strong>💎 {skin.price.toLocaleString()}</strong>
-                      </div>
-                      <button 
-                        type="button" 
-                        className="shop-buy-btn" 
-                        style={{ background: `linear-gradient(180deg, ${skin.themeColor} 0%, #1e293b 100%)`, border: "1px solid " + skin.themeColor, color: "#fff", cursor: "pointer" }}
-                        onClick={() => setPreviewSkin(skin)}
-                      >
-                        XEM TRƯỚC
-                      </button>
-                    </div>
+              return (
+                <div className={`euro-card-frame ${isStarter ? "euro-card-frame--starter" : "euro-card-frame--royal"}`} key={pack.id}>
+                  <div className="euro-card-header-line">
+                    <EuroFlourishLeft />
+                    <h3 className="euro-card-title">{pack.name.toUpperCase()}</h3>
+                    <EuroFlourishRight />
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <p className="euro-card-sub">{pack.desc}</p>
+
+                  <div className="euro-card-body">
+                    {isStarter ? (
+                      <>
+                        <div className="euro-chest-art-col" onClick={() => setRewardModalPack(pack)} style={{ cursor: "pointer" }} title="Bấm để xem mở rương">
+                          <img
+                            src={
+                              openedPacks.has(pack.id)
+                                ? "/assets/ui/shop_chest_starter_open.png"
+                                : "/assets/ui/shop_chest_starter_closed.png"
+                            }
+                            alt={pack.name}
+                            className={`euro-chest-img ${openedPacks.has(pack.id) ? "is-opened" : ""}`}
+                          />
+                        </div>
+                        <div className="euro-parchment-box euro-parchment-box--blue">
+                          {pack.contents.map((item, idx) => (
+                            <div key={idx} className="euro-res-row">
+                              <span className="euro-res-name">{item.icon} {item.name}</span>
+                              <strong className="euro-res-val">+{item.amount.toLocaleString()}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="euro-parchment-box euro-parchment-box--gold">
+                          {pack.contents.map((item, idx) => (
+                            <div key={idx} className="euro-res-row">
+                              <span className="euro-res-name">{item.icon} {item.name}</span>
+                              <strong className="euro-res-val">+{item.amount.toLocaleString()}</strong>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="euro-chest-art-col" onClick={() => setRewardModalPack(pack)} style={{ cursor: "pointer" }} title="Bấm để xem mở rương">
+                          <img
+                            src={
+                              openedPacks.has(pack.id)
+                                ? "/assets/ui/shop_chest_royal_open.png"
+                                : "/assets/ui/shop_chest_royal_closed.png"
+                            }
+                            alt={pack.name}
+                            className={`euro-chest-img ${openedPacks.has(pack.id) ? "is-opened" : ""}`}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="euro-btn-wrapper">
+                    <button
+                      type="button"
+                      className={isStarter ? "euro-emerald-btn" : "euro-amber-btn"}
+                      disabled={busyProductId !== null}
+                      onClick={() => buyProduct(pack.id)}
+                    >
+                      <img src="/assets/icons/icon_red_gem.png" alt="Gem" className="euro-btn-gem-icon" />
+                      <span className="euro-btn-price">{busyProductId === pack.id ? "..." : (pack.price > 10 ? pack.price.toLocaleString() : 1)}</span>
+                    </button>
+                  </div>
+                  <div className="euro-buy-limit">Giới hạn mua: 1/1</div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="shop-skins-grid">
+            {skinPacks.map((skin) => {
+              const isEquipped = inventory.equippedCapitalSkin === skin.id;
+              const isOwned = (inventory.ownedSkins || []).includes(skin.id);
+
+              return (
+                <div
+                  className={`shop-skin-card shop-skin-card--${skin.variant} ${isEquipped ? "is-equipped" : ""}`}
+                  key={skin.id}
+                >
+                  <div className="skin-card-header">
+                    <span className="skin-rarity-tag">HUYỀN THOẠI</span>
+                    <h4 className="skin-title" style={{ color: skin.themeColor }}>{skin.name}</h4>
+                  </div>
+
+                  {/* Visual Preview Box with Live Animated SVG Castle Art */}
+                  <div
+                    className={`skin-visual-box skin-visual-box--${skin.variant}`}
+                    onClick={() => setPreviewSkin(skin)}
+                    title="Bấm để xem phóng to preview"
+                  >
+                    <CastleSkinArt variant={skin.variant} />
+                    <div className="skin-visual-vignette" />
+                    <button type="button" className="skin-zoom-btn">
+                      PHÓNG TO PREVIEW
+                    </button>
+                  </div>
+
+                  <p className="skin-desc">{skin.desc}</p>
+
+                  <ul className="skin-perks-list">
+                    {skin.perks.map((perk, pIdx) => (
+                      <li key={pIdx}>
+                        <EuroBullet color={skin.themeColor} />
+                        <span>{perk}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="euro-btn-wrapper">
+                    {isEquipped ? (
+                      <button type="button" className="euro-btn-equipped" disabled>
+                        ✓ ĐANG TRANG BỊ
+                      </button>
+                    ) : isOwned ? (
+                      <button
+                        type="button"
+                        className="euro-btn-equip"
+                        disabled={busyProductId !== null}
+                        onClick={() => equipSkin(skin.id)}
+                      >
+                        {busyProductId === skin.id ? "..." : "TRANG BỊ"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="euro-emerald-btn"
+                        disabled={busyProductId !== null}
+                        onClick={() => buyProduct(skin.id)}
+                      >
+                        <img src="/assets/icons/icon_red_gem.png" alt="Gem" className="euro-btn-gem-icon" />
+                        <span className="euro-btn-price">
+                          {busyProductId === skin.id ? "..." : skin.price.toLocaleString()}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* ─── INTERACTIVE 3D SA BAN PREVIEW OVERLAY ────────────────────────── */}
-        {previewSkin && (
-          <div className="shop-preview-overlay">
-            <div className="shop-preview-container" style={{ border: `2px solid ${previewSkin.themeColor}`, boxShadow: `0 16px 60px rgba(0,0,0,0.95), 0 0 20px ${previewSkin.themeColor}40` }}>
-              <button className="preview-close-btn" onClick={() => setPreviewSkin(null)}>×</button>
-              
-              <div className="preview-layout">
-                {/* Left Side Info */}
-                <div className="preview-info-panel">
-                  <span className="preview-label" style={{ color: previewSkin.themeColor, borderColor: previewSkin.themeColor }}>Ngoại trang Huyền Thoại</span>
-                  <h3 className="preview-skin-name" style={{ color: previewSkin.themeColor }}>{previewSkin.name}</h3>
-                  <p className="preview-skin-desc">{previewSkin.desc}</p>
-                  
-                  <div className="preview-perks">
-                    <h5 style={{ color: "#fff", margin: "12px 0 6px 0", fontSize: 13 }}>ĐẶC TÍNH SKIN:</h5>
-                    <ul>
-                      {previewSkin.perks.map((perk: string, idx: number) => (
-                        <li key={idx}>✨ {perk}</li>
-                      ))}
-                    </ul>
-                  </div>
+        {/* Footer Info Bar */}
+        <footer className="euro-shop-footer">
+          <div className="euro-footer-info">
+            <EuroInfoIcon size={18} />
+            <span>Các vật phẩm mua trong Cửa Hàng Hoàng Gia sẽ được gửi vào kho quốc gia của bạn.</span>
+          </div>
+          <div className="euro-footer-refresh">
+            <EuroClockIcon size={18} />
+            <span>Làm mới sau: <strong>11:42:33</strong></span>
+            <button type="button" className="euro-refresh-btn" title="Làm mới cửa hàng">
+              <EuroRefreshIcon size={16} />
+            </button>
+          </div>
+        </footer>
 
-                  <div className="preview-buy-box" style={{ marginTop: 24, borderTop: "1.5px solid rgba(255,255,255,0.06)", paddingTop: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Giá ngọc cấu hình:</span>
-                      <strong style={{ color: "#38bdf8", fontSize: 18 }}>💎 {previewSkin.price.toLocaleString()}</strong>
-                    </div>
-                    <button className="shop-buy-btn disabled" disabled style={{ width: "100%", padding: 12, fontSize: 13 }}>
-                      SẮP RA MẮT (COMING SOON)
-                    </button>
+        {/* Chest Reward Celebration Modal */}
+        {rewardModalPack && (
+          <div className="chest-reward-overlay" onClick={() => setRewardModalPack(null)}>
+            <div className="chest-reward-modal" onClick={(e) => e.stopPropagation()}>
+              <button className="chest-reward-close" onClick={() => setRewardModalPack(null)}>×</button>
+
+              <div className="chest-reward-stage">
+                <div className="chest-reward-glow-aura" />
+                <img
+                  src={
+                    rewardModalPack.id.includes("royal")
+                      ? "/assets/ui/shop_chest_royal_open.png"
+                      : "/assets/ui/shop_chest_starter_open.png"
+                  }
+                  alt="Open Chest"
+                  className="chest-reward-img-open"
+                />
+              </div>
+
+              <h3 className="chest-reward-title">MỞ RƯƠNG THÀNH CÔNG!</h3>
+              <p className="chest-reward-sub">Bạn đã nhận được các vật phẩm quân nhu từ {rewardModalPack.name}:</p>
+
+              <div className="chest-reward-items-grid">
+                {rewardModalPack.contents.map((item: any, idx: number) => (
+                  <div className="chest-reward-item-card" key={idx}>
+                    <div className="chest-reward-item-icon">{item.icon}</div>
+                    <span className="chest-reward-item-name">{item.name}</span>
+                    <strong className="chest-reward-item-val">+{item.amount.toLocaleString()}</strong>
                   </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="chest-reward-claim-btn"
+                onClick={() => setRewardModalPack(null)}
+              >
+                XÁC NHẬN NHẬN VẬT PHẨM
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Enlarged Interactive Preview Modal */}
+        {previewSkin && (
+          <div className="skin-modal-overlay" onClick={() => setPreviewSkin(null)}>
+            <div className="skin-modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="skin-modal-close" onClick={() => setPreviewSkin(null)} aria-label="Đóng">×</button>
+
+              <div className="skin-modal-body">
+                <div className={`skin-modal-preview-stage skin-modal-preview-stage--${previewSkin.variant}`}>
+                  <CastleSkinArt variant={previewSkin.variant} />
+                  <div className="skin-modal-vignette" />
                 </div>
 
-                {/* Right Side animated skin showcase */}
-                <div className="preview-sandbox-panel">
-                  <div className={`skin-preview-stage skin-preview-stage--${previewSkin.variant}`}>
-                    <div className="skin-preview-sky-lines" />
-                    <PremiumCastleCanvas
-                      skinId={previewSkin.id}
-                      variant={previewSkin.variant}
-                      getSkinSprite={getSkinSprite}
-                      large
-                    />
-                    <div className="skin-preview-ground" />
-                    <div className="sandbox-watermark">MÔ PHỎNG NGOẠI TRANG TRÊN BẢN ĐỒ</div>
+                <div className="skin-modal-info">
+                  <span className="skin-rarity-tag">NGOẠI TRANG HOÀNG GIA</span>
+                  <h3 className="skin-modal-title" style={{ color: previewSkin.themeColor }}>
+                    {previewSkin.name}
+                  </h3>
+                  <p className="skin-modal-desc">{previewSkin.desc}</p>
+
+                  <div className="skin-modal-perks-heading">ĐẶC QUYỀN & HIỆU ỨNG THÀNH TRÌ:</div>
+                  <ul className="skin-perks-list skin-modal-perks-list">
+                    {previewSkin.perks.map((perk: string, idx: number) => (
+                      <li key={idx}>
+                        <EuroBullet color={previewSkin.themeColor} />
+                        <span>{perk}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="skin-modal-actions">
+                    {inventory.equippedCapitalSkin === previewSkin.id ? (
+                      <button type="button" className="euro-btn-equipped" disabled>
+                        ✓ ĐANG TRANG BỊ
+                      </button>
+                    ) : (inventory.ownedSkins || []).includes(previewSkin.id) ? (
+                      <button
+                        type="button"
+                        className="euro-btn-equip"
+                        disabled={busyProductId !== null}
+                        onClick={async () => {
+                          await equipSkin(previewSkin.id);
+                          setPreviewSkin(null);
+                        }}
+                      >
+                        {busyProductId === previewSkin.id ? "..." : "TRANG BỊ NGAY"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="euro-emerald-btn"
+                        disabled={busyProductId !== null}
+                        onClick={async () => {
+                          await buyProduct(previewSkin.id);
+                          setPreviewSkin(null);
+                        }}
+                      >
+                        <img src="/assets/icons/icon_red_gem.png" alt="Gem" className="euro-btn-gem-icon" />
+                        <span className="euro-btn-price">
+                          {busyProductId === previewSkin.id ? "..." : `MUA (${previewSkin.price.toLocaleString()} NGỌC)`}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
-
       </div>
-    </div>
+    </MedievalModal>
   );
 };

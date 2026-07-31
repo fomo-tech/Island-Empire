@@ -91,47 +91,18 @@ function GoogleIcon() {
 /* Header Crest Shield with 2 Crossed Broadswords on top of Login Card */
 function CrestHeaderEmblem() {
   return (
-    <svg viewBox="0 0 120 90" width="100" height="75" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.8))" }}>
-      <defs>
-        <linearGradient id="goldBladeGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#fff099" />
-          <stop offset="50%" stopColor="#eab308" />
-          <stop offset="100%" stopColor="#854d0e" />
-        </linearGradient>
-        <linearGradient id="steelBladeGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f8fafc" />
-          <stop offset="50%" stopColor="#94a3b8" />
-          <stop offset="100%" stopColor="#334155" />
-        </linearGradient>
-        <linearGradient id="crestDarkShield" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1e293b" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </linearGradient>
-      </defs>
-
-      <g className="crossed-swords">
-        <line x1="12" y1="12" x2="108" y2="78" stroke="url(#steelBladeGrad)" strokeWidth="5" strokeLinecap="round" />
-        <path d="M 12 12 L 20 18 L 18 20 Z" fill="#fff" />
-        <line x1="22" y1="14" x2="14" y2="24" stroke="url(#goldBladeGrad)" strokeWidth="4" />
-        <circle cx="11" cy="11" r="3.5" fill="url(#goldBladeGrad)" />
-
-        <line x1="108" y1="12" x2="12" y2="78" stroke="url(#steelBladeGrad)" strokeWidth="5" strokeLinecap="round" />
-        <path d="M 108 12 L 100 18 L 102 20 Z" fill="#fff" />
-        <line x1="98" y1="14" x2="106" y2="24" stroke="url(#goldBladeGrad)" strokeWidth="4" />
-        <circle cx="109" cy="11" r="3.5" fill="url(#goldBladeGrad)" />
-      </g>
-
-      <path d="M 60 18 L 32 30 L 32 64 C 32 78 48 84 60 88 C 72 84 88 78 88 64 L 88 30 Z" fill="url(#crestDarkShield)" stroke="url(#goldBladeGrad)" strokeWidth="3" />
-      <path d="M 60 22 L 35 33 L 35 64 C 35 76 49 81 60 84 Z" fill="rgba(234,179,8,0.15)" />
-
-      <polygon points="46,26 42,12 52,20 60,8 68,20 78,12 74,26" fill="url(#goldBladeGrad)" stroke="#78350f" strokeWidth="1" />
-      <circle cx="42" cy="11" r="2" fill="#fff" />
-      <circle cx="60" cy="7" r="2.5" fill="#fff" />
-      <circle cx="78" cy="11" r="2" fill="#fff" />
-
-      <rect x="57.5" y="38" width="5" height="30" fill="url(#goldBladeGrad)" />
-      <rect x="45" y="48" width="30" height="5" fill="url(#goldBladeGrad)" />
-    </svg>
+    <img
+      src="/assets/ui/logo.png"
+      alt="Hex Rivals Logo"
+      style={{
+        width: 140,
+        height: 140,
+        objectFit: "contain",
+        flexShrink: 0,
+        filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.8))",
+        marginBottom: 10,
+      }}
+    />
   );
 }
 

@@ -14,6 +14,13 @@ export type PlayerDocument = {
   resources?: ResourceBag;
   lastResourceCollectedAt?: Date;
   allianceTroopReserve?: number;
+  stateVersion?: number;
+  shopInventory?: {
+    ownedSkins: string[];
+    equippedCapitalSkin: string | null;
+    equippedDistrictSkin: string | null;
+    version: number;
+  };
   role: "player" | "admin";
   newbieShieldUntil?: Date;
   createdAt: Date;
@@ -41,6 +48,7 @@ export type TerritoryClaimDocument = {
   settlementKind?: "capital" | "sub_capital" | "military";
   parentTerritoryId?: number;
   connectionType?: "land" | "sea";
+  isolated?: boolean;
 };
 
 export type TerritoryClearingDocument = {
@@ -63,6 +71,7 @@ export type TerritoryClearingDocument = {
 export type MarchOrderDocument = {
   _id: string;
   ownerId: string;
+  requestId?: string;
   fromTerritoryId: number;
   toTerritoryId: number;
   troops: number;
@@ -78,13 +87,14 @@ export type MarchOrderDocument = {
   arrivesAt: Date;
 };
 
-export type ActiveBattleDocument = Omit<ActiveBattle, "id" | "startedAt" | "resolvesAt"> & {
+export type ActiveBattleDocument = Omit<ActiveBattle, "id" | "startedAt" | "resolvesAt" | "hpUpdatedAt"> & {
   _id: string;
   startedAt: Date;
   resolvesAt: Date;
   fromTerritoryId: number;
   toTerritoryId: number;
   marchId: string;
+  hpUpdatedAt?: Date;
 };
 
 export type AllianceDocument = {
@@ -131,6 +141,31 @@ export type BattleReportDocument = {
     survivors: { infantry: number; cavalry: number; artillery: number; power: number };
   };
   lootedResources: { gold: number; wood: number; stone: number; gems: number };
+  readBy?: string[];
+  createdAt: Date;
+};
+
+export type PlayerMailDocument = {
+  _id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  title: string;
+  body: string;
+  requestId: string;
+  sentAt: Date;
+  readAt?: Date | null;
+};
+
+export type ShopPurchaseDocument = {
+  _id: string;
+  playerId: string;
+  productId: string;
+  requestId: string;
+  priceGems: number;
+  grantedResources?: Partial<ResourceBag>;
+  grantedSkinId?: string;
   createdAt: Date;
 };
 
@@ -147,22 +182,29 @@ export async function collections() {
     alliances: db.collection<AllianceDocument>("alliances"),
     allianceAids: db.collection<AllianceAidDocument>("alliance_aids"),
     battleReports: db.collection<BattleReportDocument>("battle_reports"),
+    playerMails: db.collection<PlayerMailDocument>("player_mails"),
+    shopPurchases: db.collection<ShopPurchaseDocument>("shop_purchases"),
   };
 }
 
 export async function ensureIndexes() {
-  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids, battleReports } = await collections();
+  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids, battleReports, playerMails, shopPurchases } = await collections();
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
     players.createIndex({ lastSeenAt: -1 }),
     saves.createIndex({ playerId: 1 }, { unique: true }),
     saves.createIndex({ updatedAt: -1 }),
+    saves.createIndex({ "towns.nextTroopRecoveryAt": 1 }),
     territoryClaims.createIndex({ territoryId: 1 }, { unique: true }),
     territoryClaims.createIndex({ playerId: 1 }),
     territoryClearings.createIndex({ territoryId: 1 }, { unique: true }),
     territoryClearings.createIndex({ playerId: 1 }),
     territoryClearings.createIndex({ completesAt: 1 }),
     marchOrders.createIndex({ ownerId: 1 }),
+    marchOrders.createIndex(
+      { ownerId: 1, requestId: 1 },
+      { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
+    ),
     marchOrders.createIndex({ arrivesAt: 1 }),
     marchOrders.createIndex({ fromTerritoryId: 1 }),
     marchOrders.createIndex({ toTerritoryId: 1 }),
@@ -179,6 +221,11 @@ export async function ensureIndexes() {
     battleReports.createIndex({ attackerId: 1 }),
     battleReports.createIndex({ defenderId: 1 }),
     battleReports.createIndex({ createdAt: -1 }),
+    playerMails.createIndex({ recipientId: 1, sentAt: -1 }),
+    playerMails.createIndex({ senderId: 1, sentAt: -1 }),
+    playerMails.createIndex({ senderId: 1, requestId: 1 }, { unique: true }),
+    shopPurchases.createIndex({ playerId: 1, requestId: 1 }, { unique: true }),
+    shopPurchases.createIndex({ playerId: 1, createdAt: -1 }),
   ]);
 }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import type { MarchSourceOption } from "@island/shared";
 
 // Premium Vector SVGs
 const SwordsIcon = () => (
@@ -285,6 +286,7 @@ interface TroopDeploymentModalProps {
     cavalryCount?: number;
     artilleryCount?: number;
   }>;
+  sourceOptions?: MarchSourceOption[] | null;
   selectedSourceTownId?: number;
   targetTownId: number;
   isAttack: boolean;
@@ -302,6 +304,7 @@ interface TroopDeploymentModalProps {
 export function TroopDeploymentModal({
   sourceTown,
   sourceTowns,
+  sourceOptions,
   selectedSourceTownId,
   targetTownId,
   isAttack,
@@ -310,6 +313,7 @@ export function TroopDeploymentModal({
   errorMessage,
   getTownRegionId,
   getRegionCenter,
+  getRouteStatus,
   onSelectSourceTown,
   onConfirm,
   onClose
@@ -332,6 +336,7 @@ export function TroopDeploymentModal({
     : battleSide === "attacker"
       ? "TIẾP VIỆN TẤN CÔNG"
       : "TIẾP VIỆN PHÒNG THỦ";
+  const hasServerSourceDecision = sourceOptions !== undefined && sourceOptions !== null;
 
   const availableSourceTowns = useMemo(() => {
     const byId = new Map<number, any>();
@@ -339,28 +344,47 @@ export function TroopDeploymentModal({
       if (town?.id !== undefined && town?.id !== null) byId.set(town.id, town);
     });
     const selected = byId.get(selectedSourceTownId ?? sourceTown.id);
-    const top = Array.from(byId.values()).sort((a, b) => (b.troops || 0) - (a.troops || 0)).slice(0, 120);
+    const optionForTown = (town: any) => sourceOptions?.find((option) =>
+      option.townId === town.id || option.territoryId === (getTownRegionId?.(town) ?? -1)
+    );
+    const top = Array.from(byId.values()).sort((a, b) => {
+      const optionA = optionForTown(a);
+      const optionB = optionForTown(b);
+      if (optionA || optionB) {
+        return Number(optionB?.valid || false) - Number(optionA?.valid || false) ||
+          (optionA?.travelSeconds ?? Infinity) - (optionB?.travelSeconds ?? Infinity) ||
+          (optionB?.troops ?? 0) - (optionA?.troops ?? 0);
+      }
+      return (b.troops || 0) - (a.troops || 0);
+    }).slice(0, 120);
     if (selected && !top.some((town) => town.id === selected.id)) top.unshift(selected);
     return top;
-  }, [sourceTowns, sourceTown]);
+  }, [sourceTowns, sourceTown, sourceOptions, getTownRegionId, selectedSourceTownId]);
 
   const targetCenter = useMemo(() => getRegionCenter?.(targetTownId) || null, [getRegionCenter, targetTownId]);
   const sourceRegionId = useMemo(() => getTownRegionId?.(sourceTown) ?? -1, [getTownRegionId, sourceTown]);
+  const currentSourceOption = useMemo(() => sourceOptions?.find((option) =>
+    option.townId === sourceTown.id || option.territoryId === sourceRegionId
+  ) || null, [sourceOptions, sourceTown.id, sourceRegionId]);
   const distanceKm = useMemo(() => (
-    targetCenter && sourceTown.x !== undefined && sourceTown.y !== undefined
+    currentSourceOption?.distanceKm ?? (targetCenter && sourceTown.x !== undefined && sourceTown.y !== undefined
       ? Math.max(1, Math.round(Math.hypot(sourceTown.x - targetCenter.x, sourceTown.y - targetCenter.y) * 0.18))
-      : 2303
-  ), [sourceTown.x, sourceTown.y, targetCenter]);
+      : 2303)
+  ), [currentSourceOption, sourceTown.x, sourceTown.y, targetCenter]);
 
   const townOptions = useMemo(() => availableSourceTowns.map((town) => {
     const townUnitCount = Math.max(0,
       Math.floor((town.infantryCount ?? town.troops ?? 0) + (town.cavalryCount ?? 0) + (town.artilleryCount ?? 0))
     );
+    const regionId = getTownRegionId?.(town) ?? -1;
+    const option = sourceOptions?.find((item) => item.townId === town.id || item.territoryId === regionId);
+    const routeLabel = option?.routeType === "sea" ? "Đường biển" : option?.routeType === "land" ? "Đường bộ" : hasServerSourceDecision ? "Không hợp lệ" : "Đang kiểm tra";
     return {
       id: town.id,
-      label: `Thành #${town.id} - ${townUnitCount} quân`,
+      disabled: hasServerSourceDecision ? !option?.valid : false,
+      label: `Thành #${town.id} - ${townUnitCount} quân - ${routeLabel}${option ? ` - ${option.travelSeconds}s` : ""}`,
     };
-  }), [availableSourceTowns]);
+  }), [availableSourceTowns, sourceOptions, getTownRegionId, hasServerSourceDecision]);
 
   const infantryAvailable = Math.max(0, Math.floor(sourceTown.infantryCount ?? sourceTown.troops ?? 0));
   const cavalryAvailable = Math.max(0, Math.floor(sourceTown.cavalryCount ?? 0));
@@ -402,6 +426,14 @@ export function TroopDeploymentModal({
   };
 
   const handleConfirm = () => {
+    if (hasServerSourceDecision && !currentSourceOption) {
+      alert("Thành này chưa được server xác nhận là nguồn xuất quân hợp lệ!");
+      return;
+    }
+    if (currentSourceOption && !currentSourceOption.valid) {
+      alert(currentSourceOption.reason || "Thành này không có tuyến tấn công hợp lệ!");
+      return;
+    }
     if (currentPowerSent <= 0) {
       alert("Vui lòng chọn ít nhất 1 binh sĩ để xuất binh!");
       return;
@@ -417,7 +449,8 @@ export function TroopDeploymentModal({
   if (infantry > 0) selectedSpeeds.push(config.infantrySpeed);
   if (cavalry > 0) selectedSpeeds.push(config.cavalrySpeed);
   if (artillery > 0) selectedSpeeds.push(config.artillerySpeed);
-  const usesShip = false;
+  const fallbackRoute = getRouteStatus?.(sourceTown, targetTownId);
+  const usesShip = currentSourceOption?.usesShip ?? fallbackRoute?.requiresShip ?? false;
   const marchSpeed = usesShip ? config.shipSpeed : (selectedSpeeds.length > 0 ? Math.min(...selectedSpeeds) : 24);
   const slowestUnit = usesShip
     ? "Thuyền vận tải"
@@ -429,7 +462,8 @@ export function TroopDeploymentModal({
           ? "Kị binh"
           : "Chưa chọn quân";
   const gameHourSeconds = config.gameHourSeconds || 60;
-  const travelSeconds = distanceKm !== null && marchSpeed > 0 ? Math.max(6, Math.round((distanceKm / marchSpeed) * gameHourSeconds)) : null;
+  const travelSeconds = currentSourceOption?.travelSeconds ??
+    (distanceKm !== null && marchSpeed > 0 ? Math.max(6, Math.round((distanceKm / marchSpeed) * gameHourSeconds)) : null);
   const travelText = travelSeconds === null
     ? "95p 58s"
     : travelSeconds >= 60
@@ -465,7 +499,7 @@ export function TroopDeploymentModal({
                 className="rt-town-dropdown"
               >
                 {townOptions.map((town) => (
-                  <option key={town.id} value={town.id}>
+                  <option key={town.id} value={town.id} disabled={town.disabled}>
                     {town.label}
                   </option>
                 ))}
@@ -477,7 +511,9 @@ export function TroopDeploymentModal({
                 </div>
                 <div className="mini-stat-card">
                   <span className="label"><EyeIcon /> ĐƯỜNG ĐI</span>
-                  <span className="val text-blue">Kiểm tra khi xuất</span>
+                  <span className="val text-blue">
+                    {currentSourceOption?.routeType === "sea" ? "Đường biển" : currentSourceOption?.routeType === "land" ? "Đường bộ" : "Đang kiểm tra"}
+                  </span>
                 </div>
                 <div className="mini-stat-card">
                   <span className="label"><FlagIcon /> THÀNH NGUỒN</span>
@@ -634,7 +670,15 @@ export function TroopDeploymentModal({
 
         {/* Bottom Banner Button (100% Match Reference Art) */}
         <div className="rt-attack-footer">
-          <button type="button" onClick={handleConfirm} className="rt-gold-banner-btn">
+          <button
+            type="button"
+            onClick={handleConfirm}
+            className="rt-gold-banner-btn"
+            disabled={hasServerSourceDecision && (!currentSourceOption || !currentSourceOption.valid)}
+            title={hasServerSourceDecision && (!currentSourceOption || !currentSourceOption.valid)
+              ? currentSourceOption?.reason || "Không có thành xuất quân hợp lệ"
+              : actionLabel}
+          >
             <SwordsIcon /> <span>{actionLabel}</span>
           </button>
         </div>

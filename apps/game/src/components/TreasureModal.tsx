@@ -90,7 +90,7 @@ export const TreasureModal: React.FC<TreasureModalProps> = ({ towns, regionOwner
   ];
 
   return (
-    <MedievalModal title="👑 KHO BẢO VẬT HOÀNG GIA" onClose={onClose} maxWidth="560px">
+    <MedievalModal title="👑 SỰ KIỆN HOÀNG GIA" onClose={onClose} maxWidth="560px">
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {treasures.map((t) => (
           <div 
