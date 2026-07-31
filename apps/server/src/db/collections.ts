@@ -8,6 +8,8 @@ export type PlayerDocument = {
   flagColor?: string;
   emblem?: string;
   starterLandId?: string;
+  isBot?: boolean;
+  activeMap?: "world" | "conquest";
   onboardingState?: "needs_claim" | "claiming" | "settled";
   resources?: ResourceBag;
   lastResourceCollectedAt?: Date;
@@ -36,6 +38,9 @@ export type TerritoryClaimDocument = {
   territoryId: number;
   playerId: string;
   claimedAt: Date;
+  settlementKind?: "capital" | "sub_capital" | "military";
+  parentTerritoryId?: number;
+  connectionType?: "land" | "sea";
 };
 
 export type TerritoryClearingDocument = {
@@ -44,6 +49,12 @@ export type TerritoryClearingDocument = {
   playerId: string;
   buildCost?: Partial<ResourceBag>;
   isStarterClaim?: boolean;
+  sourceTownId?: number;
+  sourceTerritoryId?: number;
+  settlers?: number;
+  sourceX?: number;
+  sourceY?: number;
+  connectionType?: "land" | "sea";
   startedAt: Date;
   arrivesAt?: Date;
   completesAt: Date;

@@ -399,8 +399,11 @@ export function TerritoryTooltip({
   const isClearingInProgress = engineState.regionInProgress === id;
   const isSettlerTraveling = engineState.settlerTravel?.active && engineState.settlerTravel.targetRegionId === id;
   const isNewbieSelecting = engineState.newbieMode && engineState.newbiePhase === "select_land";
-  const playerTownsCount = towns.filter((t: any) => t.owner === 0).length;
-  const isStarterClaim = isNewbieSelecting || (playerTownsCount === 0);
+  const playerTerritoriesCount = Object.keys(engineState.regionOwnership || {}).filter((regionId) =>
+    engineState.regionOwnership[Number(regionId)] === 1 || engineState.regionOwnerIds?.[Number(regionId)] === engineState.localPlayerId
+  ).length;
+  const isStarterClaim = isNewbieSelecting || playerTerritoriesCount === 0;
+  const canBuildStronghold = isStarterClaim || Boolean(engine.canBuildStronghold?.(id));
 
   const ownerId = engineState.regionOwnerIds?.[id] || "";
   const rawOwnerName = engineState.regionOwnerNames?.[id] || "";
@@ -420,8 +423,24 @@ export function TerritoryTooltip({
   };
 
   const isUnderBattle = engineState.activeBattles?.some((b: any) => b.regionId === id);
+  const settlementKind = engineState.regionSettlementKinds?.[id];
+  const isMilitaryDistrict = settlementKind === "military";
+  const isSubCapital = settlementKind === "sub_capital";
+  const settlementKindLabel = isSubCapital
+    ? "Trung Tâm Thành Trì"
+    : isMilitaryDistrict
+    ? "Quân Khu"
+    : "Thủ Đô";
 
-  const statusText = isUnderBattle ? "Đang Giao Tranh" : isRemoteClearing ? "Đang Xây Thành" : effectiveOwnership === 1 ? "Đã Chiếm" : effectiveOwnership > 1 ? "Địch Chiếm" : "Hoang Dã";
+  const statusText = isUnderBattle
+    ? "Đang Giao Tranh"
+    : isRemoteClearing
+    ? "Đang Xây Thành"
+    : effectiveOwnership === 1
+    ? `Đã Chiếm (${settlementKindLabel})`
+    : effectiveOwnership > 1
+    ? `Địch Chiếm (${settlementKindLabel})`
+    : "Hoang Dã";
   const statusClass = isUnderBattle ? "battle" : isRemoteClearing ? "wild" : effectiveOwnership === 1 ? "owned" : effectiveOwnership > 1 ? "enemy" : "wild";
 
   const rx = r.rx || r.r || 100;
@@ -444,6 +463,8 @@ export function TerritoryTooltip({
   if (left < 16) left = 16;
   if (top < 16) top = 16;
   if (top + estimatedH > winH - 16) top = Math.max(16, winH - estimatedH - 16);
+
+  const arrowOffsetY = Math.max(32, Math.min(estimatedH - 38, coords.y - top));
 
   const runAndClose = (action: () => void) => { action(); onClose?.(); };
 
@@ -475,6 +496,9 @@ export function TerritoryTooltip({
             <>
               <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
                 <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
+              </button>
+              <button type="button" className="rt-main-action-btn build" onClick={() => engine.handleAction("selectTown", { regionId: id })}>
+                <CastleIcon /> <span className="text-gold-serif">QUẢN LÝ VÀ XUẤT QUÂN</span>
               </button>
               <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
             </>
@@ -555,30 +579,34 @@ export function TerritoryTooltip({
           </>
         );
       }
-      if (engineState.regionInProgress >= 0) {
-        return (
-          <button type="button" className="rt-main-action-btn build disabled" disabled>
-            <HourglassIcon /> <span className="text-gold-serif">ĐỘI THỢ ĐANG BẬN</span>
-          </button>
-        );
-      }
+
       if (isStarterClaim) {
         return (
           <>
             <button type="button" className="rt-main-action-btn build pulse" onClick={() => onKhaiHoang(id)}>
-              <PickaxeIcon /> <span className="text-gold-serif">XÂY THÀNH TÂN THỦ</span>
+            <PickaxeIcon /> <span className="text-gold-serif">DỰNG HOÀNG THÀNH</span>
             </button>
             <div className="rt-note-info" style={{ color: "#4ade80", fontWeight: 700 }}><span className="info-icon">ⓘ</span> Xây dựng miễn phí dành cho tân thủ!</div>
           </>
         );
       }
+      if (!canBuildStronghold) {
+        return (
+          <div className="rt-busy-builder-notice disconnected" style={{ background: "rgba(30, 15, 15, 0.9)", borderColor: "#ef4444", border: "1px solid #ef4444", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="icon" style={{ fontSize: 18 }}>🚫</span>
+            <span className="text" style={{ color: "#fca5a5", fontSize: 12, fontWeight: 600 }}>
+              LÃNH THỔ CHƯA ĐỦ ĐIỀU KIỆN MỞ RỘNG (CẦN NỐI ĐẤT HOẶC CÓ BẾN TÀU VEN BIỂN)
+            </span>
+          </div>
+        );
+      }
       return (
         <>
           <button type="button" className="rt-main-action-btn build" onClick={() => runAndClose(() => onKhaiHoang(id))}>
-            <PickaxeIcon /> <span className="text-gold-serif">XÂY THÀNH</span>
+            <PickaxeIcon /> <span className="text-gold-serif">DỰNG PHÁO ĐÀI</span>
           </button>
           <div className="rt-cost-card">
-            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ XÂY THÀNH</span><span className="line" /></div>
+            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ DỰNG PHÁO ĐÀI</span><span className="line" /></div>
             <div className="rt-cost-chips-grid">
               <div className="rt-cost-chip-item"><CoinIcon /> <b>{buildCost.gold}</b></div>
               <div className="rt-cost-chip-item"><WoodIcon /> <b>{buildCost.wood}</b></div>
@@ -586,7 +614,7 @@ export function TerritoryTooltip({
               <div className="rt-cost-chip-item"><FoodIcon /> <b>{buildCost.food}</b></div>
             </div>
           </div>
-          <div className="rt-note-info"><span className="info-icon">ⓘ</span> Xây xong sẽ lập thành trì mới.</div>
+          <div className="rt-note-info"><span className="info-icon">ⓘ</span> Pháo đài phải nối với lãnh địa của bạn.</div>
         </>
       );
     }
@@ -603,7 +631,36 @@ export function TerritoryTooltip({
   const territoryFlagColor = engineState.regionOwnerFlagColors?.[id] || (effectiveOwnership === 1 ? (engineState.newbieFlagColor || "#2563eb") : undefined);
 
   const tooltipElement = (
-    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none" }}>
+    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none", overflow: "visible" }}>
+      {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
+      <div
+        className={`rt-tooltip-arrow-pointer ${positionClass}`}
+        style={{ top: `${arrowOffsetY}px` }}
+        aria-hidden="true"
+      >
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff08a" />
+              <stop offset="50%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+          </defs>
+          <circle cx="22" cy="22" r="18" fill="rgba(251, 191, 36, 0.3)" stroke="#fbbf24" strokeWidth="2" className="pulse-halo" />
+          {positionClass === "pointer-left" ? (
+            <path d="M30 10 L10 22 L30 34 L23 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
+          ) : (
+            <path d="M14 10 L34 22 L14 34 L21 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
+          )}
+        </svg>
+      </div>
       <div className="rt-tooltip-card" style={{ pointerEvents: "auto" }}>
         {/* Header */}
         <div className="rt-tooltip-header">

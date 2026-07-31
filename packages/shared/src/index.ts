@@ -40,6 +40,11 @@ export type GameConfig = {
   artillerySpeed: number;
   shipSpeed: number;
   gameHourSeconds: number;
+  shopResourcePackAmount: number;
+  shopResourcePackPriceGems: number;
+  shopSkinLongBaoThanhPrice: number;
+  shopSkinHoaLongDienPrice: number;
+  shopSkinPhongLongCacPrice: number;
 };
 
 export type PlayerRole = "player" | "admin";
@@ -130,6 +135,10 @@ export type TerritoryInfo = {
   ownerEmblem?: string;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
+  settlementKind?: "capital" | "sub_capital" | "military";
+  parentTerritoryId?: number;
+  coastal?: boolean;
+  connectionType?: "land" | "sea";
   // Computed game balance fields
   clearingSeconds: number;   // time to clear (khai hoang)
   yieldGold: number;         // gold per second when owned
@@ -160,6 +169,12 @@ export type ClaimTerritoryResult = {
 export type ActiveClearing = {
   territoryId: number;
   playerId: string;
+  sourceTownId?: number;
+  sourceTerritoryId?: number;
+  settlers?: number;
+  sourceX?: number;
+  sourceY?: number;
+  connectionType?: "land" | "sea";
   startedAt: string;
   arrivesAt?: string;
   completesAt: string;
@@ -204,6 +219,7 @@ export type ActiveBattle = {
 
 export type GameStateResult = {
   playerId: string;
+  activeMap?: "world" | "conquest";
   territories: TerritoryInfo[];
   clearings: ActiveClearing[];
   marches: MarchOrder[];
@@ -234,6 +250,7 @@ export type CreateMarchResult = {
 
 export type RealtimeEvent =
   | { type: "hello"; playerId: string; serverTime: string }
+  | { type: "world_chat"; playerId: string; playerName: string; message: string; sentAt: string }
   | { type: "player_state_updated"; playerId: string; resources?: ResourceBag; towns?: any[]; newbieShieldUntil?: string | null; reason?: string }
   | { type: "territory_clearing_started"; clearing: ActiveClearing }
   | { type: "territory_clearing_cancelled"; territoryId: number; playerId: string }
@@ -243,7 +260,9 @@ export type RealtimeEvent =
   | { type: "battle_started"; battle: ActiveBattle; consumedMarchId?: string }
   | { type: "battle_resolved"; battleId?: string; territory?: TerritoryInfo; winner?: "attacker" | "defender"; report?: any }
   | { type: "player_eliminated"; playerId: string; reason: "all_towns_captured" }
-  | { type: "world_state_hint"; reason: "reconnect" | "server_resync" };
+  | { type: "territories_pruned"; playerId: string; prunedTerritoryIds: number[] }
+  | { type: "world_state_hint"; reason: "reconnect" | "server_resync" }
+  | { type: "resync_required"; reason: "event_backlog" | "event_gap" };
 
 export type RealtimeEnvelope = {
   seq: number;
@@ -1082,6 +1101,58 @@ export function generateWorldTerritories(): BaseTerritory[] {
     t.coastal = (openSeaCount >= 2);
   });
 
+
+  return territories;
+}
+
+// Single Connected 1,000-Territory Megacontinent Layout matching reference sample image.
+export function generateConquestTerritories(): BaseTerritory[] {
+  const territories: BaseTerritory[] = [];
+  let id = 0;
+  const random = mulberry32(90917);
+  const centerX = 2800;
+  const centerY = 2100;
+
+  // Generate 1000 connected spacious territories (~2x larger size)
+  for (let row = -14; row <= 13; row++) {
+    for (let col = -18; col <= 17; col++) {
+      const px = Math.round(centerX + col * 135 + (row & 1 ? 67 : 0) + (random() - 0.5) * 20);
+      const py = Math.round(centerY + row * 105 + (random() - 0.5) * 16);
+
+      // Check rectangular continent bounding box
+      if (px >= 500 && px <= 5100 && py >= 500 && py <= 3700) {
+        const dx = (px - centerX) / 2300;
+        const dy = (py - centerY) / 1500;
+        const distSq = dx * dx + dy * dy;
+
+        // Solid Unified Conquest Green Biome (biome = 0) matching Screenshot 2
+        const biome = 0;
+
+        territories.push({
+          id: id++,
+          x: px,
+          y: py,
+          rx: Math.round(130 + random() * 16),
+          ry: Math.round(98 + random() * 14),
+          biome,
+          seed: 1000 + row * 37 + col,
+          isIslet: false,
+        });
+      }
+    }
+  }
+
+  // Mountain Pass Corridors (Cửa Ải 8, 5, 4, 6, 7)
+  [
+    [2500, 560], [3500, 560], [1040, 1300], [960, 2600], [4640, 1300], [4640, 2700], [2100, 3540], [3500, 3540], // Pass 8
+    [1600, 1100], [2400, 1040], [3960, 1100], [1500, 2900], [1760, 3100], [3700, 3100], // Pass 5
+    [1240, 1460], [1240, 1760], [3200, 880], [3440, 880], [4040, 2200], [4040, 2500], [2040, 3240], [2300, 3240], // Pass 4
+    [1640, 1560], [2100, 1440], [2800, 1300], [3700, 1440], [3960, 1760], [3900, 2160], [1640, 2200], [1840, 2500], [2160, 2700], [3360, 2700], // Pass 6
+    [2800, 1720], [3120, 1800], [3280, 2100], [3120, 2400], [2800, 2480], [2480, 2400], [2320, 2100], [2480, 1800], // Pass 7 Ring
+  ].forEach(([x, y], index) => territories.push({
+    id: id++, x, y, rx: 135, ry: 104,
+    biome: 5, seed: 8000 + index, isIslet: false,
+  }));
 
   return territories;
 }

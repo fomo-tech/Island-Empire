@@ -9,6 +9,8 @@ const EnvSchema = z.object({
   ADMIN_USER: z.string().min(3).default("admin"),
   ADMIN_PASSWORD: z.string().min(8).default("change-me"),
   REDIS_URL: z.string().optional().default(""),
+  TRUST_PROXY: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  ANTI_BOT_SECRET: z.string().min(24).default("dev-only-change-this-long-random-secret"),
 });
 
 export const config = EnvSchema.parse(process.env);

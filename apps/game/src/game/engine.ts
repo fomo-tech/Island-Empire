@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { generateWorldTerritories } from "@island/shared";
+import { generateConquestTerritories, generateWorldTerritories } from "@island/shared";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export type GameEngineHandle = {
   destroy: () => void;
@@ -16,6 +16,8 @@ export type GameEngineHandle = {
   getRegionCenter: (id: number) => { x: number; y: number } | null;
   getTerritorySpecialResources: (id: number) => string[];
   getActiveBattleForRegion: (id: number) => any;
+  canBuildStronghold: (regionId: number) => boolean;
+  getExpansionSourceRegionsForTarget: (regionId: number) => number[];
   isPlayerOwnedTown: (town: any) => boolean;
   getMarchRouteStatus: (sourceTown: any, targetRegionId: number) => { ok: boolean; message: string; requiresShip: boolean };
   sendChat: (msg: string) => void;
@@ -26,6 +28,7 @@ export type GameEngineHandle = {
   setHideTerritoryAssets: (hide: boolean) => void;
   isHidingTerritoryAssets: () => boolean;
   toggleHideTerritoryAssets: (forceValue?: boolean) => boolean;
+  getCastleSprite: (flagColor: string, emblem: string) => HTMLCanvasElement;
 };
 
 export function createIslandEmpireGame(
@@ -33,7 +36,8 @@ export function createIslandEmpireGame(
   onUpdate?: (state: any, towns: any[]) => void,
   minimapCanvas?: HTMLCanvasElement | null,
   onLayoutAction?: (actionId: string, payload?: any) => void,
-  onBattleFinished?: (report: any) => void
+  onBattleFinished?: (report: any) => void,
+  options?: { layout?: "world" | "conquest" }
 ): GameEngineHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) return {
@@ -50,6 +54,8 @@ export function createIslandEmpireGame(
     getRegionCenter: () => null,
     getTerritorySpecialResources: () => [],
     getActiveBattleForRegion: () => null,
+    canBuildStronghold: () => false,
+    getExpansionSourceRegionsForTarget: () => [],
     isPlayerOwnedTown: () => false,
     getMarchRouteStatus: () => ({ ok: false, message: "Không có bản đồ", requiresShip: false }),
     sendChat: () => {},
@@ -83,6 +89,7 @@ export function createIslandEmpireGame(
   }
 
   function getDefaultFarZoom() {
+    if (options?.layout === "conquest") return W <= 700 ? 0.28 : 0.48;
     if (W <= 600) return 0.30;
     if (W <= 1024) return 0.40;
     return 0.52;
@@ -106,7 +113,8 @@ export function createIslandEmpireGame(
   window.addEventListener("pagehide", flushCameraOnPageHide);
 
   const TAU = Math.PI * 2;
-  const CAMERA_KEY = "island_empire_camera_v1";
+  const isConquestLayout = options?.layout === "conquest";
+  const CAMERA_KEY = isConquestLayout ? "island_empire_conquest_camera_v1" : "island_empire_camera_v1";
   const ONBOARDING_KEY = "island_empire_onboarding_pending";
   const BASE_ZOOM = 1;
   const FIXED_FAR_ZOOM = 0.52;
@@ -282,7 +290,7 @@ export function createIslandEmpireGame(
     return out;
   }
 
-  const allGenerated = generateWorldTerritories();
+  const allGenerated = isConquestLayout ? generateConquestTerritories() : generateWorldTerritories();
   const regions = allGenerated.filter(t => !t.isIslet);
   const islets = allGenerated.filter(t => t.isIslet);
   const REGION_POLYGON_CELL_SIZE = 620;
@@ -451,12 +459,18 @@ export function createIslandEmpireGame(
     { x: 1095, y: 1515, team: COLORS.purple },
   ];
 
+  // Conquest has its own territories and must not inherit demo towns or ships
+  // from the persistent world map.
+  if (isConquestLayout) {
+    towns.length = 0;
+    ships.length = 0;
+  }
+
   const buttons = [
     { id: "army", x: 34, y: H - 840, w: 116, h: 98, label: "QUÂN ĐỘI" },
     { id: "build", x: 34, y: H - 710, w: 116, h: 98, label: "XÂY DỰNG" },
     { id: "research", x: 34, y: H - 580, w: 116, h: 98, label: "NGHIÊN CỨU" },
     { id: "treasure", x: W - 118 - 34, y: 92, w: 118, h: 92, label: "BẢO VẬT" },
-    { id: "ally", x: W - 118 - 34, y: 196, w: 118, h: 92, label: "LIÊN MINH" },
     { id: "map", x: W - 118 - 34, y: 300, w: 118, h: 92, label: "BẢN ĐỒ" },
     { id: "event", x: W - 118 - 34, y: 404, w: 118, h: 92, label: "SỰ KIỆN" },
     { id: "zoomIn", x: W - 54 - 34, y: H - 460, w: 54, h: 54, label: "+" },
@@ -501,6 +515,8 @@ export function createIslandEmpireGame(
     regionOwnerEmblems: {} as Record<number, string>,
     regionOwnerAllianceTags: {} as Record<number, string>,
     regionOwnerAllianceEmblems: {} as Record<number, string>,
+    regionSettlementKinds: {} as Record<number, "capital" | "sub_capital" | "military">,
+    expansionSourceRegionId: null as number | null,
     hasAuthoritativeOwnership: false,
     // Clearing progress per region: 0.0 → 1.0
     regionClearing: [] as number[],
@@ -612,6 +628,7 @@ export function createIslandEmpireGame(
     state.regionOwnerEmblems = {};
     state.regionOwnerAllianceTags = {};
     state.regionOwnerAllianceEmblems = {};
+    state.regionSettlementKinds = {};
     state.hasAuthoritativeOwnership = false;
     state.regionClearing = [];
     state.regionInProgress = -1;
@@ -677,7 +694,7 @@ export function createIslandEmpireGame(
     const biomePopMult = [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][r.biome ?? 0] || 1;
     const isletPenalty = r?.isIslet ? 0.55 : 1;
     const base = ownerCode === 1 ? 24 : 48;
-    return Math.round(base + territoryAreaFactor(r) * 28 * biomePopMult * isletPenalty);
+    return Math.max(80, Math.round(base + territoryAreaFactor(r) * 28 * biomePopMult * isletPenalty));
   }
 
   function clearingDuration(rOrId?: any) {
@@ -767,6 +784,12 @@ export function createIslandEmpireGame(
     state.regionInProgress = -1;
     state.regionClearing[regionId] = 0;
     delete state.activeClearingTimings[regionId];
+    state.regionOwnership[regionId] = 0;
+    delete state.regionOwnerNames[regionId];
+    delete state.regionOwnerFlagColors[regionId];
+    delete state.regionOwnerEmblems[regionId];
+    delete state.regionOwnerIds[regionId];
+    delete state.regionSettlementKinds[regionId];
     if (!canReturnToTown && travel.populationCost) {
       travel.populationCost = 0;
       pushLog("SYSTEM: THÀNH XUẤT PHÁT ĐÃ MẤT, ĐỘI THỢ XÂY THÀNH BỊ TAN RÃ");
@@ -1141,8 +1164,8 @@ export function createIslandEmpireGame(
     };
   }
 
-  function text(str, x, y, size, color, align) {
-    ctx.font = `700 ${size}px "Courier New", monospace`;
+  function text(str: string, x: number, y: number, size: number, color?: string, align?: CanvasTextAlign) {
+    ctx.font = `700 ${size}px 'Outfit', 'Inter', system-ui, sans-serif`;
     ctx.textAlign = align || "left";
     ctx.textBaseline = "top";
     ctx.lineWidth = Math.max(2, Math.floor(size / 5));
@@ -2414,13 +2437,13 @@ export function createIslandEmpireGame(
   }
 
   function drawRegionTerrain(r, seed, rx, ry, originalBiome, terrainBiome = originalBiome) {
-    if (hideTerritoryAssets || fastRenderMode || state.zoom < 0.45) return;
+    if (hideTerritoryAssets || (fastRenderMode && isFastPanning()) || state.zoom < 0.15) return;
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
 
-    // Calculate territory resource richness based on seed (tối ưu Canvas tối đa: 1-2 items/region)
+    // Calculate territory resource richness based on seed (2-3 items for 60FPS smooth performance)
     const richness = hash(seed * 43 + r.id * 19); // 0.0 -> 1.0
-    const count = 1 + Math.floor(richness * 1.2);  // Chỉ 1-2 items tinh gọn mỗi ô
+    const count = 2 + Math.floor(richness * 1.5);
 
     const items: Array<{
       type: "resource" | "sprite";
@@ -2441,20 +2464,20 @@ export function createIslandEmpireGame(
       const pick = hash(seed * 73 + i * 31);
       const pick2 = hash(seed * 101 + i * 43);
 
-      if (pick < 0.28) {
+      if (pick < 0.20) {
         let resType = availableRes[Math.floor(pick2 * availableRes.length)];
         if (originalBiome === 0 || originalBiome === 6 || originalBiome === 7) {
-          resType = pick < 0.12 ? "wood" : pick < 0.20 ? "food" : "gold";
+          resType = pick < 0.10 ? "wood" : pick < 0.16 ? "food" : "gold";
         } else if (originalBiome === 1) {
-          resType = pick < 0.14 ? "gold" : "stone";
+          resType = pick < 0.10 ? "gold" : "stone";
         } else if (originalBiome === 3) {
-          resType = pick < 0.14 ? "sulfur" : "coal";
+          resType = pick < 0.10 ? "sulfur" : "coal";
         } else if (originalBiome === 4) {
-          resType = pick < 0.14 ? "gems" : "wood";
+          resType = pick < 0.10 ? "gems" : "wood";
         } else if (originalBiome === 5) {
-          resType = pick < 0.14 ? "iron" : "stone";
+          resType = pick < 0.10 ? "iron" : "stone";
         } else if (originalBiome === 2) {
-          resType = pick < 0.14 ? "stone" : "gems";
+          resType = pick < 0.10 ? "stone" : "gems";
         }
         items.push({ type: "resource", x, y, pick, pick2, resType });
       } else {
@@ -2530,21 +2553,21 @@ export function createIslandEmpireGame(
 
       // 0. Grassland Biome (Thảo Nguyên - Oak trees, weeping willows, deer herds, wheat farms, ruins)
       } else {
-        if (pick > 0.44) {
-          if (pick2 > 0.70) drawWillowTree(x, y, 1.35);                       // Cây liễu rũ AOE
-          else if (pick2 > 0.35) drawOakTree(x, y, 1.38);                     // Cây sồi xanh tươi 3D AOE
+        if (pick > 0.40) {
+          if (pick2 > 0.65) drawOakTree(x, y, 1.38);                         // Cây sồi xanh tươi 3D AOE
+          else if (pick2 > 0.35) drawTree(x, y, 1.35);                        // Cây xanh tán rậm
           else drawAutumnTree(x, y, 1.35);
         }
-        else if (pick > 0.28) drawDeer(x, y, 1.30);                           // Đàn hươu nai AOE
-        else if (pick > 0.18) drawFarmPatch(x, y, 1.25);                      // Vựa lúa mì AOE
-        else if (pick > 0.10) drawRuins(x, y, 1.25);                          // Tàn tích đền cổ AOE
+        else if (pick > 0.24) drawDeer(x, y, 1.30);                           // Đàn hươu nai AOE
+        else if (pick > 0.15) drawBerryBush(x, y, 1.25, "#dc2626");           // Bụi quả dại đỏ
+        else if (pick > 0.08) drawFarmPatch(x, y, 1.25);                      // Vựa lúa mì AOE
         else if (pick > 0.04) drawVineBush(x, y, 1.25);                       // Bụi nho dại tím
         else drawChest(x, y, 1.30);
       }
     });
 
-    if (terrainBiome === 0 || terrainBiome === 6) {
-      const fcount = 0; // Tắt bớt cụm hoa cỏ phụ để tối ưu Canvas render
+    if (!isFastPanning() && (terrainBiome === 0 || terrainBiome === 5 || terrainBiome === 6)) {
+      const fcount = 1 + Math.floor(hash(seed * 111) * 2);
       for (let i = 0; i < fcount; i++) {
         const fa = hash(seed * 137 + i * 53) * TAU;
         const frr = Math.sqrt(hash(seed * 139 + i * 57)) * 0.65;
@@ -2629,6 +2652,73 @@ export function createIslandEmpireGame(
     }
 
     return "enemy";
+  }
+
+  function expansionConnectionType(sourceRegionId: number, targetRegionId: number) {
+    const source = landById(sourceRegionId);
+    const target = landById(targetRegionId);
+    if (!source || !target) return null;
+
+    const dx = Math.abs(source.x - target.x);
+    const dy = Math.abs(source.y - target.y);
+    const centerDistance = Math.hypot(dx, dy);
+
+    const sourceSpecials = territorySpecialResources(source.id);
+    const sourceHasPort = Boolean(source.isIslet || source.coastal || sourceSpecials.includes("Bến tàu tự nhiên"));
+
+    // RULE 1: If source is an Island (isIslet) or has Harbor, allow sea connection within 2500px sea radius
+    if (source.isIslet) {
+      return centerDistance <= 2500 ? "sea" : null;
+    }
+
+    // RULE 2: If target is an Island (isIslet): source MUST have a harbor ("Bến tàu tự nhiên" or islet)!
+    if (target.isIslet) {
+      if (!sourceHasPort) return null;
+      if (centerDistance > 2600) return null;
+      let minIslandDist = Infinity;
+      allGenerated.forEach((t) => {
+        if (t.id !== source.id && t.isIslet) {
+          const d = Math.hypot(source.x - t.x, source.y - t.y);
+          if (d < minIslandDist) minIslandDist = d;
+        }
+      });
+      return centerDistance <= minIslandDist + 200 ? "sea" : null;
+    }
+
+    // RULE 3: Mainland to Mainland: strict 1-tile adjacent border touching
+    const sumRx = (source.rx || 100) + (target.rx || 100);
+    const sumRy = (source.ry || 100) + (target.ry || 100);
+    const normDistSq = (dx / sumRx) ** 2 + (dy / sumRy) ** 2;
+    return normDistSq <= 0.85 ? "land" : null;
+  }
+
+  function expansionTargetState(regionId: number): "available" | "active" | null {
+    if (derivedRegionOwnership(regionId) !== 0) return null;
+    const sourceRegionId = state.expansionSourceRegionId;
+    if (sourceRegionId !== null) {
+      return expansionConnectionType(sourceRegionId, regionId) ? "active" : null;
+    }
+    const ownedIds = Object.keys(state.regionOwnership || {})
+      .map(Number)
+      .filter((id) => (state.regionOwnership[id] === 1 || state.regionOwnerIds?.[id] === state.localPlayerId));
+
+    for (const id of ownedIds) {
+      if (expansionConnectionType(id, regionId)) return "available";
+    }
+    return null;
+  }
+
+  function expansionSourceRegionsForTarget(regionId: number): number[] {
+    if (derivedRegionOwnership(regionId) !== 0) return [];
+    const sources: number[] = [];
+    const ownedIds = Object.keys(state.regionOwnership || {})
+      .map(Number)
+      .filter((id) => (state.regionOwnership[id] === 1 || state.regionOwnerIds?.[id] === state.localPlayerId));
+
+    for (const id of ownedIds) {
+      if (expansionConnectionType(id, regionId)) sources.push(id);
+    }
+    return sources;
   }
 
   function drawRegion(r, idx, pass, isIslet) {
@@ -2796,7 +2886,7 @@ export function createIslandEmpireGame(
 
     // Pass 2: Main land body using Shared Edge Mesh (Flat and unified)
 
-    const ownerCode = derivedRegionOwnership(idx);
+    const ownerCode = isConquestLayout ? 0 : derivedRegionOwnership(idx);
     const isWildBase = ownerCode === 0;
 
     const isSelected = state.selectedRegion === idx;
@@ -2836,16 +2926,18 @@ export function createIslandEmpireGame(
     strokeSmoothPath(landInflated, biome.a, 4.2); // Wide seam-filler stroke to close all gaps between organic edges
 
 
-    if (!fastRenderMode) drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
+    if (!fastRenderMode && !isConquestLayout) drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
 
     // Restore clip context early so highlights and borders can draw outwards without clipping
     ctx.restore();
 
-    const conflict = getRegionBattleState(idx);
-    const isClearing = state.regionInProgress === idx ||
+    const conflict = isConquestLayout ? null : getRegionBattleState(idx);
+    const isClearing = isConquestLayout ? false : (
+      state.regionInProgress === idx ||
       Boolean(state.activeClearingTimings?.[idx]) ||
       (state.regionClearing[idx] > 0 && state.regionClearing[idx] < 1) ||
-      state.regionOwnerNames[idx] === "ĐANG KHAI HOANG";
+      state.regionOwnerNames[idx] === "ĐANG KHAI HOANG"
+    );
 
     const isLocalClearing = isClearing && (
       state.regionInProgress === idx ||
@@ -2890,6 +2982,24 @@ export function createIslandEmpireGame(
       ctx.globalAlpha = 0.10;
       const enemyLand = inflatePolygon(displayLand, 3, r.x, r.y);
       fillSmoothPath(enemyLand, flagColor);
+      ctx.restore();
+    }
+
+    const expansionState = pass === 2 ? expansionTargetState(idx) : null;
+    if (expansionState) {
+      const pulse = 0.45 + Math.sin(state.tick * 4 + idx) * 0.18;
+      ctx.save();
+      if (expansionState === "active") {
+        ctx.globalAlpha = 0.18 + pulse * 0.12;
+        fillSmoothPath(targetPoly, "#fbbf24");
+        ctx.globalAlpha = 0.7 + pulse * 0.25;
+        strokeSmoothPath(targetPoly, "#fef08a", 5);
+      } else {
+        ctx.globalAlpha = 0.055 + pulse * 0.025;
+        fillSmoothPath(targetPoly, "#facc15");
+        ctx.globalAlpha = 0.22 + pulse * 0.1;
+        strokeSmoothPath(targetPoly, "#fde68a", 2.5);
+      }
       ctx.restore();
     }
 
@@ -3548,6 +3658,7 @@ export function createIslandEmpireGame(
   }
 
   function drawTree(x: number, y: number, scale?: number, biomeId = 0) {
+    if (state.camScale < 0.45) return;
     const sc = scale || 1;
     const rnd = Math.abs(Math.sin(x * 12.9898 + y * 78.233));
     if (biomeId === 1 || rnd > 0.75) {
@@ -3804,7 +3915,6 @@ export function createIslandEmpireGame(
 
     // Sort all background decorations by Y coordinate for correct overlap!
     items.sort((a, b) => a.y - b.y);
-
     items.forEach((item, i) => {
       const { type, x, y, scale } = item;
       if (type === "tree") {
@@ -3818,398 +3928,1035 @@ export function createIslandEmpireGame(
     });
   }
 
-  function drawFlagEmblem(x: number, y: number, emblem: string, scale = 1) {
+  function drawFlagEmblem(x: number, y: number, emblem: string, scale = 1, targetCtx?: CanvasRenderingContext2D) {
     const s = scale;
-    ctx.fillStyle = "#fff7d6";
+    const drawCtx = targetCtx || ctx;
+    const px = (pxX: number, pxY: number, pxW: number, pxH: number, color: string) => {
+      drawCtx.fillStyle = color;
+      drawCtx.fillRect(Math.floor(pxX), Math.floor(pxY), Math.ceil(pxW), Math.ceil(pxH));
+    };
+
+    drawCtx.fillStyle = "#fff7d6";
     if (emblem === "shield") {
-      pxRect(x - 4 * s, y - 6 * s, 8 * s, 9 * s, "#fff7d6");
-      pxRect(x - 2 * s, y + 3 * s, 4 * s, 3 * s, "#fff7d6");
+      px(x - 4 * s, y - 6 * s, 8 * s, 9 * s, "#fff7d6");
+      px(x - 2 * s, y + 3 * s, 4 * s, 3 * s, "#fff7d6");
     } else if (emblem === "tree") {
-      pxRect(x - 2 * s, y - 7 * s, 4 * s, 12 * s, "#fff7d6");
-      pxRect(x - 6 * s, y - 6 * s, 12 * s, 5 * s, "#fff7d6");
-      pxRect(x - 4 * s, y - 11 * s, 8 * s, 5 * s, "#fff7d6");
+      px(x - 2 * s, y - 7 * s, 4 * s, 12 * s, "#fff7d6");
+      px(x - 6 * s, y - 6 * s, 12 * s, 5 * s, "#fff7d6");
+      px(x - 4 * s, y - 11 * s, 8 * s, 5 * s, "#fff7d6");
     } else if (emblem === "mountain") {
-      pxRect(x - 8 * s, y + 1 * s, 16 * s, 5 * s, "#fff7d6");
-      pxRect(x - 4 * s, y - 5 * s, 8 * s, 6 * s, "#fff7d6");
+      px(x - 8 * s, y + 1 * s, 16 * s, 5 * s, "#fff7d6");
+      px(x - 4 * s, y - 5 * s, 8 * s, 6 * s, "#fff7d6");
     } else if (emblem === "anchor") {
-      pxRect(x - 2 * s, y - 9 * s, 4 * s, 15 * s, "#fff7d6");
-      pxRect(x - 7 * s, y + 2 * s, 14 * s, 4 * s, "#fff7d6");
-      pxRect(x - 5 * s, y - 8 * s, 10 * s, 3 * s, "#fff7d6");
+      px(x - 2 * s, y - 9 * s, 4 * s, 15 * s, "#fff7d6");
+      px(x - 8 * s, y + 3 * s, 16 * s, 4 * s, "#fff7d6");
+      px(x - 6 * s, y + 7 * s, 12 * s, 3 * s, "#fff7d6");
     } else if (emblem === "crown") {
-      pxRect(x - 9 * s, y - 2 * s, 18 * s, 7 * s, "#fff7d6");
-      pxRect(x - 7 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
-      pxRect(x - 2 * s, y - 10 * s, 4 * s, 8 * s, "#fff7d6");
-      pxRect(x + 3 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
+      px(x - 9 * s, y - 2 * s, 18 * s, 7 * s, "#fff7d6");
+      px(x - 7 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
+      px(x - 2 * s, y - 9 * s, 4 * s, 7 * s, "#fff7d6");
+      px(x + 3 * s, y - 7 * s, 4 * s, 5 * s, "#fff7d6");
     } else if (emblem === "star") {
-      pxRect(x - 2 * s, y - 8 * s, 4 * s, 16 * s, "#fff7d6");
-      pxRect(x - 8 * s, y - 2 * s, 16 * s, 4 * s, "#fff7d6");
-      pxRect(x - 5 * s, y - 5 * s, 10 * s, 10 * s, "#fff7d6");
-    } else if (emblem === "dragon" || emblem === "eagle") {
-      pxRect(x - 8 * s, y - 6 * s, 16 * s, 5 * s, "#fff7d6");
-      pxRect(x - 4 * s, y - 10 * s, 8 * s, 14 * s, "#fff7d6");
-      pxRect(x - 6 * s, y + 4 * s, 12 * s, 3 * s, "#fff7d6");
+      px(x - 8 * s, y - 6 * s, 16 * s, 5 * s, "#fff7d6");
+      px(x - 4 * s, y - 10 * s, 8 * s, 14 * s, "#fff7d6");
+      px(x - 6 * s, y + 4 * s, 12 * s, 3 * s, "#fff7d6");
     } else if (emblem === "lion") {
-      pxRect(x - 6 * s, y - 8 * s, 12 * s, 10 * s, "#fff7d6");
-      pxRect(x - 4 * s, y + 2 * s, 8 * s, 6 * s, "#fff7d6");
+      px(x - 6 * s, y - 8 * s, 12 * s, 10 * s, "#fff7d6");
+      px(x - 4 * s, y + 2 * s, 8 * s, 6 * s, "#fff7d6");
     } else if (emblem === "swords" || emblem === "tower") {
-      pxRect(x - 7 * s, y - 7 * s, 14 * s, 3 * s, "#fff7d6");
-      pxRect(x - 2 * s, y - 10 * s, 4 * s, 18 * s, "#fff7d6");
+      px(x - 7 * s, y - 7 * s, 14 * s, 3 * s, "#fff7d6");
+      px(x - 2 * s, y - 10 * s, 4 * s, 18 * s, "#fff7d6");
     } else {
-      pxRect(x - 5 * s, y - 5 * s, 10 * s, 10 * s, "#fff7d6");
+      px(x - 5 * s, y - 5 * s, 10 * s, 10 * s, "#fff7d6");
     }
   }
 
-  function drawEmpireCastleSprite(x: number, y: number, flagColor: string, emblem: string, scale = 1, relation: "own" | "ally" | "enemy" = "enemy") {
-    const s = scale;
-    const r = (dx: number, dy: number, w: number, h: number, color: string) => pxRect(x + dx * s, y + dy * s, w * s, h * s, color);
-    const roof = (points: number[][], color: string) => {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x + points[0][0] * s, y + points[0][1] * s);
-      for (let i = 1; i < points.length; i++) ctx.lineTo(x + points[i][0] * s, y + points[i][1] * s);
-      ctx.closePath();
-      ctx.fill();
+  const castleSpriteCacheMap = new Map<string, HTMLCanvasElement>();
+  const miniCastleSpriteCacheMap = new Map<string, HTMLCanvasElement>();
+
+  function getCachedGrandCastleSprite(flagColor: string, emblem: string): HTMLCanvasElement {
+    const key = `grand_v16_${emblem}_${flagColor}`;
+    let cached = castleSpriteCacheMap.get(key);
+    if (cached) return cached;
+
+    const size = 320;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = size;
+    offCanvas.height = size;
+    const offCtx = offCanvas.getContext("2d");
+    if (!offCtx) return offCanvas;
+
+    const cx = size / 2;
+    const cy = size / 2 + 45;
+
+    const isoPoly = (pts: [number, number][], fillStyle: string | CanvasGradient) => {
+      offCtx.fillStyle = fillStyle;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + pts[0][0], cy + pts[0][1]);
+      for (let i = 1; i < pts.length; i++) offCtx.lineTo(cx + pts[i][0], cy + pts[i][1]);
+      offCtx.closePath();
+      offCtx.fill();
     };
 
-    // Fast-path optimization during active panning/dragging or small scale: 0.005ms per castle (0 lag)
-    if (fastRenderMode || scale < 0.22) {
-      r(-32, 28, 64, 12, "rgba(0,0,0,0.5)");
-      r(-26, -30, 52, 58, "#1e293b");
-      r(-22, -26, 44, 54, "#334155");
-      r(-12, -26, 24, 54, "#475569");
-      r(-28, -36, 56, 10, "#0f172a");
-      roof([[-32, -34], [0, -68], [32, -34]], flagColor);
-      r(-2, -74, 4, 8, "#fbbf24");
+    const isoCube = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string, cTop: string) => {
+      isoPoly([
+        [dx - w / 2, dy],
+        [dx, dy + depth / 2],
+        [dx, dy + depth / 2 - h],
+        [dx - w / 2, dy - h]
+      ], cLeft);
+      isoPoly([
+        [dx, dy + depth / 2],
+        [dx + w / 2, dy],
+        [dx + w / 2, dy - h],
+        [dx, dy + depth / 2 - h]
+      ], cRight);
+      isoPoly([
+        [dx - w / 2, dy - h],
+        [dx, dy + depth / 2 - h],
+        [dx + w / 2, dy - h],
+        [dx, dy - depth / 2 - h]
+      ], cTop);
+    };
+
+    const isoRoof = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string) => {
+      isoPoly([[dx - w / 2, dy], [dx, dy + depth / 2], [dx, dy - h]], cLeft);
+      isoPoly([[dx, dy + depth / 2], [dx + w / 2, dy], [dx, dy - h]], cRight);
+    };
+
+    const isoCylinder = (dx: number, dy: number, rx: number, h: number, c1: string, c2: string, cTop: string) => {
+      const grad = offCtx.createLinearGradient(cx + dx - rx, cy + dy, cx + dx + rx, cy + dy);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      offCtx.fillStyle = grad;
+      offCtx.beginPath();
+      // Start at top-left
+      offCtx.moveTo(cx + dx - rx, cy + dy - h);
+      // Top-front arc (left to right)
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, Math.PI, 0, true);
+      // Line down to bottom-right
+      offCtx.lineTo(cx + dx + rx, cy + dy);
+      // Bottom-front arc (right to left)
+      offCtx.ellipse(cx + dx, cy + dy, rx, rx * 0.45, 0, 0, Math.PI, false);
+      // Line up to top-left
+      offCtx.lineTo(cx + dx - rx, cy + dy - h);
+      offCtx.closePath();
+      offCtx.fill();
+
+      offCtx.fillStyle = cTop;
+      offCtx.beginPath();
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, 0, Math.PI * 2);
+      offCtx.fill();
+    };
+
+    const rectGrad = (dx: number, dy: number, w: number, h: number, c1: string, c2: string, vertical = true) => {
+      const grad = vertical 
+        ? offCtx.createLinearGradient(cx + dx, cy + dy, cx + dx, cy + dy + h)
+        : offCtx.createLinearGradient(cx + dx, cy + dy, cx + dx + w, cy + dy);
+      grad.addColorStop(0, c1 || "#2563eb");
+      grad.addColorStop(1, c2 || "#1e40af");
+      offCtx.fillStyle = grad;
+      offCtx.fillRect(Math.floor(cx + dx), Math.floor(cy + dy), Math.ceil(w), Math.ceil(h));
+    };
+
+    const r = (dx: number, dy: number, w: number, h: number, color: string) => {
+      offCtx.fillStyle = color || "#000000";
+      offCtx.fillRect(Math.floor(cx + dx), Math.floor(cy + dy), Math.ceil(w), Math.ceil(h));
+    };
+
+    const roof3D = (points: number[][], c1: string, c2: string) => {
+      const grad = offCtx.createLinearGradient(cx + points[0][0], cy + points[0][1], cx + points[2][0], cy + points[2][1]);
+      grad.addColorStop(0, c1 || "#2563eb");
+      grad.addColorStop(1, c2 || "#1e40af");
+      offCtx.fillStyle = grad;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + points[0][0], cy + points[0][1]);
+      for (let i = 1; i < points.length; i++) offCtx.lineTo(cx + points[i][0], cy + points[i][1]);
+      offCtx.closePath();
+      offCtx.fill();
+    };
+
+    const shadowGrad = offCtx.createRadialGradient(cx + 10, cy + 50, 15, cx + 10, cy + 50, 142);
+    shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.94)");
+    shadowGrad.addColorStop(0.55, "rgba(0, 0, 0, 0.52)");
+    shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    offCtx.fillStyle = shadowGrad;
+    offCtx.beginPath();
+    offCtx.ellipse(cx + 10, cy + 50, 142, 44, 0, 0, Math.PI * 2);
+    offCtx.fill();
+
+    const bannerWave = Math.sin(state.tick * 0.2) * 2.5;
+    const bannerCol = (flagColor && typeof flagColor === "string" && flagColor.length >= 3) ? flagColor : "#2563eb";
+
+    if (emblem === "dragon") {
+      const wallRedLeft = "#6f1d1b";
+      const wallRedRight = "#b53529";
+      const wallRedTop = "#e27454";
+      const tileDark = "#75400d";
+      const tileGold = "#e5a72c";
+
+      isoCube(0, 40, 248, 18, 50, "#253329", "#526348", "#8b8c62");
+      isoCube(0, 25, 224, 52, 42, wallRedLeft, wallRedRight, wallRedTop);
+
+      // Four guarded corner pavilions frame the long citadel.
+      for (const tx of [-92, 92]) {
+        isoCube(tx, 18, 50, 78, 28, "#581714", "#9f2b22", "#df7652");
+        isoRoof(tx, -60, 68, 28, 24, tileDark, tileGold);
+        isoRoof(tx, -88, 46, 20, 18, "#9a570f", "#f3c04b");
+      }
+
+      // Tall central gate palace with layered golden eaves.
+      isoCube(0, 8, 116, 102, 34, "#611a17", "#aa3025", "#e98762");
+      isoRoof(0, -94, 152, 34, 38, tileDark, tileGold);
+      isoCube(0, -92, 72, 38, 24, "#7b211b", "#c13b2b", "#ef9a6f");
+      isoRoof(0, -130, 102, 30, 28, "#9a570f", "#f5cf62");
+
+      const drawLantern = (lx: number, ly: number) => {
+        const aura = offCtx.createRadialGradient(cx + lx, cy + ly, 1, cx + lx, cy + ly, 20);
+        aura.addColorStop(0, "rgba(239, 68, 68, 0.98)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + lx, cy + ly, 20, 0, Math.PI * 2); offCtx.fill();
+        offCtx.fillStyle = "#ef4444"; offCtx.fillRect(cx + lx - 4, cy + ly - 6, 8, 12);
+        offCtx.fillStyle = "#fef08a"; offCtx.fillRect(cx + lx - 2, cy + ly - 4, 4, 8);
+      };
+      drawLantern(-92, -18);
+      drawLantern(92, -18);
+      drawLantern(-31, -48);
+      drawLantern(31, -48);
+
+      r(-21, 0, 42, 42, "#321410");
+      for (let gx = -15; gx <= 15; gx += 10) r(gx, 4, 3, 38, "#d39a3c");
+      drawFlagEmblem(cx, cy - 59, "dragon", 0.72, offCtx);
+      isoCylinder(0, -160, 3, 32, "#9a570f", "#f5cf62", "#fff7d6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 188 + bannerWave);
+      offCtx.lineTo(cx + 48, cy - 194 + bannerWave); offCtx.lineTo(cx + 40, cy - 176 + bannerWave); offCtx.lineTo(cx + 48, cy - 158 + bannerWave); offCtx.lineTo(cx + 2, cy - 164 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 176 + bannerWave, emblem, 0.85, offCtx);
+    }
+    else if (emblem === "eagle") {
+      const marbleLeft = "#69747b";
+      const marbleRight = "#b8c1c5";
+      const marbleTop = "#f2ead7";
+      const copperDark = "#35564f";
+      const copperLight = "#78a493";
+
+      isoCube(0, 40, 246, 18, 48, "#3d474d", "#78858c", "#c5cbd0");
+      isoCube(0, 25, 222, 56, 42, marbleLeft, marbleRight, marbleTop);
+
+      // Imperial wings and copper-roofed corner towers.
+      for (const tx of [-91, 91]) {
+        isoCylinder(tx, 21, 24, 86, "#59656c", "#cbd2d4", "#f4edda");
+        isoRoof(tx, -65, 58, 38, 24, copperDark, copperLight);
+      }
+      isoCube(0, 10, 126, 104, 34, "#626e75", "#c5ced0", "#fff7e5");
+      isoRoof(0, -94, 144, 48, 34, "#83621e", "#dfb94e");
+      isoCylinder(0, -142, 20, 30, "#866723", "#e8c763", "#fff0a6");
+      isoRoof(0, -172, 48, 12, 18, "#80601d", "#f0d16b");
+
+      // A formal colonnade separates this palace from the military castles.
+      for (const px of [-62, -42, 42, 62]) {
+        isoCylinder(px, 20, 5, 54, "#7b858a", "#e0e4e2", "#fff9e8");
+      }
+
+      const drawImperialWindow = (wx: number, wy: number) => {
+        const aura = offCtx.createRadialGradient(cx + wx, cy + wy, 1, cx + wx, cy + wy, 18);
+        aura.addColorStop(0, "rgba(254, 240, 138, 0.96)");
+        aura.addColorStop(0.5, "rgba(245, 158, 11, 0.55)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + wx, cy + wy, 18, 0, Math.PI * 2);
+        offCtx.fill();
+        r(wx - 4, wy - 9, 8, 18, "#facc15");
+      };
+      drawImperialWindow(-91, -18);
+      drawImperialWindow(91, -18);
+      drawImperialWindow(-27, -48);
+      drawImperialWindow(27, -48);
+
+      r(-19, 1, 38, 42, "#263238");
+      drawFlagEmblem(cx, cy - 62, "eagle", 0.75, offCtx);
+      isoCylinder(0, -184, 3, 12, "#8b6a24", "#f3d36d", "#fff7d6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 190 + bannerWave);
+      offCtx.lineTo(cx + 48, cy - 196 + bannerWave); offCtx.lineTo(cx + 41, cy - 178 + bannerWave); offCtx.lineTo(cx + 48, cy - 160 + bannerWave); offCtx.lineTo(cx + 2, cy - 166 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 178 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. TRIỀU ĐẠI SƯ TỬ HOÀNG GIA (Royal Lion Citadel Keep - Emblem: "lion")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "lion") {
+      const stoneDark = "#504635";
+      const stoneMid = "#806f54";
+      const stoneLight = "#d8c8a5";
+      const roofDark = "#8a3f16";
+      const roofGold = "#e3ae38";
+
+      isoCube(0, 40, 246, 18, 48, "#332f28", "#625a4a", "#a69574");
+      isoCube(0, 24, 224, 50, 42, stoneDark, stoneMid, stoneLight);
+
+      // Rear watchtowers sit behind the royal keep.
+      isoCylinder(-68, -2, 22, 74, "#4b4132", "#a18d6c", "#d9c9a7");
+      isoRoof(-68, -76, 54, 34, 24, roofDark, roofGold);
+      isoCylinder(68, -2, 22, 74, "#4b4132", "#a18d6c", "#d9c9a7");
+      isoRoof(68, -76, 54, 34, 24, roofDark, roofGold);
+
+      // The central palace is tall, but its roof remains inside the sprite frame.
+      isoCube(0, 8, 116, 102, 34, stoneDark, "#9b8562", "#ead9b5");
+      isoCube(0, -76, 82, 34, 26, "#66583f", "#a89068", "#ead9b5");
+      isoRoof(0, -110, 104, 56, 32, roofDark, roofGold);
+
+      // Front drum towers give the lion castle a broad royal silhouette.
+      isoCylinder(-91, 24, 25, 88, "#443b2e", "#927e60", "#d8c8a5");
+      isoRoof(-91, -64, 60, 38, 26, roofDark, roofGold);
+      isoCylinder(91, 24, 25, 88, "#443b2e", "#927e60", "#d8c8a5");
+      isoRoof(91, -64, 60, 38, 26, roofDark, roofGold);
+
+      const drawRoyalWindow = (ox: number, oy: number, width = 9, height = 18) => {
+        const aura = offCtx.createRadialGradient(cx + ox, cy + oy, 1, cx + ox, cy + oy, 20);
+        aura.addColorStop(0, "rgba(254, 240, 138, 0.96)");
+        aura.addColorStop(0.45, "rgba(245, 158, 11, 0.62)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + ox, cy + oy, 20, 0, Math.PI * 2);
+        offCtx.fill();
+        r(ox - width / 2, oy - height / 2, width, height, "#3b2415");
+        r(ox - width / 2 + 2, oy - height / 2 + 2, width - 4, height - 4, "#facc15");
+      };
+      drawRoyalWindow(-91, -18);
+      drawRoyalWindow(91, -18);
+      drawRoyalWindow(-25, -48, 10, 20);
+      drawRoyalWindow(25, -48, 10, 20);
+
+      // Arched royal gate and lion crest.
+      r(-19, 0, 38, 42, "#261d17");
+      offCtx.fillStyle = "#261d17";
+      offCtx.beginPath();
+      offCtx.arc(cx, cy, 19, Math.PI, 0);
+      offCtx.fill();
+      r(-15, 5, 4, 37, "#7a5a2b");
+      r(-2, 1, 4, 41, "#7a5a2b");
+      r(11, 5, 4, 37, "#7a5a2b");
+      drawFlagEmblem(cx, cy - 61, "lion", 0.72, offCtx);
+
+      isoCylinder(0, -166, 3, 30, "#7c4a16", "#f5d36c", "#fff7d6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 192 + bannerWave);
+      offCtx.lineTo(cx + 48, cy - 198 + bannerWave); offCtx.lineTo(cx + 41, cy - 180 + bannerWave); offCtx.lineTo(cx + 48, cy - 162 + bannerWave); offCtx.lineTo(cx + 2, cy - 168 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 180 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 4. TRIỀU ĐẠI THÁNH KIẾM GOTHIC (Gothic Blade Fortress - Emblem: "swords")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "swords") {
+      const gothicLeft = "#171b25";
+      const gothicRight = "#394151";
+      const gothicTop = "#71798a";
+      const slateDark = "#251738";
+      const slateLight = "#6f3b8d";
+
+      isoCube(0, 40, 242, 18, 46, "#10131a", "#303746", "#697184");
+      isoCube(0, 25, 212, 54, 38, gothicLeft, gothicRight, gothicTop);
+
+      // Twin blade towers form the unmistakable Gothic silhouette.
+      for (const tx of [-70, 70]) {
+        isoCube(tx, 16, 48, 132, 26, "#11151e", "#343b4c", "#70788a");
+        isoRoof(tx, -116, 62, 62, 22, slateDark, slateLight);
+      }
+      isoCube(0, 14, 82, 104, 30, "#181c27", "#41495c", "#858da0");
+      isoRoof(0, -90, 102, 52, 28, "#2c183f", "#754197");
+
+      const drawGothicWindow = (wx: number, wy: number, height = 28) => {
+        const aura = offCtx.createRadialGradient(cx + wx, cy + wy, 1, cx + wx, cy + wy, 20);
+        aura.addColorStop(0, "rgba(196, 181, 253, 0.92)");
+        aura.addColorStop(0.5, "rgba(126, 34, 206, 0.55)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura;
+        offCtx.beginPath();
+        offCtx.arc(cx + wx, cy + wy, 20, 0, Math.PI * 2);
+        offCtx.fill();
+        r(wx - 4, wy - height / 2, 8, height, "#a78bfa");
+      };
+      drawGothicWindow(-70, -48, 34);
+      drawGothicWindow(70, -48, 34);
+      drawGothicWindow(0, -43, 30);
+
+      r(-20, 1, 40, 43, "#080a10");
+      offCtx.fillStyle = "#080a10";
+      offCtx.beginPath();
+      offCtx.arc(cx, cy + 1, 20, Math.PI, 0);
+      offCtx.fill();
+      drawFlagEmblem(cx, cy - 54, "swords", 0.72, offCtx);
+      isoCylinder(0, -142, 3, 32, "#5d4771", "#c4b5fd", "#ffffff");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 172 + bannerWave);
+      offCtx.lineTo(cx + 47, cy - 178 + bannerWave); offCtx.lineTo(cx + 39, cy - 161 + bannerWave); offCtx.lineTo(cx + 47, cy - 144 + bannerWave); offCtx.lineTo(cx + 2, cy - 150 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 24, cy - 161 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5. TRIỀU ĐẠI THÁI SƠN (Volcanic Basalt Fortress - Emblem: "mountain")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "mountain") {
+      isoCube(0, 40, 248, 20, 50, "#111113", "#3b3b3f", "#68676b");
+      isoCube(0, 24, 218, 54, 42, "#17171a", "#454449", "#77757a");
+
+      // Angular basalt bastions rise in stepped mountain terraces.
+      isoCube(-88, 22, 58, 82, 30, "#111114", "#3b3a40", "#6c6970");
+      isoCube(88, 22, 58, 82, 30, "#111114", "#3b3a40", "#6c6970");
+      isoCube(-88, -46, 40, 28, 22, "#202024", "#515057", "#858188");
+      isoCube(88, -46, 40, 28, 22, "#202024", "#515057", "#858188");
+
+      isoCube(0, 12, 112, 112, 34, "#151518", "#47464c", "#79767d");
+      isoCube(0, -78, 78, 38, 26, "#242327", "#57555c", "#8e8a91");
+      isoRoof(0, -116, 94, 42, 30, "#6b1b12", "#d94a24");
+
+      const drawMagmaTorch = (tx: number, ty: number) => {
+        const aura = offCtx.createRadialGradient(cx + tx, cy + ty, 1, cx + tx, cy + ty, 26);
+        aura.addColorStop(0, "rgba(239, 68, 68, 0.98)");
+        aura.addColorStop(0.5, "rgba(245, 158, 11, 0.7)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + tx, cy + ty, 26, 0, Math.PI * 2); offCtx.fill();
+        offCtx.fillStyle = "#ef4444"; offCtx.fillRect(cx + tx - 4, cy + ty - 6, 8, 12);
+        offCtx.fillStyle = "#fef08a"; offCtx.fillRect(cx + tx - 2, cy + ty - 4, 4, 8);
+      };
+      drawMagmaTorch(-88, -18);
+      drawMagmaTorch(88, -18);
+      drawMagmaTorch(-27, -47);
+      drawMagmaTorch(27, -47);
+
+      r(-20, 1, 40, 43, "#070708");
+      drawFlagEmblem(cx, cy - 58, "mountain", 0.72, offCtx);
+      isoCylinder(0, -158, 3, 31, "#803b17", "#f2a63b", "#fff1a6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 3, cy - 187 + bannerWave);
+      offCtx.lineTo(cx + 47, cy - 193 + bannerWave); offCtx.lineTo(cx + 40, cy - 176 + bannerWave); offCtx.lineTo(cx + 47, cy - 159 + bannerWave); offCtx.lineTo(cx + 3, cy - 165 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 176 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 6. TRIỀU ĐẠI THẦN THỤ (Elven Tree Sanctuary - Emblem: "tree")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "tree") {
+      const timberDark = "#3c2c20";
+      const timberLight = "#826342";
+      const leafDark = "#17452c";
+      const leafLight = "#4d8b52";
+
+      isoCube(0, 40, 244, 18, 48, "#26372b", "#506448", "#809071");
+      isoCube(0, 25, 216, 50, 40, "#394132", "#68745b", "#a3aa83");
+
+      for (const tx of [-91, 91]) {
+        isoCylinder(tx, 22, 25, 86, timberDark, timberLight, "#a98a5d");
+        isoRoof(tx, -64, 62, 42, 24, leafDark, leafLight);
+      }
+      isoCylinder(-55, 2, 18, 92, "#493426", "#906b47", "#b69668");
+      isoRoof(-55, -90, 45, 34, 18, leafDark, "#62a45c");
+      isoCylinder(55, 2, 18, 92, "#493426", "#906b47", "#b69668");
+      isoRoof(55, -90, 45, 34, 18, leafDark, "#62a45c");
+
+      isoCube(0, 10, 102, 104, 32, timberDark, "#8a6847", "#bea075");
+      isoRoof(0, -94, 126, 58, 32, "#143b27", "#5d9b57");
+
+      const drawGreenOrb = (ox: number, oy: number) => {
+        const aura = offCtx.createRadialGradient(cx + ox, cy + oy, 1, cx + ox, cy + oy, 24);
+        aura.addColorStop(0, "rgba(74, 222, 128, 0.98)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + ox, cy + oy, 24, 0, Math.PI * 2); offCtx.fill();
+        offCtx.fillStyle = "#4ade80"; offCtx.fillRect(cx + ox - 4, cy + oy - 4, 8, 8);
+      };
+      drawGreenOrb(-91, -18);
+      drawGreenOrb(91, -18);
+      drawGreenOrb(-27, -46);
+      drawGreenOrb(27, -46);
+
+      r(-20, 1, 40, 42, "#21180f");
+      drawFlagEmblem(cx, cy - 58, "tree", 0.74, offCtx);
+      isoCylinder(0, -152, 3, 31, "#795329", "#d6b266", "#fff4bd");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 181 + bannerWave);
+      offCtx.lineTo(cx + 46, cy - 187 + bannerWave); offCtx.lineTo(cx + 39, cy - 170 + bannerWave); offCtx.lineTo(cx + 46, cy - 153 + bannerWave); offCtx.lineTo(cx + 2, cy - 159 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 24, cy - 170 + bannerWave, emblem, 0.85, offCtx);
+    }
+    else if (emblem === "anchor") {
+      isoCube(0, 40, 248, 18, 50, "#193744", "#396877", "#79a7ae");
+      isoCube(0, 25, 220, 54, 42, "#3d5960", "#759198", "#bcc6c1");
+
+      // Twin lighthouse towers watch the harbor approaches.
+      for (const tx of [-92, 92]) {
+        isoCylinder(tx, 22, 25, 92, "#344f57", "#9aacaa", "#d9d7c7");
+        isoCylinder(tx, -70, 20, 20, "#6f4d1e", "#d2a43c", "#f9df83");
+        isoRoof(tx, -90, 50, 28, 20, "#155e75", "#36a3b5");
+      }
+      isoCube(0, 12, 112, 104, 34, "#334d55", "#8fa3a2", "#dddccc");
+      isoRoof(0, -92, 132, 54, 34, "#0f5a70", "#37a9ba");
+
+      const drawOceanBeacon = (bx: number, by: number) => {
+        const aura = offCtx.createRadialGradient(cx + bx, cy + by, 1, cx + bx, cy + by, 26);
+        aura.addColorStop(0, "rgba(56, 189, 248, 0.98)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + bx, cy + by, 26, 0, Math.PI * 2); offCtx.fill();
+        offCtx.fillStyle = "#38bdf8"; offCtx.fillRect(cx + bx - 4, cy + by - 6, 8, 12);
+        offCtx.fillStyle = "#fef08a"; offCtx.fillRect(cx + bx - 2, cy + by - 4, 4, 8);
+      };
+      drawOceanBeacon(-92, -80);
+      drawOceanBeacon(92, -80);
+      drawOceanBeacon(-28, -45);
+      drawOceanBeacon(28, -45);
+
+      r(-21, 1, 42, 43, "#14262c");
+      drawFlagEmblem(cx, cy - 58, "anchor", 0.75, offCtx);
+      isoCylinder(0, -146, 3, 31, "#785827", "#e0bc62", "#fff3b0");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 3, cy - 175 + bannerWave);
+      offCtx.lineTo(cx + 47, cy - 181 + bannerWave); offCtx.lineTo(cx + 40, cy - 164 + bannerWave); offCtx.lineTo(cx + 47, cy - 147 + bannerWave); offCtx.lineTo(cx + 3, cy - 153 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 164 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 8. TRIỀU ĐẠI KHIÊN THÉP (Steel Shield Bastion Citadel - Emblem: "shield")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "shield") {
+      const ironLeft = "#252c32";
+      const ironRight = "#53616b";
+      const ironTop = "#aebbc3";
+      const drawBattlements = (centerX: number, topY: number, width: number, count: number) => {
+        const gap = width / Math.max(1, count - 1);
+        for (let i = 0; i < count; i++) {
+          isoCube(centerX - width / 2 + gap * i, topY, 12, 13, 8, "#30383e", "#65737c", "#d1d9de");
+        }
+      };
+
+      isoCube(0, 40, 250, 18, 48, "#171b1e", "#3b454c", "#7c8b94");
+
+      // Rear towers and the curtain wall create a compact defensive courtyard.
+      isoCube(-72, 0, 48, 76, 28, ironLeft, ironRight, ironTop);
+      isoCube(72, 0, 48, 76, 28, ironLeft, ironRight, ironTop);
+      drawBattlements(-72, -76, 34, 3);
+      drawBattlements(72, -76, 34, 3);
+      isoCube(0, 25, 214, 60, 42, "#2c3338", "#5a6871", "#aebbc3");
+      drawBattlements(0, -35, 176, 9);
+
+      // Central gatehouse and two heavy front bastions.
+      isoCube(0, 13, 102, 103, 34, "#20272c", "#526069", "#c7d0d5");
+      drawBattlements(0, -90, 80, 5);
+      isoCube(-94, 27, 52, 94, 30, "#20272c", "#4d5a62", "#bac5cb");
+      isoCube(94, 27, 52, 94, 30, "#20272c", "#4d5a62", "#bac5cb");
+      drawBattlements(-94, -67, 38, 3);
+      drawBattlements(94, -67, 38, 3);
+
+      // Recessed gate, portcullis and steel dynasty crest.
+      r(-22, -2, 44, 48, "#0b1014");
+      offCtx.fillStyle = "#0b1014";
+      offCtx.beginPath();
+      offCtx.arc(cx, cy - 2, 22, Math.PI, 0);
+      offCtx.fill();
+      for (let gx = -17; gx <= 17; gx += 8) r(gx, -7, 3, 53, "#89979f");
+      for (let gy = 8; gy <= 40; gy += 11) r(-20, gy, 40, 3, "#89979f");
+      drawFlagEmblem(cx, cy - 54, "shield", 0.82, offCtx);
+
+      const drawArrowSlit = (sx: number, sy: number) => {
+        r(sx - 2, sy - 7, 4, 15, "#0a0e11");
+        r(sx - 6, sy - 1, 12, 3, "#0a0e11");
+      };
+      drawArrowSlit(-94, -22);
+      drawArrowSlit(94, -22);
+      drawArrowSlit(-30, -50);
+      drawArrowSlit(30, -50);
+
+      isoCylinder(0, -103, 3, 43, "#64727b", "#d8e0e4", "#ffffff");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 3, cy - 143 + bannerWave);
+      offCtx.lineTo(cx + 48, cy - 149 + bannerWave); offCtx.lineTo(cx + 40, cy - 132 + bannerWave); offCtx.lineTo(cx + 48, cy - 115 + bannerWave); offCtx.lineTo(cx + 3, cy - 121 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 132 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 9. TRIỀU ĐẠI TINH TÚ (Astral Starlight Observatory - Emblem: "star")
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (emblem === "star") {
+      isoCube(0, 40, 246, 18, 48, "#252545", "#4c4e7b", "#8488b7");
+      isoCube(0, 24, 218, 52, 42, "#30305a", "#62659a", "#aeb1dd");
+
+      for (const tx of [-88, 88]) {
+        isoCylinder(tx, 21, 24, 88, "#29294d", "#7376a8", "#c1c4e8");
+        isoRoof(tx, -67, 58, 34, 24, "#35307f", "#7774db");
+      }
+      isoCylinder(0, 10, 55, 98, "#292951", "#7477ad", "#c5c8ec");
+      isoCylinder(0, -88, 44, 28, "#4b4690", "#9698db", "#d7d9ff");
+      isoRoof(0, -116, 98, 42, 30, "#383285", "#817ce8");
+
+      const drawStarOrb = (sx: number, sy: number) => {
+        const aura = offCtx.createRadialGradient(cx + sx, cy + sy, 1, cx + sx, cy + sy, 22);
+        aura.addColorStop(0, "rgba(129, 140, 248, 0.98)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + sx, cy + sy, 22, 0, Math.PI * 2); offCtx.fill();
+        offCtx.fillStyle = "#c7d2fe"; offCtx.fillRect(cx + sx - 4, cy + sy - 4, 8, 8);
+      };
+      drawStarOrb(-88, -18);
+      drawStarOrb(88, -18);
+      drawStarOrb(-24, -50);
+      drawStarOrb(24, -50);
+
+      r(-20, 1, 40, 42, "#171731");
+      drawFlagEmblem(cx, cy - 60, "star", 0.75, offCtx);
+      isoCylinder(0, -158, 3, 31, "#8a6825", "#f0cf69", "#fff7d6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 187 + bannerWave);
+      offCtx.lineTo(cx + 47, cy - 193 + bannerWave); offCtx.lineTo(cx + 40, cy - 176 + bannerWave); offCtx.lineTo(cx + 47, cy - 159 + bannerWave); offCtx.lineTo(cx + 2, cy - 165 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 24, cy - 176 + bannerWave, emblem, 0.85, offCtx);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 10. TRIỀU ĐẠI VƯƠNG MIỆN (High Medieval Kingdom Castle - Emblem: "crown")
+    // ─────────────────────────────────────────────────────────────────────────
+    else {
+      const crownStoneLeft = "#4b5560";
+      const crownStoneRight = "#8d99a1";
+      const crownStoneTop = "#d7d2c4";
+      const crownRoofLeft = getDarkerColor(bannerCol, 0.48);
+      const crownRoofRight = bannerCol;
+
+      isoCube(0, 40, 248, 18, 48, "#293038", "#58636b", "#91999b");
+      isoCube(0, 25, 220, 58, 42, crownStoneLeft, crownStoneRight, crownStoneTop);
+
+      // Four round towers and a square royal keep make the classic silhouette.
+      for (const tx of [-94, 94]) {
+        isoCylinder(tx, 23, 24, 88, "#3f4852", "#909ba2", "#d9d4c5");
+        isoRoof(tx, -65, 58, 40, 24, crownRoofLeft, crownRoofRight);
+      }
+      for (const tx of [-55, 55]) {
+        isoCylinder(tx, 2, 18, 98, "#46515b", "#99a4a9", "#ddd8c9");
+        isoRoof(tx, -96, 44, 34, 18, crownRoofLeft, crownRoofRight);
+      }
+      isoCube(0, 11, 106, 110, 34, "#46515b", "#98a4aa", "#e5dfcf");
+      isoCube(0, -82, 76, 30, 26, "#56616a", "#a8b1b4", "#eee6d4");
+      isoRoof(0, -112, 94, 54, 30, crownRoofLeft, crownRoofRight);
+      isoCylinder(0, -166, 3, 32, "#7c4a16", "#f4cf67", "#fff7d6");
+
+      offCtx.fillStyle = bannerCol; offCtx.beginPath();
+      offCtx.moveTo(cx + 2, cy - 194 + bannerWave);
+      offCtx.bezierCurveTo(cx + 20, cy - 200 + bannerWave, cx + 35, cy - 188 + bannerWave, cx + 48, cy - 194 + bannerWave);
+      offCtx.lineTo(cx + 48, cy - 168 + bannerWave);
+      offCtx.bezierCurveTo(cx + 35, cy - 162 + bannerWave, cx + 20, cy - 174 + bannerWave, cx + 2, cy - 168 + bannerWave);
+      offCtx.closePath(); offCtx.fill(); offCtx.strokeStyle = "#fbbf24"; offCtx.lineWidth = 1.6; offCtx.stroke();
+      drawFlagEmblem(cx + 25, cy - 181 + bannerWave, emblem, 0.85, offCtx);
+
+      const drawGlowingWindow = (wx: number, wy: number, ww: number, wh: number) => {
+        r(wx, wy, ww, wh, "#0f172a");
+        const aura = offCtx.createRadialGradient(cx + wx + ww / 2, cy + wy + wh / 2, 1, cx + wx + ww / 2, cy + wy + wh / 2, ww * 2.5);
+        aura.addColorStop(0, "rgba(254, 240, 138, 0.98)");
+        aura.addColorStop(0.45, "rgba(245, 158, 11, 0.7)");
+        aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+        offCtx.fillStyle = aura; offCtx.beginPath(); offCtx.arc(cx + wx + ww / 2, cy + wy + wh / 2, ww * 2.5, 0, Math.PI * 2); offCtx.fill();
+        rectGrad(wx + 1, wy + 2, ww - 2, wh - 4, "#fef08a", "#f59e0b");
+      };
+
+      drawGlowingWindow(-98, -18, 10, 20);
+      drawGlowingWindow(88, -18, 10, 20);
+      drawGlowingWindow(-30, -47, 10, 22);
+      drawGlowingWindow(20, -47, 10, 22);
+
+      r(-21, 0, 42, 44, "#171b20");
+      offCtx.fillStyle = "#171b20";
+      offCtx.beginPath();
+      offCtx.arc(cx, cy, 21, Math.PI, 0);
+      offCtx.fill();
+      for (let gx = -16; gx <= 16; gx += 8) r(gx, 2, 3, 42, "#8b969c");
+      drawFlagEmblem(cx, cy - 61, "crown", 0.75, offCtx);
+    }
+
+    castleSpriteCacheMap.set(key, offCanvas);
+    return offCanvas;
+  }
+
+  function getCachedMiniCastleSprite(flagColor: string, emblem: string): HTMLCanvasElement {
+    const key = `mini_v15_${emblem}_${flagColor}`;
+    let cached = miniCastleSpriteCacheMap.get(key);
+    if (cached) return cached;
+
+    const size = 128;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = size;
+    offCanvas.height = size;
+    const offCtx = offCanvas.getContext("2d");
+    if (!offCtx) return offCanvas;
+
+    const cx = size / 2;
+    const cy = size / 2 + 16;
+
+    // Helper 3D Isometric Polygon Functions for Mini Canvas
+    const isoPoly = (pts: [number, number][], fillStyle: string | CanvasGradient) => {
+      offCtx.fillStyle = fillStyle;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + pts[0][0], cy + pts[0][1]);
+      for (let i = 1; i < pts.length; i++) offCtx.lineTo(cx + pts[i][0], cy + pts[i][1]);
+      offCtx.closePath();
+      offCtx.fill();
+    };
+
+    const isoCube = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string, cTop: string) => {
+      isoPoly([
+        [dx - w / 2, dy],
+        [dx, dy + depth / 2],
+        [dx, dy + depth / 2 - h],
+        [dx - w / 2, dy - h]
+      ], cLeft);
+      isoPoly([
+        [dx, dy + depth / 2],
+        [dx + w / 2, dy],
+        [dx + w / 2, dy - h],
+        [dx, dy + depth / 2 - h]
+      ], cRight);
+      isoPoly([
+        [dx - w / 2, dy - h],
+        [dx, dy + depth / 2 - h],
+        [dx + w / 2, dy - h],
+        [dx, dy - depth / 2 - h]
+      ], cTop);
+    };
+
+    const isoRoof = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string) => {
+      isoPoly([[dx - w / 2, dy], [dx, dy + depth / 2], [dx, dy - h]], cLeft);
+      isoPoly([[dx, dy + depth / 2], [dx + w / 2, dy], [dx, dy - h]], cRight);
+    };
+
+    const isoCylinder = (dx: number, dy: number, rx: number, h: number, c1: string, c2: string, cTop: string) => {
+      const grad = offCtx.createLinearGradient(cx + dx - rx, cy + dy, cx + dx + rx, cy + dy);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      offCtx.fillStyle = grad;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + dx - rx, cy + dy - h);
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, Math.PI, 0, true);
+      offCtx.lineTo(cx + dx + rx, cy + dy);
+      offCtx.ellipse(cx + dx, cy + dy, rx, rx * 0.45, 0, 0, Math.PI, false);
+      offCtx.lineTo(cx + dx - rx, cy + dy - h);
+      offCtx.closePath();
+      offCtx.fill();
+
+      offCtx.fillStyle = cTop;
+      offCtx.beginPath();
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, 0, Math.PI * 2);
+      offCtx.fill();
+    };
+
+    // 1. Drop Shadow
+    offCtx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    offCtx.beginPath();
+    offCtx.ellipse(cx, cy + 14, 48, 15, 0, 0, Math.PI * 2);
+    offCtx.fill();
+
+    const bannerWave = Math.sin(state.tick * 0.25) * 1.5;
+    const bannerCol = (flagColor && typeof flagColor === "string" && flagColor.length >= 3) ? flagColor : "#2563eb";
+
+    // 2. Render 10 Dynastic 3D Mini Castles
+    if (emblem === "dragon") {
+      isoCube(0, 16, 98, 8, 22, "#253329", "#526348", "#8b8c62");
+      isoCube(0, 9, 82, 26, 18, "#6f1d1b", "#b53529", "#e27454");
+      for (const tx of [-34, 34]) {
+        isoCube(tx, 8, 22, 38, 12, "#581714", "#9f2b22", "#df7652");
+        isoRoof(tx, -30, 30, 13, 10, "#75400d", "#e5a72c");
+      }
+      isoCube(0, 7, 42, 48, 14, "#611a17", "#aa3025", "#e98762");
+      isoRoof(0, -41, 55, 18, 16, "#75400d", "#f3c04b");
+      isoCylinder(0, -59, 2, 12, "#9a570f", "#f5cf62", "#fff7d6");
+    }
+    else if (emblem === "eagle") {
+      isoCube(0, 16, 98, 8, 22, "#3d474d", "#78858c", "#c5cbd0");
+      isoCube(0, 9, 84, 28, 18, "#69747b", "#b8c1c5", "#f2ead7");
+      for (const tx of [-34, 34]) {
+        isoCylinder(tx, 8, 9, 38, "#59656c", "#cbd2d4", "#f4edda");
+        isoRoof(tx, -30, 23, 15, 10, "#35564f", "#78a493");
+      }
+      isoCube(0, 7, 44, 46, 14, "#626e75", "#c5ced0", "#fff7e5");
+      isoRoof(0, -39, 53, 19, 16, "#83621e", "#dfb94e");
+      isoCylinder(0, -58, 2, 12, "#8b6a24", "#f3d36d", "#fff7d6");
+    }
+    else if (emblem === "lion") {
+      isoCube(0, 16, 96, 8, 22, "#332f28", "#625a4a", "#a69574");
+      isoCylinder(-31, 8, 9, 38, "#4b4132", "#a18d6c", "#d9c9a7");
+      isoRoof(-31, -30, 23, 15, 10, "#8a3f16", "#e3ae38");
+      isoCylinder(31, 8, 9, 38, "#4b4132", "#a18d6c", "#d9c9a7");
+      isoRoof(31, -30, 23, 15, 10, "#8a3f16", "#e3ae38");
+      isoCube(0, 8, 48, 48, 16, "#504635", "#9b8562", "#ead9b5");
+      isoCube(0, -30, 34, 14, 12, "#66583f", "#a89068", "#ead9b5");
+      isoRoof(0, -44, 43, 22, 14, "#8a3f16", "#e3ae38");
+      isoCylinder(0, -66, 2, 12, "#7c4a16", "#f5d36c", "#fff7d6");
+    }
+    else if (emblem === "swords") {
+      isoCube(0, 16, 96, 8, 22, "#10131a", "#303746", "#697184");
+      isoCube(0, 9, 80, 26, 18, "#171b25", "#394151", "#71798a");
+      for (const tx of [-29, 29]) {
+        isoCube(tx, 8, 22, 50, 12, "#11151e", "#343b4c", "#70788a");
+        isoRoof(tx, -42, 30, 21, 10, "#251738", "#6f3b8d");
+      }
+      isoCube(0, 8, 34, 40, 13, "#181c27", "#41495c", "#858da0");
+      isoRoof(0, -32, 42, 18, 14, "#2c183f", "#754197");
+      isoCylinder(0, -50, 2, 12, "#5d4771", "#c4b5fd", "#ffffff");
+    }
+    else if (emblem === "mountain") {
+      isoCube(0, 16, 98, 9, 22, "#111113", "#3b3b3f", "#68676b");
+      isoCube(0, 9, 82, 28, 18, "#17171a", "#454449", "#77757a");
+      isoCube(-33, 9, 24, 40, 14, "#111114", "#3b3a40", "#6c6970");
+      isoCube(33, 9, 24, 40, 14, "#111114", "#3b3a40", "#6c6970");
+      isoCube(0, 7, 42, 50, 14, "#151518", "#47464c", "#79767d");
+      isoCube(0, -34, 30, 18, 11, "#242327", "#57555c", "#8e8a91");
+      isoRoof(0, -52, 38, 16, 13, "#6b1b12", "#d94a24");
+      isoCylinder(0, -68, 2, 10, "#803b17", "#f2a63b", "#fff1a6");
+    }
+    else if (emblem === "tree") {
+      isoCube(0, 16, 96, 8, 22, "#26372b", "#506448", "#809071");
+      isoCube(0, 9, 80, 26, 18, "#394132", "#68745b", "#a3aa83");
+      for (const tx of [-34, 34]) {
+        isoCylinder(tx, 8, 9, 40, "#3c2c20", "#826342", "#a98a5d");
+        isoRoof(tx, -32, 24, 16, 10, "#17452c", "#4d8b52");
+      }
+      isoCube(0, 7, 42, 48, 14, "#3c2c20", "#8a6847", "#bea075");
+      isoRoof(0, -41, 52, 22, 16, "#143b27", "#5d9b57");
+      isoCylinder(0, -63, 2, 12, "#795329", "#d6b266", "#fff4bd");
+    }
+    else if (emblem === "anchor") {
+      isoCube(0, 16, 98, 8, 22, "#193744", "#396877", "#79a7ae");
+      isoCube(0, 9, 82, 28, 18, "#3d5960", "#759198", "#bcc6c1");
+      for (const tx of [-34, 34]) {
+        isoCylinder(tx, 8, 9, 44, "#344f57", "#9aacaa", "#d9d7c7");
+        isoRoof(tx, -36, 24, 16, 10, "#155e75", "#36a3b5");
+      }
+      isoCube(0, 7, 42, 48, 14, "#334d55", "#8fa3a2", "#dddccc");
+      isoRoof(0, -41, 52, 21, 16, "#0f5a70", "#37a9ba");
+      isoCylinder(0, -62, 2, 12, "#785827", "#e0bc62", "#fff3b0");
+    }
+    else if (emblem === "shield") {
+      isoCube(0, 16, 98, 8, 22, "#171b1e", "#3b454c", "#7c8b94");
+      isoCube(0, 9, 78, 28, 18, "#2c3338", "#5a6871", "#aebbc3");
+      isoCube(-34, 10, 24, 44, 14, "#20272c", "#4d5a62", "#bac5cb");
+      isoCube(34, 10, 24, 44, 14, "#20272c", "#4d5a62", "#bac5cb");
+      isoCube(0, 8, 40, 48, 16, "#20272c", "#526069", "#c7d0d5");
+      for (const bx of [-34, -7, 7, 34]) {
+        isoCube(bx, bx === -34 || bx === 34 ? -34 : -40, 8, 8, 6, "#30383e", "#65737c", "#d1d9de");
+      }
+      isoCylinder(0, -48, 2, 18, "#64727b", "#d8e0e4", "#ffffff");
+    }
+    else if (emblem === "star") {
+      isoCube(0, 16, 98, 8, 22, "#252545", "#4c4e7b", "#8488b7");
+      isoCube(0, 9, 82, 27, 18, "#30305a", "#62659a", "#aeb1dd");
+      isoCylinder(-34, 8, 9, 41, "#29294d", "#7376a8", "#c1c4e8");
+      isoRoof(-34, -33, 23, 15, 10, "#35307f", "#7774db");
+      isoCylinder(34, 8, 9, 41, "#29294d", "#7376a8", "#c1c4e8");
+      isoRoof(34, -33, 23, 15, 10, "#35307f", "#7774db");
+      isoCylinder(0, 7, 20, 48, "#292951", "#7477ad", "#c5c8ec");
+      isoRoof(0, -41, 47, 20, 15, "#383285", "#817ce8");
+      isoCylinder(0, -61, 2, 12, "#8a6825", "#f0cf69", "#fff7d6");
+    }
+    else {
+      isoCube(0, 16, 98, 8, 22, "#293038", "#58636b", "#91999b");
+      isoCube(0, 9, 84, 28, 18, "#4b5560", "#8d99a1", "#d7d2c4");
+      for (const tx of [-35, 35]) {
+        isoCylinder(tx, 8, 9, 42, "#3f4852", "#909ba2", "#d9d4c5");
+        isoRoof(tx, -34, 24, 17, 10, getDarkerColor(bannerCol, 0.48), bannerCol);
+      }
+      isoCube(0, 7, 44, 50, 14, "#46515b", "#98a4aa", "#e5dfcf");
+      isoCube(0, -33, 32, 14, 11, "#56616a", "#a8b1b4", "#eee6d4");
+      isoRoof(0, -47, 40, 20, 14, getDarkerColor(bannerCol, 0.48), bannerCol);
+      isoCylinder(0, -67, 2, 12, "#7c4a16", "#f4cf67", "#fff7d6");
+    }
+
+    // 3. Waving flag on spire
+    offCtx.fillStyle = bannerCol;
+    offCtx.beginPath();
+    offCtx.moveTo(cx + 1, cy - 66 + bannerWave);
+    offCtx.lineTo(cx + 20, cy - 69 + bannerWave);
+    offCtx.lineTo(cx + 16, cy - 60 + bannerWave);
+    offCtx.lineTo(cx + 20, cy - 51 + bannerWave);
+    offCtx.lineTo(cx + 1, cy - 54 + bannerWave);
+    offCtx.closePath();
+    offCtx.fill();
+    offCtx.strokeStyle = "#fbbf24";
+    offCtx.lineWidth = 0.8;
+    offCtx.stroke();
+
+    miniCastleSpriteCacheMap.set(key, offCanvas);
+    return offCanvas;
+  }
+
+  function drawEmpireCastleSprite(x: number, y: number, flagColor: string, emblem: string, scale = 1, relation: "own" | "ally" | "enemy" = "enemy") {
+    // LOD Selection: Use Lightweight Mini Castle when zoomed out extreme (scale < 0.18)
+    if (scale < 0.18) {
+      const miniCanvas = getCachedMiniCastleSprite(flagColor, emblem);
+      const drawSize = 128 * (scale * 1.5);
+      ctx.drawImage(miniCanvas, x - drawSize / 2, y - drawSize * 0.75, drawSize, drawSize);
       return;
     }
 
-    // Roof colors dynamically derived from flag color
-    const roofBaseColor = getDarkerColor(flagColor, 0.5);
-    const roofHighlightColor = getDarkerColor(flagColor, 0.8);
-    const mainRoofBaseColor = getDarkerColor(flagColor, 0.65);
-    const mainRoofHighlightColor = flagColor;
+    const spriteCanvas = getCachedGrandCastleSprite(flagColor, emblem);
+    const size = 320;
+    const drawW = size * scale;
+    const drawH = size * scale;
+    // Align ground base (cx=160, cy=243) exactly at (x, y) on map
+    const drawX = x - 160 * scale;
+    const drawY = y - 243 * scale;
 
-    // Render different building styles based on the flag emblem
-    if (emblem === "crown") {
-      // --- STYLE 1: GRAND MEDIEVAL CASTLE (Default Crown) ---
-      r(-96, 42, 192, 24, "rgba(0,0,0,0.52)");
+    ctx.drawImage(spriteCanvas, drawX, drawY, drawW, drawH);
+  }
 
-      // High Back Towers
-      r(-42, -80, 18, 100, "#161c22");
-      r(-38, -76, 14, 96, "#334155");
-      r(-36, -76, 6, 96, "#475569");
-      roof([[-44, -76], [-33, -106], [-22, -76]], roofBaseColor);
-      roof([[-33, -106], [-33, -76], [-22, -76]], roofHighlightColor);
-      r(-34, -112, 2, 6, "#ffd700");
+  const militaryDistrictSpriteCacheMap = new Map<string, HTMLCanvasElement>();
 
-      r(24, -80, 18, 100, "#161c22");
-      r(24, -76, 14, 96, "#334155");
-      r(26, -76, 6, 96, "#475569");
-      roof([[22, -76], [33, -106], [44, -76]], roofBaseColor);
-      roof([[33, -106], [33, -76], [44, -76]], roofHighlightColor);
-      r(32, -112, 2, 6, "#ffd700");
+  function getCachedMilitaryDistrictSprite(flagColor: string, emblem: string): HTMLCanvasElement {
+    const key = `military_v14_${emblem}_${flagColor}`;
+    let cached = militaryDistrictSpriteCacheMap.get(key);
+    if (cached) return cached;
 
-      // Main Fortress Curtain Wall
-      r(-68, 0, 136, 48, "#20272f");
-      r(-64, -4, 128, 52, "#475569");
-      r(-64, -4, 128, 4, "#94a3b8");
-      for (let i = -6; i <= 6; i++) {
-        r(i * 10 - 4, -12, 8, 10, "#475569");
-        r(i * 10 - 2, -12, 4, 3, "#cbd5e1");
-      }
-      r(-50, 14, 100, 8, "#1a202c");
+    const size = 320;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = size;
+    offCanvas.height = size;
+    const offCtx = offCanvas.getContext("2d");
+    if (!offCtx) return offCanvas;
 
-      // Massive Front Left Barbican Tower
-      r(-82, -44, 26, 88, "#1e293b");
-      r(-78, -40, 22, 84, "#475569");
-      r(-72, -40, 10, 84, "#64748b");
-      roof([[-84, -48], [-68, -82], [-52, -48]], roofBaseColor);
-      roof([[-68, -82], [-68, -48], [-52, -48]], roofHighlightColor);
-      r(-69, -88, 2, 6, "#ffd700");
+    const cx = size / 2;
+    const cy = size / 2 + 45;
 
-      // Massive Front Right Barbican Tower
-      r(56, -44, 26, 88, "#1e293b");
-      r(56, -40, 22, 84, "#475569");
-      r(62, -40, 10, 84, "#64748b");
-      roof([[52, -48], [68, -82], [84, -48]], roofBaseColor);
-      roof([[68, -82], [68, -48], [84, -48]], roofHighlightColor);
-      r(67, -88, 2, 6, "#ffd700");
+    // Helper 3D Isometric Polygon Functions
+    const isoPoly = (pts: [number, number][], fillStyle: string | CanvasGradient) => {
+      offCtx.fillStyle = fillStyle;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + pts[0][0], cy + pts[0][1]);
+      for (let i = 1; i < pts.length; i++) offCtx.lineTo(cx + pts[i][0], cy + pts[i][1]);
+      offCtx.closePath();
+      offCtx.fill();
+    };
 
-      // Central Keep
-      r(-32, -80, 64, 124, "#1a202c");
-      r(-28, -76, 56, 120, "#475569");
-      r(-10, -76, 32, 120, "#64748b");
-      r(-30, -88, 60, 10, "#334155");
-      roof([[-36, -86], [0, -135], [36, -86]], mainRoofBaseColor);
-      roof([[0, -135], [0, -86], [36, -86]], mainRoofHighlightColor);
-      r(-2, -141, 4, 6, "#ffd700");
+    const isoCube = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string, cTop: string) => {
+      isoPoly([
+        [dx - w / 2, dy],
+        [dx, dy + depth / 2],
+        [dx, dy + depth / 2 - h],
+        [dx - w / 2, dy - h]
+      ], cLeft);
+      isoPoly([
+        [dx, dy + depth / 2],
+        [dx + w / 2, dy],
+        [dx + w / 2, dy - h],
+        [dx, dy + depth / 2 - h]
+      ], cRight);
+      isoPoly([
+        [dx - w / 2, dy - h],
+        [dx, dy + depth / 2 - h],
+        [dx + w / 2, dy - h],
+        [dx, dy - depth / 2 - h]
+      ], cTop);
+    };
 
-      // Stained Glass Windows
-      r(-72, -14, 8, 14, "#1a202c"); r(-71, -12, 6, 10, "#d97706"); r(-70, -10, 4, 6, "#fef08a");
-      r(64, -14, 8, 14, "#1a202c"); r(65, -12, 6, 10, "#d97706"); r(66, -10, 4, 6, "#fef08a");
-      r(-16, -56, 10, 18, "#1a202c"); r(-14, -54, 6, 14, "#d97706"); r(-13, -52, 4, 10, "#fef08a");
-      r(6, -56, 10, 18, "#1a202c"); r(8, -54, 6, 14, "#d97706"); r(9, -52, 4, 10, "#fef08a");
+    const isoRoof = (dx: number, dy: number, w: number, h: number, depth: number, cLeft: string, cRight: string) => {
+      isoPoly([[dx - w / 2, dy], [dx, dy + depth / 2], [dx, dy - h]], cLeft);
+      isoPoly([[dx, dy + depth / 2], [dx + w / 2, dy], [dx, dy - h]], cRight);
+    };
 
-      // Grand Entryway
-      r(-22, 10, 44, 38, "#1e293b"); r(-18, 14, 36, 34, "#334155"); r(-14, 18, 28, 30, "#0b0f19");
-      r(-14, 18, 14, 30, "#5c2505"); r(0, 18, 14, 30, "#7c2d12");
-      for (let dy = 22; dy <= 42; dy += 8) {
-        r(-10, dy, 2, 2, "#ffd700"); r(-5, dy, 2, 2, "#ffd700");
-        r(4, dy, 2, 2, "#ffd700"); r(9, dy, 2, 2, "#ffd700");
-      }
-      for (let i = -12; i <= 12; i += 6) r(i, 18, 2, 12, "#334155");
+    const isoCylinder = (dx: number, dy: number, rx: number, h: number, c1: string, c2: string, cTop: string) => {
+      const grad = offCtx.createLinearGradient(cx + dx - rx, cy + dy, cx + dx + rx, cy + dy);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      offCtx.fillStyle = grad;
+      offCtx.beginPath();
+      offCtx.moveTo(cx + dx - rx, cy + dy - h);
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, Math.PI, 0, true);
+      offCtx.lineTo(cx + dx + rx, cy + dy);
+      offCtx.ellipse(cx + dx, cy + dy, rx, rx * 0.45, 0, 0, Math.PI, false);
+      offCtx.lineTo(cx + dx - rx, cy + dy - h);
+      offCtx.closePath();
+      offCtx.fill();
 
-      // Climbing Ivy
-      r(-80, 20, 4, 24, "#15803d"); r(-77, 26, 5, 18, "#16a34a");
-      r(76, 16, 4, 28, "#15803d"); r(72, 22, 5, 22, "#16a34a");
-    }
-    else if (emblem === "eagle" || emblem === "anchor") {
-      // --- STYLE 2: ANCIENT GREEK/ROMAN TEMPLE (Eagle) ---
-      // Crepidoma
-      r(-76, 32, 152, 12, "#dfd8c4");
-      r(-76, 32, 4, 12, "#b2a895");
-      r(72, 32, 4, 12, "#b2a895");
-      r(-70, 22, 140, 10, "#eae5d8");
-      r(-64, 14, 128, 8, "#fdfbf7");
+      offCtx.fillStyle = cTop;
+      offCtx.beginPath();
+      offCtx.ellipse(cx + dx, cy + dy - h, rx, rx * 0.45, 0, 0, Math.PI * 2);
+      offCtx.fill();
+    };
 
-      // Cella
-      r(-48, -46, 96, 60, "#d5cbb8");
-      r(-14, -20, 28, 34, "#2d1f10"); r(-10, -18, 20, 32, "#b45309"); r(-1, -18, 2, 32, "#5c2505");
+    // Ground Shadow
+    const shadowGrad = offCtx.createRadialGradient(cx, cy + 42, 12, cx, cy + 42, 118);
+    shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.85)");
+    shadowGrad.addColorStop(0.5, "rgba(0, 0, 0, 0.45)");
+    shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    offCtx.fillStyle = shadowGrad;
+    offCtx.beginPath();
+    offCtx.ellipse(cx, cy + 42, 118, 36, 0, 0, Math.PI * 2);
+    offCtx.fill();
 
-      // Left Tower
-      r(-76, -26, 16, 76, "#eae5d8"); r(-76, -26, 6, 76, "#b2a895"); r(-74, -36, 12, 10, "#d5cbb8");
-      roof([[-78, -36], [-68, -58], [-68, -36]], roofBaseColor);
-      roof([[-68, -58], [-68, -36], [-58, -36]], roofHighlightColor);
-      r(-69, -62, 2, 4, "#ffd700");
+    const bannerWave = Math.sin(state.tick * 0.25) * 2.5;
+    const bannerCol = flagColor || "#dc2626";
 
-      // Right Tower
-      r(60, -26, 16, 76, "#eae5d8"); r(60, -26, 6, 76, "#b2a895"); r(62, -36, 12, 10, "#d5cbb8");
-      roof([[58, -36], [68, -58], [68, -36]], roofBaseColor);
-      roof([[68, -58], [68, -36], [78, -36]], roofHighlightColor);
-      r(67, -62, 2, 4, "#ffd700");
+    // 1. Outer 3D Wooden Palisade Walls
+    isoCube(-68, 38, 56, 16, 26, "#78350f", "#92400e", "#b45309");
+    isoCube(68, 38, 56, 16, 26, "#78350f", "#92400e", "#b45309");
+    isoCube(0, 38, 88, 12, 18, "#78350f", "#92400e", "#b45309");
 
-      // Columns
-      const columns = [-48, -29, -10, 9, 28, 47];
-      columns.forEach((offset) => {
-        r(offset - 1, 12, 10, 2, "#b2a895");
-        r(offset, -40, 8, 52, "#fdfbf7");
-        r(offset + 4, -40, 4, 52, "#e5dec9");
-        r(offset - 2, -43, 12, 3, "#fcf9f2");
-      });
+    // 2. Left 3D Outpost Watchtower
+    isoCube(-56, 22, 22, 68, 16, "#451a03", "#78350f", "#92400e");
+    isoCube(-56, -46, 28, 16, 22, "#78350f", "#92400e", "#b45309");
+    isoRoof(-56, -62, 34, 18, 26, "#1e293b", bannerCol);
 
-      // Entablature
-      r(-54, -49, 108, 6, "#fdfbf7");
-      r(-54, -53, 108, 4, "#eae5d8");
-      for (let dx = -50; dx <= 50; dx += 10) r(dx - 1, -53, 2, 4, "#d97706");
+    // 3. Right 3D Outpost Watchtower
+    isoCube(56, 22, 22, 68, 16, "#451a03", "#78350f", "#92400e");
+    isoCube(56, -46, 28, 16, 22, "#78350f", "#92400e", "#b45309");
+    isoRoof(56, -62, 34, 18, 26, "#1e293b", bannerCol);
 
-      // Pediment
-      r(-58, -55, 116, 2, "#ffd700");
-      roof([[-58, -53], [0, -85], [0, -53]], mainRoofBaseColor);
-      roof([[0, -85], [0, -53], [58, -53]], mainRoofHighlightColor);
-      roof([[-48, -53], [0, -80], [0, -53]], "#7c2d12");
-      roof([[0, -80], [0, -53], [48, -53]], "#d97706");
-      ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(x, y - 61 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
-      r(-57, -59, 2, 6, "#ffd700"); r(55, -59, 2, 6, "#ffd700"); r(-2, -92, 4, 7, "#ffd700");
+    // 4. Central 3D Command Tent
+    isoCube(0, 26, 62, 38, 36, "#f1f5f9", "#e2e8f0", "#cbd5e1");
+    isoCube(0, 26, 20, 24, 38, "#0f172a", "#1e293b", "#334155");
+    isoRoof(0, -12, 76, 32, 42, getDarkerColor(bannerCol, 0.3), bannerCol);
 
-      // Vines
-      r(-62, 18, 4, 32, "#15803d"); r(-58, 26, 6, 22, "#16a34a");
-      r(54, 12, 4, 38, "#15803d"); r(48, 22, 6, 28, "#16a34a");
-    }
-    else if (emblem === "dragon") {
-      // --- STYLE 3: EAST ASIAN DYNASTIC PAGODA (Dragon) ---
-      r(-76, 26, 152, 18, "#2d3748");
-      r(-70, 18, 140, 8, "#4a5568");
-      r(-16, 18, 32, 16, "#1a202c");
-      r(-12, 22, 24, 12, "#718096");
+    // 5. Spire Banner Pole & Waving Flag
+    isoCylinder(0, -44, 3, 38, "#d97706", "#fbbf24", "#ffffff");
 
-      // Side Walls and gates
-      r(-66, -10, 132, 28, "#edf2f7");
-      r(-50, -4, 12, 22, "#1a202c"); r(-48, -2, 8, 20, "#7b241c");
-      r(38, -4, 12, 22, "#1a202c"); r(40, -2, 8, 20, "#7b241c");
+    offCtx.fillStyle = bannerCol;
+    offCtx.beginPath();
+    offCtx.moveTo(cx + 2, cy - 82 + bannerWave);
+    offCtx.lineTo(cx + 34, cy - 86 + bannerWave);
+    offCtx.lineTo(cx + 28, cy - 70 + bannerWave);
+    offCtx.lineTo(cx + 34, cy - 54 + bannerWave);
+    offCtx.lineTo(cx + 2, cy - 58 + bannerWave);
+    offCtx.closePath();
+    offCtx.fill();
+    offCtx.strokeStyle = "#fbbf24";
+    offCtx.lineWidth = 1.4;
+    offCtx.stroke();
 
-      // First Pagoda Roof Tier (Curved flared roof)
-      roof([[-74, -10], [0, -28], [74, -10], [60, -6], [0, -18], [-60, -6]], roofBaseColor);
-      roof([[0, -28], [0, -18], [74, -10]], roofHighlightColor);
-      r(-74, -13, 3, 4, "#ffd700");
-      r(71, -13, 3, 4, "#ffd700");
+    militaryDistrictSpriteCacheMap.set(key, offCanvas);
+    return offCanvas;
+  }
 
-      // Second Tier Chamber
-      r(-36, -56, 72, 38, "#edf2f7");
-      r(-32, -56, 5, 38, "#991b1b");
-      r(-16, -56, 5, 38, "#991b1b");
-      r(11, -56, 5, 38, "#991b1b");
-      r(27, -56, 5, 38, "#991b1b");
-      r(-8, -46, 16, 20, "#1a202c");
-      r(-6, -44, 12, 18, "#ffd700");
-      r(-2, -44, 4, 18, "#78350f");
-
-      // Second Pagoda Roof Tier
-      roof([[-44, -56], [0, -78], [44, -56], [32, -52], [0, -66], [-32, -52]], mainRoofBaseColor);
-      roof([[0, -78], [0, -66], [44, -56]], mainRoofHighlightColor);
-      r(-44, -59, 3, 4, "#ffd700");
-      r(41, -59, 3, 4, "#ffd700");
-
-      // Top Tier Sanctuary
-      r(-18, -94, 36, 28, "#edf2f7");
-      r(-16, -94, 4, 28, "#991b1b");
-      r(12, -94, 4, 28, "#991b1b");
-      r(-4, -86, 8, 12, "#1a202c");
-      r(-3, -85, 6, 10, "#ffd700");
-
-      // Top Pagoda Roof
-      roof([[-24, -94], [0, -120], [24, -94], [18, -91], [0, -104], [-18, -91]], roofBaseColor);
-      roof([[0, -120], [0, -104], [24, -94]], roofHighlightColor);
-      r(-2, -128, 4, 8, "#ffd700");
-    }
-    else if (emblem === "lion" || emblem === "tree") {
-      // --- STYLE 4: NORDIC VIKING LONGHOUSE (Lion) ---
-      r(-80, 36, 160, 14, "rgba(0,0,0,0.4)");
-      
-      // Outer Log Palisades
-      for (let i = -70; i <= 70; i += 8) {
-        r(i - 3, 8, 6, 32, "#4a3728");
-        r(i - 1, 8, 2, 28, "#78583e");
-        roof([[i - 3, 8], [i, -2], [i + 3, 8]], "#36261c");
-      }
-      r(-74, 18, 148, 4, "#2f231a");
-      r(-74, 28, 148, 4, "#2f231a");
-
-      // Center wooden gatehouse
-      r(-16, -2, 32, 42, "#2f231a");
-      r(-12, 2, 24, 38, "#5c4033");
-      r(-8, 12, 16, 28, "#1a202c");
-      r(-8, 12, 8, 28, "#78583e");
-      r(0, 12, 8, 28, "#8c6210");
-
-      // Main Longhouse Keep
-      r(-48, -48, 96, 68, "#3a2a1c");
-      r(-44, -44, 88, 64, "#5c4033");
-      r(-40, -44, 6, 64, "#2f231a");
-      r(-18, -44, 6, 64, "#2f231a");
-      r(12, -44, 6, 64, "#2f231a");
-      r(34, -44, 6, 64, "#2f231a");
-
-      // Thatch Roof (steep A-frame)
-      roof([[-54, -44], [0, -96], [54, -44]], "#8c6210");
-      roof([[0, -96], [0, -44], [54, -44]], "#b48a30");
-      
-      // Dragon head gables
-      roof([[-54, -44], [-62, -54], [-52, -50]], "#8c6210");
-      roof([[54, -44], [62, -54], [52, -50]], "#b48a30");
-
-      // Watchtower behind longhouse
-      r(18, -78, 22, 40, "#2f231a");
-      r(20, -74, 18, 36, "#5c4033");
-      r(18, -84, 22, 10, "#2f231a");
-      r(20, -84, 3, 10, "#b48a30");
-      r(37, -84, 3, 10, "#b48a30");
-      roof([[16, -84], [29, -108], [42, -84]], "#8c6210");
-      roof([[29, -108], [29, -84], [42, -84]], "#b48a30");
-    }
-    else if (emblem === "swords" || emblem === "mountain") {
-      // --- STYLE 5: GOTHIC SPIRED CASTLE (Swords) ---
-      r(-82, 44, 164, 18, "rgba(0,0,0,0.36)");
-
-      // Center Spired Keep
-      r(-24, -96, 48, 140, "#1f1d24");
-      r(-20, -92, 40, 136, "#3a3542");
-      r(-10, -92, 20, 136, "#534c5e");
-      roof([[-28, -96], [0, -145], [28, -96]], roofBaseColor);
-      roof([[0, -145], [0, -96], [28, -96]], roofHighlightColor);
-      r(-1, -152, 2, 8, "#ffd700");
-
-      // Left Spired Tower
-      r(-68, -48, 20, 92, "#1f1d24");
-      r(-64, -44, 16, 88, "#3a3542");
-      r(-60, -44, 8, 88, "#534c5e");
-      roof([[-72, -48], [-58, -88], [-44, -48]], mainRoofBaseColor);
-      roof([[-58, -88], [-58, -48], [-44, -48]], mainRoofHighlightColor);
-      r(-59, -94, 2, 6, "#ffd700");
-
-      // Right Spired Tower
-      r(48, -48, 20, 92, "#1f1d24");
-      r(48, -44, 16, 88, "#3a3542");
-      r(52, -44, 8, 88, "#534c5e");
-      roof([[44, -48], [58, -88], [72, -48]], mainRoofBaseColor);
-      roof([[58, -88], [58, -48], [72, -48]], mainRoofHighlightColor);
-      r(57, -94, 2, 6, "#ffd700");
-
-      // Gothic Wall with pointed windows
-      r(-48, 0, 96, 44, "#27242c");
-      r(-44, -4, 88, 48, "#3a3542");
-      r(-36, 6, 8, 22, "#1a202c"); r(-35, 8, 6, 18, "#a855f7");
-      r(28, 6, 8, 22, "#1a202c"); r(27, 8, 6, 18, "#a855f7");
-
-      // Gate
-      r(-14, 16, 28, 28, "#1f1d24");
-      r(-10, 20, 20, 24, "#0b0f19");
-      for (let i = -8; i <= 8; i += 4) r(i, 20, 1.5, 24, "#b45309");
-    }
-    else {
-      // --- STYLE 6: FORTIFIED BASTION / CITADEL (Default Shield / AI Factions) ---
-      r(-86, 44, 172, 18, "rgba(0,0,0,0.45)");
-
-      // Low Thick Stone Ramparts
-      r(-76, 2, 152, 42, "#2d3748");
-      r(-72, -2, 144, 46, "#4a5568");
-      r(-72, -2, 144, 5, "#718096");
-      for (let dx = -66; dx <= 66; dx += 12) {
-        r(dx - 1, 10, 2, 2, "#1a202c");
-        r(dx - 1, 26, 2, 2, "#1a202c");
-      }
-
-      // Left Front Bastion Wall
-      r(-78, -12, 34, 56, "#2d3748");
-      r(-74, -10, 30, 54, "#4a5568");
-      r(-74, -10, 30, 4, "#718096");
-      r(-76, -18, 34, 8, "#1a202c");
-      r(-72, -18, 6, 8, "#94a3b8");
-      r(-52, -18, 6, 8, "#94a3b8");
-
-      // Right Front Bastion Wall
-      r(44, -12, 34, 56, "#2d3748");
-      r(44, -10, 30, 54, "#4a5568");
-      r(44, -10, 30, 4, "#718096");
-      r(42, -18, 34, 8, "#1a202c");
-      r(46, -18, 6, 8, "#94a3b8");
-      r(66, -18, 6, 8, "#94a3b8");
-
-      // Central Heavy Keep
-      r(-36, -46, 72, 90, "#1a202c");
-      r(-32, -42, 64, 86, "#334155");
-      r(-32, -42, 64, 5, "#475569");
-      r(-16, 6, 32, 38, "#1a202c");
-      r(-12, 10, 24, 34, "#475569");
-      r(-1, 10, 2, 34, "#1a202c");
-
-      // Heavy Cannon
-      r(-6, -58, 12, 16, "#1a202c");
-      r(-4, -56, 8, 14, "#475569");
-      r(-2, -62, 4, 6, "#0f172a");
+  function drawMilitaryDistrictSprite(x: number, y: number, flagColor: string, emblem: string, scale = 1, relation: "own" | "ally" | "enemy" = "enemy") {
+    // LOD Selection: Use Lightweight Mini Castle when zoomed out extreme (scale < 0.18)
+    if (scale < 0.18) {
+      const miniCanvas = getCachedMiniCastleSprite(flagColor, emblem);
+      const drawSize = 128 * (scale * 1.5);
+      ctx.drawImage(miniCanvas, x - drawSize / 2, y - drawSize * 0.75, drawSize, drawSize);
+      return;
     }
 
-    // 10. Flagpole and Big Waving Banner (AoE Style)
-    const fy = y - 131 * s;
-    const fs = 0.98;
-    const flagR = (dx: number, dy: number, w: number, h: number, color: string) => pxRect(x + dx * fs, fy + dy * fs, w * fs, h * fs, color);
+    const spriteCanvas = getCachedMilitaryDistrictSprite(flagColor, emblem);
+    const size = 320;
+    const drawW = size * scale;
+    const drawH = size * scale;
+    const drawX = x - 160 * scale;
+    const drawY = y - 243 * scale;
 
-    // Flagpole (Bronze rod)
-    flagR(-1, -44, 2, 44, "#7c2d12");
-    
-    // Wave calculations
-    const wave = Math.round(Math.sin(state.tick * 0.15) * 3);
-    const wave2 = Math.round(Math.sin(state.tick * 0.15 + 1.2) * 3);
-
-    // Waving Banner (with gold fringes)
-    flagR(1, -43, 28, 18, flagColor); 
-    flagR(29, -40 + wave, 10, 13, flagColor); 
-    flagR(39, -37 + wave2, 8, 8, flagColor);  
-
-    // Gold borders/fret lines on flag
-    flagR(1, -43, 28, 1.5, "#ffd700");
-    flagR(1, -26.5, 28, 1.5, "#ffd700");
-
-    drawFlagEmblem(x + 15 * fs, fy - 34 * fs, emblem, 1.2 * fs);
+    ctx.drawImage(spriteCanvas, drawX, drawY, drawW, drawH);
   }
 
   function drawRelationRing(x: number, y: number, ownerType: "own" | "ally" | "enemy", scale = 1) {
@@ -4333,6 +5080,13 @@ export function createIslandEmpireGame(
     const castleLand = castleRegionId >= 0 ? landById(castleRegionId) : null;
     const drawX = castleLand ? castleLand.x : t.x;
     const drawY = castleLand ? castleLand.y : t.y;
+
+    // Viewport Culling Optimization: Skip rendering castles completely offscreen!
+    const viewport = getWorldViewport();
+    if (viewport && !isPointInViewport(drawX, drawY, viewport, 220)) {
+      return;
+    }
+
     const owner = factions[t.owner] || factions[0];
 
     // Draw relationship ring
@@ -4343,7 +5097,7 @@ export function createIslandEmpireGame(
       relation = 'ally';
     }
     const isUserTown = t.owner === 0;
-    const castleScale = isUserTown ? 2.50 : 1.35;
+    const castleScale = isUserTown ? 0.48 : 0.38;
 
     drawRelationRing(drawX, drawY, relation, castleScale);
 
@@ -4370,6 +5124,10 @@ export function createIslandEmpireGame(
       ctx.restore();
     }
     const regionId = castleRegionId;
+    const settlementKind = regionId >= 0 ? state.regionSettlementKinds[regionId] : undefined;
+    const isCapitalSettlement = settlementKind === "capital" || settlementKind === "sub_capital";
+    const isMilitaryDistrict = !isCapitalSettlement;
+
     let flagColor = owner.color || "#ef4444";
     let ownerName = owner.name || "KẺ ĐỊCH";
     let rawEmblem = undefined;
@@ -4384,49 +5142,50 @@ export function createIslandEmpireGame(
       rawEmblem = state.regionOwnerEmblems[regionId];
     }
     const emblem = resolveCastleEmblem(ownerName, regionId >= 0 ? regionId : undefined, rawEmblem);
-    drawEmpireCastleSprite(drawX, drawY, flagColor, emblem, castleScale, relation);
 
-    const badgeY = drawY + (isUserTown ? 100 : 55);
-    const badgeW = isUserTown ? 58 : 38;
-    const badgeH = isUserTown ? 40 : 26;
-    pxRect(drawX - badgeW / 2, badgeY, badgeW, badgeH, "#121921");
-    ctx.strokeStyle = "#384756";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(drawX - badgeW / 2, badgeY, badgeW, badgeH);
-    text(String(t.lvl), drawX, badgeY + (isUserTown ? 6 : 4), isUserTown ? 26 : 18, "#ffffff", "center");
+    if (isMilitaryDistrict) {
+      drawMilitaryDistrictSprite(drawX, drawY, flagColor, emblem, castleScale, relation);
+    } else {
+      drawEmpireCastleSprite(drawX, drawY, flagColor, emblem, castleScale, relation);
+    }
 
-    // Draw Castle Name Plate
+    // Skip heavy nameplate & badge measurement when zoomed far out
+    if (state.camScale < 0.45 && !isUserTown && !sel) {
+      return;
+    }
+
+    // Draw Castle Name Plate directly below ground level
     const nameText = cleanOwnerName(ownerName, t.owner === 0 ? 1 : 2, regionId);
-    const textSz = isUserTown ? 42 : 32;
+    const textSz = isUserTown ? 18 : 14;
     
     ctx.save();
-    ctx.font = `bold ${textSz}px "Courier New", monospace`;
-    const tw = ctx.measureText(nameText).width || 80;
-    const padX = 20;
-    const padY = 12;
+    ctx.font = `bold ${textSz}px 'Outfit', 'Inter', system-ui, sans-serif`;
+    const tw = ctx.measureText(nameText).width || 60;
+    const padX = 12;
+    const padY = 6;
     const bx = drawX - tw / 2 - padX;
-    const by = drawY - (isUserTown ? 420 : 240);
+    const by = y + 22 * castleScale;
     const bw = tw + padX * 2;
     const bh = textSz + padY * 2;
 
     // Drop shadow
-    pxRect(bx + 4, by + 4, bw, bh, "rgba(0,0,0,0.48)");
+    pxRect(bx + 2, by + 2, bw, bh, "rgba(0,0,0,0.65)");
     // Plate body
-    pxRect(bx, by, bw, bh, "#111827");
-    pxRect(bx + 4, by + 4, bw - 8, 5, "rgba(255,255,255,0.16)");
+    pxRect(bx, by, bw, bh, "#0f172a");
+    pxRect(bx + 2, by + 2, bw - 4, 3, "rgba(255,255,255,0.2)");
     // Border matches flag color
     ctx.strokeStyle = flagColor;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bw, bh);
 
     // Corner rivets
-    pxRect(bx + 1, by + 1, 2, 2, "#ffd700");
-    pxRect(bx + bw - 3, by + 1, 2, 2, "#ffd700");
-    pxRect(bx + 1, by + bh - 3, 2, 2, "#ffd700");
-    pxRect(bx + bw - 3, by + bh - 3, 2, 2, "#ffd700");
+    pxRect(bx + 1, by + 1, 2, 2, "#fbbf24");
+    pxRect(bx + bw - 3, by + 1, 2, 2, "#fbbf24");
+    pxRect(bx + 1, by + bh - 3, 2, 2, "#fbbf24");
+    pxRect(bx + bw - 3, by + bh - 3, 2, 2, "#fbbf24");
 
     ctx.restore();
-    text(nameText, drawX, by + padY + 1, textSz, t.owner === 0 ? "#ffd34d" : "#e2e8f0", "center");
+    text(nameText, drawX, by + padY - 1, textSz, t.owner === 0 ? "#fef08a" : "#f1f5f9", "center");
 
     // ── Hammer Badge Indicator ON TOP OF CASTLE STRUCTURE ──────────────────
     const townRegionId = t.regionId;
@@ -4492,88 +5251,122 @@ export function createIslandEmpireGame(
     const localFlagColor = state.newbieFlagColor || "#ef4444";
     const attColor = attackerOwner === 0 ? localFlagColor : (factions[attackerOwner]?.color || "#ef4444");
     const defColor = territoryId != null && state.regionOwnerFlagColors?.[territoryId] ? state.regionOwnerFlagColors[territoryId] : (factions[defenderOwner]?.color || "#3b82f6");
+    
+    const attEmblem = attackerOwner === 0 ? state.newbieEmblem : (territoryId != null ? state.regionOwnerEmblems?.[territoryId] || "crown" : "crown");
+    const defEmblem = territoryId != null && state.regionOwnerEmblems?.[territoryId] ? state.regionOwnerEmblems[territoryId] : "shield";
+
     const animPulse = Math.sin(state.tick * 8) * 3;
-    const by = y - 155 + animPulse;
+    const by = y - 90 + animPulse;
     const CX = x;
 
-    // ─── SMOKE PUFFS ────────────────────────────────────────────────────────
-    for (let i = 0; i < 4; i++) {
-      const angle = (i / 4) * Math.PI * 2 + state.tick * 0.35;
-      const t = Math.max(0, ((state.tick * 0.85 + i * 0.25) % 1 + 1) % 1);
-      ctx.fillStyle = `rgba(200, 200, 210, ${(1 - t) * 0.5})`;
+    // ─── 1. BATTLEFIELD GROUND FIRE & SHOCKWAVE AURA ──────────────────────────
+    const wT = Math.max(0, ((state.tick * 1.8) % 1 + 1) % 1);
+    ctx.save();
+    ctx.shadowColor = "#ef4444";
+    ctx.shadowBlur = 24;
+    ctx.strokeStyle = `rgba(239, 68, 68, ${(1 - wT) * 0.9})`;
+    ctx.lineWidth = Math.max(0.1, 4 * (1 - wT));
+    ctx.beginPath();
+    ctx.ellipse(CX, y + 10, Math.max(2, wT * 64), Math.max(1, wT * 32), 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // ─── 2. BATTLEFIELD SMOKE PUFFS (Bốc khói chiến trường) ───────────────────
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2 + state.tick * 0.4;
+      const t = Math.max(0, ((state.tick * 0.9 + i * 0.2) % 1 + 1) % 1);
+      const smokeAlpha = (1 - t) * 0.45;
+      ctx.fillStyle = `rgba(50, 45, 40, ${smokeAlpha})`;
       ctx.beginPath();
-      ctx.arc(CX + Math.cos(angle) * t * 36, by - 20 + Math.sin(angle) * t * 30, Math.max(0, 6 + t * 18), 0, Math.PI * 2);
+      ctx.arc(CX + Math.cos(angle) * t * 32, by - 10 + Math.sin(angle) * t * 20 - t * 15, Math.max(0, 5 + t * 16), 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // ─── CROSSED SWORDS ─────────────────────────────────────────────────────
-    const swordVib = Math.sin(state.tick * 14) * 0.07;
+    // ─── 3. CLASHING ANIMATED SWORDS WITH RECOIL (Thanh kiếm nảy va chạm) ─────
+    const impactRecoil = Math.abs(Math.sin(state.tick * 12)) * 0.15;
     for (const dir of [1, -1]) {
       ctx.save();
-      ctx.translate(CX, by - 20);
-      ctx.rotate(dir * (0.62 + swordVib));
-      pxRect(-42, -4, 84, 8, "#cbd5e1");
-      pxRect(-42, -4, 84, 2, "#ffffff");
-      pxRect(22, -10, 6, 20, "#d4af37");
-      pxRect(28, -3, 14, 6, "#5c4033");
-      pxRect(42, -5, 6, 10, "#ffd700");
+      ctx.translate(CX, by - 12);
+      ctx.rotate(dir * (0.58 + impactRecoil));
+
+      // Blade steel
+      pxRect(-36, -3, 72, 6, "#e2e8f0");
+      pxRect(-36, -3, 72, 2, "#ffffff");
+      // Crossguard gold
+      pxRect(18, -8, 5, 16, "#fbbf24");
+      // Handle wood
+      pxRect(23, -2.5, 11, 5, "#451a03");
+      // Pommel gold
+      pxRect(34, -4, 5, 8, "#d97706");
       ctx.restore();
     }
 
-    // ─── SPARK PARTICLES ─────────────────────────────────────────────────────
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2 - state.tick * 1.6;
-      const t = Math.max(0, ((state.tick * 2.6 + i * 0.17) % 1 + 1) % 1);
-      const sz = Math.max(1, (1 - t) * 7);
-      const col = t < 0.25 ? "#fff" : t < 0.55 ? "#ffd700" : t < 0.8 ? "#f97316" : "#ef4444";
-      pxRect(CX + Math.cos(angle) * t * 48 - sz / 2, by - 20 + Math.sin(angle) * t * 40 - sz / 2, sz, sz, col);
+    // ─── 4. SPARK & FIRE EMBERS (Tóe đốm lửa chiến tranh) ─────────────────────
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 - state.tick * 2.2;
+      const t = Math.max(0, ((state.tick * 3.2 + i * 0.12) % 1 + 1) % 1);
+      const sz = Math.max(1, (1 - t) * 6);
+      const col = t < 0.25 ? "#ffffff" : t < 0.5 ? "#fef08a" : t < 0.75 ? "#f97316" : "#dc2626";
+      pxRect(CX + Math.cos(angle) * t * 42 - sz / 2, by - 12 + Math.sin(angle) * t * 32 - sz / 2, sz, sz, col);
     }
 
-    // ─── SHOCKWAVE RING ───────────────────────────────────────────────────────
-    const wT = Math.max(0, ((state.tick * 1.4) % 1 + 1) % 1);
-    ctx.strokeStyle = `rgba(255, 224, 80, ${(1 - wT) * 0.85})`;
-    ctx.lineWidth = Math.max(0.1, 4 * (1 - wT));
-    ctx.beginPath();
-    ctx.arc(CX, by - 20, Math.max(0, wT * 58), 0, Math.PI * 2);
-    ctx.stroke();
-
-    // ─── FLAG PANELS (attacker LEFT, defender RIGHT) ──────────────────────────
-    const drawFlagPanel = (px: number, color: string, flip: boolean) => {
-      ctx.save();
-      ctx.translate(px, by - 18);
-      ctx.rotate(flip ? 0.18 : -0.18);
-      pxRect(-2, -48, 4, 60, "#3e2723");
-      const fx = flip ? 2 : -40;
-      pxRect(fx, -48, 38, 24, color);
-      pxRect(fx, -48, 38, 4, "rgba(255,255,255,0.4)");
-      pxRect(flip ? 2 : -40, -48, 4, 24, "rgba(255,255,255,0.2)");
-      ctx.restore();
-    };
-    drawFlagPanel(CX - 70, attColor, true);
-    drawFlagPanel(CX + 70, defColor, false);
-
-    // ─── LIVE BATTLE COUNTDOWN TIMER BADGE ──────────────────────────────────
+    // ─── 5. UNIVERSAL RTS MULTI-PLAYER COMBAT CREST & TIMER BADGE ───────────
     if (territoryId !== undefined) {
+      const activeBattle = state.activeBattles?.find((b: any) => b.regionId === reactToCanvasRegionId(territoryId) || b.regionId === territoryId);
       const conflict = getRegionBattleState(territoryId);
-      if (conflict && conflict.remainingSec !== undefined) {
-        const bw = 150;
-        const bh = 24;
-        const bx = CX - bw / 2;
-        const byPos = by - 75;
+      const remSec = activeBattle?.resolvesAt 
+        ? Math.max(0, Math.ceil((new Date(activeBattle.resolvesAt).getTime() - Date.now()) / 1000))
+        : (conflict?.remainingSec ?? 15);
 
-        // Container Box
-        pxRect(bx, byPos, bw, bh, "rgba(9, 14, 22, 0.95)");
-        ctx.strokeStyle = conflict.type === "battle" ? "#f59e0b" : "#ef4444";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(Math.round(bx), Math.round(byPos), Math.round(bw), Math.round(bh));
+      const attPwr = activeBattle?.attPower ?? activeBattle?.attackerPower ?? 1200;
+      const defPwr = activeBattle?.defPower ?? activeBattle?.defenderPower ?? 800;
 
-        // Animated progress fill
-        const progress = Math.max(0, Math.min(1, conflict.remainingSec / 25));
-        pxRect(bx + 2, byPos + 2, Math.max(2, (bw - 4) * progress), bh - 4, conflict.type === "battle" ? "rgba(220, 38, 38, 0.75)" : "rgba(234, 179, 8, 0.75)");
+      const formatPwr = (val: number) => (val >= 1000 ? (val / 1000).toFixed(1) + "k" : String(val));
 
-        // Text countdown label
-        text(conflict.label, CX, byPos + 5, 20, "#ffffff", "center");
-      }
+      const bw = 154;
+      const bh = 28;
+      const bx = CX - bw / 2;
+      const byPos = by - 58;
+
+      // Outer metallic dark slate badge with gold trim
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
+      ctx.shadowBlur = 10;
+
+      // Dark slate background
+      ctx.fillStyle = "#090d16";
+      ctx.beginPath();
+      ctx.roundRect(bx, byPos, bw, bh, 5);
+      ctx.fill();
+
+      // Inner slate accent fill
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.roundRect(bx + 2, byPos + 2, bw - 4, bh - 4, 3.5);
+      ctx.fill();
+
+      // Subtle dark red progress indicator along the bottom
+      const dur = activeBattle?.duration || activeBattle?.durationSeconds || 25;
+      const progress = Math.max(0, Math.min(1, remSec / dur));
+      const barW = (bw - 6) * progress;
+      ctx.fillStyle = "rgba(220, 38, 38, 0.85)";
+      ctx.fillRect(bx + 3, byPos + bh - 4, Math.max(2, barW), 2);
+
+      // Gold frame border
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.roundRect(bx, byPos, bw, bh, 5);
+      ctx.stroke();
+      ctx.restore();
+
+      // Line 1: Coalition Power Comparison (Attacker vs Defender)
+      const pwrText = `⚔️ ${formatPwr(attPwr)}  VS  🛡️ ${formatPwr(defPwr)}`;
+      text(pwrText, CX, byPos + 4, 10, "#ffffff", "center");
+
+      // Line 2: Countdown Timer
+      const timerText = `⏱️ GIAO TRANH: ${remSec}s`;
+      text(timerText, CX, byPos + 16, 10, "#fef08a", "center");
     }
 
     ctx.restore();
@@ -5186,11 +5979,13 @@ export function createIslandEmpireGame(
   }
 
   function drawVoyages(vp?: any) {
+    if (isConquestLayout) return;
     state.voyages.forEach((v) => {
       // A route can cross the current view while both endpoints are off-screen.
       // Endpoint-only culling made those persisted marches disappear after reload.
       if (!voyageIntersectsViewport(v, vp)) return;
       const t = Math.min(1, v.t / v.duration);
+      if (t >= 1) return;
       const factionColor = factions[v.owner ?? 0]?.color || factions[0].color;
       
       if (v.crossingSea) {
@@ -5329,7 +6124,7 @@ export function createIslandEmpireGame(
     const r = landById(regionId);
     if (!r) return { requiresShip: false };
     const source = { x: origin.x, y: origin.y };
-    const sourceRegionId = regionAtCoords(source.x, source.y);
+    const sourceRegionId = townRegionId(source);
     const crossesSea = segmentTouchesSea(source, r);
     if (!crossesSea || landTravelAllowed(sourceRegionId, regionId)) {
       return { requiresShip: false };
@@ -5546,10 +6341,7 @@ export function createIslandEmpireGame(
   }
 
   function getNewbieShieldRemainingMs() {
-    const until = state.newbieShieldUntil || Number(localStorage.getItem("island_empire_newbie_shield_until") || 0);
-    if (!until) return 0;
-    const remaining = until - Date.now();
-    return Math.max(0, remaining);
+    return 0;
   }
 
   function formatShieldTimer(ms: number) {
@@ -5686,6 +6478,12 @@ export function createIslandEmpireGame(
     const x = pt.x;
     const y = pt.y;
 
+    // Viewport Culling Optimization: Skip rendering territories completely offscreen!
+    const viewport = getWorldViewport();
+    if (viewport && !isPointInViewport(x, y, viewport, 200)) {
+      return;
+    }
+
     const relation = getRegionAllianceRelation(regionId, ownerCode, ownerName);
     const sc = r.isIslet ? 0.35 : 0.52;
     const color = getRegionFlagColor(regionId);
@@ -5698,30 +6496,34 @@ export function createIslandEmpireGame(
 
     const cleanLabel = cleanOwnerName(ownerName, ownerCode, regionId);
 
-    // For Player (ownerCode === 1): Render Castle ONLY on Capital Town (townInRegion)
-    // For Opponents (ownerCode > 1): Render Castle Sprite for all opponent bases!
-    const isCastleTerritory = ownerCode === 1 ? Boolean(townInRegion) : ownerCode > 1;
-
-    if (!isCastleTerritory) {
-      drawRelationRing(x, y, relation, sc * 0.7);
-      drawTerritoryFlagMarker(x, y, color, cleanLabel, relation, sc);
+    // On Conquest Map layout, do NOT draw 1,000 castle sprites or flag markers over every territory
+    if (isConquestLayout) {
       return;
     }
 
-    // Capital Town: Render full Imperial Castle Sprite, Peace Shield & Nameplate!
-    drawRelationRing(x, y, relation, sc);
+    const settlementKind = state.regionSettlementKinds[regionId];
+    // Thủ đô đầu tiên & Trung tâm thành trì thứ 2 giữ hình dáng Thành Trì Đẹp (drawEmpireCastleSprite).
+    // Tất cả các lãnh thổ/đảo chiếm xây tiếp theo được hiển thị dưới dạng Mô hình Quân Khu (drawMilitaryDistrictSprite).
+    const isCapital = settlementKind === "capital" || settlementKind === "sub_capital";
+    const isMilitaryDistrict = !isCapital;
+    const isSubCapital = settlementKind === "sub_capital";
 
-    // Draw the castle sprite with scaled size
     const rawEmblem = ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
     const emblem = resolveCastleEmblem(ownerName, regionId, rawEmblem);
-    drawEmpireCastleSprite(x, y, color, emblem, sc, relation);
 
-    // Render 3D Peace Shield Energy Dome & Countdown Timer for Protected Town
-    if (ownerCode === 1) {
-      const shieldMs = getNewbieShieldRemainingMs();
-      if (shieldMs > 0) {
-        drawNewbiePeaceShield(x, y, sc, shieldMs);
-      }
+    if (isMilitaryDistrict) {
+      drawMilitaryDistrictSprite(x, y, color, emblem, sc, relation);
+    } else {
+      drawEmpireCastleSprite(x, y, color, emblem, sc, relation);
+    }
+
+    // Render 3D Peace Shield Energy Dome & Countdown Timer (Disabled)
+
+    // SMART LOD OPTIMIZATION FOR ZOOMED-OUT WORLD MAP VIEW (scale < 0.55):
+    // Skip heavy black nameplates, crown banners, and alliance badges for 10x faster rendering!
+    if (state.camScale < 0.55 && ownerCode !== 1) {
+      text(cleanLabel.slice(0, 14), x, y + 16, 12, "#ffffff", "center");
+      return;
     }
 
     const label = cleanLabel.slice(0, 18);
@@ -5742,35 +6544,21 @@ export function createIslandEmpireGame(
       ctx.strokeRect(Math.round(x - 76 * ratio), Math.round(y + 44 * sc), Math.round(152 * ratio), Math.round(22 * sc));
       text(conflict.label, x, y + 49 * sc, 23 * sc, "#fca5a5", "center");
     } else if (ownerCode === 1) {
-      // Royal Kingdom Crown Banner above nameplate with Cyan & Gold
+      const bannerText = isSubCapital ? "🏛️ TRUNG TÂM THÀNH TRÌ" : (isMilitaryDistrict ? "⚔️ QUÂN KHU" : "👑 THỦ ĐÔ");
       pxRect(x - 72 * ratio, y + 44 * sc, 144 * ratio, 22 * sc, "#0f172a");
-      ctx.strokeStyle = "#00f0ff";
+      ctx.strokeStyle = isSubCapital ? "#f59e0b" : (isMilitaryDistrict ? "#38bdf8" : "#00f0ff");
       ctx.lineWidth = 2 * ratio;
       ctx.strokeRect(Math.round(x - 72 * ratio), Math.round(y + 44 * sc), Math.round(144 * ratio), Math.round(22 * sc));
-      text("👑 THÀNH TRÌ BẠN", x, y + 49 * sc, 23 * sc, "#7dd3fc", "center");
-    } else if (relation === "ally") {
-      // Gold-Yellow Alliance Crown Banner
-      pxRect(x - 72 * ratio, y + 44 * sc, 144 * ratio, 22 * sc, "#2d240d");
-      ctx.strokeStyle = "#f59e0b";
-      ctx.lineWidth = 2 * ratio;
-      ctx.strokeRect(Math.round(x - 72 * ratio), Math.round(y + 44 * sc), Math.round(144 * ratio), Math.round(22 * sc));
-      text("🤝 CÙNG LIÊN MINH", x, y + 49 * sc, 23 * sc, "#fef08a", "center");
-    } else if (ownerCode > 1) {
-      // Crimson Red Enemy Crown Banner
-      pxRect(x - 72 * ratio, y + 44 * sc, 144 * ratio, 22 * sc, "#2d1212");
-      ctx.strokeRect(Math.round(x - 72 * ratio), Math.round(y + 44 * sc), Math.round(144 * ratio), Math.round(22 * sc));
-      text("👑 THÀNH TRÌ ĐỊCH", x, y + 49 * sc, 23 * sc, "#fca5a5", "center");
+      text(bannerText, x, y + 49 * sc, 23 * sc, isSubCapital ? "#fef08a" : (isMilitaryDistrict ? "#bae6fd" : "#7dd3fc"), "center");
     }
 
-    pxRect(x - w / 2 + 4 * ratio, y + 70 * sc + 5 * ratio, w, h, "rgba(0,0,0,0.42)");
-    pxRect(x - w / 2, y + 70 * sc, w, h, "rgba(9,18,28,0.92)");
-    pxRect(x - w / 2 + 7 * ratio, y + 70 * sc + 6 * ratio, w - 14 * ratio, 6 * ratio, "rgba(255,255,255,0.14)");
-    ctx.strokeStyle = conflict ? "#ef4444" : (ownerCode === 1 ? "#00f0ff" : "#d85a4c");
+    pxRect(x - w / 2 + 4 * ratio, y + 70 * sc + 5 * ratio, w, h, "rgba(0,0,0,0.5)");
+    pxRect(x - w / 2, y + 70 * sc, w, h, "rgba(15, 23, 42, 0.94)");
+    pxRect(x - w / 2 + 7 * ratio, y + 70 * sc + 6 * ratio, w - 14 * ratio, 5 * ratio, "rgba(255,255,255,0.18)");
+    ctx.strokeStyle = conflict ? "#ef4444" : (ownerCode === 1 ? "#00f0ff" : color);
     ctx.lineWidth = (conflict || ownerCode === 1) ? 3 * ratio : 2 * ratio;
     ctx.strokeRect(Math.round(x - w / 2), Math.round(y + 70 * sc), Math.round(w), h);
-    pxRect(x - w / 2 + 7 * ratio, y + 70 * sc + 8 * ratio, 6 * ratio, 6 * ratio, ownerCode === 1 ? "#00f0ff" : "#f8d15a");
-    pxRect(x + w / 2 - 13 * ratio, y + 70 * sc + 8 * ratio, 6 * ratio, 6 * ratio, ownerCode === 1 ? "#00f0ff" : "#f8d15a");
-    text(label, x, y + 83 * sc, 40 * sc, ownerCode === 1 ? "#e0f2fe" : "#fff3d2", "center");
+    text(label, x, y + 83 * sc, 38 * sc, ownerCode === 1 ? "#e0f2fe" : "#ffffff", "center");
     if (allianceTag) {
       drawAllianceBadge(x - w / 2 - 38 * ratio, y + 74 * sc, allianceTag, allianceEmblem, Math.max(0.42, sc * 0.86));
     }
@@ -5784,6 +6572,7 @@ export function createIslandEmpireGame(
   }
 
   function drawClaimedTerritoryMarkers(vp?: any) {
+    if (isConquestLayout) return;
     Object.keys(state.regionOwnership).forEach((key) => {
       const regionId = Number(key);
       const ownerCode = derivedRegionOwnership(regionId);
@@ -5875,6 +6664,7 @@ export function createIslandEmpireGame(
   }
 
   function drawMainCoast() {
+    if (isConquestLayout) return;
     const hulls = [
       [
         [450, 62], [612, 72], [752, 150], [840, 272], [884, 420], [980, 562],
@@ -5974,7 +6764,7 @@ export function createIslandEmpireGame(
 
   function drawWorld() {
     const fastPan = isFastPanning();
-    fastRenderMode = fastPan || state.zoom < 0.45;
+    fastRenderMode = fastPan || state.zoom < 0.15;
     drawOcean();
     // drawRoutes(); // routes hidden
     ctx.save();
@@ -5987,7 +6777,155 @@ export function createIslandEmpireGame(
       drawWorldOceanDetails();
     }
 
-    // Tính toán danh sách các đảo đang nằm trong màn hình
+    function drawRoKConquestPassesAndMountains(vp?: any) {
+    // 1. Level 1 Passes (Đèo Cấp 1 - Cyan #00d2fe)
+    const passLvl1: Array<[number, number]> = [
+      [2500, 560], [3500, 560], [1040, 1300], [960, 2600], [4640, 1300], [4640, 2700], [2100, 3540], [3500, 3540]
+    ];
+    // 2. Level 2 Passes (Đèo Cấp 2 - Orange #ff8c00)
+    const passLvl2: Array<[number, number]> = [
+      [1600, 1100], [2400, 1040], [3960, 1100], [1500, 2900], [1760, 3100], [3700, 3100],
+      [1240, 1460], [1240, 1760], [3200, 880], [3440, 880], [4040, 2200], [4040, 2500], [2040, 3240], [2300, 3240]
+    ];
+    // 3. Level 3 Passes (Đèo Cấp 3 - Red #ff3333 8-gate Ring)
+    const passLvl3: Array<[number, number]> = [
+      [2800, 1720], [3120, 1800], [3280, 2100], [3120, 2400], [2800, 2480], [2480, 2400], [2320, 2100], [2480, 1800]
+    ];
+
+    // Helper to draw single 3D Snow-Capped Mountain Peak
+    const drawMountainPeak = (mx: number, my: number, scale = 1.0) => {
+      if (vp && !isPointInViewport(mx, my, vp, 250)) return;
+      ctx.save();
+      const s = scale;
+
+      // Drop shadow
+      pxRect(mx - 22 * s, my + 4 * s, 44 * s, 12 * s, "rgba(0,0,0,0.35)");
+
+      // Dark Mountain Shadow Side
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 34 * s);
+      ctx.lineTo(mx - 24 * s, my + 6 * s);
+      ctx.lineTo(mx, my + 8 * s);
+      ctx.closePath();
+      ctx.fill();
+
+      // Sunlit Mountain Side
+      ctx.fillStyle = "#475569";
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 34 * s);
+      ctx.lineTo(mx + 24 * s, my + 6 * s);
+      ctx.lineTo(mx, my + 8 * s);
+      ctx.closePath();
+      ctx.fill();
+
+      // Snow Cap Peak (White)
+      ctx.fillStyle = "#f8fafc";
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 34 * s);
+      ctx.lineTo(mx - 8 * s, my - 16 * s);
+      ctx.lineTo(mx, my - 14 * s);
+      ctx.lineTo(mx + 8 * s, my - 16 * s);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    };
+
+    // Render Continuous Mountain Walls along Zone Boundary Loops
+    // Zone 1 Outer Mountain Chains
+    for (let x = 600; x <= 5000; x += 110) {
+      drawMountainPeak(x, 520, 1.15);
+      drawMountainPeak(x, 3620, 1.15);
+    }
+    for (let y = 600; y <= 3500; y += 95) {
+      drawMountainPeak(920, y, 1.15);
+      drawMountainPeak(4680, y, 1.15);
+    }
+
+    // Zone 2 / Zone 3 Ring Mountain Chains
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+      const rx1 = 1850;
+      const ry1 = 1250;
+      const mx1 = 2800 + Math.cos(angle) * rx1;
+      const my1 = 2100 + Math.sin(angle) * ry1;
+      drawMountainPeak(mx1, my1, 1.25);
+
+      const rx2 = 820;
+      const ry2 = 560;
+      const mx2 = 2800 + Math.cos(angle) * rx2;
+      const my2 = 2100 + Math.sin(angle) * ry2;
+      drawMountainPeak(mx2, my2, 1.35);
+    }
+
+    // Helper to draw Heavy 3D RoK Mountain Pass Fortress Badge
+    const drawPassFortressBadge = (x: number, y: number, label: string, color: string, badgeBg: string) => {
+      if (vp && !isPointInViewport(x, y, vp, 600)) return;
+      ctx.save();
+      
+      // Shadow base
+      pxRect(x - 46, y + 4, 92, 32, "rgba(0,0,0,0.6)");
+      
+      // 3D Heavy Stone Fortress Base Walls & Side Turrets
+      pxRect(x - 48, y - 28, 96, 30, "#0f172a");
+      pxRect(x - 44, y - 32, 88, 8, color);
+
+      // Left & Right Guard Towers
+      pxRect(x - 48, y - 42, 18, 22, "#334155");
+      pxRect(x + 30, y - 42, 18, 22, "#334155");
+      pxRect(x - 48, y - 46, 18, 4, color);
+      pxRect(x + 30, y - 46, 18, 4, color);
+
+      // Center Gate Arch Tunnel
+      pxRect(x - 14, y - 16, 28, 18, "#020617");
+      
+      // RoK Pass Badge Plaque
+      pxRect(x - 38, y - 56, 76, 20, badgeBg);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.0;
+      ctx.strokeRect(x - 38, y - 56, 76, 20);
+      
+      text(label, x, y - 42, 11, "#ffffff", "center");
+      ctx.restore();
+    };
+
+    // Draw Passes
+    passLvl1.forEach(([x, y]) => drawPassFortressBadge(x, y, "ĐÈO CẤP 1", "#00d2fe", "#0c4a6e"));
+    passLvl2.forEach(([x, y]) => drawPassFortressBadge(x, y, "ĐÈO CẤP 2", "#ff8c00", "#7c2d12"));
+    passLvl3.forEach(([x, y]) => drawPassFortressBadge(x, y, "ĐÈO CẤP 3", "#ff3333", "#7f1d1d"));
+
+    // Central Lost Temple Monument (Thần Điện Tối Cao)
+    const tx = 2800;
+    const ty = 2100;
+    if (!vp || isPointInViewport(tx, ty, vp, 600)) {
+      ctx.save();
+      // Glowing Auras around Lost Temple
+      const aura = ctx.createRadialGradient(tx, ty, 10, tx, ty, 140);
+      aura.addColorStop(0, "rgba(251, 191, 36, 0.65)");
+      aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 140, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Golden Temple Structure
+      pxRect(tx - 60, ty - 40, 120, 50, "#92400e");
+      pxRect(tx - 50, ty - 65, 100, 30, "#d97706");
+      pxRect(tx - 35, ty - 95, 70, 35, "#f59e0b");
+      pxRect(tx - 15, ty - 125, 30, 35, "#fbbf24");
+      pxRect(tx - 4, ty - 145, 8, 25, "#fef08a");
+
+      // Title Plaque
+      pxRect(tx - 80, ty + 20, 160, 24, "#0f172a");
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(tx - 80, ty + 20, 160, 24);
+      text("🏰 THẦN ĐIỆN TỐI CAO", tx, ty + 36, 12, "#fbbf24", "center");
+      ctx.restore();
+    }
+  }
+
+  // Tính toán danh sách các đảo đang nằm trong màn hình
     const vp = getWorldViewport();
     const visibleIslets = [];
     const visibleRegions = [];
@@ -6022,12 +6960,20 @@ export function createIslandEmpireGame(
       }
     }
 
-    drawTerritoryResources(visibleRegions, visibleIslets);
-    if (!fastRenderMode) drawDecoration(vp);
+    if (isConquestLayout) {
+      drawRoKConquestPassesAndMountains(vp);
+    }
+
+    if (!isConquestLayout) {
+      drawTerritoryResources(visibleRegions, visibleIslets);
+    }
+    if (!fastRenderMode && !isConquestLayout) drawDecoration(vp);
     drawVoyages(vp);
     drawClaimedTerritoryMarkers(vp);
     drawCoastalHarbors(vp);
-    activeClearingRegionIds().forEach((regionId) => drawSettlerForRegion(regionId));
+    if (!isConquestLayout) {
+      activeClearingRegionIds().forEach((regionId) => drawSettlerForRegion(regionId));
+    }
     ctx.restore();
 
     // Floating sky clouds in screen space (disabled to optimize performance/lag)
@@ -6259,7 +7205,6 @@ export function createIslandEmpireGame(
       { id: "build", x: 24, y: H - 130, w: 104, h: 86, label: "XÂY DỰNG" },
       { id: "research", x: 140, y: H - 130, w: 104, h: 86, label: "NGHIÊN CỨU" },
       { id: "treasure", x: rightX, y: 92, w: 110, h: 82, label: "BẢO VẬT" },
-      { id: "ally", x: rightX, y: 186, w: 110, h: 82, label: "LIÊN MINH" },
       { id: "map", x: rightX, y: 280, w: 110, h: 82, label: "BẢN ĐỒ" },
       { id: "event", x: rightX, y: 374, w: 110, h: 82, label: "SỰ KIỆN" },
       { id: "home", x: rightX, y: 468, w: 110, h: 82, label: "THỦ ĐÔ" },
@@ -7056,7 +8001,10 @@ export function createIslandEmpireGame(
       town.regionId = regionId;
       town.lvl = Math.max(1, Math.floor(Number(snapshot.lvl ?? snapshot.level ?? town.lvl ?? 1) || 1));
       town.troops = Math.max(0, Math.floor(Number(snapshot.troops ?? town.troops ?? 0) || 0));
-      town.population = Math.max(0, Math.floor(Number(snapshot.population ?? town.population ?? 32) || 32));
+      town.population = Math.max(
+        territoryStartingPopulation(regionId, 1),
+        Math.floor(Number(snapshot.population ?? town.population ?? 32) || 32),
+      );
       town.infantryCount = Math.max(0, Math.floor(Number(snapshot.infantryCount ?? town.infantryCount ?? town.troops ?? 0) || 0));
       town.cavalryCount = Math.max(0, Math.floor(Number(snapshot.cavalryCount ?? town.cavalryCount ?? 0) || 0));
       town.artilleryCount = Math.max(0, Math.floor(Number(snapshot.artilleryCount ?? town.artilleryCount ?? 0) || 0));
@@ -7181,8 +8129,18 @@ export function createIslandEmpireGame(
 
   function isPlayerOwnedTown(town: any) {
     if (!town || town.owner !== 0) return false;
-    const regionId = regionAtCoords(town.x, town.y);
+    const regionId = townRegionId(town);
     return regionId >= 0 && derivedRegionOwnership(regionId) === 1;
+  }
+
+  function townRegionId(town: any) {
+    if (!town) return -1;
+    const townId = Number(town.id);
+    const encodedRegionId = Number.isInteger(townId) && townId >= 9000 ? townId - 9000 : -1;
+    if (encodedRegionId >= 0 && landById(encodedRegionId)) return encodedRegionId;
+    const explicitRegionId = Number(town.regionId);
+    if (Number.isInteger(explicitRegionId) && explicitRegionId >= 0 && landById(explicitRegionId)) return explicitRegionId;
+    return regionAtCoords(town.x, town.y);
   }
 
   function sourceTown() {
@@ -7588,10 +8546,19 @@ export function createIslandEmpireGame(
       startedAt: clearing.startedAt,
       arrivesAt: clearing.arrivesAt,
       completesAt: clearing.completesAt,
+      sourceTownId: clearing.sourceTownId,
+      settlers: clearing.settlers,
+      sourceX: clearing.sourceX,
+      sourceY: clearing.sourceY,
     };
     state.regionClearing[regionId] = clearingTimingProgress(clearing);
     if (isMine) {
-      const origin = settlerOriginForRegion(regionId);
+      const sourceTown = clearing.sourceTownId !== undefined ? towns.find((town: any) => town.id === clearing.sourceTownId) : null;
+      const origin = Number.isFinite(clearing.sourceX) && Number.isFinite(clearing.sourceY)
+        ? { originTownId: clearing.sourceTownId ?? null, originX: clearing.sourceX, originY: clearing.sourceY }
+        : sourceTown
+        ? { originTownId: sourceTown.id, originX: sourceTown.x, originY: sourceTown.y }
+        : settlerOriginForRegion(regionId);
       state.regionInProgress = regionId;
       state.newbieSelectedRegion = regionId;
       state.newbiePhase = "clearing";
@@ -8122,25 +9089,8 @@ export function createIslandEmpireGame(
         v.t += dt;
       }
       if (v.t >= v.duration) {
-        const targetReg = v.targetRegionId ?? (v.to ? regionAtCoords(v.to.x, v.to.y) : -1);
-        if (v.isAttack && !v.backendMarchId) {
-          state.voyages.splice(i, 1);
-          toast("LỆNH HÀNH QUÂN CHƯA ĐƯỢC SERVER XÁC NHẬN, ĐANG CHỜ ĐỒNG BỘ");
-          continue;
-        }
-
-        const hasActiveBattle = (state.activeBattles || []).some((b: any) => {
-          const bReg = b.regionId;
-          return bReg === targetReg || reactToCanvasRegionId(bReg) === targetReg;
-        });
-        const hasActiveClearing = (state.regionClearing || []).includes(targetReg) ||
-          (state.activeClearingTimings && (state.activeClearingTimings[targetReg] || state.activeClearingTimings[canvasToReactRegionId(targetReg)]));
-
-        if (hasActiveBattle || hasActiveClearing || v.keepLineUntilResolved || v.isAttack || v.backendMarchId) {
-          v.t = v.duration;
-        } else {
-          state.voyages.splice(i, 1);
-        }
+        state.voyages.splice(i, 1);
+        continue;
       }
     }
 
@@ -8293,7 +9243,8 @@ export function createIslandEmpireGame(
   load();
   resetStarterTownsForNewbie();
   initTerritoryArrays();
-  loadCamera();
+  if (isConquestLayout) centerCameraOnWorldContent();
+  else loadCamera();
   raf = requestAnimationFrame(loop);
 
   return {
@@ -8307,6 +9258,8 @@ export function createIslandEmpireGame(
       if (raf) cancelAnimationFrame(raf);
     },
     getState: () => state,
+    canBuildStronghold: (regionId: number) => expansionTargetState(regionId) !== null,
+    getExpansionSourceRegionsForTarget: (regionId: number) => expansionSourceRegionsForTarget(regionId),
     getTowns: () => towns,
     getRegions: () => regions,
     getIslets: () => islets,
@@ -8314,7 +9267,7 @@ export function createIslandEmpireGame(
     getRegionOwnership: (id: number) => derivedRegionOwnership(id),
     getSourceTown: () => sourceTown(),
     getPlayerOwnedTowns: () => towns.filter(isPlayerOwnedTown),
-    getTownRegionId: (town: any) => town ? regionAtCoords(town.x, town.y) : -1,
+    getTownRegionId: (town: any) => townRegionId(town),
     getRegion: (id: number) => landById(reactToCanvasRegionId(id)),
     getRegionCenter: (id: number) => {
       const r = landById(reactToCanvasRegionId(id));
@@ -8395,6 +9348,14 @@ export function createIslandEmpireGame(
         if (payload?.config) Object.assign(gameConfig, payload.config);
         return;
       }
+      if (id === "setExpansionSource") {
+        const regionId = Number(payload?.regionId);
+        state.expansionSourceRegionId = Number.isInteger(regionId) && regionId >= 0 ? regionId : null;
+        state.toast = state.expansionSourceRegionId === null
+          ? "ĐÃ HỦY MỞ RỘNG LÃNH ĐỊA"
+          : "CHỌN VÙNG ĐƯỢC VIỀN VÀNG ĐỂ DỰNG PHÁO ĐÀI";
+        return;
+      }
       if (id === "prepareBackendWorld") {
         state.hasAuthoritativeOwnership = true;
         state.regionOwnership = [];
@@ -8404,6 +9365,7 @@ export function createIslandEmpireGame(
         state.regionOwnerEmblems = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
+        state.regionSettlementKinds = {};
         state.regionClearing = [];
         state.activeClearingTimings = {};
         state.regionInProgress = -1;
@@ -8459,6 +9421,7 @@ export function createIslandEmpireGame(
           if (territory.ownerEmblem) state.regionOwnerEmblems[territory.id] = territory.ownerEmblem;
           if (territory.ownerAllianceTag) state.regionOwnerAllianceTags[territory.id] = territory.ownerAllianceTag;
           if (territory.ownerAllianceEmblem) state.regionOwnerAllianceEmblems[territory.id] = territory.ownerAllianceEmblem;
+          if (territory.settlementKind) state.regionSettlementKinds[territory.id] = territory.settlementKind;
         });
         if (hasOwnedTerritory) {
           if (state.newbieMode) {
@@ -8489,7 +9452,7 @@ export function createIslandEmpireGame(
             const mId = m._id || m.id || m.marchId;
             return mId === voyage.backendMarchId;
           });
-          return isServerActive || hasActiveBattle || hasActiveClearing || (voyage.t < voyage.duration) || voyage.keepLineUntilResolved;
+          return isServerActive && (voyage.t < voyage.duration);
         });
         (payload?.marches || []).forEach((march) => {
           try {
@@ -8547,6 +9510,7 @@ export function createIslandEmpireGame(
           state.regionOwnerEmblems = {};
           state.regionOwnerAllianceTags = {};
           state.regionOwnerAllianceEmblems = {};
+          state.regionSettlementKinds = {};
         }
         (payload?.territories || []).forEach((territory) => {
           const ownerId = territory.ownerId || null;
@@ -8569,6 +9533,8 @@ export function createIslandEmpireGame(
           else delete state.regionOwnerAllianceTags[territory.id];
           if (territory.ownerAllianceEmblem) state.regionOwnerAllianceEmblems[territory.id] = territory.ownerAllianceEmblem;
           else delete state.regionOwnerAllianceEmblems[territory.id];
+          if (territory.settlementKind) state.regionSettlementKinds[territory.id] = territory.settlementKind;
+          else delete state.regionSettlementKinds[territory.id];
         });
         syncTownOwnersForRegions(touchedRegionIds);
         cancelClearingIfTargetTaken(touchedRegionIds);
@@ -8656,7 +9622,13 @@ export function createIslandEmpireGame(
         state.regionInProgress = -1;
         state.regionClearing[canvasId] = 0;
         delete state.activeClearingTimings[canvasId];
-        beginSettlerReturn(canvasId, "ĐANG GỬI LỆNH HỦY XÂY THÀNH LÊN SERVER");
+        state.regionOwnership[canvasId] = 0;
+        delete state.regionOwnerNames[canvasId];
+        delete state.regionOwnerFlagColors[canvasId];
+        delete state.regionOwnerEmblems[canvasId];
+        delete state.regionOwnerIds[canvasId];
+        delete state.regionSettlementKinds[canvasId];
+        beginSettlerReturn(canvasId, "ĐÃ HỦY XÂY THÀNH: ĐỘI THỢ QUAY VỀ, ĐẤT ĐÃ RESET TRỞ VỀ HOANG DÃ");
         return;
       }
       if (id === "marchAttack") {
@@ -8771,6 +9743,9 @@ export function createIslandEmpireGame(
     getConfig: () => gameConfig,
     territoryYield,
     clearingDuration,
-    territoryBuildCost
+    territoryBuildCost,
+    getCastleSprite: (flagColor: string, emblem: string) => {
+      return getCachedGrandCastleSprite(flagColor, emblem);
+    }
   };
 }

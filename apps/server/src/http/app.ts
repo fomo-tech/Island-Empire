@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
   generateWorldTerritories,
@@ -30,7 +31,7 @@ import type {
   ActiveClearing,
   ActiveBattle,
 } from "@island/shared";
-import { collections } from "../db/collections.js";
+import { collections, type TerritoryClearingDocument } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
 import { requireAdmin, requireAuth, signToken } from "../security/auth.js";
 import { publishRealtime, realtimeStats } from "../realtime/socket.js";
@@ -44,8 +45,18 @@ const ALLIANCE_CREATE_GEMS_COST = 100;
 const ALLIANCE_MAX_MEMBERS = 20;
 const ALLIANCE_AID_MAX_TROOPS = 500;
 
+const AntiBotProofSchema = z.object({
+  challengeToken: z.string().min(32).max(600),
+  proof: z.number().int().nonnegative().max(2_147_483_647),
+});
+
 const LoginSchema = z.object({
   username: z.string().min(3).max(40),
+  password: z.string().min(8).max(200),
+}).merge(AntiBotProofSchema);
+
+const AdminLoginSchema = z.object({
+  username: z.string().min(3).max(80),
   password: z.string().min(8).max(200),
 });
 
@@ -60,6 +71,10 @@ const RegisterSchema = LoginSchema.extend({
 
 const StartClearingSchema = z.object({
   territoryId: z.number().int().nonnegative(),
+});
+
+const ActiveMapSchema = z.object({
+  activeMap: z.enum(["world", "conquest"]),
 });
 
 const CreateMarchSchema = z.object({
@@ -148,6 +163,65 @@ function enforceActionLimit(req: any, res: any, action: string, limit: number, w
   const result = consumeActionLimit(playerId, action, limit, windowMs);
   if (result.ok) return true;
   res.setHeader("Retry-After", String(Math.ceil(result.retryAfterMs / 1000)));
+  res.status(429).json({ error: "rate_limited", message: "Bạn thao tác quá nhanh, vui lòng chờ một chút" });
+  return false;
+}
+
+const usedAntiBotChallenges = new Map<string, number>();
+const ANTI_BOT_DIFFICULTY = 3;
+const ANTI_BOT_TTL_MS = 2 * 60_000;
+
+function antiBotIp(req: any) {
+  return String(req.ip || req.socket?.remoteAddress || "unknown");
+}
+
+function signAntiBotPayload(payload: string) {
+  return createHmac("sha256", config.ANTI_BOT_SECRET).update(payload).digest("base64url");
+}
+
+function createAntiBotChallenge(req: any) {
+  const payload = Buffer.from(JSON.stringify({
+    nonce: randomBytes(18).toString("base64url"),
+    ip: antiBotIp(req),
+    expiresAt: Date.now() + ANTI_BOT_TTL_MS,
+    difficulty: ANTI_BOT_DIFFICULTY,
+  })).toString("base64url");
+  return { token: `${payload}.${signAntiBotPayload(payload)}`, difficulty: ANTI_BOT_DIFFICULTY, expiresInSeconds: ANTI_BOT_TTL_MS / 1000 };
+}
+
+function verifyAntiBotProof(req: any, proof: { challengeToken: string; proof: number }) {
+  const [payload, signature, extra] = proof.challengeToken.split(".");
+  if (!payload || !signature || extra) return false;
+  const expected = signAntiBotPayload(payload);
+  if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
+  let challenge: { nonce?: string; ip?: string; expiresAt?: number; difficulty?: number };
+  try {
+    challenge = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return false;
+  }
+  if (!challenge.nonce || challenge.ip !== antiBotIp(req) || !Number.isFinite(challenge.expiresAt) || challenge.expiresAt! <= Date.now()) return false;
+  if (usedAntiBotChallenges.has(proof.challengeToken)) return false;
+  const prefix = "0".repeat(Math.max(1, Math.min(6, Math.floor(challenge.difficulty || 0))));
+  const digest = createHash("sha256").update(`${challenge.nonce}:${proof.proof}`).digest("hex");
+  if (!digest.startsWith(prefix)) return false;
+  usedAntiBotChallenges.set(proof.challengeToken, challenge.expiresAt!);
+  if (usedAntiBotChallenges.size > 10_000) {
+    const now = Date.now();
+    usedAntiBotChallenges.forEach((expiresAt, token) => { if (expiresAt <= now) usedAntiBotChallenges.delete(token); });
+  }
+  return true;
+}
+
+function enforceAuthAttempt(req: any, res: any, action: "login" | "register" | "guest", identity?: string) {
+  const ipResult = consumeActionLimit(`auth-ip:${antiBotIp(req)}`, action, action === "guest" ? 3 : 6, 60_000);
+  const normalizedIdentity = String(identity || "").trim().toLowerCase();
+  const identityResult = normalizedIdentity
+    ? consumeActionLimit(`auth-id:${normalizedIdentity}`, action, action === "register" ? 3 : 5, 60_000)
+    : { ok: true, retryAfterMs: 0 };
+  const blocked = !ipResult.ok ? ipResult : !identityResult.ok ? identityResult : null;
+  if (!blocked) return true;
+  res.setHeader("Retry-After", String(Math.ceil(blocked.retryAfterMs / 1000)));
   res.status(429).json({ error: "rate_limited", message: "Bạn thao tác quá nhanh, vui lòng chờ một chút" });
   return false;
 }
@@ -336,6 +410,7 @@ function buildStaticTerritoryList(): Omit<TerritoryInfo, "ownerId">[] {
     territories.push({
       id: t.id,
       isIslet: t.isIslet,
+      coastal: t.coastal,
       biome: t.biome,
       biomeName: BIOME_NAMES[t.biome] ?? "Không rõ",
       rx: t.rx,
@@ -356,6 +431,146 @@ function getStaticTerritory(id: number) {
   return buildStaticTerritoryList().find((territory) => territory.id === id);
 }
 
+function territoryConnectionType(
+  source: NonNullable<ReturnType<typeof getStaticTerritory>>,
+  target: NonNullable<ReturnType<typeof getStaticTerritory>>,
+): "land" | "sea" | null {
+  const dx = Math.abs(source.x - target.x);
+  const dy = Math.abs(source.y - target.y);
+  const centerDistance = Math.hypot(dx, dy);
+
+  const sourceHasPort = Boolean(
+    source.isIslet || source.coastal || source.specialResources?.includes("Bến tàu tự nhiên")
+  );
+
+  // RULE 1: If source is an Island (isIslet) or has Harbor, allow sea connection to any island/coastal within 2500px sea radius
+  if (source.isIslet) {
+    return centerDistance <= 2500 ? "sea" : null;
+  }
+
+  // RULE 2: If target is an Island (isIslet): source MUST have a harbor ("Bến tàu tự nhiên" or islet)!
+  if (target.isIslet) {
+    if (!sourceHasPort) return null;
+    if (centerDistance > 2600) return null;
+    const allTerritories = buildStaticTerritoryList();
+    let minIslandDist = Infinity;
+    for (const t of allTerritories) {
+      if (t.id !== source.id && t.isIslet) {
+        const d = Math.hypot(source.x - t.x, source.y - t.y);
+        if (d < minIslandDist) minIslandDist = d;
+      }
+    }
+    return centerDistance <= minIslandDist + 200 ? "sea" : null;
+  }
+
+  // RULE 3: Mainland to Mainland: strict 1-tile adjacent border touching
+  const sumRx = (source.rx || 100) + (target.rx || 100);
+  const sumRy = (source.ry || 100) + (target.ry || 100);
+  const normDistSq = (dx / sumRx) ** 2 + (dy / sumRy) ** 2;
+  return normDistSq <= 0.85 ? "land" : null;
+}
+
+function nearestExpansionSource(
+  claims: Array<{ territoryId: number; parentTerritoryId?: number; settlementKind?: string; claimedAt?: Date }>,
+  target: NonNullable<ReturnType<typeof getStaticTerritory>>,
+) {
+  return claims
+    .map((claim) => {
+      const territory = getStaticTerritory(claim.territoryId);
+      if (!territory || !isClaimConnectedToCapital(claims, claim.territoryId)) return null;
+      const connectionType = territoryConnectionType(territory, target);
+      if (!connectionType) return null;
+      return {
+        claim,
+        territory,
+        connectionType,
+        distance: Math.hypot(territory.x - target.x, territory.y - target.y),
+      };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+    .sort((a, b) =>
+      a.distance - b.distance
+      || (a.claim.claimedAt?.getTime() || 0) - (b.claim.claimedAt?.getTime() || 0)
+      || a.territory.id - b.territory.id,
+    )[0];
+}
+
+function isClaimConnectedToCapital(claims: Array<{ territoryId: number; parentTerritoryId?: number; settlementKind?: string; claimedAt?: Date }>, territoryId: number) {
+  const byId = new Map(claims.map((claim) => [claim.territoryId, claim]));
+  const capitals = claims.filter((claim) => claim.settlementKind === "capital" || claim.settlementKind === "sub_capital");
+  if (capitals.length === 0) {
+    const oldest = [...claims].sort((a, b) => (a.claimedAt?.getTime() || 0) - (b.claimedAt?.getTime() || 0))[0];
+    if (oldest) capitals.push(oldest);
+  }
+  const capitalIds = new Set(capitals.map((c) => c.territoryId));
+  if (capitalIds.size === 0 || !byId.has(territoryId)) return false;
+  const visited = new Set<number>();
+  let current = byId.get(territoryId);
+  while (current && !visited.has(current.territoryId)) {
+    if (capitalIds.has(current.territoryId)) return true;
+    visited.add(current.territoryId);
+    if (current.parentTerritoryId === undefined) return false;
+    current = byId.get(current.parentTerritoryId);
+  }
+  return false;
+}
+
+/** Automatically prunes & destroys any territories for playerId that lost their connectivity chain to the capital. */
+async function pruneDisconnectedClaims(playerId: string) {
+  if (!playerId) return [];
+  const { territoryClaims, territoryClearings, saves } = await collections();
+  const claims = await territoryClaims.find({ playerId }).toArray();
+  if (claims.length <= 1) return [];
+
+  const capitals = claims.filter((c) => c.settlementKind === "capital" || c.settlementKind === "sub_capital");
+  if (capitals.length === 0) {
+    const oldest = [...claims].sort((a, b) => (a.claimedAt?.getTime() || 0) - (b.claimedAt?.getTime() || 0))[0];
+    if (oldest) capitals.push(oldest);
+  }
+  if (capitals.length === 0) return [];
+
+  const connectedIds = new Set<number>();
+  const queue: number[] = capitals.map((c) => c.territoryId);
+  capitals.forEach((c) => connectedIds.add(c.territoryId));
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    const children = claims.filter(
+      (c) => !connectedIds.has(c.territoryId) && c.parentTerritoryId === currentId
+    );
+    for (const child of children) {
+      connectedIds.add(child.territoryId);
+      queue.push(child.territoryId);
+    }
+  }
+
+  const disconnectedClaims = claims.filter((c) => !connectedIds.has(c.territoryId));
+  if (disconnectedClaims.length === 0) return [];
+
+  const disconnectedIds = disconnectedClaims.map((c) => c.territoryId);
+
+  await Promise.all([
+    territoryClaims.deleteMany({ playerId, territoryId: { $in: disconnectedIds } }),
+    territoryClearings.deleteMany({ playerId, territoryId: { $in: disconnectedIds } }),
+  ]);
+
+  const saveDoc = await saves.findOne({ playerId });
+  if (saveDoc && Array.isArray(saveDoc.towns)) {
+    const remainingTowns = saveDoc.towns.filter((town: any) => !disconnectedIds.includes(town.id));
+    await saves.updateOne({ playerId }, { $set: { towns: remainingTowns } });
+  }
+
+  publishRealtime({
+    type: "territories_pruned",
+    playerId,
+    prunedTerritoryIds: disconnectedIds,
+  });
+
+  await bumpWorldCacheVersion();
+  return disconnectedIds;
+}
+
+
 function townIdForTerritory(territoryId: number, requestedTownId?: number) {
   return Number.isInteger(requestedTownId) && requestedTownId! >= 0 ? requestedTownId! : 9000 + territoryId;
 }
@@ -368,7 +583,8 @@ function territoryStartingPopulationForTown(territory: Pick<TerritoryInfo, "rx" 
   const biomePopMult = [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][territory.biome ?? 0] || 1;
   const isletPenalty = territory.isIslet ? 0.55 : 1;
   const base = ownerCode === 1 ? 24 : 48;
-  return Math.round(base + territoryAreaFactorForTown(territory) * 28 * biomePopMult * isletPenalty);
+  // Every new capital must be able to send the minimum ten settlers and still retain its garrison village.
+  return Math.max(80, Math.round(base + territoryAreaFactorForTown(territory) * 28 * biomePopMult * isletPenalty));
 }
 
 function townStorageCapacityForTerritory(town: any, territory?: Pick<TerritoryInfo, "rx" | "ry">) {
@@ -506,10 +722,16 @@ function townSnapshotsForPlayer(
   return towns;
 }
 
-function toPublicClearing(clearing: { territoryId: number; playerId: string; startedAt: Date; arrivesAt?: Date; completesAt: Date }): ActiveClearing {
+function toPublicClearing(clearing: { territoryId: number; playerId: string; sourceTownId?: number; sourceTerritoryId?: number; settlers?: number; sourceX?: number; sourceY?: number; connectionType?: "land" | "sea"; startedAt: Date; arrivesAt?: Date; completesAt: Date }): ActiveClearing {
   return {
     territoryId: clearing.territoryId,
     playerId: clearing.playerId,
+    sourceTownId: clearing.sourceTownId,
+    sourceTerritoryId: clearing.sourceTerritoryId,
+    settlers: clearing.settlers,
+    sourceX: clearing.sourceX,
+    sourceY: clearing.sourceY,
+    connectionType: clearing.connectionType,
     startedAt: clearing.startedAt.toISOString(),
     arrivesAt: clearing.arrivesAt ? clearing.arrivesAt.toISOString() : clearing.startedAt.toISOString(),
     completesAt: clearing.completesAt.toISOString(),
@@ -631,10 +853,31 @@ function removeTownForTerritory(towns: any[], territory: Pick<TerritoryInfo, "id
   );
 }
 
+
 async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
   const { players, territoryClaims, alliances } = await collections();
   const claims = await territoryClaims.find({}).toArray();
-  const ownerByTerritory = new Map(claims.map((claim) => [claim.territoryId, claim.playerId]));
+  const claimByTerritory = new Map(claims.map((claim) => [claim.territoryId, claim]));
+  const claimsByPlayer = new Map<string, typeof claims>();
+  claims.forEach((c) => {
+    if (!claimsByPlayer.has(c.playerId)) claimsByPlayer.set(c.playerId, []);
+    claimsByPlayer.get(c.playerId)!.push(c);
+  });
+
+  const capitalTerritoryByOwner = new Map<string, number>();
+  const subCapitalTerritoryByOwner = new Map<string, number>();
+
+  claimsByPlayer.forEach((playerClaims, playerId) => {
+    playerClaims.sort((a, b) => a.claimedAt.getTime() - b.claimedAt.getTime());
+    const explicitCapital = playerClaims.find((c) => c.settlementKind === "capital");
+    const capitalId = explicitCapital ? explicitCapital.territoryId : playerClaims[0]?.territoryId;
+    if (capitalId !== undefined) capitalTerritoryByOwner.set(playerId, capitalId);
+
+    const explicitSubCapital = playerClaims.find((c) => c.settlementKind === "sub_capital");
+    const subCapitalId = explicitSubCapital ? explicitSubCapital.territoryId : (playerClaims.length >= 20 ? playerClaims[19]?.territoryId : undefined);
+    if (subCapitalId !== undefined) subCapitalTerritoryByOwner.set(playerId, subCapitalId);
+  });
+
   const ownerIds = [...new Set(claims.map((claim) => claim.playerId))];
   const [ownerDocs, allianceDocs] = await Promise.all([
     ownerIds.length > 0 ? players.find({ _id: { $in: ownerIds } }).toArray() : [],
@@ -651,7 +894,18 @@ async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
   });
 
   const territories: TerritoryInfo[] = buildStaticTerritoryList().map((territory) => {
-    const ownerId = ownerByTerritory.get(territory.id) ?? null;
+    const claim = claimByTerritory.get(territory.id);
+    const ownerId = claim?.playerId ?? null;
+    let computedKind: "capital" | "sub_capital" | "military" | undefined = undefined;
+    if (ownerId) {
+      if (capitalTerritoryByOwner.get(ownerId) === territory.id) {
+        computedKind = "capital";
+      } else if (subCapitalTerritoryByOwner.get(ownerId) === territory.id) {
+        computedKind = "sub_capital";
+      } else {
+        computedKind = "military";
+      }
+    }
     return {
       ...territory,
       ownerId,
@@ -660,6 +914,9 @@ async function buildWorldTerritoriesPayload(): Promise<WorldTerritoriesResult> {
       ownerEmblem: ownerId ? emblemByOwner.get(ownerId) ?? "shield" : undefined,
       ownerAllianceTag: ownerId ? allianceByOwner.get(ownerId)?.tag : undefined,
       ownerAllianceEmblem: ownerId ? allianceByOwner.get(ownerId)?.emblem : undefined,
+      settlementKind: computedKind,
+      parentTerritoryId: claim?.parentTerritoryId,
+      connectionType: claim?.connectionType,
     };
   });
   return { territories };
@@ -805,6 +1062,7 @@ async function buildGameStatePayload(playerId: string): Promise<GameStateResult>
   ]);
   return {
     playerId,
+    activeMap: player?.activeMap === "conquest" ? "conquest" : "world",
     territories: world.territories,
     clearings: clearings.map(toPublicClearing),
     marches: marches.map(toPublicMarch),
@@ -862,6 +1120,11 @@ const DEFAULT_CONFIG: GameConfig = {
   artillerySpeed: DEFAULT_MARCH_CONFIG.artillerySpeed,
   shipSpeed: DEFAULT_MARCH_CONFIG.shipSpeed,
   gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
+  shopResourcePackAmount: 50000,
+  shopResourcePackPriceGems: 100,
+  shopSkinLongBaoThanhPrice: 1500,
+  shopSkinHoaLongDienPrice: 2000,
+  shopSkinPhongLongCacPrice: 1800,
 };
 
 let cachedGameConfig: GameConfig | null = null;
@@ -912,7 +1175,16 @@ async function processArrivedMarches(now = new Date()) {
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
-            { $set: { playerId: march.ownerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
+            {
+              $set: {
+                playerId: march.ownerId,
+                claimedAt: now,
+                settlementKind: "military",
+                parentTerritoryId: march.fromTerritoryId,
+                connectionType: territoryConnectionType(getStaticTerritory(march.fromTerritoryId)!, territory) || "land",
+              },
+              $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id },
+            },
             { upsert: true }
           ),
           saves.updateOne(
@@ -1101,7 +1373,16 @@ async function processActiveBattles(now = new Date()) {
       await Promise.all([
         territoryClaims.updateOne(
           { territoryId: territory.id },
-          { $set: { playerId: battle.attackerId, claimedAt: now }, $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id } },
+          {
+            $set: {
+              playerId: battle.attackerId,
+              claimedAt: now,
+              settlementKind: "military",
+              parentTerritoryId: battle.fromTerritoryId,
+              connectionType: territoryConnectionType(getStaticTerritory(battle.fromTerritoryId)!, territory) || "land",
+            },
+            $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id },
+          },
           { upsert: true },
         ),
         territoryClearings.deleteMany({ territoryId: territory.id }),
@@ -1117,6 +1398,9 @@ async function processActiveBattles(now = new Date()) {
       await publishPlayerState(battle.attackerId, "battle_resolved", attackerResources, attackerTowns);
       if (battle.defenderId) {
         await publishPlayerState(battle.defenderId, "battle_resolved", defenderResources, defenderTowns);
+        await cancelBrokenRouteClearings(battle.defenderId, now);
+        // Automatically prune & destroy any disconnected territories for defender
+        await pruneDisconnectedClaims(battle.defenderId);
       }
       if (battle.defenderId) {
         const defenderRemainingClaims = await territoryClaims.countDocuments({ playerId: battle.defenderId });
@@ -1290,10 +1574,54 @@ async function processActiveBattles(now = new Date()) {
   }
 }
 
+async function cancelBrokenRouteClearing(
+  clearing: TerritoryClearingDocument,
+  now: Date,
+) {
+  if (clearing.isStarterClaim || clearing.sourceTerritoryId === undefined) return false;
+  const { players, territoryClaims, territoryClearings, saves } = await collections();
+  const claims = await territoryClaims.find({ playerId: clearing.playerId }).toArray();
+  const sourceClaim = claims.find((claim) => claim.territoryId === clearing.sourceTerritoryId);
+  const sourceStillOwned = Boolean(sourceClaim && sourceClaim.playerId === clearing.playerId);
+  const sourceConnected = sourceStillOwned && isClaimConnectedToCapital(claims, clearing.sourceTerritoryId);
+  if (sourceConnected) return false;
+
+  const save = (await saves.findOne({ playerId: clearing.playerId })) as any;
+  const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
+  const resources = normalizeResources((await collectPlayerResources(clearing.playerId, now)).resources);
+
+  // A captured source or a severed chain destroys the expedition and its supplies.
+  // Only the player's explicit cancel endpoint returns settlers and build costs.
+
+  await Promise.all([
+    territoryClearings.deleteOne({ _id: clearing._id }),
+    players.updateOne({ _id: clearing.playerId }, { $set: { resources, onboardingState: "settled", lastSeenAt: now } }),
+    saves.updateOne(
+      { playerId: clearing.playerId },
+      { $set: { towns, updatedAt: now }, $setOnInsert: { _id: `save:${clearing.playerId}`, playerId: clearing.playerId, resources: DEFAULT_PLAYER_RESOURCES } },
+      { upsert: true },
+    ),
+  ]);
+  publishRealtime({ type: "territory_clearing_cancelled", territoryId: clearing.territoryId, playerId: clearing.playerId });
+  await publishPlayerState(clearing.playerId, sourceStillOwned ? "clearing_route_cut" : "clearing_source_lost", resources, towns);
+  return true;
+}
+
+async function cancelBrokenRouteClearings(playerId: string, now = new Date()) {
+  const { territoryClearings } = await collections();
+  const clearings = await territoryClearings.find({ playerId }).toArray();
+  let cancelled = 0;
+  for (const clearing of clearings) {
+    if (await cancelBrokenRouteClearing(clearing, now)) cancelled += 1;
+  }
+  return cancelled;
+}
+
 async function processCompletedClearings(now = new Date()) {
   const { players, territoryClaims, territoryClearings, alliances, saves } = await collections();
   const completed = await territoryClearings.find({ completesAt: { $lte: now } }).toArray();
   for (const clearing of completed) {
+    if (await cancelBrokenRouteClearing(clearing, now)) continue;
     const territory = getStaticTerritory(clearing.territoryId);
     if (!territory) {
       await territoryClearings.deleteOne({ _id: clearing._id });
@@ -1306,7 +1634,17 @@ async function processCompletedClearings(now = new Date()) {
     }
     await territoryClaims.updateOne(
       { territoryId: territory.id },
-      { $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id, playerId: clearing.playerId, claimedAt: now } },
+      {
+        $setOnInsert: {
+          _id: `territory:${territory.id}`,
+          territoryId: territory.id,
+          playerId: clearing.playerId,
+          claimedAt: now,
+          settlementKind: clearing.isStarterClaim ? "capital" : "military",
+          parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+          connectionType: clearing.connectionType,
+        },
+      },
       { upsert: true },
     );
     await territoryClearings.deleteOne({ _id: clearing._id });
@@ -1349,16 +1687,13 @@ async function processCompletedClearings(now = new Date()) {
 
 let worldTickInFlight = false;
 
-async function processWorldTick(now = new Date(), includeBots = false, tickCounter = 0) {
+async function processWorldTick(now = new Date()) {
   if (worldTickInFlight) return false;
   worldTickInFlight = true;
   try {
     await processArrivedMarches(now);
     await processActiveBattles(new Date());
     await processCompletedClearings(new Date());
-    if (includeBots && tickCounter % 5 === 0) {
-      await processBotAISimulation(new Date());
-    }
     return true;
   } finally {
     worldTickInFlight = false;
@@ -1373,6 +1708,25 @@ const BOT_CONFIGS = [
   { id: "bot-vo-nguyen-giap", name: "Võ Nguyên Giáp", flagColor: "#8b5cf6", emblem: "star" },
   { id: "bot-doc-co-cau-bai", name: "Độc Cô Cầu Bại", flagColor: "#ec4899", emblem: "sword" },
 ];
+
+async function retireLegacyBots() {
+  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, battleReports } = await collections();
+  const bots = await players.find({ $or: [{ isBot: true }, { _id: /^player:bot-/ }] } as any).toArray();
+  const botIds = bots.map((bot) => bot._id);
+  if (botIds.length === 0) return;
+
+  await Promise.all([
+    territoryClaims.deleteMany({ playerId: { $in: botIds } }),
+    territoryClearings.deleteMany({ playerId: { $in: botIds } }),
+    marchOrders.deleteMany({ ownerId: { $in: botIds } }),
+    activeBattles.deleteMany({ $or: [{ attackerId: { $in: botIds } }, { defenderId: { $in: botIds } }] }),
+    battleReports.deleteMany({ $or: [{ attackerId: { $in: botIds } }, { defenderId: { $in: botIds } }] }),
+    saves.deleteMany({ playerId: { $in: botIds } }),
+    players.deleteMany({ _id: { $in: botIds } }),
+  ]);
+  await bumpWorldCacheVersion();
+  console.info(`Retired ${botIds.length} legacy bot accounts and released their territories.`);
+}
 
 async function ensureSeededBots() {
   const { players, saves, territoryClaims } = await collections();
@@ -1724,6 +2078,7 @@ function calcTravelMetrics(
 export function createApp() {
   const app = express();
 
+  app.set("trust proxy", config.TRUST_PROXY ? 1 : false);
   app.disable("x-powered-by");
   app.use(helmet());
   app.use(express.json({ limit: "128kb" }));
@@ -1739,11 +2094,33 @@ export function createApp() {
       credentials: false,
     }),
   );
-  app.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: true, legacyHeaders: false }));
-  app.use("/api/auth", rateLimit({ windowMs: 60_000, limit: 18, standardHeaders: true, legacyHeaders: false }));
-  app.use("/api/game", rateLimit({ windowMs: 60_000, limit: 90, standardHeaders: true, legacyHeaders: false }));
-  app.use("/api/alliance", rateLimit({ windowMs: 60_000, limit: 70, standardHeaders: true, legacyHeaders: false }));
-  app.use("/api/admin", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false }));
+  const isDevLoopback = (req: any) => {
+    const ip = req.ip || req.socket?.remoteAddress || "";
+    return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+  };
+
+  app.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: true, legacyHeaders: false, skip: isDevLoopback }));
+  app.use("/api/auth", rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, skip: isDevLoopback }));
+  app.use("/api/game", rateLimit({ windowMs: 60_000, limit: 90, standardHeaders: true, legacyHeaders: false, skip: isDevLoopback }));
+  app.use("/api/alliance", rateLimit({ windowMs: 60_000, limit: 70, standardHeaders: true, legacyHeaders: false, skip: isDevLoopback }));
+  app.use("/api/admin", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false, skip: isDevLoopback }));
+
+  const stateReadLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => String(req.user?.id || req.ip || "anonymous"),
+    skip: isDevLoopback,
+  });
+  const territoryReadLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => String(req.user?.id || req.ip || "anonymous"),
+    skip: isDevLoopback,
+  });
 
   app.get("/api/health", (_req, res) => {
     const payload: ServerStatus = { ok: true, service: "island-empire-api", time: new Date().toISOString() };
@@ -1754,8 +2131,12 @@ export function createApp() {
     res.json(realtimeStats());
   });
 
+  app.get("/api/auth/challenge", (req, res) => {
+    res.json(createAntiBotChallenge(req));
+  });
+
   app.post("/api/auth/admin/login", async (req, res) => {
-    const parsed = LoginSchema.safeParse(req.body);
+    const parsed = AdminLoginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "Invalid login payload" });
     const { username, password } = parsed.data;
     if (username !== config.ADMIN_USER || password !== config.ADMIN_PASSWORD) {
@@ -1771,6 +2152,10 @@ export function createApp() {
       return res.status(400).json({ error: "bad_request", message: "Tài khoản (3-40 ký tự) hoặc mật khẩu (8-200 ký tự) không hợp lệ" });
     }
     const { username, password, flagColor, emblem, starterLandId } = parsed.data;
+    if (!verifyAntiBotProof(req, parsed.data)) {
+      return res.status(429).json({ error: "anti_bot_failed", message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn" });
+    }
+    if (!enforceAuthAttempt(req, res, "register", username)) return;
     const normalizedUsername = username.trim();
     const id = `player:${normalizedUsername.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
@@ -1806,6 +2191,10 @@ export function createApp() {
       return res.status(400).json({ error: "bad_request", message: "Tài khoản hoặc mật khẩu không hợp lệ" });
     }
     const { username, password } = parsed.data;
+    if (!verifyAntiBotProof(req, parsed.data)) {
+      return res.status(429).json({ error: "anti_bot_failed", message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn" });
+    }
+    if (!enforceAuthAttempt(req, res, "login", username)) return;
     const id = `player:${username.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
     const player = await players.findOne({ _id: id });
@@ -1823,7 +2212,12 @@ export function createApp() {
   });
 
   app.post("/api/auth/player/guest", async (req, res) => {
+    const antiBot = AntiBotProofSchema.safeParse(req.body);
+    if (!antiBot.success || !verifyAntiBotProof(req, antiBot.data)) {
+      return res.status(429).json({ error: "anti_bot_failed", message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn" });
+    }
     const name = z.string().trim().min(2).max(24).regex(/^[\p{L}\p{N} _-]+$/u).catch(`PLAYER-${Math.floor(Math.random() * 9999)}`).parse(req.body?.name);
+    if (!enforceAuthAttempt(req, res, "guest", name)) return;
     const id = `guest:${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
     const now = new Date();
@@ -1898,14 +2292,27 @@ export function createApp() {
     res.json({ ok: true });
   });
 
-  app.get("/api/world/territories", requireAuth, async (_req, res) => {
+  app.post("/api/player/active-map", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "player:active-map", 30, 60_000)) return;
+    const parsed = ActiveMapSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "bad_request", message: "Bản đồ không hợp lệ" });
+    const { players } = await collections();
+    await players.updateOne(
+      { _id: req.user!.id },
+      { $set: { activeMap: parsed.data.activeMap, lastSeenAt: new Date() } },
+      { upsert: true },
+    );
+    res.json({ ok: true, activeMap: parsed.data.activeMap });
+  });
+
+  app.get("/api/world/territories", requireAuth, territoryReadLimiter, async (_req, res) => {
     const payload = await cachedWorldTerritoriesPayload();
     res.setHeader("X-World-Cache", "enabled");
     res.json(payload);
   });
 
-  app.get("/api/game/state", requireAuth, async (_req, res) => {
-    await processWorldTick(new Date(), false);
+  app.get("/api/game/state", requireAuth, stateReadLimiter, async (_req, res) => {
+    await processWorldTick(new Date());
     const payload = await buildGameStatePayload(_req.user!.id);
     res.setHeader("X-World-Cache", "partial");
     res.json(payload);
@@ -2141,14 +2548,35 @@ export function createApp() {
       });
     }
     const nextResources = existing ? resourceState.resources : subtractCost(resourceState.resources, buildCost);
+    const ownedClaimsList = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    const save = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
+    let sourceTownId: number | undefined;
+    let sourceTerritoryId: number | undefined;
+    let sourceX: number | undefined;
+    let sourceY: number | undefined;
+    let connectionType: "land" | "sea" | undefined;
+    if (!isStarterClaim && !existing) {
+      const source = nearestExpansionSource(ownedClaimsList, territory);
+      if (!source) {
+        return res.status(409).json({ error: "frontier_not_connected", message: "Pháo đài mới phải nối bằng đường bộ hoặc Hải Lộ từ lãnh địa của bạn" });
+      }
+      sourceTerritoryId = source.territory.id;
+      sourceTownId = townIdForTerritory(source.territory.id);
+      sourceX = source.territory.x;
+      sourceY = source.territory.y;
+      connectionType = source.connectionType;
+    }
     const gameSettings = await loadGameConfig();
     const clearingSeconds = calcClearingSeconds(territory.rx, territory.ry, territory.biome, gameSettings.settlerSpeed, gameSettings.gameHourSeconds);
     
-    // Calculate settler travel time from nearest owned territory or port town
-    const ownedClaimsList = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    // Construction crews travel from the server-selected frontier stronghold.
     let originX = territory.x - Math.min(120, Math.max(45, territory.rx * 0.42));
     let originY = territory.y + Math.min(70, Math.max(24, territory.ry * 0.18));
-    if (ownedClaimsList.length > 0) {
+    if (sourceTerritoryId !== undefined) {
+      originX = sourceX!;
+      originY = sourceY!;
+    } else if (ownedClaimsList.length > 0) {
       const candidates = ownedClaimsList.map((c) => {
         const t = getStaticTerritory(c.territoryId);
         const dist = t ? Math.hypot(t.x - territory.x, t.y - territory.y) : Infinity;
@@ -2174,7 +2602,7 @@ export function createApp() {
       }
     }
     const distanceKm = Math.hypot(originX - territory.x, originY - territory.y) * MAP_UNITS_TO_KM;
-    const travelSeconds = Math.max(4, Math.round((distanceKm / Math.max(1, gameSettings.settlerSpeed || 35)) * (gameSettings.gameHourSeconds || 30)));
+    const travelSeconds = Math.max(15, Math.round((distanceKm / Math.max(1, gameSettings.settlerSpeed || 35)) * (gameSettings.gameHourSeconds || 30)));
     const arrivesAt = new Date(now.getTime() + travelSeconds * 1000);
     const completesAt = new Date(arrivesAt.getTime() + clearingSeconds * 1000);
 
@@ -2184,6 +2612,11 @@ export function createApp() {
       playerId: req.user!.id,
       buildCost,
       isStarterClaim,
+      sourceTownId,
+      sourceTerritoryId,
+      sourceX,
+      sourceY,
+      connectionType,
       startedAt: now,
       arrivesAt,
       completesAt,
@@ -2202,16 +2635,23 @@ export function createApp() {
         }
         throw err;
       }
-      await players.updateOne(
-        { _id: req.user!.id },
-        { $set: { onboardingState: "claiming", lastSeenAt: now, resources: nextResources } },
-      );
+      await Promise.all([
+        saves.updateOne(
+          { playerId: req.user!.id },
+          { $set: { towns, updatedAt: now }, $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES } },
+          { upsert: true },
+        ),
+        players.updateOne(
+          { _id: req.user!.id },
+          { $set: { onboardingState: "claiming", lastSeenAt: now, resources: nextResources } },
+        ),
+      ]);
       await bumpWorldCacheVersion();
     }
     const payload: StartClearingResult = { ok: true, clearing: toPublicClearing(clearing) };
     publishRealtime({ type: "territory_clearing_started", clearing: payload.clearing });
     if (!existing) {
-      await publishPlayerState(req.user!.id, "clearing_started", nextResources, null);
+      await publishPlayerState(req.user!.id, "clearing_started", nextResources, towns);
     }
     res.json(payload);
   });
@@ -2234,12 +2674,30 @@ export function createApp() {
     if (!clearing) {
       return res.status(404).json({ error: "no_active_clearing", message: "Bạn cần bắt đầu xây thành và trả chi phí trước khi hoàn tất" });
     }
+    if (await cancelBrokenRouteClearing(clearing, now)) {
+      return res.status(409).json({ error: "clearing_route_lost", message: "Đường tiếp tế đã bị cắt. Đoàn dân làng và vật tư đã thất lạc." });
+    }
     if (clearing.completesAt.getTime() > now.getTime()) {
       return res.status(409).json({ error: "clearing_not_ready", message: "Xây thành chưa hoàn tất", readyAt: clearing.completesAt.toISOString() });
     }
+    const userClaims = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    const hasSubCapital = userClaims.some((c) => c.settlementKind === "sub_capital");
+    const isSubCapital = !clearing.isStarterClaim && userClaims.length >= 19 && !hasSubCapital;
+    const computedSettlementKind = clearing.isStarterClaim ? "capital" : (isSubCapital ? "sub_capital" : "military");
+
     await territoryClaims.updateOne(
       { territoryId: territory.id },
-      { $setOnInsert: { _id: `territory:${territory.id}`, territoryId: territory.id, playerId: req.user!.id, claimedAt: now } },
+      {
+        $setOnInsert: {
+          _id: `territory:${territory.id}`,
+          territoryId: territory.id,
+          playerId: req.user!.id,
+          claimedAt: now,
+          settlementKind: computedSettlementKind,
+          parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+          connectionType: clearing.connectionType,
+        },
+      },
       { upsert: true },
     );
     await territoryClearings.deleteOne({ territoryId: territory.id, playerId: req.user!.id });
@@ -2284,12 +2742,18 @@ export function createApp() {
     const id = Number(req.params.id);
     const territory = Number.isInteger(id) ? getStaticTerritory(id) : undefined;
     if (!territory) return res.status(404).json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
-    const { players, territoryClaims, territoryClearings } = await collections();
+    const { players, territoryClaims, territoryClearings, saves } = await collections();
     const clearing = await territoryClearings.findOne({ territoryId: territory.id, playerId: req.user!.id });
     if (!clearing) {
       return res.status(404).json({ error: "not_found", message: "Không có lệnh xây thành đang chạy" });
     }
     const now = new Date();
+    if (await cancelBrokenRouteClearing(clearing, now)) {
+      return res.status(409).json({
+        error: "clearing_route_lost",
+        message: "Đường tiếp tế đã bị cắt. Đoàn dân làng và vật tư đã thất lạc.",
+      });
+    }
     const resourceState = await collectPlayerResources(req.user!.id, now);
     const ownedCount = await territoryClaims.countDocuments({ playerId: req.user!.id });
     const capacity = resourceCapacityForOwnedTerritories(ownedCount);
@@ -2298,13 +2762,20 @@ export function createApp() {
     RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(capacity[key], Math.floor(nextResources[key] + Math.floor(refund[key] || 0)));
     });
+    const save = (await saves.findOne({ playerId: req.user!.id })) as any;
+    const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
     await Promise.all([
       territoryClearings.deleteOne({ territoryId: territory.id, playerId: req.user!.id }),
       players.updateOne({ _id: req.user!.id }, { $set: { resources: nextResources, onboardingState: "settled", lastSeenAt: now } }),
+      saves.updateOne(
+        { playerId: req.user!.id },
+        { $set: { towns, updatedAt: now }, $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id, resources: DEFAULT_PLAYER_RESOURCES } },
+        { upsert: true },
+      ),
     ]);
     await bumpWorldCacheVersion();
     publishRealtime({ type: "territory_clearing_cancelled", territoryId: territory.id, playerId: req.user!.id });
-    await publishPlayerState(req.user!.id, "clearing_cancelled", nextResources, null);
+    await publishPlayerState(req.user!.id, "clearing_cancelled", nextResources, towns);
     res.json({ ok: true, resources: nextResources, refund });
   });
 
@@ -2320,6 +2791,13 @@ export function createApp() {
     if (!sourceClaim || sourceClaim.playerId !== req.user!.id) {
       return res.status(403).json({ error: "not_owner", message: "Bạn không sở hữu lãnh thổ xuất phát" });
     }
+    const playerClaims = await territoryClaims.find({ playerId: req.user!.id }).toArray();
+    if (!isClaimConnectedToCapital(playerClaims, from.id)) {
+      return res.status(409).json({ error: "isolated_stronghold", message: "Pháo đài xuất phát đã bị cô lập khỏi Hoàng Thành" });
+    }
+    if (parsed.data.kind === "attack" && !territoryConnectionType(from, to)) {
+      return res.status(409).json({ error: "target_not_on_frontier", message: "Chỉ có thể xuất chinh tới lãnh thổ giáp Pháo Đài Biên Cương" });
+    }
     const activeMarchCount = await marchOrders.countDocuments({ ownerId: req.user!.id });
     if (activeMarchCount >= MAX_ACTIVE_MARCHES_PER_PLAYER) {
       return res.status(409).json({
@@ -2333,12 +2811,10 @@ export function createApp() {
     const targetClaim = await territoryClaims.findOne({ territoryId: to.id });
     if (parsed.data.kind === "attack" && targetClaim && targetClaim.playerId !== req.user!.id) {
       const targetPlayer = await players.findOne({ _id: targetClaim.playerId });
-      if (targetPlayer?.newbieShieldUntil && new Date(targetPlayer.newbieShieldUntil).getTime() > now.getTime()) {
-        return res.status(403).json({
-          error: "target_protected",
-          message: "⚠️ Thành trì đối thủ đang trong thời gian bảo vệ tân thủ! Không thể tấn công."
-        });
-      }
+      // Newbie shield check disabled
+      // if (targetPlayer?.newbieShieldUntil && new Date(targetPlayer.newbieShieldUntil).getTime() > now.getTime()) {
+      //   return res.status(403).json({ error: "target_protected", message: "Thành trì đối thủ đang trong thời gian bảo vệ tân thủ" });
+      // }
     }
 
     // Break attacker's own shield if attacking another player
@@ -2745,6 +3221,11 @@ export function createApp() {
     artillerySpeed: z.number().positive(),
     shipSpeed: z.number().positive(),
     gameHourSeconds: z.number().positive(),
+    shopResourcePackAmount: z.number().int().positive(),
+    shopResourcePackPriceGems: z.number().int().positive(),
+    shopSkinLongBaoThanhPrice: z.number().int().positive(),
+    shopSkinHoaLongDienPrice: z.number().int().positive(),
+    shopSkinPhongLongCacPrice: z.number().int().positive(),
   });
 
   app.get("/api/config", async (_req, res) => {
@@ -2903,21 +3384,12 @@ export function createApp() {
     res.json({ ok: true, message: `Lãnh thổ ${id} đã giao cho ${playerId.data}.` });
   });
 
-  // ─── ADMIN: Seed AI Bots ──────────────────────────────────────────────────
-  app.post("/api/admin/territories/seed-bots", requireAuth, requireAdmin, async (_req, res) => {
-    await ensureSeededBots();
-    await bumpWorldCacheVersion();
-    res.json({ ok: true, message: "Đã khởi tạo và kích hoạt 6 Bot AI thông minh (Tào Tháo, Gia Cát Lượng, Triệu Tử Long...)." });
-  });
-
-  // ─── SERVER BACKGROUND BOT AI & TICK SIMULATION LOOP ────────────────────
-  ensureSeededBots().catch(console.error);
-  let tickCounter = 0;
+  // Bot simulation is retired. The remaining world tick handles only real player actions.
+  retireLegacyBots().catch(console.error);
   setInterval(async () => {
     try {
       const now = new Date();
-      tickCounter++;
-      await processWorldTick(now, true, tickCounter);
+      await processWorldTick(now);
     } catch (e) {
       console.error("Background tick error:", e);
     }

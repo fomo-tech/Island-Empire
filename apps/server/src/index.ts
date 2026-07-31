@@ -11,6 +11,9 @@ async function main() {
   const server = app.listen(config.PORT, "0.0.0.0", () => {
     console.log(`API listening on http://0.0.0.0:${config.PORT}`);
   });
+  server.headersTimeout = 10_000;
+  server.requestTimeout = 15_000;
+  server.keepAliveTimeout = 5_000;
   attachRealtime(server);
 
   const shutdown = async () => {

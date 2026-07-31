@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
 import { cancelClearing, completeClearing, createMarch, getGameConfig, getGameState, getServerStatus, getWorldTerritories, recruitTroops, startClearing, updatePlayerProfile } from "../game/api";
-import { connectGameSocket } from "../game/realtime";
+import { connectGameSocket, sendWorldChat } from "../game/realtime";
 import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
 import { TerritoryTooltip } from "./TerritoryTooltip";
@@ -12,6 +12,7 @@ import { TroopDeploymentModal } from "./TroopDeploymentModal";
 import { ArmyModal } from "./ArmyModal";
 import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
+import { ShopModal } from "./ShopModal";
 import { ChatInputModal } from "./ChatInputModal";
 import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
@@ -57,6 +58,8 @@ type HudIconName =
   | "stone"
   | "iron"
   | "gems"
+  | "gold"
+  | "diamonds"
   | "search"
   | "target"
   | "clock"
@@ -67,8 +70,41 @@ type HudIconName =
   | "minus";
 
 function HudIcon({ name }: { name: HudIconName }) {
+  if (name === "food") return <VectorFoodIcon />;
+  if (name === "wood") return <VectorWoodIcon />;
+  if (name === "stone") return <VectorStoneIcon />;
+  if (name === "iron") return <VectorIronIcon />;
+  if (name === "gems") return <VectorGemsIcon />;
+  if (name === "gold") return <VectorGoldIcon />;
+  if (name === "diamonds") {
+    return (
+      <svg viewBox="0 0 64 64" className="vector-res-svg">
+        <defs>
+          <linearGradient id="diaLightHud" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0284c7" />
+          </linearGradient>
+          <linearGradient id="diaDarkHud" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#0369a1" />
+            <stop offset="100%" stopColor="#0c4a6e" />
+          </linearGradient>
+          <linearGradient id="diaTopHud" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#e0f2fe" />
+            <stop offset="100%" stopColor="#7dd3fc" />
+          </linearGradient>
+        </defs>
+        <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#diaDarkHud)" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon points="32,58 10,24 32,24" fill="url(#diaLightHud)" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon points="32,58 32,24 54,24" fill="url(#diaLightHud)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon points="10,24 20,8 32,24" fill="url(#diaTopHud)" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon points="54,24 44,8 32,24" fill="url(#diaTopHud)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon points="20,8 44,8 32,24" fill="#f0f9ff" stroke="#0c4a6e" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  const paths: Record<HudIconName, ReactNode> = {
+  const paths: Record<Exclude<HudIconName, "gold" | "diamonds" | "food" | "wood" | "stone" | "iron" | "gems">, ReactNode> = {
     logout: <><path {...common} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline {...common} points="16 17 21 12 16 7"/><line {...common} x1="21" y1="12" x2="9" y2="12"/></>,
     chevronUp: <polyline {...common} points="18 15 12 9 6 15" />,
     minus: <line {...common} x1="5" y1="12" x2="19" y2="12" />,
@@ -99,11 +135,6 @@ function HudIcon({ name }: { name: HudIconName }) {
     globe: <><circle {...common} cx="12" cy="12" r="10"/><line {...common} x1="2" y1="12" x2="22" y2="12"/><path {...common} d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
     info: <><circle {...common} cx="12" cy="12" r="10"/><line {...common} x1="12" y1="16" x2="12" y2="12"/><line {...common} x1="12" y1="8" x2="12.01" y2="8"/></>,
     anchor: <><circle {...common} cx="12" cy="5" r="3"/><line {...common} x1="12" y1="8" x2="12" y2="21"/><line {...common} x1="5" y1="12" x2="19" y2="12"/><path {...common} d="M5 12a7 7 0 0 0 14 0"/></>,
-    food: <><path {...common} d="M12 2v20M12 6q4-3 8 0M12 12q4-3 8 0M12 18q4-3 8 0M12 6q-4-3-8 0M12 12q-4-3-8 0M12 18q-4-3-8 0"/></>,
-    wood: <><path {...common} d="M4 6h16M4 12h16M4 18h16"/></>,
-    stone: <><path {...common} d="M4 18l6-13 6 4 4 9H4z"/></>,
-    iron: <><path {...common} d="M4 7h16v10H4zM4 12h16"/></>,
-    gems: <><polygon {...common} points="6,3 18,3 22,9 12,21 2,9"/></>,
     search: <><circle {...common} cx="11" cy="11" r="8"/><line {...common} x1="21" y1="21" x2="16.65" y2="16.65"/></>,
     target: <><circle {...common} cx="12" cy="12" r="9"/><circle {...common} cx="12" cy="12" r="3"/><line {...common} x1="12" y1="1" x2="12" y2="5"/><line {...common} x1="12" y1="19" x2="12" y2="23"/><line {...common} x1="1" y1="12" x2="5" y2="12"/><line {...common} x1="19" y1="12" x2="23" y2="12"/></>,
     clock: <><circle {...common} cx="12" cy="12" r="9"/><polyline {...common} points="12 7 12 12 15 15"/></>,
@@ -116,62 +147,147 @@ function HudIcon({ name }: { name: HudIconName }) {
 /* Rich Vector Color Icons matching Mockup Screenshot 3 */
 function VectorFoodIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <path d="M 12,2 C 15,6 18,10 18,15 C 18,19 15,22 12,22 C 9,22 6,19 6,15 C 6,10 9,6 12,2 Z" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
-      <path d="M 12,5 L 12,20 M 12,9 Q 16,7 16,11 M 12,14 Q 16,12 16,16 M 12,9 Q 8,7 8,11 M 12,14 Q 8,12 8,16" stroke="#ca8a04" strokeWidth="1.2" fill="none" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="50%" stopColor="#d97706" />
+          <stop offset="100%" stopColor="#78350f" />
+        </linearGradient>
+      </defs>
+      <g fill="url(#goldGrad)" stroke="#f59e0b" strokeWidth="1">
+        <path d="M32 58 L32 20" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M22 45 C 22 45, 14 35, 26 28 C 30 25, 30 35, 24 40" />
+        <path d="M20 35 C 20 35, 12 25, 24 18 C 28 15, 28 25, 22 30" />
+        <path d="M42 45 C 42 45, 50 35, 38 28 C 34 25, 34 35, 40 40" />
+        <path d="M44 35 C 44 35, 52 25, 40 18 C 36 15, 36 25, 42 30" />
+        <path d="M32 18 C 32 18, 24 8, 32 2 C 40 8, 32 18, 32 18" />
+      </g>
     </svg>
   );
 }
 
 function VectorWoodIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <rect x="4" y="5" width="16" height="4" rx="2" fill="#b45309" stroke="#78350f" strokeWidth="1" />
-      <rect x="4" y="10" width="16" height="4" rx="2" fill="#92400e" stroke="#78350f" strokeWidth="1" />
-      <rect x="4" y="15" width="16" height="4" rx="2" fill="#78350f" stroke="#451a03" strokeWidth="1" />
-      <circle cx="7" cy="7" r="1" fill="#fef08a" />
-      <circle cx="7" cy="12" r="1" fill="#fef08a" />
-      <circle cx="7" cy="17" r="1" fill="#fef08a" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#b45309" />
+          <stop offset="50%" stopColor="#78350f" />
+          <stop offset="100%" stopColor="#451a03" />
+        </linearGradient>
+        <radialGradient id="ringGrad">
+          <stop offset="0%" stopColor="#fed7aa" />
+          <stop offset="70%" stopColor="#f97316" />
+          <stop offset="100%" stopColor="#b45309" />
+        </radialGradient>
+      </defs>
+      <rect x="6" y="34" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
+      <ellipse cx="44" cy="42" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
+      
+      <rect x="18" y="42" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
+      <ellipse cx="56" cy="50" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
+      
+      <rect x="12" y="20" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
+      <ellipse cx="50" cy="28" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
     </svg>
   );
 }
 
 function VectorStoneIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <polygon points="5,19 9,6 17,4 20,12 18,19" fill="#94a3b8" stroke="#475569" strokeWidth="1.2" />
-      <polygon points="9,6 17,4 13,12" fill="#cbd5e1" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="stoneLight" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#94a3b8" />
+          <stop offset="100%" stopColor="#64748b" />
+        </linearGradient>
+        <linearGradient id="stoneDark" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#475569" />
+          <stop offset="100%" stopColor="#334155" />
+        </linearGradient>
+        <linearGradient id="stoneTop" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#94a3b8" />
+        </linearGradient>
+      </defs>
+      <polygon points="32,6 56,18 32,30 8,18" fill="url(#stoneTop)" stroke="#1e293b" strokeWidth="1.5" />
+      <polygon points="8,18 32,30 32,58 8,44" fill="url(#stoneLight)" stroke="#1e293b" strokeWidth="1.5" />
+      <polygon points="32,30 56,18 56,44 32,58" fill="url(#stoneDark)" stroke="#1e293b" strokeWidth="1.5" />
     </svg>
   );
 }
 
 function VectorIronIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <polygon points="4,10 8,5 20,5 16,10" fill="#e2e8f0" stroke="#64748b" strokeWidth="1" />
-      <polygon points="4,10 16,10 16,18 4,18" fill="#94a3b8" stroke="#64748b" strokeWidth="1" />
-      <polygon points="16,10 20,5 20,13 16,18" fill="#64748b" stroke="#334155" strokeWidth="1" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="30%" stopColor="#cbd5e1" />
+          <stop offset="70%" stopColor="#64748b" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </linearGradient>
+        <linearGradient id="metalSide" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#94a3b8" />
+          <stop offset="100%" stopColor="#475569" />
+        </linearGradient>
+      </defs>
+      <polygon points="10,14 54,14 44,48 20,48" fill="url(#metalGrad)" stroke="#0f172a" strokeWidth="1.5" />
+      <polygon points="54,14 44,48 48,48 58,14" fill="url(#metalSide)" stroke="#0f172a" strokeWidth="1.5" />
+      <line x1="16" y1="18" x2="50" y2="18" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
     </svg>
   );
 }
 
 function VectorGemsIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <polygon points="6,4 18,4 22,10 12,21 2,10" fill="#3b82f6" stroke="#60a5fa" strokeWidth="1.2" />
-      <polygon points="6,4 18,4 15,10 9,10" fill="#93c5fd" />
-      <polygon points="9,10 15,10 12,21" fill="#1d4ed8" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="rubyLight" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f43f5e" />
+          <stop offset="100%" stopColor="#be123c" />
+        </linearGradient>
+        <linearGradient id="rubyDark" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#9f1239" />
+          <stop offset="100%" stopColor="#4c0519" />
+        </linearGradient>
+        <linearGradient id="rubyTop" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fda4af" />
+          <stop offset="100%" stopColor="#f43f5e" />
+        </linearGradient>
+      </defs>
+      <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#rubyDark)" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon points="32,58 10,24 32,24" fill="url(#rubyLight)" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon points="32,58 32,24 54,24" fill="url(#rubyLight)" opacity="0.8" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon points="10,24 20,8 32,24" fill="url(#rubyTop)" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon points="54,24 44,8 32,24" fill="url(#rubyTop)" opacity="0.8" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon points="20,8 44,8 32,24" fill="#ffe4e6" stroke="#4c0519" strokeWidth="1.5" />
     </svg>
   );
 }
 
 function VectorGoldIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <ellipse cx="12" cy="17" rx="7" ry="3.5" fill="#ca8a04" stroke="#854d0e" strokeWidth="1" />
-      <ellipse cx="12" cy="13" rx="7" ry="3.5" fill="#eab308" stroke="#a16207" strokeWidth="1" />
-      <ellipse cx="12" cy="9" rx="7" ry="3.5" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
-      <ellipse cx="12" cy="8" rx="5" ry="2.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="0.8" />
+    <svg viewBox="0 0 64 64" className="vector-res-svg">
+      <defs>
+        <linearGradient id="goldCoinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="40%" stopColor="#facc15" />
+          <stop offset="85%" stopColor="#ca8a04" />
+          <stop offset="100%" stopColor="#854d0e" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="20" cy="46" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      <ellipse cx="20" cy="38" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      
+      <ellipse cx="44" cy="50" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      <ellipse cx="44" cy="42" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      
+      <ellipse cx="32" cy="34" rx="15" ry="7.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      <ellipse cx="32" cy="26" rx="15" ry="7.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
+      
+      <polygon points="36,16 38,20 42,20 39,23 40,27 36,25 32,27 33,23 30,20 34,20" fill="#ffffff" />
     </svg>
   );
 }
@@ -334,44 +450,18 @@ function mapServerBattlesForClient(battles: any[] = []) {
   }));
 }
 
-function formatServerEvent(event: any, currentPlayerId: string | null) {
-  if (event.type === "territory_claimed") {
-    const mine = event.territory.ownerId === currentPlayerId;
-    return `[THẾ GIỚI] ${mine ? "BẠN" : event.territory.ownerName || "ĐỐI THỦ"}: ĐÃ CHIẾM LÃNH THỔ #${event.territory.id + 1}`;
-  }
-  if (event.type === "territory_clearing_started") {
-    const mine = event.clearing.playerId === currentPlayerId;
-    return `[LIÊN MINH] ${mine ? "BẠN" : "NGƯỜI CHƠI"}: BẮT ĐẦU XÂY THÀNH Ở LÃNH THỔ #${event.clearing.territoryId + 1}`;
-  }
-  if (event.type === "march_created") {
-    const mine = event.march.ownerId === currentPlayerId;
-    const action = event.march.kind === "reinforce"
-      ? event.march.battleSide === "attacker" ? "TIẾP VIỆN TẤN CÔNG" : "TIẾP VIỆN PHÒNG THỦ"
-      : "TẤN CÔNG";
-    const distance = event.march.distanceKm ? ` | ${event.march.distanceKm}KM` : "";
-    return `[${mine ? "LIÊN MINH" : "THẾ GIỚI"}] ${mine ? "BẠN" : "ĐỐI THỦ"}: ${action} #${event.march.toTerritoryId + 1} (${event.march.troops} QUÂN${distance})`;
-  }
-  if (event.type === "battle_started") {
-    const mine = event.battle.attackerId === currentPlayerId || event.battle.defenderId === currentPlayerId;
-    return `[${mine ? "LIÊN MINH" : "THẾ GIỚI"}] SYSTEM: BẮT ĐẦU CÔNG THÀNH #${event.battle.regionId + 1}`;
-  }
-  if (event.type === "battle_resolved") {
-    const suffix = event.territory?.id !== undefined ? ` #${event.territory.id + 1}` : "";
-    return `[THẾ GIỚI] SYSTEM: ${event.winner === "attacker" ? "CÔNG THÀNH THẮNG" : "THỦ THÀNH THẮNG"}${suffix}`;
-  }
-  if (event.type === "player_state_updated") {
-    return event.playerId === currentPlayerId ? "[LIÊN MINH] SYSTEM: STATE CỦA BẠN ĐÃ ĐỒNG BỘ QUA SOCKET" : "[THẾ GIỚI] SYSTEM: NGƯỜI CHƠI ĐÃ CẬP NHẬT STATE";
-  }
-  if (event.type === "player_eliminated") {
-    return event.playerId === currentPlayerId
-      ? "[LIÊN MINH] SYSTEM: BẠN ĐÃ MẤT TOÀN BỘ THÀNH, HÃY CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI"
-      : "[THẾ GIỚI] SYSTEM: MỘT VƯƠNG QUỐC ĐÃ BỊ ĐÁNH BẠI HOÀN TOÀN";
-  }
-  return `[THẾ GIỚI] SYSTEM: ĐỒNG BỘ SOCKET`;
-}
-
 // Helper to format numbers with dot separators, e.g. 13.718
 const formatNum = (num: number) => Math.floor(num).toLocaleString("vi-VN");
+
+const formatResourceVal = (num: number) => {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + "M";
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + "K";
+  }
+  return Math.floor(num).toString();
+};
 
 // Parse log lines into formatted chat objects
 function parseChatLine(line: string) {
@@ -382,28 +472,24 @@ function parseChatLine(line: string) {
   const namePart = line.substring(0, colonIndex).trim();
   const msgPart = line.substring(colonIndex + 1).trim();
   
-  let channel = "LIÊN MINH";
+  let channel = "THẾ GIỚI";
   let name = namePart;
   
   if (namePart.startsWith("[HỆ THỐNG]")) {
     channel = "HỆ THỐNG";
     name = namePart.replace("[HỆ THỐNG]", "").trim() || "SYSTEM";
   } else if (namePart.startsWith("[LIÊN MINH]")) {
-    channel = "LIÊN MINH";
-    name = namePart.replace("[LIÊN MINH]", "").trim();
+    channel = "HỆ THỐNG";
+    name = namePart.replace("[LIÊN MINH]", "").trim() || "HỆ THỐNG";
   } else if (namePart.startsWith("[THẾ GIỚI]")) {
     channel = "THẾ GIỚI";
     name = namePart.replace("[THẾ GIỚI]", "").trim();
-  } else {
-    const numMatch = namePart.match(/\d+/);
-    const num = numMatch ? parseInt(numMatch[0]) : 1;
-    channel = num % 2 === 0 ? "THẾ GIỚI" : "LIÊN MINH";
   }
   
   return { channel, name, message: msgPart };
 }
 
-type ChatChannel = "HỆ THỐNG" | "THẾ GIỚI" | "LIÊN MINH";
+type ChatChannel = "HỆ THỐNG" | "THẾ GIỚI";
 type WarReportRecord = {
   id: string;
   kind: "battle" | "march" | "clearing" | "system";
@@ -411,6 +497,7 @@ type WarReportRecord = {
   body: string;
   meta: string;
   time: number;
+  isMine?: boolean; // true = liên quan trực tiếp đến người chơi hiện tại
   detailReport?: BattleReportData;
 };
 type PrivateMailRecord = {
@@ -510,7 +597,15 @@ function DiplomacyArt() {
   );
 }
 
-export function GameApp() {
+export function GameApp({
+  onOpenConquest,
+  conquestMode = false,
+  onOpenWorld,
+}: {
+  onOpenConquest: () => void;
+  conquestMode?: boolean;
+  onOpenWorld?: () => void;
+}) {
   applyNewbieResetOnce();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -590,16 +685,17 @@ export function GameApp() {
     { text: "GỬI 1 ĐẠO QUÂN HÀNH QUÂN", value: 0, goal: 1 },
     { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 }
   ]);
-  const [chatLog, setChatLog] = useState<string[]>([
-    "PLAYER1: CÙNG NHAU CHIẾN THẮNG!",
-    "PLAYER2: TÔI ĐÃ CHIẾM ĐƯỢC THÀNH PHỐ A",
-    "PLAYER3: CẦN THĂM DÒ PHÍA BẮC.",
-    "PLAYER4: TẤN CÔNG KẺ ĐỊCH!"
-  ]);
+  const [chatLog, setChatLog] = useState<string[]>([]);
   const [xp, setXp] = useState(68);
   const [level, setLevel] = useState(25);
   const [toastMessage, setToastMessage] = useState("CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH");
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  // Tick every second so march countdowns update in real-time
+  const [_tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [selectedTown, setSelectedTown] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
@@ -641,7 +737,7 @@ export function GameApp() {
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">("none");
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
-  const [chatCollapsed, setChatCollapsed] = useState<boolean>(true);
+  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   const [socketOnline, setSocketOnline] = useState(false);
   const [serverEventLog, setServerEventLog] = useState<string[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -938,7 +1034,8 @@ export function GameApp() {
       },
       (report: BattleReportData) => {
         setSelectedBattleReport(report);
-      }
+      },
+      { layout: conquestMode ? "conquest" : "world" }
     );
     engineRef.current?.handleAction?.("setLocalPlayer", { playerId, playerName: "Bạn" });
 
@@ -973,13 +1070,14 @@ export function GameApp() {
             ownerEmblem: territory.ownerEmblem,
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
+            settlementKind: territory.settlementKind,
           }));
           engineRef.current?.handleAction("applyGameState", {
-            territories,
-            clearings: world.clearings,
-            marches: world.marches,
-            battles: mapServerBattlesForClient(world.battles || []),
-            towns: world.towns,
+            territories: conquestMode ? [] : territories,
+            clearings: conquestMode ? [] : world.clearings,
+            marches: conquestMode ? [] : world.marches,
+            battles: conquestMode ? [] : mapServerBattlesForClient(world.battles || []),
+            towns: conquestMode ? [] : world.towns,
             resources: world.resources,
             newbieShieldUntil: world.newbieShieldUntil,
             playerProfile: world.playerProfile,
@@ -1084,9 +1182,9 @@ export function GameApp() {
   useEffect(() => {
     if (!isAuthenticated || !token || !playerId) return;
     return connectGameSocket(token, (event) => {
-      if (event.type !== "hello") {
-        const line = formatServerEvent(event, playerId);
-        setServerEventLog((prev) => [...prev.slice(-14), line]);
+      if (event.type === "world_chat") {
+        setChatLog((prev) => [...prev.slice(-24), `[THẾ GIỚI] ${event.playerName}: ${event.message}`]);
+        return;
       }
       if (event.type === "hello") {
         setSocketOnline(true);
@@ -1157,13 +1255,15 @@ export function GameApp() {
             ? "Xây thành hoàn tất. Thành trì mới đã sẵn sàng nhận lệnh."
             : "Một lãnh thổ trên thế giới vừa đổi chủ.",
           meta: `Tọa độ X:${event.territory.x} Y:${event.territory.y}`,
+          isMine: event.territory.ownerId === playerId,
         });
-        if (event.territory.ownerId === playerId) {
-          addPrivateReportMail(
+          if (event.territory.ownerId === playerId) {
+            addPrivateReportMail(
             `Lãnh thổ mới: ${territoryLabel(serverToEngineTerritoryId(event.territory.id))}`,
             "Xây thành hoàn tất qua đồng bộ server. Vùng đất đã thuộc quyền kiểm soát của bạn."
-          );
-        }
+            );
+            refreshGameStateWithRetry("stronghold-completed", 3, 300);
+          }
         engineRef.current?.handleAction("applyWorldOwnership", {
           territories: [{
             id: serverToEngineTerritoryId(event.territory.id),
@@ -1200,6 +1300,7 @@ export function GameApp() {
           title: `${event.clearing.playerId === playerId ? "Bạn" : "Người chơi"} bắt đầu xây thành ${territoryLabel(serverToEngineTerritoryId(event.clearing.territoryId))}`,
           body: "Một nông dân đã được điều động tới vùng đất hoang. Khi hoàn tất, lãnh thổ sẽ đổi chủ.",
           meta: `Hoàn tất sau ${formatTimeLeft(event.clearing.completesAt)}`,
+          isMine: event.clearing.playerId === playerId,
         });
         engineRef.current?.handleAction("applyBackendClearing", { clearing: event.clearing });
         setWorldActivity((prev) => ({
@@ -1217,6 +1318,8 @@ export function GameApp() {
         }));
       }
       if (event.type === "territory_clearing_cancelled") {
+        const canvasId = serverToEngineTerritoryId(event.territoryId);
+        engineRef.current?.handleAction("cancelClaimRegion", canvasId);
         setWorldActivity((prev) => ({
           ...prev,
           clearings: prev.clearings.filter((clearing) => clearing.territoryId !== event.territoryId),
@@ -1235,6 +1338,7 @@ export function GameApp() {
           title: `${event.march.ownerId === playerId ? "Bạn" : "Đối thủ"} ${event.march.kind === "reinforce" ? "gửi tiếp viện" : "phát binh"} đến ${territoryLabel(serverToEngineTerritoryId(event.march.toTerritoryId))}`,
           body: `${formatNum(event.march.troops || 0)} quân đang hành quân bằng ${event.march.usesShip ? "đường biển" : "đường bộ"}.`,
           meta: `${event.march.distanceKm ?? 0}km · đến ${formatTimeLeft(event.march.arrivesAt)}`,
+          isMine: event.march.ownerId === playerId,
         });
         if (event.march.ownerId === playerId) {
           addPrivateReportMail(
@@ -1276,12 +1380,14 @@ export function GameApp() {
         setServerHud((prev) => ({ ...prev, lastSync: Date.now() }));
       }
       if (event.type === "battle_started") {
+        const isMyBattle = event.battle.attackerId === playerId || event.battle.defenderId === playerId;
         addWarReport({
           id: `socket-battle-${event.battle.id}`,
           kind: "battle",
           title: `Công thành ${territoryLabel(serverToEngineTerritoryId(event.battle.regionId))}`,
           body: `Công ${formatNum(event.battle.attackerPower)} / Thủ ${formatNum(event.battle.defenderPower)}. Trận đánh sẽ do server tổng kết.`,
           meta: `Kết thúc sau ${formatTimeLeft(event.battle.resolvesAt)}`,
+          isMine: isMyBattle,
         });
         setWorldActivity((prev) => ({
           ...prev,
@@ -1322,6 +1428,7 @@ export function GameApp() {
           title: event.winner === "attacker" ? "Công thành thắng lợi" : "Thủ thành thành công",
           body: `${event.territory?.id !== undefined ? territoryLabel(serverToEngineTerritoryId(event.territory.id)) : "Lãnh thổ"} đã được server tổng kết.`,
           meta: event.winner === "attacker" ? "Quyền sở hữu đã cập nhật" : "Thành vẫn được giữ",
+          isMine: event.territory?.ownerId === playerId,
         });
         setWorldActivity((prev) => ({
           ...prev,
@@ -1341,8 +1448,21 @@ export function GameApp() {
           "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc."
         );
       }
+      if (event.type === "territories_pruned") {
+        refreshGameStateFromServer("territories-pruned");
+        if (event.playerId === playerId && Array.isArray(event.prunedTerritoryIds)) {
+          showGameError(`⚠️ Mắt xích lãnh thổ bị đứt! ${event.prunedTerritoryIds.length} Quân khu cô lập đã bị phá hủy hoàn toàn!`);
+          addPrivateReportMail(
+            "Cảnh báo cô lập lãnh thổ",
+            `Mắt xích giao thông kết nối bị đứt đoạn. ${event.prunedTerritoryIds.length} Quân khu bị cô lập đằng sau đã bị giải phóng trở lại đất hoang.`
+          );
+        }
+      }
       if (event.type === "world_state_hint") {
         refreshGameStateFromServer("socket-hint");
+      }
+      if (event.type === "resync_required") {
+        refreshGameStateWithRetry(`socket-${event.reason}`, 4, 600);
       }
     }, setSocketOnline);
   }, [isAuthenticated, token, playerId]);
@@ -1442,16 +1562,30 @@ export function GameApp() {
     return normalizeTownForClient(merged);
   };
 
+  const isEligibleSourceTown = (town: any) => {
+    if (!town) return false;
+    return Boolean(
+      engineRef.current?.isPlayerOwnedTown?.(town) ||
+      (playerId && (town.ownerId === playerId || serverTownsById[Number(town.id)]?.ownerId === playerId))
+    );
+  };
+
   const getValidSourceTown = () => {
     const engine = engineRef.current;
     if (!engine) return null;
-    if (deploySourceTown && engine.isPlayerOwnedTown?.(deploySourceTown)) {
+    if (isEligibleSourceTown(deploySourceTown)) {
       return mergeTownWithServer(deploySourceTown);
     }
-    if (selectedTown && engine.isPlayerOwnedTown?.(selectedTown)) {
+    if (isEligibleSourceTown(selectedTown)) {
       return mergeTownWithServer(selectedTown);
     }
-    const ownedTowns = engine.getPlayerOwnedTowns?.() || [];
+    const knownTowns = engine.getTowns?.() || [];
+    const ownedTowns = [
+      ...(engine.getPlayerOwnedTowns?.() || []),
+      ...Object.values(serverTownsById)
+        .filter((town: any) => playerId && town?.ownerId === playerId)
+        .map((town: any) => ({ ...(knownTowns.find((candidate: any) => candidate.id === town.id) || {}), ...town, owner: 0 })),
+    ].filter((town, index, list) => isEligibleSourceTown(town) && list.findIndex((candidate: any) => candidate.id === town.id) === index);
     if (ownedTowns.length > 0) {
       const sorted = [...ownedTowns].sort((a: any, b: any) => (b.troops || 0) - (a.troops || 0));
       return mergeTownWithServer(sorted[0]);
@@ -1496,11 +1630,15 @@ export function GameApp() {
 
   function applyBackendWorldState(world: any, resetBattles = false) {
     if (!playerId) return;
-    if (world.playerId && world.playerId !== playerId) {
-      localStorage.setItem(PLAYER_ID_KEY, world.playerId);
-      setPlayerId(world.playerId);
-      return;
-    }
+          if (world.playerId && world.playerId !== playerId) {
+            localStorage.setItem(PLAYER_ID_KEY, world.playerId);
+            setPlayerId(world.playerId);
+            return;
+          }
+          if (world.activeMap === "conquest") {
+            onOpenConquest();
+            return;
+          }
     // Always hydrate battles through the same client shape used by the
     // initial load. Raw server battles do not have the render timing fields.
     const battles = mapServerBattlesForClient(world.battles || []);
@@ -1513,6 +1651,7 @@ export function GameApp() {
       ownerEmblem: territory.ownerEmblem,
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
+      settlementKind: territory.settlementKind,
     }));
     engineRef.current?.handleAction("applyGameState", {
       territories,
@@ -1608,14 +1747,10 @@ export function GameApp() {
     e.preventDefault();
     const message = chatInput.trim();
     if (!message || chatChannel === "HỆ THỐNG") return;
-    setChatLog((prev) => [...prev.slice(-24), `[${chatChannel}] Bạn: ${message}`]);
-    addWarReport({
-      id: `chat-${chatChannel}-${Date.now()}`,
-      kind: "system",
-      title: `Tin nhắn ${chatChannel.toLowerCase()}`,
-      body: message,
-      meta: "Đã gửi trong kênh trò chuyện",
-    });
+    if (!sendWorldChat(message)) {
+      showGameError("Chat thế giới đang mất kết nối, vui lòng thử lại");
+      return;
+    }
     setChatInput("");
   };
 
@@ -1777,478 +1912,684 @@ export function GameApp() {
       {/* High Fidelity HTML Overlay HUD */}
       {gameReady && (
         <div className="hud-wrapper">
-        
-        {/* TOP BAR */}
-        <div className="hud-topbar hud-interactive">
-          {/* Profile Badge */}
-          <div className="hud-profile">
-            <div className="hud-profile-crest">
-              <HudIcon name="crown" />
-            </div>
-            <div className="hud-profile-info">
-              <div className="hud-profile-name">{t("empireName")}</div>
-              <div className="hud-level-line">
-                <span className="hud-lvl-text">Lv. {level}</span>
-                <div className="hud-xp-bg">
-                  <div className="hud-xp-fill" style={{ width: `${xp}%` }} />
+          {/* CONQUEST MODE 14 HOLY SITES HEADER BAR */}
+          {conquestMode && (
+            <header className="conquest-top-bar hud-interactive" style={{ position: "relative", zIndex: 110, margin: "6px 12px" }}>
+              <div className="conquest-top-left-gate" title="Cửa Ải Đã Mở">
+                <div className="conquest-gate-badge">
+                  <span className="gate-icon">🏰</span>
+                  <span className="gate-count">42/42</span>
                 </div>
-                <span className="hud-pct-text">{xp}%</span>
               </div>
-            </div>
-          </div>
 
-          {/* Resources capsule row - NO EMOJIS */}
-          <div className="hud-resources">
-            <div className="hud-res-item res-gold" title={t("gold")}>
-              <span className="hud-res-icon"><VectorGoldIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.gold || 0)}</span>
-            </div>
-            <div className="hud-res-item res-food" title={t("food")}>
-              <span className="hud-res-icon"><VectorFoodIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.food || 0)}</span>
-            </div>
-            <div className="hud-res-item res-wood" title={t("wood")}>
-              <span className="hud-res-icon"><VectorWoodIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.wood || 0)}</span>
-            </div>
-            <div className="hud-res-item res-stone" title={t("stone")}>
-              <span className="hud-res-icon"><VectorStoneIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.stone || 0)}</span>
-            </div>
-            <div className="hud-res-item res-iron" title={t("iron")}>
-              <span className="hud-res-icon"><VectorIronIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.iron || 0)}</span>
-            </div>
-            <div className="hud-res-item res-coal" title={t("coal")}>
-              <span className="hud-res-icon"><VectorCoalIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.coal || 0)}</span>
-            </div>
-            <div className="hud-res-item res-sulfur" title={t("sulfur")}>
-              <span className="hud-res-icon"><VectorSulfurIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.sulfur || 0)}</span>
-            </div>
-            <div className="hud-res-item res-gems" title={t("gems")}>
-              <span className="hud-res-icon"><VectorGemsIcon /></span>
-              <span className="hud-res-val">{formatNum(resources.gems || 0)}</span>
-              <button type="button" className="hud-res-add-btn">+</button>
-            </div>
-          </div>
-
-          {/* System Control Row (Top Right) */}
-          <div className="hud-sys-controls">
-            <button type="button" className="hud-sys-btn" onClick={() => openModal("mail")} title={t("mail")}>
-              <HudIcon name="mail" />
-              {unreadMailCount > 0 && <span className="hud-sys-badge">4</span>}
-            </button>
-            <button type="button" className="hud-sys-btn" onClick={() => openModal("warReport")} title={t("notifications")}>
-              <HudIcon name="bell" />
-            </button>
-            <button type="button" className="hud-sys-btn" onClick={() => openModal("settings")} title={t("settings")}>
-              <HudIcon name="gear" />
-            </button>
-            <button type="button" className="hud-sys-btn" onClick={() => setGameLanguage(language === "vi" ? "en" : "vi")} title={t("language")}>
-              {language.toUpperCase()}
-            </button>
-            <button type="button" className="hud-sys-btn" onClick={() => {
-              if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-              } else {
-                document.exitFullscreen().catch(() => {});
-              }
-            }} title={t("fullscreen")}>
-              <HudIcon name="fullscreen" />
-            </button>
-            <button
-              type="button"
-              className="hud-sys-btn hud-logout-btn"
-              onClick={() => {
-                if (window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản không?")) {
-                  handleLogout();
-                }
-              }}
-              title="Đăng xuất tài khoản"
-              style={{ color: "#ef4444" }}
-            >
-              <HudIcon name="logout" />
-            </button>
-          </div>
-        </div>
-
-        {mobileMenu !== "none" && (
-          <div className="hud-mobile-overlay hud-interactive" onClick={() => setMobileMenu("none")} />
-        )}
-
-        {/* MAIN HUD BODY */}
-        <div className="hud-main">
-          {/* LEFT PANELS - TABBED MISSIONS & KINGDOM STATUS FLOATING CARD */}
-          <div className={`hud-left-side hud-interactive ${mobileMenu === "left" ? "mobile-active" : ""} ${leftCollapsed ? "collapsed" : ""}`}>
-            {leftCollapsed ? (
-              <button type="button" className="hud-expand-pill" onClick={() => setLeftCollapsed(false)}>
-                <HudIcon name="crown" /> {t("kingdom")} <span>▼</span>
-              </button>
-            ) : (
-              <div className="hud-card hud-missions-card kingdom-unified-card">
-                {/* TAB HEADER */}
-                <div className="hud-card-tab-header">
-                  <div className="hud-tab-buttons">
-                    <button
-                      type="button"
-                      className={`hud-tab-btn ${leftTab === "missions" ? "active" : ""}`}
-                      onClick={() => setLeftTab("missions")}
-                    >
-                      <HudIcon name="scroll" /> {t("missions")}
-                    </button>
-                    <button
-                      type="button"
-                      className={`hud-tab-btn ${leftTab === "kingdom" ? "active" : ""}`}
-                      onClick={() => setLeftTab("kingdom")}
-                    >
-                      <HudIcon name="clock" /> {t("status")}
-                    </button>
-                  </div>
-                  <button type="button" className="hud-icon-btn" onClick={() => setLeftCollapsed(true)} title={t("collapse")}>
-                    <HudIcon name="chevronUp" />
-                  </button>
-                </div>
-
-                {/* TAB 1: MISSIONS */}
-                {leftTab === "missions" && (
-                  <div className="hud-section-block">
-                    <div className="hud-missions-compact">
-                      <div className="hud-mission-item">
-                        <div className="hud-mission-copy">
-                          <span className="hud-radio-dot done" />
-                          <span>{t("missionOwn3")}</span>
-                        </div>
-                        <span className="hud-mission-count">2/3</span>
-                      </div>
-
-                      <div className="hud-mission-item">
-                        <div className="hud-mission-copy">
-                          <span className="hud-radio-dot pending" />
-                          <span>{t("missionMarch1")}</span>
-                        </div>
-                        <span className="hud-mission-count">0/1</span>
-                      </div>
-
-                      <div className="hud-mission-item">
-                        <div className="hud-mission-copy">
-                          <span className="hud-radio-dot done" />
-                          <span>{t("missionBuild1")}</span>
-                        </div>
-                        <span className="hud-mission-count">1/1</span>
-                      </div>
-
-                      <div className="hud-mission-item">
-                        <div className="hud-mission-copy">
-                          <span className="hud-radio-dot pending" />
-                          <span>{t("missionCastle10")}</span>
-                        </div>
-                        <span className="hud-mission-count">0/1</span>
-                      </div>
+              <div className="conquest-holy-sites-strip">
+                {[
+                  { name: "Hope", icon: "💎", color: "#3b82f6", val: "+3%" },
+                  { name: "Wind", icon: "⭐", color: "#eab308", val: "+10%" },
+                  { name: "Blood", icon: "💧", color: "#ef4444", val: "+5%" },
+                  { name: "Courage", icon: "🛡️", color: "#22c55e", val: "+5%" },
+                  { name: "Wisdom", icon: "⚛️", color: "#10b981", val: "+10%" },
+                  { name: "Surge", icon: "🔮", color: "#0284c7", val: "+3%" },
+                  { name: "Storm", icon: "🌀", color: "#06b6d4", val: "+20%" },
+                  { name: "Flame", icon: "🔥", color: "#f97316", val: "+5%" },
+                  { name: "Harvest", icon: "🌾", color: "#84cc16", val: "+10%" },
+                  { name: "Earth", icon: "🍃", color: "#15803d", val: "+5%" },
+                  { name: "Order", icon: "👑", color: "#a855f7", val: "+3%" },
+                  { name: "Radiance", icon: "☀️", color: "#f43f5e", val: "+20%" },
+                  { name: "Honor", icon: "🎖️", color: "#d97706", val: "+5%" },
+                  { name: "War", icon: "⚔️", color: "#dc2626", val: "+10%" },
+                ].map((site) => (
+                  <div key={site.name} className="conquest-site-pill" style={{ borderBottomColor: site.color }}>
+                    <div className="site-pill-icon" style={{ color: site.color }}>{site.icon}</div>
+                    <div className="site-pill-info">
+                      <span className="site-pill-name">{site.name}</span>
+                      <span className="site-pill-buff">{site.val}</span>
                     </div>
                   </div>
-                )}
-
-                {/* TAB 2: KINGDOM STATUS */}
-                {leftTab === "kingdom" && (
-                  <div className="hud-section-block">
-                    <div className="hud-missions-compact kingdom-status-body">
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
-                          <span>{t("territories")}</span>
-                        </div>
-                        <span className="hud-mission-count text-gold">29</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconLeaf /></span>
-                          <span>{t("buildingCastle")}</span>
-                        </div>
-                        <span className="hud-mission-count">{serverHud.ownClearings || 0}</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconShield /></span>
-                          <span>{t("marching")}</span>
-                        </div>
-                        <span className="hud-mission-count">8</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconBlood /></span>
-                          <span>{t("underAttack")}</span>
-                        </div>
-                        <span className="hud-mission-count text-green">{t("safe")}</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconVault /></span>
-                          <span>{t("storageStatus")}</span>
-                        </div>
-                        <span className="hud-mission-count text-danger-glow">{t("full")} (100%)</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconBolt /></span>
-                          <span>{t("gatherRate")}</span>
-                        </div>
-                        <span className="hud-mission-count text-gold">+135%/{t("perHour")}</span>
-                      </div>
-
-                      <div className="hud-mission-item kingdom-status-row">
-                        <div className="hud-mission-copy">
-                          <span className="hud-status-svg-icon"><StatusIconSwords /></span>
-                          <span>{t("strategicFame")}</span>
-                        </div>
-                        <span className="hud-mission-count text-gold font-bold">19,227</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
-          <div className={`hud-right-side hud-interactive ${mobileMenu === "right" ? "mobile-active" : ""}`}>
-            {/* Minimap component */}
-            <div className="hud-minimap-card">
-              <div className="hud-minimap-header">
-                <span className="hud-minimap-title"><HudIcon name="map" /> {t("worldMap")}</span>
-                <button type="button" className="hud-mini-icon-btn" title={t("search")} onClick={jumpToCoordinates}><HudIcon name="search" /></button>
+                ))}
               </div>
 
-              <form
-                className="hud-coordinate-search"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  jumpToCoordinates();
-                }}
-              >
-                <HudIcon name="target" />
-                <input
-                  value={coordinateSearch}
-                  onChange={(event) => setCoordinateSearch(event.target.value)}
-                  placeholder="X:Y"
-                  inputMode="numeric"
-                  aria-label="Tìm tọa độ nhanh"
-                />
-                <button type="submit" title="Tìm tọa độ"><HudIcon name="search" /></button>
-              </form>
-              
-              <div className="hud-minimap-canvas-wrapper">
-                <canvas 
-                  ref={minimapCanvasRef} 
-                  width={160} 
-                  height={120} 
-                  className="hud-minimap-canvas" 
-                  style={{ width: "100%", height: "96px", display: "block", background: "#060f16" }} 
-                />
+              <div className="conquest-top-right">
+                <span className="conquest-unique-label">× Unique quantity of holy sites</span>
+                <button className="conquest-close-btn" onClick={onOpenWorld || (() => window.location.href = "/")}>
+                  ✕ QUAY VỀ BẢN ĐỒ THẾ GIỚI
+                </button>
               </div>
+            </header>
+          )}
 
-              <div className="hud-minimap-footer">
-                <div className="hud-minimap-online-row">
-                  <span className="status-dot-green" /> <span>250 Online</span>
-                  <span className="hud-live-pill">LIVE</span>
-                </div>
-                <div className="hud-minimap-action-bar">
-                  <button type="button" className="hud-mini-icon-btn" title={t("favorite")}><HudIcon name="star" /></button>
-                  <button type="button" className="hud-mini-icon-btn" title={t("ranking")}><HudIcon name="crown" /></button>
-                  <button type="button" className="hud-mini-icon-btn" title={t("locate")}><HudIcon name="target" /></button>
-                </div>
-              </div>
-            </div>
-
-            {/* Selected Town / Territory Info Card */}
-            {selectedTown && (
-              <div className="hud-selected-town-card hud-card">
-                <div className="hud-town-card-header">
-                  <div>
-                    <h3 className="hud-town-name">THÀNH ELDORIA</h3>
-                    <span className="hud-town-lvl">Lv. 12</span>
-                  </div>
-                  <button type="button" className="hud-close-btn" onClick={() => {
-                    engineRef.current?.handleAction("setUiOverlayActive", { active: false });
-                    setSelectedTown(null);
-                  }}>✕</button>
-                </div>
-                
-                <div className="hud-town-card-body">
-                  <div className="hud-town-preview-img">
-                    <HudIcon name="castle" />
-                  </div>
-                  <div className="hud-town-stats">
-                    <div className="hud-town-stat-row">
-                      <span>Chủ sở hữu</span>
-                      <strong>Đế Quốc Phục Hưng</strong>
-                    </div>
-                    <div className="hud-town-stat-row">
-                      <span>Dân số</span>
-                      <strong>1.200</strong>
-                    </div>
-                    <div className="hud-town-stat-row">
-                      <span>Quân đội</span>
-                      <strong>350</strong>
-                    </div>
-                    <div className="hud-town-stat-row">
-                      <span>Liên minh</span>
-                      <strong>Không có</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hud-town-card-actions">
-                  <button type="button" className="hud-town-btn primary" onClick={() => openModal("army")}>
-                    <HudIcon name="swords" /> CHIẾM LÃNH THỔ
-                  </button>
-                  <button type="button" className="hud-town-btn secondary" onClick={() => handleAction("map")}>
-                    <HudIcon name="anchor" /> DO THÁM
-                  </button>
-                  <button type="button" className="hud-town-btn tertiary">
-                    <HudIcon name="info" /> THÔNG TIN
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* HORIZONTAL EMPIRE ACTION DOCK */}
-        <div className="hud-center-dock-container hud-interactive">
-          {/* Floating Bottom Left Chat Pill Button */}
-          <button type="button" className="hud-chat-floating-btn" onClick={() => setChatCollapsed(!chatCollapsed)}>
-            <HudIcon name="chat" /> {t("chat")}
-          </button>
-
-          {/* Toast / Territory Selection Banner */}
-          <div className="hud-toast-banner">
-            <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} #${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} #259`)}</div>
-            <div className="toast-sub">{selectedRegion ? t("buildFromTooltip") : (language === "vi" ? "Bấm vào ô lãnh thổ để ra lệnh" : "Click territory to issue orders")}</div>
-          </div>
-
-          <div className="hud-empire-dock-master">
-            {/* Left Action Buttons */}
-            <div className="hud-dock-group left">
-              <button type="button" className="hud-dock-tile" onClick={() => openModal("army")} title={t("army")}>
-                <span className="hud-tile-icon"><HudIcon name="swords" /></span>
-                <span className="hud-tile-label">{t("army")}</span>
-              </button>
-              <button type="button" className="hud-dock-tile" onClick={() => openModal("treasure")} title={t("treasure")}>
-                <span className="hud-tile-icon"><HudIcon name="book" /></span>
-                <span className="hud-tile-label">{t("treasure")}</span>
-              </button>
-            </div>
-
-            {/* Center Dominant Capital Emblem Arch Button */}
-            <div className="hud-dock-center-emblem" onClick={() => handleAction("map")} title={t("map")}>
-              <div className="hud-center-globe-ring">
-                <HudIcon name="map" />
-              </div>
-              <span className="hud-center-globe-label">{t("map")}</span>
-            </div>
-
-            {/* Right Action Buttons */}
-            <div className="hud-dock-group right">
-              <button type="button" className="hud-dock-tile" onClick={() => openModal("ally")} title={t("alliance")}>
-                <span className="hud-tile-icon"><HudIcon name="handshake" /></span>
-                <span className="hud-tile-label">{t("diplomacy")}</span>
-              </button>
-              <button type="button" className="hud-dock-tile" onClick={() => setActiveModal("inventory")} title={t("inventory")}>
-                <span className="hud-tile-icon"><HudIcon name="bag" /></span>
-                <span className="hud-tile-label">{t("inventory")}</span>
-              </button>
-              <button type="button" className="hud-dock-tile gold-highlight" onClick={() => openModal("warReport")} title="Chiến Báo">
-                <span className="hud-tile-icon"><HudIcon name="book" /></span>
-                <span className="hud-tile-label">CHIẾN BÁO</span>
-                {warReports.length > 0 && <span className="hud-menu-badge" style={{ background: "#ef4444", color: "#fff" }}>{warReports.length}</span>}
-              </button>
-              <button type="button" className="hud-dock-tile" onClick={() => openModal("mail")} title={t("mail")}>
-                <span className="hud-tile-icon"><HudIcon name="mail" /></span>
-                <span className="hud-tile-label">{t("personalMailShort")}</span>
-                {unreadMailCount > 0 && <span className="hud-menu-badge">2</span>}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* BOTTOM SECTION - CHAT PILL */}
-        <div className="hud-bottombar">
-          <div className={`hud-chat-box hud-interactive ${chatCollapsed ? "collapsed" : ""}`}>
-            <div className="hud-chat-header" onClick={() => setChatCollapsed(!chatCollapsed)}>
-              <span className="hud-chat-header-main"><HudIcon name="chat" /> {t("chat")}</span>
-              <span className="hud-chat-toggle-btn">{chatCollapsed ? "▲" : "▼"}</span>
-            </div>
-            {!chatCollapsed && (
-              <>
-                <div className="hud-chat-tabs">
-                  {(["HỆ THỐNG", "THẾ GIỚI", "LIÊN MINH"] as ChatChannel[]).map((channel) => (
-                    <button
-                      key={channel}
-                      type="button"
-                      className={`hud-chat-tab ${chatChannel === channel ? "active" : ""}`}
-                      onClick={() => {
-                        setChatChannel(channel);
-                        setChatInput("");
-                      }}
-                    >
-                      {channel === "HỆ THỐNG" ? t("system") : channel === "LIÊN MINH" ? t("alliance") : t("world")}
-                    </button>
-                  ))}
-                </div>
-                <div className="hud-chat-lines">
-                  {displayChatLog.length > 0 ? displayChatLog.map((line, i) => {
-                    const chat = parseChatLine(line);
-                    return (
-                      <div key={i} className="hud-chat-line">
-                        <span className={`hud-chat-channel ${chat.channel === "HỆ THỐNG" ? "system" : chat.channel === "LIÊN MINH" ? "alliance" : "world"}`}>
-                          [{chat.channel}]
-                        </span>
-                        <span className="hud-chat-name">{chat.name}: </span>
-                        <span className="hud-chat-msg">{chat.message}</span>
-                      </div>
-                    );
-                  }) : (
-                    <div className="hud-chat-empty">{t("noChat")}</div>
-                  )}
-                </div>
-                <form onSubmit={handleChatSubmit} className="hud-chat-input-bar">
-                  <input
-                    type="text"
-                    className="hud-chat-input"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder={chatChannel === "HỆ THỐNG" ? t("systemChannel") : t("chatPlaceholder")}
-                    maxLength={100}
-                    disabled={chatChannel === "HỆ THỐNG"}
+          {/* TOP BAR */}
+          <div className="hud-topbar hud-interactive">
+            {/* Profile Badge - Circular Avatar and XP progress */}
+            <div className="hud-profile-circle-wrapper">
+              <div className="hud-avatar-container">
+                <svg className="hud-avatar-svg-progress" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" className="hud-avatar-progress-bg" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    className="hud-avatar-progress-fill"
+                    strokeDasharray="283"
+                    strokeDashoffset={283 - (283 * (xp || 0)) / 100}
                   />
-                  <button type="submit" className="hud-chat-send" disabled={chatChannel === "HỆ THỐNG"}>
-                    ▶
+                </svg>
+                <div className="hud-avatar-img-mask">
+                  <img
+                    src="/assets/avatars/emperor.png"
+                    alt="Emperor Avatar"
+                    className="hud-avatar-img"
+                  />
+                </div>
+                <div className="hud-avatar-lvl-badge">
+                  <span>Lv.{level}</span>
+                </div>
+              </div>
+              <div className="hud-profile-info">
+                <div className="hud-profile-name-row">
+                  <span className="hud-profile-name">{t("empireName")}</span>
+                  <button
+                    type="button"
+                    className="hud-profile-edit-btn"
+                    title="Đổi tên"
+                    onClick={() => openModal("settings")}
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
                   </button>
-                </form>
-              </>
-            )}
+                </div>
+                <div className="hud-profile-xp-text">{xp}%</div>
+              </div>
+            </div>
+
+            {/* Resources capsules grouped - matching Mockup */}
+            <div className="hud-resources-unified">
+              {/* Ordinary Resources Block (Lúa, Gỗ, Đá, Sắt) */}
+              <div className="hud-res-group ordinary-group">
+                <div className="hud-res-item res-food" title={t("food")}>
+                  <span className="hud-res-icon"><VectorFoodIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{formatResourceVal(resources.food || 0)}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                  </div>
+                </div>
+                <div className="hud-res-item res-wood" title={t("wood")}>
+                  <span className="hud-res-icon"><VectorWoodIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{formatResourceVal(resources.wood || 0)}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                  </div>
+                </div>
+                <div className="hud-res-item res-stone" title={t("stone")}>
+                  <span className="hud-res-icon"><VectorStoneIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{formatResourceVal(resources.stone || 0)}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                  </div>
+                </div>
+                <div className="hud-res-item res-iron" title={t("iron")}>
+                  <span className="hud-res-icon"><VectorIronIcon /></span>
+                  <div className="hud-res-details">
+                    <span className="hud-res-val">{formatResourceVal(resources.iron || 0)}</span>
+                    <span className="hud-res-rate">+{formatResourceVal(gatherRatePerHour)}/h</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Premium Resources Block (Ruby, Vàng, Kim Cương) */}
+              <div className="hud-res-group premium-group">
+                <div className="hud-res-item res-gems" title={t("gems")}>
+                  <span className="hud-res-icon"><VectorGemsIcon /></span>
+                  <span className="hud-res-val">{formatNum(resources.gems || 0)}</span>
+                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
+                </div>
+                <div className="hud-res-item res-gold" title={t("gold")}>
+                  <span className="hud-res-icon"><VectorGoldIcon /></span>
+                  <span className="hud-res-val">{formatResourceVal(resources.gold || 0)}</span>
+                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
+                </div>
+                <div className="hud-res-item res-diamonds" title="Kim cương">
+                  <span className="hud-res-icon">
+                    <svg viewBox="0 0 64 64" className="vector-res-svg">
+                      <defs>
+                        <linearGradient id="diaLight" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#38bdf8" />
+                          <stop offset="100%" stopColor="#0284c7" />
+                        </linearGradient>
+                        <linearGradient id="diaDark" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#0369a1" />
+                          <stop offset="100%" stopColor="#0c4a6e" />
+                        </linearGradient>
+                        <linearGradient id="diaTop" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#e0f2fe" />
+                          <stop offset="100%" stopColor="#7dd3fc" />
+                        </linearGradient>
+                      </defs>
+                      <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#diaDark)" stroke="#0c4a6e" strokeWidth="1.5" />
+                      <polygon points="32,58 10,24 32,24" fill="url(#diaLight)" stroke="#0c4a6e" strokeWidth="1.5" />
+                      <polygon points="32,58 32,24 54,24" fill="url(#diaLight)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
+                      <polygon points="10,24 20,8 32,24" fill="url(#diaTop)" stroke="#0c4a6e" strokeWidth="1.5" />
+                      <polygon points="54,24 44,8 32,24" fill="url(#diaTop)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
+                      <polygon points="20,8 44,8 32,24" fill="#f0f9ff" stroke="#0c4a6e" strokeWidth="1.5" />
+                    </svg>
+                  </span>
+                  <span className="hud-res-val">{formatNum(Math.floor((resources.gems || 0) * 1.5) + 20)}</span>
+                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick sys controls (Mail, Notifications, Settings, Fullscreen, Logout) */}
+            <div className="hud-sys-controls">
+              <button type="button" className="hud-sys-btn" onClick={() => openModal("mail")} title={t("mail")}>
+                <HudIcon name="mail" />
+                {unreadMailCount > 0 && <span className="hud-sys-badge">{unreadMailCount}</span>}
+              </button>
+              <button type="button" className="hud-sys-btn" onClick={() => openModal("warReport")} title={t("notifications")}>
+                <HudIcon name="bell" />
+              </button>
+              <button type="button" className="hud-sys-btn" onClick={() => openModal("settings")} title={t("settings")}>
+                <HudIcon name="gear" />
+              </button>
+              <button type="button" className="hud-sys-btn" onClick={() => setGameLanguage(language === "vi" ? "en" : "vi")} title={t("language")}>
+                {language.toUpperCase()}
+              </button>
+              <button type="button" className="hud-sys-btn" onClick={() => {
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                  document.exitFullscreen().catch(() => {});
+                }
+              }} title={t("fullscreen")}>
+                <HudIcon name="fullscreen" />
+              </button>
+              <button
+                type="button"
+                className="hud-sys-btn hud-logout-btn"
+                onClick={() => {
+                  if (window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản không?")) {
+                    handleLogout();
+                  }
+                }}
+                title="Đăng xuất tài khoản"
+                style={{ color: "#ef4444" }}
+              >
+                <HudIcon name="logout" />
+              </button>
+            </div>
           </div>
 
-          {/* Connection Pill bottom right */}
+          {/* MAIN HUD BODY */}
+          <div className="hud-main">
+            {/* LEFT PANELS - TABBED SIDEBAR RAIL & QUEST SLIDING CARD */}
+            {!conquestMode && (
+              <div className="hud-left-command-cluster">
+                {/* Vertical Rail (matching Mockup) */}
+                <nav className="hud-sidebar-vertical-rail hud-interactive" aria-label="Điều hướng vương quốc">
+                  <button
+                    type="button"
+                    className={`hud-rail-button-v ${leftTab === "missions" && !leftCollapsed ? "active" : ""}`}
+                    onClick={() => {
+                      if (leftTab === "missions" && !leftCollapsed) {
+                        setLeftCollapsed(true);
+                      } else {
+                        setLeftCollapsed(false);
+                        setLeftTab("missions");
+                      }
+                    }}
+                    title={t("missions")}
+                  >
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_scroll.png" className="hud-rail-icon-png" alt="scroll" />
+                      <span className="hud-rail-badge" />
+                    </div>
+                    <span>Nhiệm vụ</span>
+                  </button>
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("warReport")} title="Sự kiện">
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_event.png" className="hud-rail-icon-png" alt="event" />
+                      <span className="hud-rail-badge" />
+                    </div>
+                    <span>Sự kiện</span>
+                  </button>
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("settings")} title="Công nghệ">
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_tech.png" className="hud-rail-icon-png" alt="tech" />
+                    </div>
+                    <span>Công nghệ</span>
+                  </button>
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("army")} title={t("army")}>
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_military.png" className="hud-rail-icon-png" alt="military" />
+                    </div>
+                    <span>Quân đội</span>
+                  </button>
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("ally")} title="Bang hội">
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_guild.png" className="hud-rail-icon-png" alt="guild" />
+                    </div>
+                    <span>Bang hội</span>
+                  </button>
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("shop")} title="Cửa hàng">
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_shop.png" className="hud-rail-icon-png" alt="shop" />
+                      <span className="hud-rail-badge" />
+                    </div>
+                    <span>Cửa hàng</span>
+                  </button>
+                </nav>
 
-          {/* Connection Pill bottom right */}
+                {/* Quest Drawer Card (matching Mockup) */}
+                <div className={`hud-quest-drawer-card hud-interactive ${leftCollapsed ? "collapsed" : ""}`}>
+                  <div className="hud-quest-drawer-header">
+                    <span className="hud-quest-title">
+                      <img src="/assets/icons/icon_scroll.png" className="hud-quest-header-icon-png" alt="missions" /> {t("missions")}
+                    </span>
+                    <span className="hud-quest-ratio">3/5</span>
+                  </div>
+
+                  <div className="hud-quest-list">
+                    <div className="hud-quest-item">
+                      <div className="hud-quest-meta">
+                        <span className="hud-quest-desc">{t("missionOwn3")}</span>
+                        <span className="hud-quest-progress-val">2/3</span>
+                      </div>
+                      <div className="hud-quest-progress-bar-track">
+                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "66%" }} />
+                      </div>
+                    </div>
+
+                    <div className="hud-quest-item">
+                      <div className="hud-quest-meta">
+                        <span className="hud-quest-desc">{t("missionMarch1")}</span>
+                        <span className="hud-quest-progress-val">0/1</span>
+                      </div>
+                      <div className="hud-quest-progress-bar-track">
+                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
+                      </div>
+                    </div>
+
+                    <div className="hud-quest-item completed">
+                      <div className="hud-quest-meta">
+                        <span className="hud-quest-desc">{t("missionBuild1")}</span>
+                        <span className="hud-quest-check">✓ 1/1</span>
+                      </div>
+                      <div className="hud-quest-progress-bar-track">
+                        <div className="hud-quest-progress-bar-fill green" style={{ width: "100%" }} />
+                      </div>
+                    </div>
+
+                    <div className="hud-quest-item">
+                      <div className="hud-quest-meta">
+                        <span className="hud-quest-desc">{t("missionCastle10")}</span>
+                        <span className="hud-quest-progress-val">0/1</span>
+                      </div>
+                      <div className="hud-quest-progress-bar-track">
+                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
+                      </div>
+                    </div>
+
+                    <div className="hud-quest-item">
+                      <div className="hud-quest-meta">
+                        <span className="hud-quest-desc">Tham gia 1 chiến dịch</span>
+                        <span className="hud-quest-progress-val">0/1</span>
+                      </div>
+                      <div className="hud-quest-progress-bar-track">
+                        <div className="hud-quest-progress-bar-fill orange" style={{ width: "0%" }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Collapsible Battlefield Section */}
+                  <div className="hud-battlefield-section">
+                    <div className="hud-battlefield-header">
+                      <span className="hud-battlefield-title">
+                        <img src="/assets/icons/icon_report.png" className="hud-quest-header-icon-png" alt="battlefield" /> CHIẾN TRƯỜNG
+                      </span>
+                      <span className="hud-battlefield-toggle">▼</span>
+                    </div>
+                    <div className="hud-battlefield-body">
+                      <div className="hud-battle-item">
+                        <span className="hud-battle-icon-mask">
+                          <img src="/assets/icons/icon_guild.png" className="hud-battle-icon-png" alt="guild" />
+                        </span>
+                        <div className="hud-battle-info">
+                          <div className="hud-battle-name">Chiến tranh bang hội</div>
+                          <div className="hud-battle-timer">Kết thúc sau: <span className="time-highlight">12:45:32</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
+            <div className="hud-right-side hud-interactive">
+              {/* Minimap card with Gold Trim (matching Mockup) */}
+              <div className="hud-minimap-card premium-framed">
+                <div className="hud-minimap-header">
+                  <span className="hud-minimap-title">
+                    <img src="/assets/icons/icon_map.png" className="hud-minimap-header-icon-png" alt="worldMap" /> {t("worldMap")}
+                  </span>
+                  <button type="button" className="hud-mini-icon-btn-plus" title="Mở rộng">+</button>
+                </div>
+
+                <div className="hud-minimap-coords-display">
+                  <span className="coords-icon">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  </span>
+                  <span className="coords-text">X: 10650 Y: 6254</span>
+                  <button type="button" className="hud-mini-icon-btn" onClick={jumpToCoordinates} title={t("search")} style={{ marginLeft: "auto" }}>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </button>
+                </div>
+
+                <div className="hud-minimap-canvas-wrapper">
+                  <canvas 
+                    ref={minimapCanvasRef} 
+                    width={160} 
+                    height={120} 
+                    className="hud-minimap-canvas" 
+                    style={{ width: "100%", height: "96px", display: "block", background: "#060f16" }} 
+                  />
+                </div>
+
+                <div className="hud-minimap-footer-unified">
+                  <div className="hud-minimap-online-row">
+                    <span className="status-dot-green" /> 
+                    <span className="online-count">250 Online</span>
+                    <span className="hud-live-badge-pill">Live</span>
+                  </div>
+                  <div className="hud-minimap-action-bar-small">
+                    <button type="button" className="hud-mini-action-btn-circle" title={t("favorite")}><HudIcon name="star" /></button>
+                    <button type="button" className="hud-mini-action-btn-circle" title="Xem sách"><HudIcon name="book" /></button>
+                    <button type="button" className="hud-mini-action-btn-circle" title={t("locate")}><HudIcon name="target" /></button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Town / Territory Info Card */}
+              {selectedTown && (
+                <div className="hud-selected-town-card hud-card">
+                  <div className="hud-town-card-header">
+                    <div>
+                      <h3 className="hud-town-name">THÀNH ELDORIA</h3>
+                      <span className="hud-town-lvl">Lv. 12</span>
+                    </div>
+                    <button type="button" className="hud-close-btn" onClick={() => {
+                      engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+                      setSelectedTown(null);
+                    }}>✕</button>
+                  </div>
+                  
+                  <div className="hud-town-card-body">
+                    <div className="hud-town-preview-img">
+                      <HudIcon name="castle" />
+                    </div>
+                    <div className="hud-town-stats">
+                      <div className="hud-town-stat-row">
+                        <span>Chủ sở hữu</span>
+                        <strong>Đế Quốc Phục Hưng</strong>
+                      </div>
+                      <div className="hud-town-stat-row">
+                        <span>Dân số</span>
+                        <strong>1.200</strong>
+                      </div>
+                      <div className="hud-town-stat-row">
+                        <span>Quân đội</span>
+                        <strong>350</strong>
+                      </div>
+                      <div className="hud-town-stat-row">
+                        <span>Liên minh</span>
+                        <strong>Không có</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hud-town-card-actions">
+                    <button type="button" className="hud-town-btn primary" onClick={() => openModal("army")}>
+                      <HudIcon name="swords" /> CHIẾM LÃNH THỔ
+                    </button>
+                    <button type="button" className="hud-town-btn secondary" onClick={() => handleAction("map")}>
+                      <HudIcon name="anchor" /> DO THÁM
+                    </button>
+                    <button type="button" className="hud-town-btn tertiary">
+                      <HudIcon name="info" /> THÔNG TIN
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* HORIZONTAL EMPIRE ACTION DOCK (Redesigned Centered Curved Dock) */}
+          <div className="hud-center-dock-container hud-interactive">
+            {/* Toast / Territory Selection Banner */}
+            <div className="hud-toast-banner">
+              <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} #${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} #259`)}</div>
+              <div className="toast-sub">{selectedRegion ? t("buildFromTooltip") : (language === "vi" ? "Bấm vào ô lãnh thổ để ra lệnh" : "Click territory to issue orders")}</div>
+            </div>
+
+            {/* Bottom Menu Action Bar matching Mockup */}
+            <div className="hud-empire-dock-master-unified">
+              <button type="button" className="hud-dock-tile-square" onClick={() => handleAction("map")} title={t("map")}>
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_map.png" className="hud-dock-icon-png" alt="map" /></span>
+                <span className="hud-tile-label-square">Bản đồ</span>
+              </button>
+              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("treasure")} title={t("inventory")}>
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_bag.png" className="hud-dock-icon-png" alt="bag" /></span>
+                <span className="hud-tile-label-square">Túi đồ</span>
+              </button>
+              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("army")} title={t("army")}>
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_military.png" className="hud-dock-icon-png" alt="military" /></span>
+                <span className="hud-tile-label-square">Quân đội</span>
+              </button>
+              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("warReport")} title="Chiến báo">
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_report.png" className="hud-dock-icon-png" alt="report" /></span>
+                <span className="hud-tile-label-square">Chiến báo</span>
+              </button>
+              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("treasure")} title="Kho báu">
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_chest.png" className="hud-dock-icon-png" alt="treasure" /></span>
+                <span className="hud-tile-label-square">Kho báu</span>
+              </button>
+              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("mail")} title={t("mail")}>
+                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_mail.png" className="hud-dock-icon-png" alt="mail" /></span>
+                <span className="hud-tile-label-square">Thư</span>
+                {unreadMailCount > 0 && <span className="hud-tile-badge-square">{unreadMailCount}</span>}
+              </button>
+            </div>
+          </div>
+
+          {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
+          <div className="hud-bottombar-unified">
+            {/* FLOATING CHAT BOX (Bottom Left) */}
+            <div className={`hud-floating-chat hud-interactive ${chatCollapsed ? "collapsed" : ""}`}>
+              <div className="hud-chat-header" onClick={() => setChatCollapsed(!chatCollapsed)}>
+                <span className="hud-chat-header-main"><HudIcon name="chat" /> {t("chat")}</span>
+                <span className="hud-chat-toggle-btn">{chatCollapsed ? "▲" : "▼"}</span>
+              </div>
+              {!chatCollapsed && (
+                <>
+                  <div className="hud-chat-tabs-pills">
+                    {(["THẾ GIỚI", "LIÊN MINH", "HỆ THỐNG"] as string[]).map((channel) => (
+                      <button
+                        key={channel}
+                        type="button"
+                        className={`hud-chat-tab-pill ${
+                          (channel === "HỆ THỐNG" && chatChannel === "HỆ THỐNG") ||
+                          (channel === "THẾ GIỚI" && chatChannel === "THẾ GIỚI")
+                            ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setChatChannel(channel === "LIÊN MINH" ? "HỆ THỐNG" : channel as ChatChannel);
+                          setChatInput("");
+                        }}
+                      >
+                        {channel === "HỆ THỐNG" ? "Hệ thống" : channel === "THẾ GIỚI" ? "Thế giới" : "Bang hội"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hud-chat-lines">
+                    {displayChatLog.length > 0 ? displayChatLog.map((line, i) => {
+                      const chat = parseChatLine(line);
+                      let prefix = `[${chat.channel === "HỆ THỐNG" ? "Hệ Thống" : "Thế Giới"}]`;
+                      let isSys = chat.channel === "HỆ THỐNG";
+                      if (line.includes("PLAYER")) {
+                        prefix = "[Thế giới]";
+                        isSys = false;
+                      } else if (line.includes("Bang HOANGIA") || line.includes("SYSTEM")) {
+                        prefix = "[Hệ thống]";
+                        isSys = true;
+                      }
+                      return (
+                        <div key={i} className="hud-chat-line">
+                          <span className={`hud-chat-channel ${isSys ? "system" : "world"}`}>
+                            {prefix}
+                          </span>
+                          <span className="hud-chat-name"> {chat.name}: </span>
+                          <span className="hud-chat-msg">{chat.message}</span>
+                        </div>
+                      );
+                    }) : (
+                      <div className="hud-chat-empty">{t("noChat")}</div>
+                    )}
+                  </div>
+                  <form onSubmit={handleChatSubmit} className="hud-chat-input-bar">
+                    <input
+                      type="text"
+                      className="hud-chat-input"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Nhập tin nhắn..."
+                      maxLength={100}
+                      disabled={chatChannel === "HỆ THỐNG"}
+                    />
+                    <button type="submit" className="hud-chat-send" disabled={chatChannel === "HỆ THỐNG"}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                      </svg>
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+
+            {/* FLOATING ACTION QUEUES (Bottom Right) - Real backend data */}
+            <div className="hud-action-queues hud-interactive">
+              {(() => {
+                const ownMarches = (worldActivity?.marches || []).filter(
+                  (m: any) => m.ownerId === playerId
+                );
+                if (ownMarches.length === 0) return null;
+                return ownMarches.map((march: any) => {
+                  const now = Date.now();
+                  const startMs = new Date(march.startedAt).getTime();
+                  const endMs   = new Date(march.arrivesAt).getTime();
+                  const totalMs = Math.max(1, endMs - startMs);
+                  const elapsedMs = Math.max(0, now - startMs);
+                  const progressPct = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+                  const msLeft = Math.max(0, endMs - now);
+                  const secsLeft = Math.ceil(msLeft / 1000);
+                  const hh = String(Math.floor(secsLeft / 3600)).padStart(2, "0");
+                  const mm = String(Math.floor((secsLeft % 3600) / 60)).padStart(2, "0");
+                  const ss = String(secsLeft % 60).padStart(2, "0");
+                  const timeLabel = msLeft <= 0 ? "sắp đến" : `${hh}:${mm}:${ss}`;
+
+                  const isReinforce = march.kind === "reinforce";
+                  const isReturn    = march.kind === "return";
+                  const iconSrc     = isReinforce
+                    ? "/assets/icons/icon_guild.png"
+                    : isReturn
+                    ? "/assets/icons/icon_guild.png"
+                    : "/assets/icons/icon_military.png";
+                  const label = isReinforce
+                    ? "Tiếp viện đến " + territoryLabel(march.toTerritoryId)
+                    : isReturn
+                    ? "Quân đang trở về"
+                    : "Hành quân đến " + territoryLabel(march.toTerritoryId);
+                  const fillColor = isReturn || isReinforce ? "green" : "blue";
+
+                  return (
+                    <div className="hud-queue-card" key={march.id || march._id}>
+                      <span className="hud-queue-icon-mask">
+                        <img src={iconSrc} className="hud-queue-icon-png" alt="march" />
+                      </span>
+                      <div className="hud-queue-info">
+                        <div className="hud-queue-title-row">
+                          <span className="hud-queue-name">{label}</span>
+                          <span className="hud-queue-timer">{timeLabel}</span>
+                        </div>
+                        <div className="hud-queue-progress-track">
+                          <div
+                            className={`hud-queue-progress-fill ${fillColor}`}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                        <div className="hud-queue-meta">
+                          {formatNum(march.troops || 0)} quân ·{" "}
+                          {march.usesShip ? "⛵ biển" : "🏃 bộ"}
+                        </div>
+                      </div>
+                      <button type="button" className="hud-queue-skip-btn" title="Tua nhanh">»</button>
+                    </div>
+                  );
+                });
+              })()}
+              {/* No marches fallback */}
+              {(worldActivity?.marches || []).filter((m: any) => m.ownerId === playerId).length === 0 && (
+                <div className="hud-queue-card hud-queue-empty">
+                  <span className="hud-queue-icon-mask">
+                    <img src="/assets/icons/icon_military.png" className="hud-queue-icon-png" alt="no march" />
+                  </span>
+                  <div className="hud-queue-info">
+                    <div className="hud-queue-title-row">
+                      <span className="hud-queue-name" style={{ opacity: 0.5 }}>Không có đạo quân nào</span>
+                    </div>
+                    <div className="hud-queue-progress-track">
+                      <div className="hud-queue-progress-fill" style={{ width: "0%" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* FLOATING TOOLBAR ON FAR RIGHT EDGE (matching Mockup) */}
+          <div className="hud-right-floating-toolbar hud-interactive">
+            <button type="button" className="hud-tool-btn" onClick={() => openModal("army")} title="Thành trì">
+              <span className="hud-tool-icon-mask">
+                <img src="/assets/icons/icon_tower.png" className="hud-tool-icon-png" alt="tower" />
+              </span>
+              <span className="hud-tool-badge">2</span>
+            </button>
+            <button type="button" className="hud-tool-btn" onClick={jumpToCoordinates} title="Tìm kiếm">
+              <span className="hud-tool-icon-mask">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+            </button>
+            <button type="button" className="hud-tool-btn" onClick={() => handleAction("locate")} title="Định vị">
+              <span className="hud-tool-icon-mask">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>
+              </span>
+            </button>
+            <button type="button" className="hud-tool-btn" title="Đánh dấu">
+              <span className="hud-tool-icon-mask">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </span>
+            </button>
+          </div>
+
+          {/* Connection status pill hidden or styled elegantly */}
           <div 
             className="connection-pill hud-interactive" 
             data-online={apiOnline === true} 
-            style={{ position: "static", pointerEvents: "none" }}
+            style={{ position: "fixed", bottom: "4px", right: "220px", zIndex: 10, pointerEvents: "none", opacity: 0.5 }}
           >
             {backendStatusText} · {socketStatusText}
           </div>
         </div>
-      </div>
       )}
 
       {gameReady && selectedRegion && engineRef.current && (
@@ -2263,16 +2604,19 @@ export function GameApp() {
             }
             setSelectedRegion(null);
           }}
-          onKhaiHoang={(regionId) => {
+          onKhaiHoang={async (regionId) => {
             if (!token) {
               showGameError("Chưa kết nối server, không thể xây thành");
               return;
             }
-            const towns = engineRef.current?.getTowns?.() || [];
-            const playerTownsCount = towns.filter((t: any) => t.owner === 0).length;
-            if (playerTownsCount === 0 || engineRef.current?.getState?.().newbieMode) {
+            const engineState = engineRef.current?.getState?.();
+            const playerTerritoriesCount = Object.keys(engineState?.regionOwnership || {}).filter((territoryId) =>
+              engineState?.regionOwnership?.[Number(territoryId)] === 1 ||
+              engineState?.regionOwnerIds?.[Number(territoryId)] === playerId
+            ).length;
+            const hasExistingLand = (serverHud.ownedTerritories > 0) || (playerTerritoriesCount > 0);
+            if (!hasExistingLand && (localStorage.getItem(ONBOARDING_KEY) === "1" || playerTerritoriesCount === 0)) {
               engineRef.current?.selectNewbieLand?.(regionId);
-              const engineState = engineRef.current?.getState?.();
               if (engineState) {
                 engineState.selectedRegion = null;
                 engineState.selected = null;
@@ -2283,31 +2627,48 @@ export function GameApp() {
               setSelectedRegion(null);
               return;
             }
-            startClearing(token, engineToServerTerritoryId(regionId))
-              .then((result) => {
-                engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
-                refreshGameStateWithRetry("clearing-started", 2, 700);
-                setSelectedRegion(null);
-                addSystemLine(`BẮT ĐẦU XÂY THÀNH ${territoryLabel(regionId).toUpperCase()}`);
-              })
-              .catch((err) => showGameError(err.message || "Server từ chối xây thành"));
+            try {
+              const result = await startClearing(token, engineToServerTerritoryId(regionId));
+              engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+              refreshGameStateWithRetry("frontier-clearing-started", 2, 700);
+              setSelectedRegion(null);
+              addSystemLine(`ĐỘI THỢ XÂY ĐANG ĐI TỪ PHÁO ĐÀI BIÊN GIỚI GẦN NHẤT TỚI ${territoryLabel(regionId).toUpperCase()}`);
+            } catch (err: any) {
+              showGameError(err.message || "Server từ chối lệnh xây Pháo Đài");
+            }
           }}
           onHuyKhaiHoang={(regionId) => {
             engineRef.current?.handleAction("cancelClaimRegion", regionId);
             setSelectedRegion(null);
+            // Optimistic: reset territory state immediately, don't wait for socket event
+            const serverTerritoryId = engineToServerTerritoryId(regionId);
+            setWorldActivity((prev) => ({
+              ...prev,
+              clearings: prev.clearings.filter((c) => c.territoryId !== serverTerritoryId),
+            }));
+            setServerHud((prev) => ({
+              ...prev,
+              activeClearings: Math.max(0, prev.activeClearings - 1),
+              ownClearings: Math.max(0, prev.ownClearings - 1),
+              lastSync: Date.now(),
+            }));
             if (token) {
-              cancelClearing(token, engineToServerTerritoryId(regionId))
+              cancelClearing(token, serverTerritoryId)
                 .then((result) => {
                   if (result.resources) {
                     engineRef.current?.handleAction("syncResources", { resources: result.resources });
                     setResources((prev) => ({ ...prev, ...result.resources }));
                   }
                 })
-                .catch((err) => showGameError(err.message || "Không hủy được xây thành trên server"));
+                .catch((err) => {
+                  showGameError(err.message || "Không hủy được xây thành trên server");
+                  // Rollback: re-sync from server if cancel fails
+                  refreshGameStateWithRetry("cancel-clearing-rollback", 2, 800);
+                });
             }
           }}
           onAttack={(regionId) => {
-            const source = (deploySourceTown && engineRef.current?.isPlayerOwnedTown?.(deploySourceTown))
+            const source = (deploySourceTown && isEligibleSourceTown(deploySourceTown))
               ? mergeTownWithServer(deploySourceTown)
               : getValidSourceTown();
             if (!source) {
@@ -2320,7 +2681,7 @@ export function GameApp() {
             setDeploySourceTown({ ...source });
           }}
           onReinforce={(regionId, side = "attacker") => {
-            const source = (deploySourceTown && engineRef.current?.isPlayerOwnedTown?.(deploySourceTown))
+            const source = (deploySourceTown && isEligibleSourceTown(deploySourceTown))
               ? mergeTownWithServer(deploySourceTown)
               : getValidSourceTown();
             if (!source) {
@@ -2351,6 +2712,7 @@ export function GameApp() {
       {(kingdomCreationRegion !== null || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null)) && engineRef.current && (
         <KingdomCreationModal
           defaultCityName="Thành Trì Vương Quốc"
+          getCastleSprite={(color, emblem) => engineRef.current?.getCastleSprite(color, emblem)}
           onClose={() => {
             engineRef.current?.handleAction("setUiOverlayActive", { active: false });
             setKingdomCreationRegion(null);
@@ -2373,7 +2735,7 @@ export function GameApp() {
               refreshGameStateWithRetry("newbie-clearing-started", 2, 700);
               engineRef.current?.handleAction("setUiOverlayActive", { active: false });
               setKingdomCreationRegion(null);
-              addSystemLine(`BẮT ĐẦU XÂY THÀNH TRÌ ${cityName.toUpperCase()}`);
+              addSystemLine(`KHỞI CÔNG HOÀNG THÀNH ${cityName.toUpperCase()}`);
             } catch (err: any) {
               engineRef.current?.handleAction("setUiOverlayActive", { active: true });
               engineRef.current?.cancelNewbieOnboarding();
@@ -2382,6 +2744,7 @@ export function GameApp() {
           }}
         />
       )}
+
 
       {deployTarget && deploySourceTown && engineRef.current && (
         <TroopDeploymentModal
@@ -2420,11 +2783,6 @@ export function GameApp() {
             const sourceRegionId = engineRef.current?.getTownRegionId?.(deploySourceTown);
             if (sourceRegionId === undefined || sourceRegionId === null || sourceRegionId < 0) {
               showGameError("Không xác định được lãnh thổ xuất phát");
-              return;
-            }
-            const sourceOwnership = engineRef.current?.getRegionOwnership?.(sourceRegionId);
-            if (sourceOwnership !== 1) {
-              showGameError(`Lãnh thổ xuất phát #${sourceRegionId + 1} chưa thuộc về bạn trên server`);
               return;
             }
             if (!token) {
@@ -2554,6 +2912,13 @@ export function GameApp() {
         <TreasureModal
           towns={engineRef.current.getTowns()}
           regionOwnership={(engineRef.current as any).getState().regionOwnership}
+          onClose={closeModal}
+        />
+      )}
+
+      {activeModal === "shop" && (
+        <ShopModal
+          resources={resources}
           onClose={closeModal}
         />
       )}

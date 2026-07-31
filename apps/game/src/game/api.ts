@@ -25,6 +25,8 @@ export interface AuthResponse {
   playerId: string;
 }
 
+type AntiBotChallenge = { token: string; difficulty: number; expiresInSeconds: number };
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -44,6 +46,24 @@ export function getServerStatus() {
   return request<ServerStatus>("/api/health");
 }
 
+function toHex(bytes: ArrayBuffer) {
+  return Array.from(new Uint8Array(bytes)).map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+async function solveAntiBotChallenge() {
+  const challenge = await request<AntiBotChallenge>("/api/auth/challenge");
+  const [payload] = challenge.token.split(".");
+  const data = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { nonce: string };
+  const prefix = "0".repeat(challenge.difficulty);
+  const encoder = new TextEncoder();
+  for (let proof = 0; proof <= 2_147_483_647; proof += 1) {
+    const digest = toHex(await crypto.subtle.digest("SHA-256", encoder.encode(`${data.nonce}:${proof}`)));
+    if (digest.startsWith(prefix)) return { challengeToken: challenge.token, proof };
+    if (proof > 0 && proof % 256 === 0) await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  }
+  throw new Error("Không thể hoàn tất xác minh chống spam");
+}
+
 let cachedConfigPromise: Promise<GameConfig> | null = null;
 
 export function getGameConfig(): Promise<GameConfig> {
@@ -53,10 +73,11 @@ export function getGameConfig(): Promise<GameConfig> {
   return cachedConfigPromise;
 }
 
-export function loginPlayer(username: string, password: string): Promise<AuthResponse> {
+export async function loginPlayer(username: string, password: string): Promise<AuthResponse> {
+  const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, ...antiBot }),
   });
 }
 
@@ -66,17 +87,19 @@ export type RegisterProfile = {
   starterLandId: string;
 };
 
-export function registerPlayer(username: string, password: string, profile?: RegisterProfile): Promise<AuthResponse> {
+export async function registerPlayer(username: string, password: string, profile?: RegisterProfile): Promise<AuthResponse> {
+  const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/register", {
     method: "POST",
-    body: JSON.stringify({ username, password, ...profile }),
+    body: JSON.stringify({ username, password, ...profile, ...antiBot }),
   });
 }
 
-export function loginGuest(name?: string): Promise<AuthResponse> {
+export async function loginGuest(name?: string): Promise<AuthResponse> {
+  const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/guest", {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, ...antiBot }),
   });
 }
 
@@ -156,6 +179,14 @@ export function updatePlayerProfile(token: string, flagColor: string, emblem: st
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ flagColor, emblem, cityName }),
+  });
+}
+
+export function updateActiveMap(token: string, activeMap: "world" | "conquest"): Promise<{ ok: true; activeMap: "world" | "conquest" }> {
+  return request("/api/player/active-map", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ activeMap }),
   });
 }
 

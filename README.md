@@ -28,6 +28,7 @@ Mặc định:
 - API tắt `x-powered-by`, dùng `helmet`, CORS allowlist, JSON size limit và rate limit.
 - Admin login dùng env `ADMIN_USER`, `ADMIN_PASSWORD`, JWT secret từ `JWT_SECRET`.
 - MongoDB URI lấy từ `MONGO_URI`, không hard-code secret.
+- Production phải đặt Nginx/WAF trước Node theo [`deploy/nginx/island-empire.conf`](deploy/nginx/island-empire.conf). Chỉ mở cổng `80/443`; cổng Node `4000` và MongoDB không được public. Khi Nginx là đường vào duy nhất, đặt `TRUST_PROXY=true`.
 
 ## Kiểm tra
 

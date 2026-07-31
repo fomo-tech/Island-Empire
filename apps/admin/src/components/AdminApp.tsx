@@ -79,6 +79,11 @@ export function AdminApp() {
     artillerySpeed: 14,
     shipSpeed: 12,
     gameHourSeconds: 60,
+    shopResourcePackAmount: 50000,
+    shopResourcePackPriceGems: 100,
+    shopSkinLongBaoThanhPrice: 1500,
+    shopSkinHoaLongDienPrice: 2000,
+    shopSkinPhongLongCacPrice: 1800,
   });
 
   const showToast = useCallback((msg: string) => {
@@ -148,6 +153,11 @@ export function AdminApp() {
       artillerySpeed: Number(form.get("artillerySpeed")),
       shipSpeed: Number(form.get("shipSpeed")),
       gameHourSeconds: Number(form.get("gameHourSeconds")),
+      shopResourcePackAmount: Number(form.get("shopResourcePackAmount")),
+      shopResourcePackPriceGems: Number(form.get("shopResourcePackPriceGems")),
+      shopSkinLongBaoThanhPrice: Number(form.get("shopSkinLongBaoThanhPrice")),
+      shopSkinHoaLongDienPrice: Number(form.get("shopSkinHoaLongDienPrice")),
+      shopSkinPhongLongCacPrice: Number(form.get("shopSkinPhongLongCacPrice")),
     };
 
     setLoadingId("config-save");
@@ -763,6 +773,34 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     Tốc độ Thuyền
                     <input type="number" name="shipSpeed" defaultValue={configData.shipSpeed} min={10} max={1500} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CẤU HÌNH CỬA HÀNG HOÀNG GIA</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Số lượng Tài nguyên mỗi gói
+                    <input type="number" name="shopResourcePackAmount" defaultValue={configData.shopResourcePackAmount} min={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Ngọc (Gems) mỗi gói
+                    <input type="number" name="shopResourcePackPriceGems" defaultValue={configData.shopResourcePackPriceGems} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>GIÁ SKIN THÀNH TRÌ RỒNG</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Long Bảo Thành (Gems)
+                    <input type="number" name="shopSkinLongBaoThanhPrice" defaultValue={configData.shopSkinLongBaoThanhPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Hỏa Long Điện (Gems)
+                    <input type="number" name="shopSkinHoaLongDienPrice" defaultValue={configData.shopSkinHoaLongDienPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Phong Long Các (Gems)
+                    <input type="number" name="shopSkinPhongLongCacPrice" defaultValue={configData.shopSkinPhongLongCacPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 

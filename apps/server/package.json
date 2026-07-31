@@ -8,7 +8,6 @@
     "build": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsc -p tsconfig.json",
     "start": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH node dist/index.js",
     "seed:test-player": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsx src/scripts/seedTestPlayer.ts",
-    "seed:50-players": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsx src/scripts/seed50Players.ts",
     "typecheck": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsc -p tsconfig.json --noEmit",
     "lint": "npm run typecheck"
   },
