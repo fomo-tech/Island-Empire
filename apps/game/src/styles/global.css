@@ -12762,6 +12762,197 @@ img[src*="/assets/icons/"] {
   color: rgba(255, 255, 255, 0.42);
 }
 
+.premium-castle-preview {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.premium-castle-preview canvas {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 3 !important;
+  display: block;
+  width: auto !important;
+  height: 118% !important;
+  max-width: 100%;
+  aspect-ratio: 1;
+  background: transparent !important;
+  transform: translateY(7%);
+  filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.72));
+}
+
+.premium-castle-preview.is-large {
+  width: min(100%, 650px);
+  height: min(100%, 560px);
+  z-index: 3;
+}
+
+.premium-castle-preview.is-large canvas {
+  height: min(112%, 600px) !important;
+  transform: translateY(6%);
+}
+
+.premium-castle-aura {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 10%;
+  height: 34%;
+  z-index: 1;
+  border-radius: 50%;
+  opacity: 0.72;
+  animation: premiumAuraBreath 2.8s ease-in-out infinite;
+}
+
+.premium-castle-preview--gold .premium-castle-aura {
+  background: radial-gradient(ellipse, rgba(255, 224, 105, 0.66), rgba(190, 121, 17, 0.08) 58%, transparent 72%);
+  filter: blur(6px);
+}
+
+.premium-castle-preview--fire .premium-castle-aura {
+  background: radial-gradient(ellipse, rgba(255, 74, 25, 0.68), rgba(130, 17, 9, 0.12) 60%, transparent 74%);
+  filter: blur(7px);
+}
+
+.premium-castle-preview--wind .premium-castle-aura {
+  background: radial-gradient(ellipse, rgba(88, 237, 244, 0.62), rgba(15, 112, 130, 0.08) 60%, transparent 74%);
+  filter: blur(7px);
+}
+
+.premium-castle-fx {
+  position: absolute;
+  inset: 9% 8% 8%;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.premium-castle-fx i {
+  position: absolute;
+  bottom: 17%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: premiumParticle 2.6s ease-out infinite;
+}
+
+.premium-castle-fx i:nth-child(1) { left: 13%; animation-delay: -0.2s; }
+.premium-castle-fx i:nth-child(2) { left: 27%; animation-delay: -1.4s; }
+.premium-castle-fx i:nth-child(3) { left: 42%; animation-delay: -0.8s; }
+.premium-castle-fx i:nth-child(4) { left: 59%; animation-delay: -2s; }
+.premium-castle-fx i:nth-child(5) { left: 74%; animation-delay: -0.5s; }
+.premium-castle-fx i:nth-child(6) { left: 87%; animation-delay: -1.7s; }
+
+.premium-castle-preview--gold .premium-castle-fx i {
+  background: #ffe987;
+  box-shadow: 0 0 8px #efb52e;
+}
+
+.premium-castle-preview--fire .premium-castle-fx i {
+  width: 3px;
+  height: 7px;
+  background: #ff6a25;
+  box-shadow: 0 0 8px #ef3d18;
+}
+
+.premium-castle-preview--wind .premium-castle-fx i {
+  background: #c5ffff;
+  box-shadow: 0 0 8px #43e0eb;
+}
+
+.premium-gold-runes {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 10%;
+  height: 24%;
+  z-index: 2;
+  border: 2px dashed rgba(255, 222, 102, 0.72);
+  border-radius: 50%;
+  transform: perspective(220px) rotateX(67deg);
+  box-shadow: 0 0 10px rgba(255, 209, 70, 0.44);
+  animation: premiumRuneSpin 9s linear infinite;
+}
+
+.premium-fire-flame {
+  position: absolute;
+  bottom: 20%;
+  z-index: 4;
+  width: 20px;
+  height: 43px;
+  background: linear-gradient(180deg, #fff3a3, #ff6b21 46%, rgba(142, 17, 9, 0));
+  clip-path: polygon(52% 0, 76% 32%, 67% 55%, 100% 78%, 58% 100%, 11% 84%, 28% 54%, 17% 35%);
+  filter: drop-shadow(0 0 7px #ff4c1e);
+  transform-origin: center bottom;
+  animation: premiumFlame 0.62s ease-in-out infinite alternate;
+}
+
+.premium-fire-flame.flame-left {
+  left: 19%;
+}
+
+.premium-fire-flame.flame-right {
+  right: 19%;
+  animation-delay: -0.34s;
+}
+
+.premium-wind-ring {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  z-index: 4;
+  border: 2px solid rgba(107, 244, 250, 0.72);
+  border-left-color: transparent;
+  border-right-color: transparent;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 5px #36d5df);
+  transform: perspective(240px) rotateX(68deg);
+  animation: premiumWindSpin 4.8s linear infinite;
+}
+
+.premium-wind-ring.ring-one {
+  bottom: 17%;
+  height: 28%;
+}
+
+.premium-wind-ring.ring-two {
+  left: 20%;
+  right: 20%;
+  bottom: 30%;
+  height: 18%;
+  opacity: 0.62;
+  animation-direction: reverse;
+  animation-duration: 3.6s;
+}
+
+@keyframes premiumAuraBreath {
+  0%, 100% { opacity: 0.52; transform: scale(0.92); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+
+@keyframes premiumParticle {
+  0% { opacity: 0; transform: translateY(10px) scale(0.7); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-76px) scale(1.15); }
+}
+
+@keyframes premiumRuneSpin {
+  to { transform: perspective(220px) rotateX(67deg) rotateZ(360deg); }
+}
+
+@keyframes premiumFlame {
+  from { transform: scaleY(0.82) skewX(-4deg); opacity: 0.72; }
+  to { transform: scaleY(1.14) skewX(5deg); opacity: 1; }
+}
+
+@keyframes premiumWindSpin {
+  to { transform: perspective(240px) rotateX(68deg) rotateZ(360deg); }
+}
+
 @media (max-width: 900px) {
   .shop-skins-grid {
     grid-template-columns: 1fr;

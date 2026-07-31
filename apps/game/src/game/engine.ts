@@ -4132,20 +4132,20 @@ export function createIslandEmpireGame(
       offCtx.arc(cx, cy, 22, Math.PI, 0);
       offCtx.fill();
       drawFlagEmblem(cx, cy - 68, "dragon", 0.82, offCtx);
-      isoCylinder(0, -178, 3, 27, "#936316", "#f6da70", "#fff9d1");
+      isoCylinder(0, -178, 3, 15, "#936316", "#f6da70", "#fff9d1");
       offCtx.fillStyle = "#b4232f";
       offCtx.beginPath();
-      offCtx.moveTo(cx + 2, cy - 203 + bannerWave);
-      offCtx.lineTo(cx + 50, cy - 209 + bannerWave);
-      offCtx.lineTo(cx + 42, cy - 190 + bannerWave);
-      offCtx.lineTo(cx + 50, cy - 171 + bannerWave);
-      offCtx.lineTo(cx + 2, cy - 177 + bannerWave);
+      offCtx.moveTo(cx + 2, cy - 192 + bannerWave);
+      offCtx.lineTo(cx + 50, cy - 198 + bannerWave);
+      offCtx.lineTo(cx + 42, cy - 180 + bannerWave);
+      offCtx.lineTo(cx + 50, cy - 162 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 168 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#ffe47a";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 190 + bannerWave, "dragon", 0.88, offCtx);
+      drawFlagEmblem(cx + 26, cy - 180 + bannerWave, "dragon", 0.88, offCtx);
     }
     else if (emblem === "premium_fire") {
       const basaltLeft = "#161519";
@@ -4193,20 +4193,20 @@ export function createIslandEmpireGame(
       offCtx.stroke();
       r(-22, 0, 44, 44, "#080608");
       drawFlagEmblem(cx, cy - 66, "dragon", 0.8, offCtx);
-      isoCylinder(0, -182, 3, 29, "#7b3718", "#ff9a3e", "#fff0a1");
+      isoCylinder(0, -182, 3, 12, "#7b3718", "#ff9a3e", "#fff0a1");
       offCtx.fillStyle = "#6f0c0c";
       offCtx.beginPath();
-      offCtx.moveTo(cx + 2, cy - 209 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 215 + bannerWave);
-      offCtx.lineTo(cx + 41, cy - 196 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 177 + bannerWave);
-      offCtx.lineTo(cx + 2, cy - 183 + bannerWave);
+      offCtx.moveTo(cx + 2, cy - 191 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 197 + bannerWave);
+      offCtx.lineTo(cx + 41, cy - 179 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 161 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 167 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#ff6a28";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 196 + bannerWave, "dragon", 0.88, offCtx);
+      drawFlagEmblem(cx + 26, cy - 179 + bannerWave, "dragon", 0.88, offCtx);
     }
     else if (emblem === "premium_wind") {
       const pearlLeft = "#3c5c63";
@@ -4246,20 +4246,20 @@ export function createIslandEmpireGame(
       drawWindWindow(27, -49);
       r(-21, 0, 42, 44, "#17383e");
       drawFlagEmblem(cx, cy - 65, "eagle", 0.78, offCtx);
-      isoCylinder(0, -180, 3, 28, "#397f86", "#b8ffff", "#ffffff");
+      isoCylinder(0, -180, 3, 13, "#397f86", "#b8ffff", "#ffffff");
       offCtx.fillStyle = "#147f91";
       offCtx.beginPath();
-      offCtx.moveTo(cx + 2, cy - 206 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 212 + bannerWave);
-      offCtx.lineTo(cx + 41, cy - 193 + bannerWave);
-      offCtx.lineTo(cx + 49, cy - 174 + bannerWave);
-      offCtx.lineTo(cx + 2, cy - 180 + bannerWave);
+      offCtx.moveTo(cx + 2, cy - 192 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 198 + bannerWave);
+      offCtx.lineTo(cx + 41, cy - 180 + bannerWave);
+      offCtx.lineTo(cx + 49, cy - 162 + bannerWave);
+      offCtx.lineTo(cx + 2, cy - 168 + bannerWave);
       offCtx.closePath();
       offCtx.fill();
       offCtx.strokeStyle = "#a9fbff";
       offCtx.lineWidth = 2;
       offCtx.stroke();
-      drawFlagEmblem(cx + 26, cy - 193 + bannerWave, "eagle", 0.88, offCtx);
+      drawFlagEmblem(cx + 26, cy - 180 + bannerWave, "eagle", 0.88, offCtx);
     }
     else if (emblem === "dragon") {
       const wallRedLeft = "#6f1d1b";
