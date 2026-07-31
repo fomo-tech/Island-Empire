@@ -4757,6 +4757,356 @@ export function createIslandEmpireGame(
     return offCanvas;
   }
 
+  const premiumCastleSpriteCacheMap = new Map<string, HTMLCanvasElement>();
+
+  function getCachedPremiumCastleSprite(skinId: string): HTMLCanvasElement {
+    const key = `premium_canvas_v2_${skinId}`;
+    const cached = premiumCastleSpriteCacheMap.get(key);
+    if (cached) return cached;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 640;
+    const c = canvas.getContext("2d");
+    if (!c) return canvas;
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = "high";
+
+    const cx = 320;
+    const cy = 470;
+    const variant = skinId === "skin_hoa_long_dien" ? "fire" : skinId === "skin_phong_long_cac" ? "wind" : "gold";
+    const palette = variant === "fire"
+      ? {
+          stoneLeft: "#17171b", stoneRight: "#4b4147", stoneTop: "#75666b",
+          stoneHi: "#9a7c74", roofLeft: "#4d0e0b", roofRight: "#d83a19",
+          roofHi: "#ff7a2d", accent: "#ff5a1f", window: "#ffb13b",
+          banner: "#71100e", metal: "#ba6b2c", outline: "#080709",
+        }
+      : variant === "wind"
+        ? {
+            stoneLeft: "#425d63", stoneRight: "#a7c5c2", stoneTop: "#e8f0e7",
+            stoneHi: "#ffffff", roofLeft: "#07576b", roofRight: "#24b9ca",
+            roofHi: "#9cf8fc", accent: "#5ce9ef", window: "#c9ffff",
+            banner: "#116f80", metal: "#bcecf0", outline: "#173b43",
+          }
+        : {
+            stoneLeft: "#5b503d", stoneRight: "#ae9b73", stoneTop: "#eee0b6",
+            stoneHi: "#fff3cd", roofLeft: "#7c3411", roofRight: "#c96b1b",
+            roofHi: "#ffd86b", accent: "#f4c447", window: "#fff0a0",
+            banner: "#a51f2d", metal: "#e8b94e", outline: "#302619",
+          };
+
+    const gradient = (x1: number, y1: number, x2: number, y2: number, colors: string[]) => {
+      const g = c.createLinearGradient(x1, y1, x2, y2);
+      colors.forEach((color, index) => g.addColorStop(index / Math.max(1, colors.length - 1), color));
+      return g;
+    };
+
+    const polygon = (
+      pts: [number, number][],
+      fill: string | CanvasGradient,
+      stroke = palette.outline,
+      lineWidth = 2,
+    ) => {
+      c.beginPath();
+      c.moveTo(cx + pts[0][0], cy + pts[0][1]);
+      for (let i = 1; i < pts.length; i++) c.lineTo(cx + pts[i][0], cy + pts[i][1]);
+      c.closePath();
+      c.fillStyle = fill;
+      c.fill();
+      c.strokeStyle = stroke;
+      c.lineWidth = lineWidth;
+      c.stroke();
+    };
+
+    const isoBlock = (dx: number, dy: number, w: number, h: number, depth: number, colors?: Partial<typeof palette>) => {
+      const left = colors?.stoneLeft || palette.stoneLeft;
+      const right = colors?.stoneRight || palette.stoneRight;
+      const top = colors?.stoneTop || palette.stoneTop;
+      polygon(
+        [[dx - w / 2, dy], [dx, dy + depth / 2], [dx, dy + depth / 2 - h], [dx - w / 2, dy - h]],
+        gradient(cx + dx - w / 2, cy + dy, cx + dx, cy + dy, [left, palette.outline]),
+      );
+      polygon(
+        [[dx, dy + depth / 2], [dx + w / 2, dy], [dx + w / 2, dy - h], [dx, dy + depth / 2 - h]],
+        gradient(cx + dx, cy + dy, cx + dx + w / 2, cy + dy, [right, left]),
+      );
+      polygon(
+        [[dx - w / 2, dy - h], [dx, dy + depth / 2 - h], [dx + w / 2, dy - h], [dx, dy - depth / 2 - h]],
+        gradient(cx + dx, cy + dy - h - depth / 2, cx + dx, cy + dy - h + depth / 2, [palette.stoneHi, top]),
+        palette.outline,
+        2.4,
+      );
+    };
+
+    const roof = (dx: number, dy: number, w: number, h: number, depth: number, crystal = false) => {
+      const left = crystal ? "#08758c" : palette.roofLeft;
+      const right = crystal ? palette.accent : palette.roofRight;
+      const apex: [number, number] = [dx, dy - h];
+      polygon(
+        [[dx - w / 2, dy], [dx, dy + depth / 2], apex],
+        gradient(cx + dx - w / 2, cy + dy, cx + dx, cy + dy - h, [left, palette.outline]),
+        palette.metal,
+        2.5,
+      );
+      polygon(
+        [[dx, dy + depth / 2], [dx + w / 2, dy], apex],
+        gradient(cx + dx, cy + dy - h, cx + dx + w / 2, cy + dy, [palette.roofHi, right, left]),
+        palette.metal,
+        2.5,
+      );
+      c.strokeStyle = palette.roofHi;
+      c.globalAlpha = 0.62;
+      c.lineWidth = 1.3;
+      for (const amount of [-0.28, 0.28]) {
+        c.beginPath();
+        c.moveTo(cx + dx, cy + dy - h);
+        c.lineTo(cx + dx + w * amount, cy + dy + Math.abs(amount) * depth);
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+    };
+
+    const roundTower = (dx: number, dy: number, radius: number, h: number, roofHeight: number, crystal = false) => {
+      const body = gradient(cx + dx - radius, cy + dy, cx + dx + radius, cy + dy, [
+        palette.outline, palette.stoneLeft, palette.stoneRight, palette.stoneHi, palette.stoneLeft,
+      ]);
+      c.beginPath();
+      c.moveTo(cx + dx - radius, cy + dy - h);
+      c.ellipse(cx + dx, cy + dy - h, radius, radius * 0.38, 0, Math.PI, 0, true);
+      c.lineTo(cx + dx + radius, cy + dy);
+      c.ellipse(cx + dx, cy + dy, radius, radius * 0.38, 0, 0, Math.PI, false);
+      c.closePath();
+      c.fillStyle = body;
+      c.fill();
+      c.strokeStyle = palette.outline;
+      c.lineWidth = 2.5;
+      c.stroke();
+
+      for (const offset of [0.25, 0.58]) {
+        const y = cy + dy - h * offset;
+        c.strokeStyle = palette.metal;
+        c.lineWidth = 3;
+        c.globalAlpha = 0.55;
+        c.beginPath();
+        c.ellipse(cx + dx, y, radius, radius * 0.3, 0, 0, Math.PI);
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+      roof(dx, dy - h, radius * 2.45, roofHeight, radius * 0.8, crystal);
+    };
+
+    const squareTower = (dx: number, dy: number, width: number, h: number, roofHeight: number) => {
+      isoBlock(dx, dy, width, h, width * 0.58);
+      isoBlock(dx, dy - h + 18, width + 14, 18, width * 0.68, {
+        stoneLeft: palette.outline,
+        stoneRight: palette.stoneRight,
+        stoneTop: palette.metal,
+      });
+      roof(dx, dy - h, width + 22, roofHeight, width * 0.62, variant === "wind");
+    };
+
+    const archedWindow = (x: number, y: number, width = 14, height = 34) => {
+      const glow = c.createRadialGradient(cx + x, cy + y, 1, cx + x, cy + y, width * 2.5);
+      glow.addColorStop(0, palette.window);
+      glow.addColorStop(0.36, `${palette.accent}bb`);
+      glow.addColorStop(1, "rgba(0,0,0,0)");
+      c.fillStyle = glow;
+      c.beginPath();
+      c.arc(cx + x, cy + y, width * 2.5, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = palette.outline;
+      c.beginPath();
+      c.roundRect(cx + x - width / 2, cy + y - height / 2, width, height, width / 2);
+      c.fill();
+      c.fillStyle = palette.window;
+      c.beginPath();
+      c.roundRect(cx + x - width / 2 + 3, cy + y - height / 2 + 3, width - 6, height - 6, Math.max(2, width / 3));
+      c.fill();
+      c.strokeStyle = palette.metal;
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(cx + x, cy + y - height / 2 + 3);
+      c.lineTo(cx + x, cy + y + height / 2 - 3);
+      c.stroke();
+    };
+
+    const stoneCourses = (x: number, top: number, width: number, height: number, rows: number) => {
+      c.save();
+      c.strokeStyle = variant === "fire" ? "rgba(255,111,54,.17)" : "rgba(255,255,255,.17)";
+      c.lineWidth = 1;
+      for (let row = 1; row < rows; row++) {
+        const y = top + (height / rows) * row;
+        c.beginPath();
+        c.moveTo(cx + x - width / 2, cy + y);
+        c.lineTo(cx + x + width / 2, cy + y);
+        c.stroke();
+        const offset = row % 2 ? width / 6 : 0;
+        for (let sx = -width / 2 + offset; sx < width / 2; sx += width / 3) {
+          c.beginPath();
+          c.moveTo(cx + x + sx, cy + y - height / rows);
+          c.lineTo(cx + x + sx, cy + y);
+          c.stroke();
+        }
+      }
+      c.restore();
+    };
+
+    const banner = (x: number, top: number, length: number, flip = false) => {
+      c.strokeStyle = palette.metal;
+      c.lineWidth = 4;
+      c.beginPath();
+      c.moveTo(cx + x, cy + top);
+      c.lineTo(cx + x, cy + top + length + 10);
+      c.stroke();
+      const dir = flip ? -1 : 1;
+      c.fillStyle = palette.banner;
+      c.strokeStyle = palette.metal;
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(cx + x, cy + top + 5);
+      c.bezierCurveTo(cx + x + dir * 26, cy + top, cx + x + dir * 40, cy + top + 16, cx + x + dir * 58, cy + top + 8);
+      c.lineTo(cx + x + dir * 50, cy + top + 40);
+      c.bezierCurveTo(cx + x + dir * 30, cy + top + 48, cx + x + dir * 20, cy + top + 30, cx + x, cy + top + 38);
+      c.closePath();
+      c.fill();
+      c.stroke();
+    };
+
+    const drawGate = () => {
+      c.fillStyle = palette.outline;
+      c.beginPath();
+      c.moveTo(cx - 42, cy + 18);
+      c.lineTo(cx - 42, cy - 26);
+      c.quadraticCurveTo(cx, cy - 82, cx + 42, cy - 26);
+      c.lineTo(cx + 42, cy + 18);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = palette.metal;
+      c.lineWidth = 4;
+      c.stroke();
+      for (let x = -30; x <= 30; x += 12) {
+        c.strokeStyle = variant === "fire" ? "#b9652e" : palette.metal;
+        c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(cx + x, cy - 36 + Math.abs(x) * 0.45);
+        c.lineTo(cx + x, cy + 18);
+        c.stroke();
+      }
+    };
+
+    c.clearRect(0, 0, 640, 640);
+    const shadow = c.createRadialGradient(cx, cy + 62, 20, cx, cy + 62, 270);
+    shadow.addColorStop(0, "rgba(0,0,0,.88)");
+    shadow.addColorStop(0.55, "rgba(0,0,0,.48)");
+    shadow.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = shadow;
+    c.beginPath();
+    c.ellipse(cx, cy + 62, 275, 74, 0, 0, Math.PI * 2);
+    c.fill();
+
+    isoBlock(0, 42, 540, 34, 130, {
+      stoneLeft: palette.outline,
+      stoneRight: palette.stoneLeft,
+      stoneTop: palette.stoneRight,
+    });
+    isoBlock(0, 14, 500, 118, 112);
+    stoneCourses(0, -104, 470, 112, 6);
+
+    if (variant === "fire") {
+      squareTower(-205, 25, 82, 202, 82);
+      squareTower(205, 25, 82, 202, 82);
+      squareTower(-122, -8, 66, 224, 74);
+      squareTower(122, -8, 66, 224, 74);
+    } else {
+      roundTower(-205, 24, 43, 194, variant === "wind" ? 92 : 76, variant === "wind");
+      roundTower(205, 24, 43, 194, variant === "wind" ? 92 : 76, variant === "wind");
+      roundTower(-116, -10, 34, 220, variant === "wind" ? 84 : 66, variant === "wind");
+      roundTower(116, -10, 34, 220, variant === "wind" ? 84 : 66, variant === "wind");
+    }
+
+    isoBlock(0, 6, variant === "fire" ? 226 : 238, variant === "fire" ? 270 : 252, 78);
+    stoneCourses(0, variant === "fire" ? -264 : -246, 210, variant === "fire" ? 260 : 242, 9);
+    isoBlock(0, variant === "fire" ? -226 : -208, 168, 54, 58, {
+      stoneLeft: palette.stoneLeft,
+      stoneRight: palette.stoneRight,
+      stoneTop: palette.stoneHi,
+    });
+
+    if (variant === "gold") {
+      roof(0, -262, 214, 108, 72);
+      roundTower(0, -238, 42, 88, 62);
+    } else if (variant === "fire") {
+      roof(0, -280, 214, 128, 72);
+      for (const hornX of [-80, -40, 40, 80]) {
+        polygon(
+          [[hornX - 12, -270], [hornX, -345 - Math.abs(hornX) * 0.18], [hornX + 12, -270]],
+          gradient(cx + hornX, cy - 350, cx + hornX, cy - 270, [palette.roofHi, palette.roofLeft]),
+          palette.outline,
+          2,
+        );
+      }
+    } else {
+      roof(0, -262, 212, 122, 70, true);
+      polygon(
+        [[-24, -374], [0, -438], [24, -374], [0, -346]],
+        gradient(cx, cy - 438, cx, cy - 346, ["#e6ffff", palette.accent, "#08758c"]),
+        palette.metal,
+        3,
+      );
+    }
+
+    archedWindow(-205, -60, 16, 38);
+    archedWindow(205, -60, 16, 38);
+    archedWindow(-116, -104, 14, 36);
+    archedWindow(116, -104, 14, 36);
+    archedWindow(-54, -118, 17, 44);
+    archedWindow(54, -118, 17, 44);
+    archedWindow(0, -180, 19, 50);
+    drawGate();
+
+    if (variant === "gold") {
+      c.strokeStyle = palette.metal;
+      c.lineWidth = 8;
+      c.lineCap = "round";
+      c.beginPath();
+      c.moveTo(cx - 54, cy - 2);
+      c.bezierCurveTo(cx - 102, cy - 38, cx - 116, cy - 82, cx - 76, cy - 108);
+      c.moveTo(cx + 54, cy - 2);
+      c.bezierCurveTo(cx + 102, cy - 38, cx + 116, cy - 82, cx + 76, cy - 108);
+      c.stroke();
+    } else if (variant === "fire") {
+      c.strokeStyle = palette.accent;
+      c.shadowColor = palette.accent;
+      c.shadowBlur = 12;
+      c.lineWidth = 5;
+      c.beginPath();
+      c.moveTo(cx - 170, cy + 12);
+      c.lineTo(cx - 135, cy - 35);
+      c.lineTo(cx - 150, cy - 72);
+      c.moveTo(cx + 170, cy + 12);
+      c.lineTo(cx + 135, cy - 35);
+      c.lineTo(cx + 150, cy - 72);
+      c.stroke();
+      c.shadowBlur = 0;
+    } else {
+      c.strokeStyle = palette.accent;
+      c.lineWidth = 4;
+      c.globalAlpha = 0.75;
+      c.beginPath();
+      c.ellipse(cx, cy - 30, 240, 58, 0, 0, Math.PI * 2);
+      c.stroke();
+      c.globalAlpha = 1;
+    }
+
+    banner(-205, -238, 86);
+    banner(205, -238, 86, true);
+    banner(0, variant === "wind" ? -430 : variant === "fire" ? -405 : -360, 74);
+
+    premiumCastleSpriteCacheMap.set(key, canvas);
+    return canvas;
+  }
+
   function getCachedMiniCastleSprite(flagColor: string, emblem: string): HTMLCanvasElement {
     const key = `mini_v15_${emblem}_${flagColor}`;
     let cached = miniCastleSpriteCacheMap.get(key);
@@ -9985,10 +10335,6 @@ export function createIslandEmpireGame(
     getCastleSprite: (flagColor: string, emblem: string) => {
       return getCachedGrandCastleSprite(flagColor, emblem);
     },
-    getPremiumCastleSprite: (skinId: string) => {
-      if (skinId === "skin_hoa_long_dien") return getCachedGrandCastleSprite("#8f1712", "premium_fire");
-      if (skinId === "skin_phong_long_cac") return getCachedGrandCastleSprite("#147f91", "premium_wind");
-      return getCachedGrandCastleSprite("#b4232f", "premium_gold");
-    }
+    getPremiumCastleSprite: (skinId: string) => getCachedPremiumCastleSprite(skinId)
   };
 }

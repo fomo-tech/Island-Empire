@@ -2795,8 +2795,46 @@ export function createApp() {
     if (!isClaimConnectedToCapital(playerClaims, from.id)) {
       return res.status(409).json({ error: "isolated_stronghold", message: "Pháo đài xuất phát đã bị cô lập khỏi Hoàng Thành" });
     }
-    if (parsed.data.kind === "attack" && !territoryConnectionType(from, to)) {
-      return res.status(409).json({ error: "target_not_on_frontier", message: "Chỉ có thể xuất chinh tới lãnh thổ giáp Pháo Đài Biên Cương" });
+    
+    if (parsed.data.kind === "attack") {
+      const hasPlayerPort = playerClaims.some(claim => {
+        const t = getStaticTerritory(claim.territoryId);
+        return t && (t.isIslet || t.coastal || t.specialResources?.includes("Bến tàu tự nhiên"));
+      });
+      
+      const borderingClaims = playerClaims.filter(claim => {
+        const claimTerritory = getStaticTerritory(claim.territoryId);
+        return claimTerritory && territoryConnectionType(claimTerritory, to) !== null;
+      });
+      
+      let isAttackAllowed = false;
+      
+      if (to.isIslet && hasPlayerPort) {
+        // Exception: Islands can be attacked freely if the player has at least one port
+        isAttackAllowed = true;
+      } else if (borderingClaims.length > 0) {
+        // Normal Adjacency rule
+        const hasLandBorder = borderingClaims.some(claim => {
+          const claimTerritory = getStaticTerritory(claim.territoryId);
+          return claimTerritory && territoryConnectionType(claimTerritory, to) === "land";
+        });
+        
+        if (hasLandBorder) {
+          isAttackAllowed = true;
+        } else {
+          // If only sea connected, target must be coastal/island
+          const isTargetCoastal = to.isIslet || to.coastal || to.specialResources?.includes("Bến tàu tự nhiên");
+          if (isTargetCoastal) {
+            isAttackAllowed = true;
+          } else {
+            return res.status(409).json({ error: "target_not_coastal", message: "Nếu tấn công vượt biển/đảo, lãnh thổ đích bắt buộc phải là vùng giáp biển hoặc hải đảo" });
+          }
+        }
+      }
+      
+      if (!isAttackAllowed) {
+        return res.status(409).json({ error: "target_not_on_frontier", message: "Không thể tấn công: Mục tiêu không giáp ranh với lãnh thổ của bạn và bạn chưa sở hữu bến tàu nào" });
+      }
     }
     const activeMarchCount = await marchOrders.countDocuments({ ownerId: req.user!.id });
     if (activeMarchCount >= MAX_ACTIVE_MARCHES_PER_PLAYER) {
