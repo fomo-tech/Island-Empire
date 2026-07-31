@@ -2127,6 +2127,7 @@ export function GameApp({
               <div className="hud-left-command-cluster">
                 {/* Vertical Rail (matching Mockup) */}
                 <nav className="hud-sidebar-vertical-rail hud-interactive" aria-label="Điều hướng vương quốc">
+                  {/* 1. Nhiệm vụ */}
                   <button
                     type="button"
                     className={`hud-rail-button-v ${leftTab === "missions" && !leftCollapsed ? "active" : ""}`}
@@ -2142,20 +2143,59 @@ export function GameApp({
                   >
                     <div className="hud-rail-icon-wrapper">
                       <img src="/assets/icons/icon_scroll.png" className="hud-rail-icon-png" alt="scroll" />
-                      <span className="hud-rail-badge" />
                     </div>
                     <span>Nhiệm vụ</span>
                   </button>
+
+                  {/* 2. Bản đồ */}
+                  <button type="button" className="hud-rail-button-v" onClick={() => handleAction("map")} title={t("map")}>
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_map.png" className="hud-rail-icon-png" alt="map" />
+                    </div>
+                    <span>Bản đồ</span>
+                  </button>
+
+                  {/* 3. Túi đồ */}
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("treasure")} title={t("inventory")}>
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_bag.png" className="hud-rail-icon-png" alt="bag" />
+                    </div>
+                    <span>Túi đồ</span>
+                  </button>
+
+                  {/* 4. Quân đội */}
                   <button type="button" className="hud-rail-button-v" onClick={() => openModal("army")} title={t("army")}>
                     <div className="hud-rail-icon-wrapper">
                       <img src="/assets/icons/icon_military.png" className="hud-rail-icon-png" alt="military" />
                     </div>
                     <span>Quân đội</span>
                   </button>
+
+                  {/* 5. Chiến báo */}
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("warReport")} title="Chiến báo">
+                    <div className="hud-rail-icon-wrapper">
+                      <img src="/assets/icons/icon_report.png" className="hud-rail-icon-png" alt="report" />
+                    </div>
+                    <span>Chiến báo</span>
+                  </button>
+
+                  {/* 6. Thư */}
+                  <button type="button" className="hud-rail-button-v" onClick={() => openModal("mail")} title={t("mail")}>
+                    <div className="hud-rail-icon-wrapper" style={{ position: "relative" }}>
+                      <img src="/assets/icons/icon_mail.png" className="hud-rail-icon-png" alt="mail" />
+                      {unreadMailCount > 0 && (
+                        <span className="hud-rail-badge" style={{ backgroundColor: "#ef4444", border: "1px solid #ffffff", width: "16px", height: "16px", borderRadius: "50%", position: "absolute", top: "-2px", right: "-2px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px", fontWeight: "bold", color: "#ffffff" }}>
+                          {unreadMailCount}
+                        </span>
+                      )}
+                    </div>
+                    <span>Thư tín</span>
+                  </button>
+
+                  {/* 7. Cửa hàng */}
                   <button type="button" className="hud-rail-button-v" onClick={() => openModal("shop")} title="Cửa hàng">
                     <div className="hud-rail-icon-wrapper">
                       <img src="/assets/icons/icon_shop.png" className="hud-rail-icon-png" alt="shop" />
-                      <span className="hud-rail-badge" />
                     </div>
                     <span>Cửa hàng</span>
                   </button>
@@ -2295,37 +2335,13 @@ export function GameApp({
             </div>
           </div>
 
+
           {/* HORIZONTAL EMPIRE ACTION DOCK (Redesigned Centered Curved Dock) */}
           <div className="hud-center-dock-container hud-interactive">
             {/* Toast / Territory Selection Banner */}
             <div className="hud-toast-banner">
               <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} #${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} #259`)}</div>
               <div className="toast-sub">{selectedRegion ? t("buildFromTooltip") : (language === "vi" ? "Bấm vào ô lãnh thổ để ra lệnh" : "Click territory to issue orders")}</div>
-            </div>
-
-            {/* Bottom Menu Action Bar matching Mockup */}
-            <div className="hud-empire-dock-master-unified">
-              <button type="button" className="hud-dock-tile-square" onClick={() => handleAction("map")} title={t("map")}>
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_map.png" className="hud-dock-icon-png" alt="map" /></span>
-                <span className="hud-tile-label-square">Bản đồ</span>
-              </button>
-              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("treasure")} title={t("inventory")}>
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_bag.png" className="hud-dock-icon-png" alt="bag" /></span>
-                <span className="hud-tile-label-square">Túi đồ</span>
-              </button>
-              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("army")} title={t("army")}>
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_military.png" className="hud-dock-icon-png" alt="military" /></span>
-                <span className="hud-tile-label-square">Quân đội</span>
-              </button>
-              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("warReport")} title="Chiến báo">
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_report.png" className="hud-dock-icon-png" alt="report" /></span>
-                <span className="hud-tile-label-square">Chiến báo</span>
-              </button>
-              <button type="button" className="hud-dock-tile-square" onClick={() => openModal("mail")} title={t("mail")}>
-                <span className="hud-tile-icon-square"><img src="/assets/icons/icon_mail.png" className="hud-dock-icon-png" alt="mail" /></span>
-                <span className="hud-tile-label-square">Thư</span>
-                {unreadMailCount > 0 && <span className="hud-tile-badge-square">{unreadMailCount}</span>}
-              </button>
             </div>
           </div>
 
@@ -2483,30 +2499,7 @@ export function GameApp({
             </div>
           </div>
 
-          {/* FLOATING TOOLBAR ON FAR RIGHT EDGE (matching Mockup) */}
-          <div className="hud-right-floating-toolbar hud-interactive">
-            <button type="button" className="hud-tool-btn" onClick={() => openModal("army")} title="Thành trì">
-              <span className="hud-tool-icon-mask">
-                <img src="/assets/icons/icon_tower.png" className="hud-tool-icon-png" alt="tower" />
-              </span>
-              <span className="hud-tool-badge">2</span>
-            </button>
-            <button type="button" className="hud-tool-btn" onClick={jumpToCoordinates} title="Tìm kiếm">
-              <span className="hud-tool-icon-mask">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </span>
-            </button>
-            <button type="button" className="hud-tool-btn" onClick={() => handleAction("locate")} title="Định vị">
-              <span className="hud-tool-icon-mask">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>
-              </span>
-            </button>
-            <button type="button" className="hud-tool-btn" title="Đánh dấu">
-              <span className="hud-tool-icon-mask">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              </span>
-            </button>
-          </div>
+
 
           {/* Connection status pill hidden or styled elegantly */}
           <div 
