@@ -1,4 +1,17 @@
 import React, { useState } from "react";
+import { MedievalModal } from "./MedievalModal";
+import {
+  EuroSettingsIcon,
+  EuroAudioIcon,
+  EuroDisplayIcon,
+  EuroShieldIcon,
+  EuroScrollIcon,
+  EuroMusicIcon,
+  EuroGlobeIcon,
+  EuroFlagVI,
+  EuroFlagEN,
+  EuroInfoIcon,
+} from "./EuroIcons";
 
 interface SettingsModalProps {
   language: "vi" | "en";
@@ -6,9 +19,15 @@ interface SettingsModalProps {
   onLogout?: () => void;
   onClose: () => void;
 }
-
-export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"audio" | "display" | "account" | "info">("audio");
+export function SettingsModal({
+  language,
+  onSetLanguage,
+  onLogout,
+  onClose,
+}: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<
+    "audio" | "display" | "account" | "info"
+  >("audio");
 
   // Audio settings state
   const [bgmVolume, setBgmVolume] = useState<number>(80);
@@ -17,7 +36,9 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
   const [sfxMuted, setSfxMuted] = useState<boolean>(false);
 
   // Graphics & Display state
-  const [graphicsQuality, setGraphicsQuality] = useState<"low" | "medium" | "high">("high");
+  const [graphicsQuality, setGraphicsQuality] = useState<
+    "low" | "medium" | "high"
+  >("high");
   const [targetFps, setTargetFps] = useState<30 | 60>(60);
   const [fogOfWarEffect, setFogOfWarEffect] = useState<boolean>(true);
   const [screenWarAlerts, setScreenWarAlerts] = useState<boolean>(true);
@@ -33,81 +54,95 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
     }, 600);
   };
 
-  const playerId = localStorage.getItem("island_empire_playerId") || "PLAYER-#92815";
+  const playerId =
+    localStorage.getItem("island_empire_playerId") || "PLAYER-#92815";
 
   return (
-    <div className="ob-modal-overlay town-modal-overlay" onClick={onClose}>
-      <div className="ob-modal-container town-modal settings-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Sleek Gold Filigree Close Button */}
-        <button type="button" className="town-close-btn" onClick={onClose} aria-label="Đóng cài đặt">
-          ✕
-        </button>
-
-        {/* Epic Top Heraldic Crest */}
-        <div className="town-modal-crest" aria-hidden="true">
-          <div className="crest-lion-badge">
-            <svg viewBox="0 0 60 60" className="crest-svg">
-              <path d="M 30,4 L 52,14 C 52,40 30,56 30,56 C 30,56 8,40 8,14 Z" fill="#0f172a" stroke="#ca8a04" strokeWidth="3" />
-              <path d="M 30,8 L 48,16 C 48,37 30,51 30,51 C 30,51 12,37 12,16 Z" fill="#1e3a8a" />
-              <circle cx="30" cy="30" r="8" fill="none" stroke="#fef08a" strokeWidth="2.5" />
-              <path d="M 30,18 L 30,42 M 18,30 L 42,30 M 21,21 L 39,39 M 39,21 L 21,39" stroke="#fef08a" strokeWidth="2" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Modal Header */}
-        <div className="ob-modal-header town-modal-header">
-          <h2 className="ob-modal-title town-title">CÀI ĐẶT HỆ THỐNG</h2>
-          <p className="ob-modal-subtitle town-subtitle">ĐẾ QUỐC PHỤC HƯNG · MÁY CHỦ S1</p>
-        </div>
-
-        <div className="town-divider" />
-
-        {/* Tab Selection Bar */}
-        <div className="town-modal-tabs settings-modal-tabs">
+    <MedievalModal
+      title="CÀI ĐẶT HỆ THỐNG"
+      subtitle="ĐẾ QUỐC PHỤC HƯNG · MÁY CHỦ S1"
+      onClose={onClose}
+      width="92vw"
+      maxWidth="780px"
+      className="settings-medieval-modal"
+    >
+      <div className="euro-shop-modal-body settings-euro-body">
+        {/* 3D Metallic Navigation Tabs */}
+        <nav className="euro-shop-tabs settings-modal-tabs">
           <button
             type="button"
-            className={`town-tab-btn ${activeTab === "audio" ? "active" : ""}`}
+            className={`euro-tab-btn ${activeTab === "audio" ? "active" : ""}`}
             onClick={() => setActiveTab("audio")}
           >
-            ÂM THANH
+            <img
+              src="/assets/icons/icon_settings_audio.png"
+              alt="Âm thanh"
+              className="euro-tab-png-icon"
+            />
+            <span>ÂM THANH</span>
           </button>
           <button
             type="button"
-            className={`town-tab-btn ${activeTab === "display" ? "active" : ""}`}
+            className={`euro-tab-btn ${activeTab === "display" ? "active" : ""}`}
             onClick={() => setActiveTab("display")}
           >
-            HIỂN THỊ & NGÔN NGỮ
+            <img
+              src="/assets/icons/icon_settings_display.png"
+              alt="Hiển thị"
+              className="euro-tab-png-icon"
+            />
+            <span>HIỂN THỊ</span>
           </button>
           <button
             type="button"
-            className={`town-tab-btn ${activeTab === "account" ? "active" : ""}`}
+            className={`euro-tab-btn ${activeTab === "account" ? "active" : ""}`}
             onClick={() => setActiveTab("account")}
           >
-            TÀI KHOẢN
+            <img
+              src="/assets/icons/icon_settings_account.png"
+              alt="Tài khoản"
+              className="euro-tab-png-icon"
+            />
+            <span>TÀI KHOẢN</span>
           </button>
           <button
             type="button"
-            className={`town-tab-btn ${activeTab === "info" ? "active" : ""}`}
+            className={`euro-tab-btn ${activeTab === "info" ? "active" : ""}`}
             onClick={() => setActiveTab("info")}
           >
-            THÔNG TIN
+            <img
+              src="/assets/icons/icon_settings_info.png"
+              alt="Phím tắt"
+              className="euro-tab-png-icon"
+            />
+            <span>PHÍM TẮT</span>
           </button>
-        </div>
+        </nav>
 
         {/* Tab Content Container */}
-        <div className="town-modal-body settings-modal-body">
+        <div className="settings-tab-container">
           {/* TAB 1: AUDIO */}
           {activeTab === "audio" && (
             <div className="settings-tab-content">
               <div className="settings-group-card">
-                <h3 className="settings-group-title">NHẠC NỀN & HIỆU ỨNG</h3>
+                <h3 className="settings-group-title">
+                  <img
+                    src="/assets/icons/icon_settings_audio.png"
+                    alt="Audio"
+                    className="euro-header-png-icon"
+                  />
+                  NHẠC NỀN & HIỆU ỨNG ÂM THANH
+                </h3>
 
                 {/* BGM Volume */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Nhạc Nền (BGM)</span>
-                    <span className="settings-subtext">Âm lượng âm nhạc nền vương quốc</span>
+                    <span className="settings-label">
+                      Nhạc Nền Vương Quốc (BGM)
+                    </span>
+                    <span className="settings-subtext">
+                      Âm lượng bản nhạc giao hưởng hùng đùa
+                    </span>
                   </div>
                   <div className="settings-input-group">
                     <input
@@ -121,7 +156,9 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                       }}
                       className="settings-slider"
                     />
-                    <span className="settings-val-text">{bgmMuted ? "Mute" : `${bgmVolume}%`}</span>
+                    <span className="settings-val-text">
+                      {bgmMuted ? "Mute" : `${bgmVolume}%`}
+                    </span>
                     <button
                       type="button"
                       className={`settings-toggle-btn ${bgmMuted ? "muted" : "active"}`}
@@ -135,8 +172,12 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                 {/* SFX Volume */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Hiệu Ứng Âm Thanh (SFX)</span>
-                    <span className="settings-subtext">Âm thanh hành quân, chiến đấu, nâng cấp thành</span>
+                    <span className="settings-label">
+                      Hiệu Ứng Chiến Đấu & Nâng Cấp (SFX)
+                    </span>
+                    <span className="settings-subtext">
+                      Âm thanh hành quân, giao tranh, binh khí
+                    </span>
                   </div>
                   <div className="settings-input-group">
                     <input
@@ -150,7 +191,9 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                       }}
                       className="settings-slider"
                     />
-                    <span className="settings-val-text">{sfxMuted ? "Mute" : `${sfxVolume}%`}</span>
+                    <span className="settings-val-text">
+                      {sfxMuted ? "Mute" : `${sfxVolume}%`}
+                    </span>
                     <button
                       type="button"
                       className={`settings-toggle-btn ${sfxMuted ? "muted" : "active"}`}
@@ -168,39 +211,62 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
           {activeTab === "display" && (
             <div className="settings-tab-content">
               <div className="settings-group-card">
-                <h3 className="settings-group-title">NGÔN NGỮ HỆ THỐNG</h3>
+                <h3 className="settings-group-title">
+                  <EuroGlobeIcon size={20} /> NGÔN NGỮ HỆ THỐNG
+                </h3>
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Ngôn Ngữ Game</span>
-                    <span className="settings-subtext">Chuyển đổi giao diện Tiếng Việt hoặc English</span>
+                    <span className="settings-label">Ngôn Ngữ Giao Diện</span>
+                    <span className="settings-subtext">
+                      Chuyển đổi Tiếng Việt hoặc English
+                    </span>
                   </div>
                   <div className="settings-pill-group">
                     <button
                       type="button"
                       className={`settings-pill-btn ${language === "vi" ? "selected" : ""}`}
                       onClick={() => onSetLanguage("vi")}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
                     >
-                      Tiếng Việt
+                      <EuroFlagVI /> Tiếng Việt
                     </button>
                     <button
                       type="button"
                       className={`settings-pill-btn ${language === "en" ? "selected" : ""}`}
                       onClick={() => onSetLanguage("en")}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
                     >
-                      English
+                      <EuroFlagEN /> English
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="settings-group-card">
-                <h3 className="settings-group-title">ĐỒ HỌA & HIỆU ỨNG BẢN ĐỒ</h3>
-                
+                <h3 className="settings-group-title">
+                  <img
+                    src="/assets/icons/icon_settings_display.png"
+                    alt="Display"
+                    className="euro-header-png-icon"
+                  />
+                  ĐỒ HỌA & HIỆU ỨNG BẢN ĐỒ
+                </h3>
+
                 {/* Graphics Quality */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
                     <span className="settings-label">Chất Lượng Đồ Họa</span>
-                    <span className="settings-subtext">Độ chi tiết lãnh thổ hex & sương mù chiến tranh</span>
+                    <span className="settings-subtext">
+                      Độ chi tiết lãnh thổ Hex & sương mù
+                    </span>
                   </div>
                   <div className="settings-pill-group">
                     {(["low", "medium", "high"] as const).map((q) => (
@@ -210,7 +276,11 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                         className={`settings-pill-btn ${graphicsQuality === q ? "selected" : ""}`}
                         onClick={() => setGraphicsQuality(q)}
                       >
-                        {q === "low" ? "Thấp" : q === "medium" ? "Cân Bằng" : "Cao"}
+                        {q === "low"
+                          ? "Thấp"
+                          : q === "medium"
+                            ? "Cân Bằng"
+                            : "Cao"}
                       </button>
                     ))}
                   </div>
@@ -219,8 +289,12 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                 {/* Target FPS */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Tốc Độ Khung Hình (FPS)</span>
-                    <span className="settings-subtext">Tối ưu mượt mà cho trải nghiệm camera map</span>
+                    <span className="settings-label">
+                      Tốc Độ Khung Hình (FPS)
+                    </span>
+                    <span className="settings-subtext">
+                      Tối ưu độ mượt của camera di chuyển
+                    </span>
                   </div>
                   <div className="settings-pill-group">
                     <button
@@ -235,7 +309,7 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                       className={`settings-pill-btn ${targetFps === 60 ? "selected" : ""}`}
                       onClick={() => setTargetFps(60)}
                     >
-                      60 FPS
+                      60 FPS (Mượt)
                     </button>
                   </div>
                 </div>
@@ -243,8 +317,12 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                 {/* Fog of war effect */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Sương Mù Chiến Tranh (Fog of War)</span>
-                    <span className="settings-subtext">Ẩn các vùng đất chưa có do thám hoặc sự hiện diện</span>
+                    <span className="settings-label">
+                      Sương Mù Chiến Tranh (Fog of War)
+                    </span>
+                    <span className="settings-subtext">
+                      Ẩn các vùng đất chưa do thám
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -255,11 +333,42 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                   </button>
                 </div>
 
+                {/* Hide Territory Assets / Performance mode toggle */}
+                <div className="settings-control-row">
+                  <div className="settings-label-block">
+                    <span className="settings-label">
+                      Ẩn Assets Lãnh Thổ (Phím 'H')
+                    </span>
+                    <span className="settings-subtext">
+                      Ẩn cây cối, quặng & thú để tăng FPS
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`settings-toggle-btn ${localStorage.getItem("island_empire_hide_assets") === "true" ? "active" : "muted"}`}
+                    onClick={() => {
+                      if ((window as any).toggleHideTerritoryAssets) {
+                        (window as any).toggleHideTerritoryAssets();
+                        setFogOfWarEffect((prev) => prev);
+                      }
+                    }}
+                  >
+                    {localStorage.getItem("island_empire_hide_assets") ===
+                    "true"
+                      ? "Đang Ẩn (Tối Ưu)"
+                      : "Hiển Thị"}
+                  </button>
+                </div>
+
                 {/* Screen War Alerts */}
                 <div className="settings-control-row">
                   <div className="settings-label-block">
-                    <span className="settings-label">Cảnh Báo Tấn Công Nổi Màn Hình</span>
-                    <span className="settings-subtext">Tự động phát tín hiệu đỏ khi kẻ địch hành quân</span>
+                    <span className="settings-label">
+                      Cảnh Báo Tấn Công Nổi Màn Hình
+                    </span>
+                    <span className="settings-subtext">
+                      Tự động báo hiệu khi kẻ địch tới gần
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -277,7 +386,14 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
           {activeTab === "account" && (
             <div className="settings-tab-content">
               <div className="settings-group-card">
-                <h3 className="settings-group-title">THÔNG TIN TÀI KHOẢN & MÁY CHỦ</h3>
+                <h3 className="settings-group-title">
+                  <img
+                    src="/assets/icons/icon_settings_account.png"
+                    alt="Account"
+                    className="euro-header-png-icon"
+                  />
+                  TÀI KHOẢN & MÁY CHỦ KẾT NỐI
+                </h3>
 
                 <div className="settings-info-box">
                   <div className="settings-info-line">
@@ -286,26 +402,37 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                   </div>
                   <div className="settings-info-line">
                     <span>Máy Chủ Đang Kết Nối:</span>
-                    <strong className="text-green">S1 - ĐẠI LỤC ELDORIA (250 Online)</strong>
+                    <strong className="text-green">
+                      S1 - ĐẠI LỤC ELDORIA (250 Online)
+                    </strong>
                   </div>
                   <div className="settings-info-line">
                     <span>Trạng Thái Đồng Bộ:</span>
-                    <strong className="text-green">Realtime Socket Ready</strong>
+                    <strong className="text-green">
+                      Realtime Socket Ready
+                    </strong>
                   </div>
                 </div>
 
                 <div className="settings-control-row danger-zone">
                   <div className="settings-label-block">
-                    <span className="settings-label text-danger">Đăng Xuất Tài Khoản</span>
-                    <span className="settings-subtext">Thoát tài khoản hiện tại và quay về màn hình đăng nhập</span>
+                    <span className="settings-label text-danger">
+                      Đăng Xuất Tài Khoản
+                    </span>
+                    <span className="settings-subtext">
+                      Thoát tài khoản hiện tại về màn hình chính
+                    </span>
                   </div>
                   {onLogout && (
                     <button
                       type="button"
                       className="settings-danger-btn"
-                      style={{ backgroundColor: "#ef4444", borderColor: "#dc2626", color: "#ffffff" }}
                       onClick={() => {
-                        if (window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản không?")) {
+                        if (
+                          window.confirm(
+                            "Bạn có chắc chắn muốn đăng xuất tài khoản không?",
+                          )
+                        ) {
                           onClose();
                           onLogout();
                         }
@@ -318,14 +445,22 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
 
                 <div className="settings-control-row danger-zone">
                   <div className="settings-label-block">
-                    <span className="settings-label text-danger">Đặt Lại Dữ Liệu Tân Thủ</span>
-                    <span className="settings-subtext">Xóa bộ nhớ đệm vị trí camera và khôi phục cài đặt gốc</span>
+                    <span className="settings-label text-danger">
+                      Đặt Lại Dữ Liệu Tân Thủ
+                    </span>
+                    <span className="settings-subtext">
+                      Xóa bộ nhớ đệm vị trí camera và cài đặt
+                    </span>
                   </div>
                   <button
                     type="button"
                     className="settings-danger-btn"
                     onClick={() => {
-                      if (window.confirm("Bạn có chắc chắn muốn cài lại hướng dẫn tân thủ không?")) {
+                      if (
+                        window.confirm(
+                          "Bạn có chắc chắn muốn cài lại hướng dẫn tân thủ không?",
+                        )
+                      ) {
                         localStorage.clear();
                         window.location.reload();
                       }
@@ -342,16 +477,23 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
           {activeTab === "info" && (
             <div className="settings-tab-content">
               <div className="settings-group-card">
-                <h3 className="settings-group-title">ĐIỀU KHIỂN & PHÍM TẮT</h3>
-                
+                <h3 className="settings-group-title">
+                  <img
+                    src="/assets/icons/icon_settings_info.png"
+                    alt="Info"
+                    className="euro-header-png-icon"
+                  />
+                  BẢNG PHÍM TẮT ĐIỀU KHIỂN
+                </h3>
+
                 <div className="settings-hotkeys-grid">
                   <div className="hotkey-item">
                     <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>
-                    <span>Di chuyển Camera trên Bản đồ</span>
+                    <span>Di chuyển Camera trên Bản đồ Hex</span>
                   </div>
                   <div className="hotkey-item">
                     <kbd>Cuộn Chuột</kbd>
-                    <span>Phóng to / Thu nhỏ Thế giới Hex</span>
+                    <span>Phóng to / Thu nhỏ Thế giới</span>
                   </div>
                   <div className="hotkey-item">
                     <kbd>Click Chuột Trái</kbd>
@@ -365,11 +507,13 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
               </div>
 
               <div className="settings-group-card">
-                <h3 className="settings-group-title">THÔNG TIN PHIÊN BẢN</h3>
+                <h3 className="settings-group-title">
+                  <EuroInfoIcon size={20} /> THÔNG TIN PHIÊN BẢN
+                </h3>
                 <div className="settings-info-box">
                   <div className="settings-info-line">
                     <span>Tên Game:</span>
-                    <strong>Island Empire RTS · Đảo Quốc Chiến Thuật</strong>
+                    <strong>Hex Rivals RTS · hexrivals.com</strong>
                   </div>
                   <div className="settings-info-line">
                     <span>Phiên Bản:</span>
@@ -377,7 +521,7 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
                   </div>
                   <div className="settings-info-line">
                     <span>Bản Quyền:</span>
-                    <span>© 2026 Island Empire Studio. All rights reserved.</span>
+                    <span>© 2026 hexrivals.com. All rights reserved.</span>
                   </div>
                 </div>
               </div>
@@ -386,18 +530,31 @@ export function SettingsModal({ language, onSetLanguage, onLogout, onClose }: Se
         </div>
 
         {/* Modal Footer Bar */}
-        <div className="ob-modal-actions town-modal-actions settings-modal-actions">
-          {showSavedToast && <span className="settings-saved-toast">Đã lưu cài đặt thành công!</span>}
+        <div className="settings-modal-actions">
+          {showSavedToast && (
+            <span className="settings-saved-toast">
+              ✓ Đã lưu cài đặt thành công!
+            </span>
+          )}
           <div className="settings-footer-buttons">
-            <button type="button" className="recruit-btn primary-action" onClick={handleSave}>
+            <button
+              type="button"
+              className="euro-emerald-btn"
+              onClick={handleSave}
+            >
               LƯU CÀI ĐẶT
             </button>
-            <button type="button" className="ob-action-btn secondary town-footer-btn" onClick={onClose}>
-              ĐÓNG CÀI ĐẶT
+            <button
+              type="button"
+              className="euro-btn-equip"
+              onClick={onClose}
+              style={{ width: 140 }}
+            >
+              ĐÓNG
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </MedievalModal>
   );
 }

@@ -56,29 +56,57 @@ export function AdminApp() {
     artilleryDefensePower: 3,
     townLevelDefense: 40,
     fortLevelDefense: 120,
-    lootPercent: 20,
     retreatPercent: 35,
+    troopRecoveryEnabled: true,
+    troopRecoverySeconds: 600,
+    troopRecoveryOfflineLimit: 24,
+    capitalTroopCapacityMultiplier: 2,
+    strongholdTroopCapacityMultiplier: 1,
+    seaInvasionMaxDistanceKm: 1200,
+    battleStateBroadcastSeconds: 2,
     infantryCostGold: 100,
     infantryCostWood: 30,
     infantryCostFood: 55,
     infantryTroopsValue: 18,
+    infantryPopulationCost: 4,
     cavalryCostGold: 170,
     cavalryCostWood: 40,
     cavalryCostStone: 45,
     cavalryCostFood: 90,
     cavalryCostIron: 12,
     cavalryTroopsValue: 34,
+    cavalryPopulationCost: 7,
     artilleryCostGold: 240,
     artilleryCostStone: 120,
     artilleryCostIron: 85,
+    artilleryCostCoal: 35,
     artilleryCostSulfur: 25,
     artilleryTroopsValue: 58,
+    artilleryPopulationCost: 12,
     settlerSpeed: 18,
     infantrySpeed: 24,
     cavalrySpeed: 42,
     artillerySpeed: 14,
     shipSpeed: 12,
     gameHourSeconds: 60,
+    shopResourcePackAmount: 50000,
+    shopResourcePackPriceGems: 100,
+    shopSkinLongBaoThanhPrice: 1500,
+    shopSkinHoaLongDienPrice: 2000,
+    shopSkinPhongLongCacPrice: 1800,
+    powerConnectedTerritory: 100,
+    powerIsolatedTerritory: 25,
+    powerNaturalHarborBonus: 30,
+    powerMilitaryResourceBonus: 20,
+    powerCapitalBase: 1000,
+    powerMilitaryDistrictBase: 250,
+    powerCapitalLevel: 200,
+    powerMilitaryDistrictLevel: 80,
+    powerFortLevel: 100,
+    powerBarracksLevel: 60,
+    powerSiegeWorkshopLevel: 80,
+    powerWarehouseLevel: 30,
+    powerResourceBuildingLevel: 20,
   });
 
   const showToast = useCallback((msg: string) => {
@@ -125,29 +153,57 @@ export function AdminApp() {
       artilleryDefensePower: Number(form.get("artilleryDefensePower")),
       townLevelDefense: Number(form.get("townLevelDefense")),
       fortLevelDefense: Number(form.get("fortLevelDefense")),
-      lootPercent: Number(form.get("lootPercent")),
       retreatPercent: Number(form.get("retreatPercent")),
+      troopRecoveryEnabled: form.get("troopRecoveryEnabled") === "on",
+      troopRecoverySeconds: Number(form.get("troopRecoverySeconds")),
+      troopRecoveryOfflineLimit: Number(form.get("troopRecoveryOfflineLimit")),
+      capitalTroopCapacityMultiplier: Number(form.get("capitalTroopCapacityMultiplier")),
+      strongholdTroopCapacityMultiplier: Number(form.get("strongholdTroopCapacityMultiplier")),
+      seaInvasionMaxDistanceKm: Number(configData.seaInvasionMaxDistanceKm || 1200),
+      battleStateBroadcastSeconds: Number(form.get("battleStateBroadcastSeconds")),
       infantryCostGold: Number(form.get("infantryCostGold")),
       infantryCostWood: Number(form.get("infantryCostWood")),
       infantryCostFood: Number(form.get("infantryCostFood")),
       infantryTroopsValue: Number(form.get("infantryTroopsValue")),
+      infantryPopulationCost: Number(form.get("infantryPopulationCost")),
       cavalryCostGold: Number(form.get("cavalryCostGold")),
       cavalryCostWood: Number(form.get("cavalryCostWood")),
       cavalryCostStone: Number(form.get("cavalryCostStone")),
       cavalryCostFood: Number(form.get("cavalryCostFood")),
       cavalryCostIron: Number(form.get("cavalryCostIron")),
       cavalryTroopsValue: Number(form.get("cavalryTroopsValue")),
+      cavalryPopulationCost: Number(form.get("cavalryPopulationCost")),
       artilleryCostGold: Number(form.get("artilleryCostGold")),
       artilleryCostStone: Number(form.get("artilleryCostStone")),
       artilleryCostIron: Number(form.get("artilleryCostIron")),
+      artilleryCostCoal: Number(form.get("artilleryCostCoal")),
       artilleryCostSulfur: Number(form.get("artilleryCostSulfur")),
       artilleryTroopsValue: Number(form.get("artilleryTroopsValue")),
+      artilleryPopulationCost: Number(form.get("artilleryPopulationCost")),
       settlerSpeed: Number(form.get("settlerSpeed")),
       infantrySpeed: Number(form.get("infantrySpeed")),
       cavalrySpeed: Number(form.get("cavalrySpeed")),
       artillerySpeed: Number(form.get("artillerySpeed")),
       shipSpeed: Number(form.get("shipSpeed")),
       gameHourSeconds: Number(form.get("gameHourSeconds")),
+      shopResourcePackAmount: Number(form.get("shopResourcePackAmount")),
+      shopResourcePackPriceGems: Number(form.get("shopResourcePackPriceGems")),
+      shopSkinLongBaoThanhPrice: Number(form.get("shopSkinLongBaoThanhPrice")),
+      shopSkinHoaLongDienPrice: Number(form.get("shopSkinHoaLongDienPrice")),
+      shopSkinPhongLongCacPrice: Number(form.get("shopSkinPhongLongCacPrice")),
+      powerConnectedTerritory: Number(form.get("powerConnectedTerritory")),
+      powerIsolatedTerritory: Number(form.get("powerIsolatedTerritory")),
+      powerNaturalHarborBonus: Number(form.get("powerNaturalHarborBonus")),
+      powerMilitaryResourceBonus: Number(form.get("powerMilitaryResourceBonus")),
+      powerCapitalBase: Number(form.get("powerCapitalBase")),
+      powerMilitaryDistrictBase: Number(form.get("powerMilitaryDistrictBase")),
+      powerCapitalLevel: Number(form.get("powerCapitalLevel")),
+      powerMilitaryDistrictLevel: Number(form.get("powerMilitaryDistrictLevel")),
+      powerFortLevel: Number(form.get("powerFortLevel")),
+      powerBarracksLevel: Number(form.get("powerBarracksLevel")),
+      powerSiegeWorkshopLevel: Number(form.get("powerSiegeWorkshopLevel")),
+      powerWarehouseLevel: Number(form.get("powerWarehouseLevel")),
+      powerResourceBuildingLevel: Number(form.get("powerResourceBuildingLevel")),
     };
 
     setLoadingId("config-save");
@@ -265,15 +321,8 @@ export function AdminApp() {
       <main className="admin-shell">
         <form className="login-panel" onSubmit={onLogin}>
           <div className="login-logo">
-            <svg width="48" height="48" viewBox="0 0 48 48">
-              <polygon points="24,3 44,18 37,42 11,42 4,18" fill="#1a3a5a" stroke="#f0c030" strokeWidth="2"/>
-              <polygon points="24,8 40,20 34,40 14,40 8,20" fill="#0d2035"/>
-              <rect x="18" y="22" width="12" height="14" fill="#f0c030" opacity="0.85"/>
-              <rect x="21" y="16" width="6" height="8" fill="#ffd34d"/>
-              <rect x="23" y="12" width="2" height="6" fill="#fff"/>
-            </svg>
+            <img src="/logo.png" alt="Hex Rivals Logo" style={{ width: 100, height: 100, objectFit: "contain", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))" }} />
           </div>
-          <h1>Island Empire</h1>
           <p className="login-sub">ADMIN PANEL</p>
           <label>
             Tài khoản
@@ -397,7 +446,7 @@ export function AdminApp() {
                 />
               </div>
               <div className="info-box">
-                <p>Hệ thống Island Empire đang chạy bình thường. Chọn tab <strong>Người chơi</strong> hoặc <strong>Lãnh thổ</strong> để quản lý.</p>
+                <p>Hệ thống Hex Rivals đang chạy bình thường. Chọn tab <strong>Người chơi</strong> hoặc <strong>Lãnh thổ</strong> để quản lý.</p>
               </div>
             </section>
           )}
@@ -593,7 +642,34 @@ export function AdminApp() {
 
               {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
 
-              <form onSubmit={handleConfigSubmit} style={{ maxWidth: 600, display: "grid", gap: 16, background: "rgba(13, 20, 31, 0.4)", padding: 24, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+              <form key={`config-${configData.updatedAt ?? "local"}`} onSubmit={handleConfigSubmit} style={{ maxWidth: 760, display: "grid", gap: 16, background: "rgba(13, 20, 31, 0.4)", padding: 24, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: 0 }}>BỔ SUNG QUÂN TỰ ĐỘNG & TUYẾN BIỂN</h3>
+                <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="checkbox" name="troopRecoveryEnabled" defaultChecked={configData.troopRecoveryEnabled} />
+                  Bật bổ sung quân tự động tại từng lãnh thổ
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Chu kỳ mỗi quân (giây)
+                    <input type="number" name="troopRecoverySeconds" defaultValue={configData.troopRecoverySeconds} min={10} max={86400} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Tối đa bù khi offline
+                    <input type="number" name="troopRecoveryOfflineLimit" defaultValue={configData.troopRecoveryOfflineLimit} min={1} max={1000} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Nhịp máu giao tranh (giây)
+                    <input type="number" name="battleStateBroadcastSeconds" defaultValue={configData.battleStateBroadcastSeconds} min={1} max={30} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Sức chứa Hoàng Thành (x dân số)
+                    <input type="number" name="capitalTroopCapacityMultiplier" defaultValue={configData.capitalTroopCapacityMultiplier} min={1} max={10} step="0.1" required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Sức chứa Pháo đài (x dân số)
+                    <input type="number" name="strongholdTroopCapacityMultiplier" defaultValue={configData.strongholdTroopCapacityMultiplier} min={0.5} max={10} step="0.1" required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: 0 }}>CHIẾN ĐẤU & GIAO TRANH</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
@@ -627,10 +703,6 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     Thủ cộng mỗi cấp pháo đài
                     <input type="number" name="fortLevelDefense" defaultValue={configData.fortLevelDefense} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
-                  </label>
-                  <label style={{ display: "grid", gap: 6 }}>
-                    % cướp kho khi thắng
-                    <input type="number" name="lootPercent" defaultValue={configData.lootPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
                     % quân rút khi thủ thắng
@@ -674,8 +746,8 @@ export function AdminApp() {
                   </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ BỘ BINH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG BỘ BINH / QUÂN</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Bộ binh)
                     <input type="number" name="infantryCostGold" defaultValue={configData.infantryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -692,10 +764,14 @@ export function AdminApp() {
                     Lực lượng cộng thêm
                     <input type="number" name="infantryTroopsValue" defaultValue={configData.infantryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="infantryPopulationCost" defaultValue={configData.infantryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ KỊ BÌNH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG KỊ BINH / QUÂN</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Kị binh)
                     <input type="number" name="cavalryCostGold" defaultValue={configData.cavalryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -720,10 +796,14 @@ export function AdminApp() {
                     Lực lượng cộng thêm
                     <input type="number" name="cavalryTroopsValue" defaultValue={configData.cavalryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="cavalryPopulationCost" defaultValue={configData.cavalryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
                 </div>
 
-                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHIÊU MỘ PHÁO BINH</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CHI PHÍ BỔ SUNG PHÁO BINH / KHẨU</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Vàng (Pháo binh)
                     <input type="number" name="artilleryCostGold" defaultValue={configData.artilleryCostGold} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
@@ -737,12 +817,20 @@ export function AdminApp() {
                     <input type="number" name="artilleryCostIron" defaultValue={configData.artilleryCostIron} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
+                    Giá Than (Pháo binh)
+                    <input type="number" name="artilleryCostCoal" defaultValue={configData.artilleryCostCoal} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
                     Giá Lưu huỳnh (Pháo binh)
                     <input type="number" name="artilleryCostSulfur" defaultValue={configData.artilleryCostSulfur} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
                     Lực lượng cộng thêm
                     <input type="number" name="artilleryTroopsValue" defaultValue={configData.artilleryTroopsValue} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Dân dùng mỗi lượt
+                    <input type="number" name="artilleryPopulationCost" defaultValue={configData.artilleryPopulationCost} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 
@@ -763,6 +851,59 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     Tốc độ Thuyền
                     <input type="number" name="shipSpeed" defaultValue={configData.shipSpeed} min={10} max={1500} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>CẤU HÌNH CỬA HÀNG HOÀNG GIA</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Số lượng Tài nguyên mỗi gói
+                    <input type="number" name="shopResourcePackAmount" defaultValue={configData.shopResourcePackAmount} min={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Ngọc (Gems) mỗi gói
+                    <input type="number" name="shopResourcePackPriceGems" defaultValue={configData.shopResourcePackPriceGems} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>UY THẾ VƯƠNG QUỐC</h3>
+                <p style={{ margin: 0, color: "#94a3b8", fontSize: 13 }}>Uy thế do server tính từ quân lực, lãnh thổ, thành trì và công trình. Vàng, ngọc không được cộng.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  {[
+                    ["powerConnectedTerritory", "Lãnh thổ nối liền"],
+                    ["powerIsolatedTerritory", "Lãnh thổ bị cô lập"],
+                    ["powerNaturalHarborBonus", "Thưởng bến tàu"],
+                    ["powerMilitaryResourceBonus", "Thưởng tài nguyên quân sự"],
+                    ["powerCapitalBase", "Nền Hoàng Thành"],
+                    ["powerMilitaryDistrictBase", "Nền Pháo đài"],
+                    ["powerCapitalLevel", "Mỗi cấp Hoàng Thành"],
+                    ["powerMilitaryDistrictLevel", "Mỗi cấp Pháo đài"],
+                    ["powerFortLevel", "Mỗi cấp công sự"],
+                    ["powerBarracksLevel", "Mỗi cấp doanh trại"],
+                    ["powerSiegeWorkshopLevel", "Mỗi cấp xưởng pháo"],
+                    ["powerWarehouseLevel", "Mỗi cấp kho"],
+                    ["powerResourceBuildingLevel", "Mỗi cấp nhà tài nguyên"],
+                  ].map(([name, label]) => (
+                    <label key={name} style={{ display: "grid", gap: 6 }}>
+                      {label}
+                      <input type="number" name={name} defaultValue={configData[name]} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                    </label>
+                  ))}
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>GIÁ SKIN THÀNH TRÌ RỒNG</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Long Bảo Thành (Gems)
+                    <input type="number" name="shopSkinLongBaoThanhPrice" defaultValue={configData.shopSkinLongBaoThanhPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Hỏa Long Điện (Gems)
+                    <input type="number" name="shopSkinHoaLongDienPrice" defaultValue={configData.shopSkinHoaLongDienPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Phong Long Các (Gems)
+                    <input type="number" name="shopSkinPhongLongCacPrice" defaultValue={configData.shopSkinPhongLongCacPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 

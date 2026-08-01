@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import type { ActiveBattle, ActiveClearing, TerritoryInfo, TownSnapshot } from "@island/shared";
 
 // --- 100% PREMIUM HIGH DEFINITION VECTOR SVGS (NO RAW EMOJIS) ---
 function SwordsIcon() {
@@ -178,13 +179,16 @@ const HourglassIcon = () => (
   </svg>
 );
 
-const BannerFlagIcon = () => (
-  <svg viewBox="0 0 40 60" width="32" height="48" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))" }}>
-    <path d="M4 2h32v44l-16-10-16 10V2z" fill="#8c2a1e" stroke="#ca8a04" strokeWidth="2" />
-    <rect x="2" y="0" width="36" height="5" fill="#ffd34d" rx="1" />
-    <path d="M14 14h12v14h-12z" fill="#ffd34d" stroke="#ca8a04" strokeWidth="1" />
-  </svg>
-);
+const BannerFlagIcon = ({ color }: { color?: string }) => {
+  const flagColor = color || "#8c2a1e";
+  return (
+    <svg viewBox="0 0 40 60" width="32" height="48" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))" }}>
+      <path d="M4 2h32v44l-16-10-16 10V2z" fill={flagColor} stroke="#ca8a04" strokeWidth="2" />
+      <rect x="2" y="0" width="36" height="5" fill="#ffd34d" rx="1" />
+      <path d="M14 14h12v14h-12z" fill="#ffd34d" stroke="#ca8a04" strokeWidth="1" />
+    </svg>
+  );
+};
 
 const BookIcon = () => (
   <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 5, verticalAlign: "middle" }}>
@@ -302,6 +306,12 @@ interface TerritoryTooltipProps {
     ownership: number;
   };
   engine: any;
+  territory?: TerritoryInfo;
+  town?: TownSnapshot;
+  clearing?: ActiveClearing;
+  battle?: ActiveBattle;
+  playerId?: string | null;
+  ownedTowns?: TownSnapshot[];
   onClose?: () => void;
   onKhaiHoang: (regionId: number) => void;
   onHuyKhaiHoang: (regionId: number) => void;
@@ -328,6 +338,12 @@ function getSpecialResourceIcon(rawName: string) {
 export function TerritoryTooltip({
   region,
   engine,
+  territory,
+  town,
+  clearing,
+  battle,
+  playerId,
+  ownedTowns = [],
   onClose,
   onKhaiHoang,
   onHuyKhaiHoang,
@@ -344,18 +360,51 @@ export function TerritoryTooltip({
     return () => clearInterval(timer);
   }, []);
 
-  const { id, isIslet, ownership } = region;
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const cardElement = document.querySelector(".rt-tooltip-card");
+      const arrowPointer = document.querySelector(".rt-tooltip-arrow-pointer");
+      
+      // If clicking outside the tooltip box, close it smoothly
+      if (
+        cardElement && 
+        !cardElement.contains(event.target as Node) &&
+        (!arrowPointer || !arrowPointer.contains(event.target as Node))
+      ) {
+        onClose?.();
+      }
+    }
+    
+    // Register listener after a micro delay to avoid capturing the activation click
+    const registerTimer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(registerTimer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [onClose]);
+
+  const { id, ownership } = region;
   const engineState = engine.getState();
-  const effectiveOwnership = engine.getRegionOwnership?.(id) ?? ownership;
+  const isIslet = territory?.isIslet ?? region.isIslet;
+  const effectiveOwnership = territory
+    ? territory.ownerId === null
+      ? 0
+      : territory.ownerId === playerId
+        ? 1
+        : 2
+    : engine.getRegionOwnership?.(id) ?? ownership;
 
   const r = engine.getRegion?.(id);
-  const specialResources = engine.getTerritorySpecialResources?.(id) || [];
+  const specialResources = territory?.specialResources || engine.getTerritorySpecialResources?.(id) || [];
 
   if (!r) return null;
 
   const coords = engine.mapToScreen(r.x, r.y);
 
-  const biome = r.biome ?? 0;
+  const biome = territory?.biome ?? r.biome ?? 0;
   const biomeNames = ["Cỏ Xanh", "Sa Mạc", "Băng Tuyết", "Hỏa Sơn", "Lục Lam", "Vàng Cam", "Rừng Thông", "Đầm Lầy"];
   const biomeDescriptions = [
     "Vùng đồng cỏ xanh tươi trù phú, thời tiết ôn hòa, thích hợp định cư lâu dài.",
@@ -368,12 +417,22 @@ export function TerritoryTooltip({
     "Vùng nước sâu đầm lầy u ám, ẩn giấu nhiều cạm bẫy và kho báu cổ xưa."
   ];
 
-  const bName = biomeNames[biome] || "Hoang Dã";
+  const bName = territory?.biomeName || biomeNames[biome] || "Hoang Dã";
   const bColor = ["#689f38", "#ddaa55", "#ccd7db", "#5a6065", "#4db6ac", "#cf7a57", "#2e7d32", "#809e52"][biome] || "#4db6ac";
   const bDesc = biomeDescriptions[biome] || "Vùng đất hoang dã chưa được khai phá.";
 
-  const y = engine.territoryYield ? engine.territoryYield(id) : { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
-  const dur = engine.clearingDuration ? engine.clearingDuration(id) : 45;
+  const clientYield = engine.territoryYield ? engine.territoryYield(id) : { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
+  const y = territory ? {
+    gold: territory.yieldGold * 2.5,
+    wood: territory.yieldWood * 2.5,
+    stone: territory.yieldStone * 2.5,
+    food: territory.yieldFood * 2.5,
+    iron: territory.yieldIron * 2.5,
+    coal: territory.yieldCoal * 2.5,
+    sulfur: territory.yieldSulfur * 2.5,
+    gems: territory.yieldGems * 2.5,
+  } : clientYield;
+  const dur = territory?.clearingSeconds ?? (engine.clearingDuration ? engine.clearingDuration(id) : 45);
   const buildCost = engine.territoryBuildCost ? engine.territoryBuildCost(id) : { gold: 0, wood: 0, stone: 0, food: 0 };
 
   const formatYield = (value: number) => value >= 1 ? value.toFixed(1) : value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
@@ -388,24 +447,36 @@ export function TerritoryTooltip({
     { key: "gems", label: "Đá quý", value: y.gems, className: "gems", icon: <GemIcon /> },
   ];
 
-  const towns = engine.getTowns ? engine.getTowns() : [];
-  const mainTown = towns.find((t: any) => t.owner === 0);
-  const distanceKm = mainTown && r ? Math.round(Math.hypot(r.x - mainTown.x, r.y - mainTown.y)) : 100;
-  const marchMinutes = Math.max(1, Math.round(distanceKm / 10));
+  const localTowns = ownedTowns.length > 0
+    ? ownedTowns
+    : (engine.getTowns ? engine.getTowns().filter((item: any) => item.owner === 0) : []);
+  const nearestTown = localTowns
+    .filter((item: any) => Number.isFinite(Number(item?.x)) && Number.isFinite(Number(item?.y)))
+    .sort((a: any, b: any) =>
+      Math.hypot(Number(a.x) - r.x, Number(a.y) - r.y) -
+      Math.hypot(Number(b.x) - r.x, Number(b.y) - r.y)
+    )[0];
+  const distanceKm = nearestTown
+    ? Math.max(0, Math.round(Math.hypot(Number(nearestTown.x) - r.x, Number(nearestTown.y) - r.y) * 0.18))
+    : null;
 
   const isClearingInProgress = engineState.regionInProgress === id;
   const isSettlerTraveling = engineState.settlerTravel?.active && engineState.settlerTravel.targetRegionId === id;
   const isNewbieSelecting = engineState.newbieMode && engineState.newbiePhase === "select_land";
-  const playerTownsCount = towns.filter((t: any) => t.owner === 0).length;
-  const isStarterClaim = isNewbieSelecting || (playerTownsCount === 0);
+  const playerTerritoriesCount = Object.keys(engineState.regionOwnership || {}).filter((regionId) =>
+    engineState.regionOwnership[Number(regionId)] === 1 || engineState.regionOwnerIds?.[Number(regionId)] === engineState.localPlayerId
+  ).length;
+  const isStarterClaim = isNewbieSelecting || playerTerritoriesCount === 0;
+  const canBuildStronghold = isStarterClaim || Boolean(engine.canBuildStronghold?.(id));
 
-  const ownerId = engineState.regionOwnerIds?.[id] || "";
   const rawOwnerName = engineState.regionOwnerNames?.[id] || "";
-  const isLocalOwner = Boolean(ownerId && ownerId === engineState.localPlayerId);
-  const isRemoteClearing = effectiveOwnership === 0 && rawOwnerName === "ĐANG KHAI HOANG";
+  const isOwnClearing = Boolean(clearing?.playerId === playerId) || isClearingInProgress || isSettlerTraveling;
+  const isRemoteClearing = effectiveOwnership === 0 && Boolean(
+    clearing && clearing.playerId !== playerId
+  ) || (effectiveOwnership === 0 && rawOwnerName === "ĐANG KHAI HOANG");
 
-  const isCurrentlyClearing = isClearingInProgress || isSettlerTraveling || isRemoteClearing;
-  const timing = engineState.activeClearingTimings?.[id];
+  const isCurrentlyClearing = Boolean(clearing) || isClearingInProgress || isSettlerTraveling || isRemoteClearing;
+  const timing = clearing || engineState.activeClearingTimings?.[id];
   
   const formatTime = (secs: number) => {
     if (secs >= 60) {
@@ -416,10 +487,41 @@ export function TerritoryTooltip({
     return `${secs}s`;
   };
 
-  const isUnderBattle = engineState.activeBattles?.some((b: any) => b.regionId === id);
+  const isUnderBattle = Boolean(battle) || engineState.activeBattles?.some((b: any) => b.regionId === id);
+  const settlementKind = territory?.settlementKind ?? engineState.regionSettlementKinds?.[id];
+  const isMilitaryDistrict = settlementKind === "military" || (settlementKind as string) === "military_district";
+  const isSubCapital = settlementKind === "sub_capital";
+  const settlementKindLabel = isSubCapital
+    ? "Trung Tâm Thành Trì"
+    : isMilitaryDistrict
+    ? "Quân Khu"
+    : "Thủ Đô";
 
-  const statusText = isUnderBattle ? "Đang Giao Tranh" : isRemoteClearing ? "Đang Xây Thành" : effectiveOwnership === 1 ? "Đã Chiếm" : effectiveOwnership > 1 ? "Địch Chiếm" : "Hoang Dã";
+  const statusText = isUnderBattle
+    ? "Đang Giao Tranh"
+    : isOwnClearing
+    ? "Bạn đang dựng Pháo Đài"
+    : isRemoteClearing
+    ? "Đối thủ đang dựng Pháo Đài"
+    : effectiveOwnership === 1
+    ? `Đã Chiếm (${settlementKindLabel})`
+    : effectiveOwnership > 1
+    ? `Địch Chiếm (${settlementKindLabel})`
+    : "Hoang Dã";
   const statusClass = isUnderBattle ? "battle" : isRemoteClearing ? "wild" : effectiveOwnership === 1 ? "owned" : effectiveOwnership > 1 ? "enemy" : "wild";
+  const ownerName = effectiveOwnership === 0
+    ? "Chưa có chủ"
+    : effectiveOwnership === 1
+      ? "Bạn"
+      : territory?.ownerName || rawOwnerName || "Đối thủ";
+  const storage = town?.storage && typeof town.storage === "object"
+    ? Object.values(town.storage).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
+    : 0;
+  const storageCapacity = typeof town?.storageCapacity === "number"
+    ? town.storageCapacity
+    : town?.storageCapacity && typeof town.storageCapacity === "object"
+      ? Object.values(town.storageCapacity).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
+      : 0;
 
   const rx = r.rx || r.r || 100;
   const zoom = engineState.zoom || 1;
@@ -442,27 +544,73 @@ export function TerritoryTooltip({
   if (top < 16) top = 16;
   if (top + estimatedH > winH - 16) top = Math.max(16, winH - estimatedH - 16);
 
+  const arrowOffsetY = Math.max(32, Math.min(estimatedH - 38, coords.y - top));
+
   const runAndClose = (action: () => void) => { action(); onClose?.(); };
 
   const renderActionButtons = () => {
     if (isUnderBattle) {
       const isPlayerOwned = effectiveOwnership === 1;
-      if (isPlayerOwned) {
-        return (
-          <>
-            <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
-              <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
-            </button>
-            <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
-          </>
-        );
-      }
+      const activeBattle = battle || engineState.activeBattles?.find((b: any) => b.regionId === id);
+      const remSec = battle?.resolvesAt
+        ? Math.max(0, Math.ceil((new Date(battle.resolvesAt).getTime() - now) / 1000))
+        : activeBattle
+          ? Math.max(0, Math.ceil((activeBattle.duration || activeBattle.durationSeconds || 25) - (activeBattle.t || 0)))
+          : 15;
+      const totalDur = Math.max(1, battle?.durationSeconds || activeBattle?.duration || activeBattle?.durationSeconds || 25);
+      const progressPct = Math.round(Math.max(0, Math.min(1, 1 - remSec / totalDur)) * 100);
+      const attackerMaxHp = Math.max(1, Number(activeBattle?.attackerMaxHp || activeBattle?.attackerPower || activeBattle?.attPower || 1));
+      const defenderMaxHp = Math.max(1, Number(activeBattle?.defenderMaxHp || activeBattle?.defenderPower || activeBattle?.defPower || 1));
+      const attackerHp = Math.max(0, Math.min(attackerMaxHp, Number(activeBattle?.attackerCurrentHp ?? attackerMaxHp)));
+      const defenderHp = Math.max(0, Math.min(defenderMaxHp, Number(activeBattle?.defenderCurrentHp ?? defenderMaxHp)));
+      const attackerLabel = activeBattle?.attackerId === playerId ? "QUÂN CỦA BẠN" : "QUÂN TẤN CÔNG";
+      const defenderLabel = activeBattle?.defenderId === playerId ? "QUÂN CỦA BẠN" : "QUÂN PHÒNG THỦ";
+      const hpRow = (label: string, hp: number, maxHp: number, color: string) => (
+        <div style={{ display: "grid", gridTemplateColumns: "88px 1fr 116px", alignItems: "center", gap: 8, marginTop: 7 }}>
+          <strong style={{ color, fontSize: 9 }}>{label}</strong>
+          <span style={{ height: 7, overflow: "hidden", background: "rgba(0,0,0,.62)", border: "1px solid rgba(255,255,255,.12)" }}>
+            <span style={{ display: "block", height: "100%", width: `${Math.round((hp / maxHp) * 100)}%`, background: color, transition: "width .35s linear" }} />
+          </span>
+          <span style={{ color: "#e8edf3", fontSize: 9, textAlign: "right" }}>
+            {Math.ceil(hp)}/{Math.ceil(maxHp)} · {Math.round((hp / maxHp) * 100)}%
+          </span>
+        </div>
+      );
+
       return (
         <>
-          <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
-            <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
-          </button>
-          <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
+          <div className="rt-clearing-box remote" style={{ borderColor: "#ef4444", marginBottom: 12, background: "rgba(30, 10, 10, 0.9)" }}>
+            <div className="rt-clearing-header">
+              <span className="rt-clearing-title-text" style={{ color: "#fca5a5" }}>
+                CHIẾN SỰ ĐANG DIỄN RA KHỐC LIỆT
+              </span>
+              <span className="rt-clearing-pct-text" style={{ color: "#ffd34d" }}>Còn {remSec}s</span>
+            </div>
+            <div className="rt-clearing-bar-track">
+              <div className="rt-clearing-bar-fill" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #ef4444 0%, #f59e0b 100%)" }} />
+            </div>
+            {hpRow(attackerLabel, attackerHp, attackerMaxHp, "#ef6a5b")}
+            {hpRow(defenderLabel, defenderHp, defenderMaxHp, "#4aa3ff")}
+            <div className="rt-clearing-subtext">Trận đánh đang đếm ngược tổng kết trên Server</div>
+          </div>
+          {isPlayerOwned ? (
+            <>
+              <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
+                <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
+              </button>
+              <button type="button" className="rt-main-action-btn build" onClick={() => engine.handleAction("selectTown", { regionId: id })}>
+                <CastleIcon /> <span className="text-gold-serif">QUẢN LÝ VÀ XUẤT QUÂN</span>
+              </button>
+              <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
+                <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
+              </button>
+              <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
+            </>
+          )}
         </>
       );
     }
@@ -532,30 +680,34 @@ export function TerritoryTooltip({
           </>
         );
       }
-      if (engineState.regionInProgress >= 0) {
-        return (
-          <button type="button" className="rt-main-action-btn build disabled" disabled>
-            <HourglassIcon /> <span className="text-gold-serif">ĐỘI THỢ ĐANG BẬN</span>
-          </button>
-        );
-      }
+
       if (isStarterClaim) {
         return (
           <>
             <button type="button" className="rt-main-action-btn build pulse" onClick={() => onKhaiHoang(id)}>
-              <PickaxeIcon /> <span className="text-gold-serif">XÂY THÀNH TÂN THỦ</span>
+            <PickaxeIcon /> <span className="text-gold-serif">DỰNG HOÀNG THÀNH</span>
             </button>
             <div className="rt-note-info" style={{ color: "#4ade80", fontWeight: 700 }}><span className="info-icon">ⓘ</span> Xây dựng miễn phí dành cho tân thủ!</div>
           </>
         );
       }
+      if (!canBuildStronghold) {
+        return (
+          <div className="rt-busy-builder-notice disconnected" style={{ background: "rgba(30, 15, 15, 0.9)", borderColor: "#ef4444", border: "1px solid #ef4444", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="icon" style={{ fontSize: 18 }}>🚫</span>
+            <span className="text" style={{ color: "#fca5a5", fontSize: 12, fontWeight: 600 }}>
+              CHƯA THỂ MỞ RỘNG: CẦN XÂY LIỀN KỀ, HOẶC DÙNG BẾN TÀU ĐỂ DỰNG ĐIỂM ĐỔ BỘ Ở VEN BIỂN
+            </span>
+          </div>
+        );
+      }
       return (
         <>
           <button type="button" className="rt-main-action-btn build" onClick={() => runAndClose(() => onKhaiHoang(id))}>
-            <PickaxeIcon /> <span className="text-gold-serif">XÂY THÀNH</span>
+            <PickaxeIcon /> <span className="text-gold-serif">DỰNG PHÁO ĐÀI</span>
           </button>
           <div className="rt-cost-card">
-            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ XÂY THÀNH</span><span className="line" /></div>
+            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ DỰNG PHÁO ĐÀI</span><span className="line" /></div>
             <div className="rt-cost-chips-grid">
               <div className="rt-cost-chip-item"><CoinIcon /> <b>{buildCost.gold}</b></div>
               <div className="rt-cost-chip-item"><WoodIcon /> <b>{buildCost.wood}</b></div>
@@ -563,7 +715,7 @@ export function TerritoryTooltip({
               <div className="rt-cost-chip-item"><FoodIcon /> <b>{buildCost.food}</b></div>
             </div>
           </div>
-          <div className="rt-note-info"><span className="info-icon">ⓘ</span> Xây xong sẽ lập thành trì mới.</div>
+          <div className="rt-note-info"><span className="info-icon">ⓘ</span> Pháo đài nối bằng đường bộ hoặc Hải Lộ từ một Bến tàu của bạn.</div>
         </>
       );
     }
@@ -577,13 +729,44 @@ export function TerritoryTooltip({
     return null;
   };
 
+  const territoryFlagColor = territory?.ownerFlagColor || engineState.regionOwnerFlagColors?.[id] || (effectiveOwnership === 1 ? (engineState.newbieFlagColor || "#2563eb") : undefined);
+
   const tooltipElement = (
-    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none" }}>
+    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none", overflow: "visible" }}>
+      {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
+      <div
+        className={`rt-tooltip-arrow-pointer ${positionClass}`}
+        style={{ top: `${arrowOffsetY}px` }}
+        aria-hidden="true"
+      >
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff08a" />
+              <stop offset="50%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+          </defs>
+          <circle cx="22" cy="22" r="18" fill="rgba(251, 191, 36, 0.3)" stroke="#fbbf24" strokeWidth="2" className="pulse-halo" />
+          {positionClass === "pointer-left" ? (
+            <path d="M30 10 L10 22 L30 34 L23 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
+          ) : (
+            <path d="M14 10 L34 22 L14 34 L21 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
+          )}
+        </svg>
+      </div>
       <div className="rt-tooltip-card" style={{ pointerEvents: "auto" }}>
         {/* Header */}
         <div className="rt-tooltip-header">
           <div className="rt-header-top-row">
-            <BannerFlagIcon />
+            <BannerFlagIcon color={territoryFlagColor} />
             <div className="rt-header-info">
               <div className="rt-header-title-bar">
                 <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id + 1}` : `LÃNH THỔ #${id + 1}`}</div>
@@ -632,15 +815,45 @@ export function TerritoryTooltip({
                 <span className="label"><EarthLandIcon /> Loại đất:</span>
                 <span className="val">{isIslet ? "Đảo nhỏ" : "Lục địa lớn"}</span>
               </div>
+              <div className="rt-stat-item">
+                <span className="label"><StatusShieldIcon /> Chủ quyền:</span>
+                <span className="val">{ownerName}</span>
+              </div>
               {effectiveOwnership === 0 && (
                 <>
+                  {distanceKm !== null && (
+                    <div className="rt-stat-item">
+                      <span className="label"><MapPinIcon /> Từ thành gần nhất:</span>
+                      <span className="val">{distanceKm} km</span>
+                    </div>
+                  )}
                   <div className="rt-stat-item">
-                    <span className="label"><MapPinIcon /> Khoảng cách:</span>
-                    <span className="val">{distanceKm} km</span>
+                    <span className="label"><HourglassIcon /> Thời gian xây:</span>
+                    <span className="val highlighted">{formatTime(dur)}</span>
+                  </div>
+                </>
+              )}
+              {town && (
+                <>
+                  <div className="rt-stat-item">
+                    <span className="label"><CastleIcon /> Công trình:</span>
+                    <span className="val">{settlementKindLabel} cấp {town.level ?? 1}</span>
                   </div>
                   <div className="rt-stat-item">
-                    <span className="label"><HourglassIcon /> Thời gian chiếm:</span>
-                    <span className="val highlighted">{marchMinutes} phút ({dur}s game)</span>
+                    <span className="label"><SwordsIcon /> Quân đồn trú:</span>
+                    <span className="val">{Math.floor((town.troops || 0) + (town.reservedTroops || 0)).toLocaleString("vi-VN")} / {Math.floor(town.troopCapacity || town.maxTroops || 0).toLocaleString("vi-VN")}</span>
+                  </div>
+                  <div className="rt-stat-item">
+                    <span className="label"><ShieldIcon /> Bổ sung quân:</span>
+                    <span className="val highlighted">{town.trainingSpecialty === "cavalry" ? "Kị binh" : town.trainingSpecialty === "artillery" ? "Pháo binh" : "Bộ binh"}{town.troopRecoveryBlockedReason ? ` · ${town.troopRecoveryBlockedReason === "full" ? "đã đầy" : town.troopRecoveryBlockedReason === "resources" ? "thiếu tài nguyên" : town.troopRecoveryBlockedReason === "battle" ? "đang giao tranh" : "bị cô lập"}` : ""}</span>
+                  </div>
+                  <div className="rt-stat-item">
+                    <span className="label"><StatusShieldIcon /> Dân số:</span>
+                    <span className="val">{Math.floor(town.population || 0).toLocaleString("vi-VN")} / {Math.floor(town.populationCapacity || 0).toLocaleString("vi-VN")}</span>
+                  </div>
+                  <div className="rt-stat-item">
+                    <span className="label"><CoinIcon /> Kho lãnh thổ:</span>
+                    <span className="val">{Math.floor(storage).toLocaleString("vi-VN")} / {Math.floor(storageCapacity).toLocaleString("vi-VN")}</span>
                   </div>
                 </>
               )}
