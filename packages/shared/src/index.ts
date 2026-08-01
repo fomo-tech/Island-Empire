@@ -1,6 +1,7 @@
-export type ResourceKey = "gold" | "wood" | "stone" | "food" | "iron" | "coal" | "sulfur" | "gems";
+export type ResourceKey = "gold" | "wood" | "stone" | "food" | "gems";
+export type LegacyResourceKey = "iron" | "coal" | "sulfur";
 
-export type ResourceBag = Record<ResourceKey, number>;
+export type ResourceBag = Record<ResourceKey, number> & Partial<Record<LegacyResourceKey, number>>;
 
 export type GameConfig = {
   maxBattleDuration: number;
@@ -188,6 +189,7 @@ export type NationStatusSnapshot = {
   towns: NationTownStatus[];
   alerts: NationStatusAlert[];
   serverTime: string;
+  avatarId?: string;
 };
 
 export type ArmyStateSnapshot = {
@@ -348,10 +350,13 @@ export type TerritoryInfo = {
   yieldWood: number;         // wood per second when owned
   yieldStone: number;        // stone per second when owned
   yieldFood: number;         // food per second when owned
-  yieldIron: number;         // iron per second when owned
-  yieldCoal: number;         // coal per second when owned
-  yieldSulfur: number;       // sulfur per second when owned
+  yieldIron?: number;        // legacy save compatibility
+  yieldCoal?: number;        // legacy save compatibility
+  yieldSulfur?: number;      // legacy save compatibility
   yieldGems: number;         // gems per second when owned
+  resourceQuality?: number;
+  hasGemMine?: boolean;
+  renderColor?: string;
   primaryResource: string;   // dominant resource label
   specialResources?: string[]; // strategic unlocks: horse pasture, harbor, etc.
   trainingSpecialty?: "infantry" | "cavalry" | "artillery";

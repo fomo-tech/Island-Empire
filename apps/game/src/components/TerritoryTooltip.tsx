@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ActiveBattle, ActiveClearing, TerritoryInfo, TownSnapshot } from "@island/shared";
+import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
+import { SPECIAL_RESOURCE_META, SpecialResourceIcon, getSpecialResourceMeta } from "./SpecialResourceDisplay";
 
 // --- 100% PREMIUM HIGH DEFINITION VECTOR SVGS (NO RAW EMOJIS) ---
 function SwordsIcon() {
@@ -325,14 +327,7 @@ function cleanSpecialResourceName(name: string): string {
 }
 
 function getSpecialResourceIcon(rawName: string) {
-  const clean = cleanSpecialResourceName(rawName).toLowerCase();
-  if (clean.includes("ngựa") || clean.includes("bãi ngựa")) return <HorseIcon />;
-  if (clean.includes("vàng") || clean.includes("mạch vàng")) return <GoldVeinIcon />;
-  if (clean.includes("sắt") || clean.includes("mỏ sắt")) return <IronMineIcon />;
-  if (clean.includes("đá") || clean.includes("mỏ đá")) return <StoneQuarryIcon />;
-  if (clean.includes("than") || clean.includes("vỉa than")) return <CoalSeamIcon />;
-  if (clean.includes("ngọc") || clean.includes("mỏ ngọc")) return <GemIcon />;
-  return <SpecialStarIcon />;
+  return <SpecialResourceIcon name={rawName} className="rt-special-png-icon" />;
 }
 
 export function TerritoryTooltip({
@@ -351,6 +346,7 @@ export function TerritoryTooltip({
   onReinforce
 }: TerritoryTooltipProps) {
   const [showGuide, setShowGuide] = useState(false);
+  const [selectedYield, setSelectedYield] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -421,31 +417,34 @@ export function TerritoryTooltip({
   const bColor = ["#689f38", "#ddaa55", "#ccd7db", "#5a6065", "#4db6ac", "#cf7a57", "#2e7d32", "#809e52"][biome] || "#4db6ac";
   const bDesc = biomeDescriptions[biome] || "Vùng đất hoang dã chưa được khai phá.";
 
-  const clientYield = engine.territoryYield ? engine.territoryYield(id) : { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 };
+  const clientYield = engine.territoryYield ? engine.territoryYield(id) : { gold: 0, wood: 0, stone: 0, food: 0, gems: 0 };
   const y = territory ? {
     gold: territory.yieldGold * 2.5,
     wood: territory.yieldWood * 2.5,
     stone: territory.yieldStone * 2.5,
     food: territory.yieldFood * 2.5,
-    iron: territory.yieldIron * 2.5,
-    coal: territory.yieldCoal * 2.5,
-    sulfur: territory.yieldSulfur * 2.5,
     gems: territory.yieldGems * 2.5,
   } : clientYield;
   const dur = territory?.clearingSeconds ?? (engine.clearingDuration ? engine.clearingDuration(id) : 45);
   const buildCost = engine.territoryBuildCost ? engine.territoryBuildCost(id) : { gold: 0, wood: 0, stone: 0, food: 0 };
 
   const formatYield = (value: number) => value >= 1 ? value.toFixed(1) : value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
-  const resourceRows = [
-    { key: "wood", label: "Gỗ", value: y.wood, className: "wood", icon: <WoodIcon /> },
-    { key: "stone", label: "Đá", value: y.stone, className: "stone", icon: <StoneIcon /> },
-    { key: "food", label: "Lương", value: y.food, className: "food", icon: <FoodIcon /> },
-    { key: "iron", label: "Sắt", value: y.iron, className: "iron", icon: <IronIcon /> },
-    { key: "coal", label: "Than", value: y.coal, className: "coal", icon: <CoalIcon /> },
-    { key: "gold", label: "Vàng", value: y.gold, className: "gold", icon: <CoinIcon /> },
-    { key: "sulfur", label: "Lưu huỳnh", value: y.sulfur, className: "sulfur", icon: <SulfurIcon /> },
-    { key: "gems", label: "Đá quý", value: y.gems, className: "gems", icon: <GemIcon /> },
-  ];
+  const formatRate = (value: number) => {
+    const safe = Math.max(0, value || 0);
+    if (safe >= 1_000_000) return `${(safe / 1_000_000).toFixed(1)}M`;
+    if (safe >= 1_000) return `${(safe / 1_000).toFixed(safe >= 100_000 ? 0 : 1)}K`;
+    if (safe >= 10) return Math.round(safe).toLocaleString("vi-VN");
+    return safe.toFixed(safe >= 1 ? 1 : 2).replace(/0+$/, "").replace(/\.$/, "");
+  };
+  const resourceRows = (["food", "wood", "stone", "gold", "gems"] as const).map((key) => ({
+    key,
+    label: RESOURCE_META[key].label,
+    value: y[key],
+    hourly: y[key] * 3600,
+    daily: y[key] * 86400,
+    className: key,
+    icon: <ResourceIcon resource={key} />,
+  })).filter((row) => row.value > 0.00001);
 
   const localTowns = ownedTowns.length > 0
     ? ownedTowns
@@ -795,17 +794,25 @@ export function TerritoryTooltip({
 
         {showGuide ? (
           <div className="rt-guide-content-box">
-            <div className="rt-guide-section-title">GIAI THÍCH BIỂU TƯỢNG TÀI NGUYÊN:</div>
+            <div className="rt-guide-section-title">SỔ TAY QUÂN NHU</div>
             <div className="rt-guide-legend-grid">
-              <div className="rt-guide-legend-cell"><CoinIcon /> <span className="res-name">Vàng:</span> <span className="res-use">Mộ binh</span></div>
-              <div className="rt-guide-legend-cell"><WoodIcon /> <span className="res-name">Gỗ:</span> <span className="res-use">Xây nhà</span></div>
-              <div className="rt-guide-legend-cell"><StoneIcon /> <span className="res-name">Đá:</span> <span className="res-use">Tháp canh</span></div>
-              <div className="rt-guide-legend-cell"><FoodIcon /> <span className="res-name">Lương:</span> <span className="res-use">Nuôi quân</span></div>
-              <div className="rt-guide-legend-cell"><IronIcon /> <span className="res-name">Sắt:</span> <span className="res-use">Vũ khí</span></div>
-              <div className="rt-guide-legend-cell"><CoalIcon /> <span className="res-name">Than:</span> <span className="res-use">Nhiên liệu</span></div>
-              <div className="rt-guide-legend-cell"><SulfurIcon /> <span className="res-name">Lưu huỳnh:</span> <span className="res-use">Hỏa dược</span></div>
-              <div className="rt-guide-legend-cell"><GemIcon /> <span className="res-name">Đá quý:</span> <span className="res-use">Giao thương</span></div>
+              {(["food", "wood", "stone", "gold", "gems"] as const).map((key) => (
+                <div className="rt-guide-legend-cell" key={key}>
+                  <ResourceIcon resource={key} />
+                  <span className="rt-guide-copy"><span className="res-name">{RESOURCE_META[key].label}</span><span className="res-use">{RESOURCE_META[key].purpose}</span></span>
+                </div>
+              ))}
             </div>
+            <div className="rt-guide-section-title rt-guide-subtitle">ĐẶC ĐIỂM CHIẾN LƯỢC</div>
+            <div className="rt-guide-special-grid">
+              {Object.values(SPECIAL_RESOURCE_META).map((meta) => (
+                <div className={`rt-guide-special-item tone-${meta.tone}`} key={meta.label}>
+                  <img src={meta.icon} alt="" aria-hidden="true" />
+                  <span><strong>{meta.label}</strong><small>{meta.guide}</small></span>
+                </div>
+              ))}
+            </div>
+            <p className="rt-guide-note">Chất lượng đất quyết định sản lượng. Kho đầy sẽ ngừng nhận tài nguyên thường; Ngọc không bị chiếm theo kho lãnh thổ.</p>
           </div>
         ) : (
           <>
@@ -861,20 +868,30 @@ export function TerritoryTooltip({
                 <span className="label"><StatusShieldIcon /> Trạng thái:</span>
                 <span className={`val ${statusClass}`}>{statusText}</span>
               </div>
+              <div className="rt-stat-item">
+                <span className="label"><CoinIcon /> Chất lượng đất:</span>
+                <span className="val">{Math.round(Number(territory?.resourceQuality || 100))}%</span>
+              </div>
             </div>
 
-            {/* Resources per Second Header */}
+            {/* Compact server-authoritative yield ledger */}
             <div className="rt-section-divider margin-top">
-              <span className="diamond">◇</span><span className="line" /><span className="title">TÀI NGUYÊN / GIÂY</span><span className="line" /><span className="diamond">◇</span>
+              <span className="diamond">◇</span><span className="line" /><span className="title">SẢN LƯỢNG LÃNH THỔ</span><span className="line" /><span className="diamond">◇</span>
             </div>
 
-            {/* 8 Resources Grid */}
-            <div className="rt-yield-4col-grid">
+            {/* Server-authoritative territory yields */}
+            <div className="rt-yield-ledger">
               {resourceRows.map((row) => (
-                <div key={row.key} className={`rt-yield-4col-pill ${row.className}`} title={`${row.label}: +${formatYield(row.value)}/s`}>
-                  {row.icon}
-                  <span className="rate">+{formatYield(row.value)}/s</span>
-                </div>
+                <button type="button" key={row.key} className={`rt-yield-ledger-item ${row.className}${selectedYield === row.key ? " is-open" : ""}`} onClick={() => setSelectedYield((current) => current === row.key ? null : row.key)} aria-expanded={selectedYield === row.key}>
+                  <span className="rt-yield-main">{row.icon}<span className="name">{row.label}</span></span>
+                  <span className="rate">+{formatRate(row.hourly)}/giờ</span>
+                  <span className="rt-yield-popover">
+                    <strong>{row.label}</strong>
+                    <span><b>Trong giờ</b><em>+{formatRate(row.hourly)}</em></span>
+                    <span><b>Trong ngày</b><em>+{formatRate(row.daily)}</em></span>
+                    <small>{RESOURCE_META[row.key].purpose}</small>
+                  </span>
+                </button>
               ))}
             </div>
 
@@ -882,15 +899,16 @@ export function TerritoryTooltip({
             {specialResources.length > 0 && (
               <>
                 <div className="rt-section-divider margin-top">
-                  <span className="diamond">◇</span><span className="line" /><span className="title">ĐẶC BIỆT</span><span className="line" /><span className="diamond">◇</span>
+                  <span className="diamond">◇</span><span className="line" /><span className="title">ĐẶC ĐIỂM CHIẾN LƯỢC</span><span className="line" /><span className="diamond">◇</span>
                 </div>
                 <div className="rt-special-list-container">
                   {specialResources.map((item: string, idx: number) => {
-                    const cleanedName = cleanSpecialResourceName(item);
+                    const meta = getSpecialResourceMeta(item);
+                    const cleanedName = meta?.label || cleanSpecialResourceName(item);
                     return (
-                      <div key={idx} className="rt-special-list-item">
+                      <div key={idx} className={`rt-special-list-item${meta ? ` tone-${meta.tone}` : ""}`} title={meta?.guide || cleanedName}>
                         {getSpecialResourceIcon(item)}
-                        <span className="item-name">{cleanedName}</span>
+                        <span className="rt-special-copy"><span className="item-name">{cleanedName}</span>{meta && <small>{meta.effect}</small>}</span>
                       </div>
                     );
                   })}

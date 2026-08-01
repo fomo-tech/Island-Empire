@@ -1172,25 +1172,20 @@ export function createIslandEmpireGame(
     const y = BIOME_YIELDS[r?.biome ?? 0] || BIOME_YIELDS[0];
     const areaFactor = territoryAreaFactor(r);
     const isIslet = Boolean(r?.isIslet);
+    const quality = 0.8 + hash((regionId + 1) * 51.715) * 0.4;
+    const hasGemMine = territorySpecialResources(regionId).includes("Mỏ Ngọc");
     const mult = {
-      gold: isIslet ? 1.25 : 1,
+      gold: isIslet ? 1.15 : 1,
       wood: isIslet ? 0.3 : 1,
       stone: isIslet ? 0.5 : 1,
       food: isIslet ? 0.45 : 1,
-      iron: isIslet ? 0.55 : 1,
-      coal: isIslet ? 0.35 : 1,
-      sulfur: isIslet ? 1.25 : 1,
-      gems: isIslet ? 2.8 : 1,
     };
     return {
-      gold: y.gold * areaFactor * mult.gold,
-      wood: y.wood * areaFactor * mult.wood,
-      stone: y.stone * areaFactor * mult.stone,
-      food: y.food * areaFactor * mult.food,
-      iron: y.iron * areaFactor * mult.iron,
-      coal: y.coal * areaFactor * mult.coal,
-      sulfur: y.sulfur * areaFactor * mult.sulfur,
-      gems: y.gems * areaFactor * mult.gems,
+      gold: y.gold * areaFactor * mult.gold * quality,
+      wood: y.wood * areaFactor * mult.wood * quality,
+      stone: y.stone * areaFactor * mult.stone * quality,
+      food: y.food * areaFactor * mult.food * quality,
+      gems: hasGemMine ? Math.max(0.004, y.gems * areaFactor * quality) : 0,
     };
   }
 
@@ -1474,18 +1469,16 @@ export function createIslandEmpireGame(
 
   function territoryBuildCost(regionId: number) {
     const r = landById(regionId);
-    if (!r) return { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, gems: 0 };
+    if (!r) return { gold: 0, wood: 0, stone: 0, food: 0 };
     const rx = r.rx || r.r || 100;
     const ry = r.ry || (r.r || 100) * 0.78;
     const areaFactor = Math.max(0.85, (rx * ry) / 10000);
     const y = territoryYield(regionId);
     return {
-      gold: Math.round(180 + areaFactor * 32 + y.gold * 92 + y.gems * 70),
+      gold: Math.round(180 + areaFactor * 32 + y.gold * 92),
       wood: Math.round(130 + areaFactor * 28 + y.wood * 66),
-      stone: Math.round(125 + areaFactor * 34 + y.stone * 76 + y.iron * 28),
+      stone: Math.round(125 + areaFactor * 34 + y.stone * 82),
       food: Math.round(80 + areaFactor * 18 + y.food * 42),
-      iron: Math.round(20 + y.iron * 95 + y.sulfur * 30),
-      gems: Math.round(Math.max(0, y.gems - 0.28) * 22),
     };
   }
 
@@ -1495,8 +1488,6 @@ export function createIslandEmpireGame(
       wood: "GỖ",
       stone: "ĐÁ",
       food: "LƯƠNG",
-      iron: "SẮT",
-      sulfur: "LƯU HUỲNH",
       gems: "KIM CƯƠNG",
     };
     return Object.entries(cost)
@@ -1511,55 +1502,17 @@ export function createIslandEmpireGame(
   function territorySpecialResources(regionId: number) {
     const r = landById(regionId);
     if (!r) return [];
-    const area = (r.rx || r.r || 100) * (r.ry || (r.r || 100) * 0.78);
     const specials: string[] = [];
-
-    // Horse Pasture ("Bãi ngựa") - abundant (~40% of territories)
-    if (
-      r.biome === 0 ||
-      r.biome === 1 ||
-      r.biome === 5 ||
-      r.biome === 6 ||
-      regionId % 3 !== 0
-    ) {
-      if (area >= 6500) specials.push("Bãi ngựa");
-    }
-
-    // Siege Workshop ("Xưởng đúc pháo") - abundant (~40% of territories)
-    if (
-      r.biome === 2 ||
-      r.biome === 3 ||
-      r.biome === 4 ||
-      r.biome === 6 ||
-      r.biome === 7 ||
-      regionId % 2 === 1
-    ) {
-      specials.push("Xưởng đúc pháo");
-    }
+    const specialtyRoll = hash((regionId + 1) * 71.731);
+    if (specialtyRoll < 0.12) specials.push("Bãi ngựa");
+    else if (specialtyRoll < 0.23) specials.push("Xưởng rèn");
 
     // Natural Harbor ("Bến tàu tự nhiên") - chỉ xuất hiện ở vùng ven biển
     if (r.isIslet || r.coastal || mainlandCoastalRegionIds.has(r.id)) {
       specials.push("Bến tàu tự nhiên");
     }
 
-    if (
-      (r.biome === 2 || r.biome === 3 || r.biome === 4 || r.biome === 6) &&
-      regionId % 2 === 0
-    )
-      specials.push("Mỏ sắt");
-    if (
-      (r.biome === 1 || r.biome === 2 || r.biome === 3 || r.biome === 6) &&
-      area >= 14000
-    )
-      specials.push("Mỏ đá");
-    if ((r.biome === 1 || r.biome === 5 || r.biome === 3) && regionId % 3 === 1)
-      specials.push("Mạch vàng");
-    if ((r.biome === 1 || r.biome === 4 || r.isIslet) && regionId % 4 === 2)
-      specials.push("Mỏ đá quý");
-    if ((r.biome === 2 || r.biome === 3 || r.biome === 7) && regionId % 3 === 0)
-      specials.push("Vỉa than");
-    if (r.biome === 3 || (r.biome === 7 && regionId % 4 === 0))
-      specials.push("Mỏ lưu huỳnh");
+    if (hash((regionId + 1) * 691.13) < 0.007) specials.push("Mỏ Ngọc");
 
     return Array.from(new Set(specials));
   }
@@ -3764,6 +3717,14 @@ export function createIslandEmpireGame(
     const biomeId = visualBiomeIndex(r, idx, isIslet);
     const biome = BIOMES[biomeId] || BIOMES[0];
     const seed = r.seed || idx + 1;
+    const colorRoll = hash(seed * 73.17 + idx * 11.9);
+    const territoryColor = colorRoll < 0.25
+      ? (biome.b || biome.a)
+      : colorRoll > 0.78
+        ? getLighterColor(biome.a, 1.08 + hash(seed * 19.3) * 0.12)
+        : colorRoll > 0.56
+          ? getDarkerColor(biome.a, 0.82 + hash(seed * 7.1) * 0.12)
+          : biome.a;
     const scale = isIslet ? 0.82 : 0.995;
 
     // Use the exact same baseRx/baseRy as getSharedRegionPolygon for perfect coastal alignment
@@ -4017,14 +3978,14 @@ export function createIslandEmpireGame(
         centerY,
         gradRadius,
       );
-      topoGrad.addColorStop(0, biome.hi || getLighterColor(biome.a, 1.25)); // Sunlit peak / highland center
-      topoGrad.addColorStop(0.55, biome.a); // Natural mid-slope
-      topoGrad.addColorStop(1, biome.dark || getDarkerColor(biome.a, 0.72)); // Lowland valley / edge basin
+      topoGrad.addColorStop(0, getLighterColor(territoryColor, 1.22));
+      topoGrad.addColorStop(0.55, territoryColor);
+      topoGrad.addColorStop(1, getDarkerColor(territoryColor, 0.72));
       fillSmoothPath(landInflated, topoGrad);
     } else {
-      fillSmoothPath(landInflated, biome.a);
+      fillSmoothPath(landInflated, territoryColor);
     }
-    strokeSmoothPath(landInflated, biome.a, 4.2); // Wide seam-filler stroke to close all gaps between organic edges
+    strokeSmoothPath(landInflated, territoryColor, 4.2); // Wide seam-filler stroke to close all gaps between organic edges
 
     if (!fastRenderMode && !isConquestLayout)
       drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
@@ -11685,6 +11646,13 @@ export function createIslandEmpireGame(
     6: BIOMES[6].a,
     7: BIOMES[7].a,
   };
+  function minimapTerritoryColor(r, isIslet) {
+    const base = BIOME_COLORS[visualBiomeIndex(r, r.id, isIslet)] || "#557a46";
+    const roll = hash((r.seed || r.id + 1) * 73.17 + r.id * 11.9);
+    if (roll < 0.25) return getDarkerColor(base, 0.86);
+    if (roll > 0.76) return getLighterColor(base, 1.12);
+    return base;
+  }
 
   let minimapDragging = false;
   let lastMinimapDrawAt = 0;
@@ -11780,8 +11748,7 @@ export function createIslandEmpireGame(
 
     // Draw all regions (continents)
     regions.forEach((r) => {
-      minimapCtx.fillStyle =
-        BIOME_COLORS[visualBiomeIndex(r, r.id, false)] || "#557a46";
+      minimapCtx.fillStyle = minimapTerritoryColor(r, false);
       minimapCtx.beginPath();
       const mx = r.x / 150;
       const my = r.y / 150;
@@ -11793,8 +11760,7 @@ export function createIslandEmpireGame(
 
     // Draw all islets
     islets.forEach((r) => {
-      minimapCtx.fillStyle =
-        BIOME_COLORS[visualBiomeIndex(r, r.id, true)] || "#557a46";
+      minimapCtx.fillStyle = minimapTerritoryColor(r, true);
       minimapCtx.beginPath();
       const mx = r.x / 150;
       const my = r.y / 150;

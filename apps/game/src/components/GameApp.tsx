@@ -31,6 +31,7 @@ import {
   type GameLanguage,
 } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
+import { MedievalModal } from "./MedievalModal";
 import { TerritoryTooltip } from "./TerritoryTooltip";
 import { NewbieOnboardingModal } from "./NewbieOnboardingModal";
 import { KingdomCreationModal } from "./KingdomCreationModal";
@@ -45,6 +46,7 @@ import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
+import { RESOURCE_ORDER, ResourceHudItem } from "./ResourceDisplay";
 import { useGameStore } from "../store/gameStore";
 import type {
   BattleReport,
@@ -1295,6 +1297,21 @@ function useMobileForcedLandscape(): boolean {
   return false;
 }
 
+const LOADING_TIPS = [
+  {
+    vi: "Chiếm nhiều lãnh thổ để nâng giới hạn tài nguyên.",
+    en: "Occupy more territories to raise your resource limits.",
+  },
+  {
+    vi: "Huấn luyện quân tại thành phố để sẵn sàng điều binh xuất trận.",
+    en: "Train troops in your town to prepare for military deployment.",
+  },
+  {
+    vi: "Có thể chiếm nhiều đất ở lục địa khác nếu có Bến tàu.",
+    en: "You can occupy lands on other continents if you own a Port.",
+  },
+];
+
 export function GameApp({
   onOpenConquest,
   conquestMode = false,
@@ -1380,6 +1397,29 @@ export function GameApp({
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [targetProgress, setTargetProgress] = useState<number>(20);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+
+  const [currentTipIndex, setCurrentTipIndex] = useState(() =>
+    Math.floor(Math.random() * LOADING_TIPS.length),
+  );
+  const [isTipFading, setIsTipFading] = useState(false);
+
+  // Rotate loading screen tips every 3.5 seconds with a smooth fade animation
+  useEffect(() => {
+    if (gameReady || !isAuthenticated) return;
+    let fadeTimeout: number;
+    const interval = setInterval(() => {
+      setIsTipFading(true);
+      fadeTimeout = window.setTimeout(() => {
+        setCurrentTipIndex((prev) => (prev + 1) % LOADING_TIPS.length);
+        setIsTipFading(false);
+      }, 400); // matches the 0.4s transition duration
+    }, 3500);
+
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout) window.clearTimeout(fadeTimeout);
+    };
+  }, [gameReady, isAuthenticated]);
 
   // Smoothly interpolate loadingProgress towards targetProgress
   useEffect(() => {
@@ -1495,7 +1535,7 @@ export function GameApp({
         (Date.now() - economy.updatedAt) / 1000,
       );
       const next = { ...economy.resources };
-      (Object.keys(next) as Array<keyof ResourceBag>).forEach((key) => {
+      RESOURCE_ORDER.forEach((key) => {
         const capacity = Math.max(0, economy.capacity[key] || 0);
         const estimated =
           economy.resources[key] +
@@ -1571,6 +1611,13 @@ export function GameApp({
     document.documentElement.lang = language;
     document.title = t("appName");
   }, [language, t]);
+
+  useEffect(() => {
+    if (nationStatus?.avatarId) {
+      setSelectedAvatarId(nationStatus.avatarId);
+    }
+  }, [nationStatus?.avatarId]);
+
   const [deployTarget, setDeployTarget] = useState<{
     targetRegionId: number;
     isAttack: boolean;
@@ -3267,11 +3314,9 @@ export function GameApp({
     }
     setChatInput("");
   };
-
   if (!isAuthenticated && !token) {
     return <LoginScreen onSuccess={handleLoginSuccess} />;
   }
-
   const localOwnedTowns = engineRef.current?.getPlayerOwnedTowns?.() || [];
   const selectedTownForModal = selectedTown
     ? mergeTownWithServer(selectedTown)
@@ -3677,7 +3722,9 @@ export function GameApp({
           <div className="game-loading-bottom-dock">
             <div className="game-loading-tip-line">
               <span className="tip-tag">{t("loadingTipLabel")}</span>{" "}
-              {t("loadingTip")}
+              <span className={`tip-content-text ${isTipFading ? "fade-out" : "fade-in"}`}>
+                {LOADING_TIPS[currentTipIndex][language === "vi" ? "vi" : "en"]}
+              </span>
             </div>
 
             <div className="game-loading-bar-wrapper">
@@ -3915,238 +3962,22 @@ export function GameApp({
               className="rok-top-right-group"
             >
               {/* Row 1: Floating Resources Belt */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                  background: "transparent",
-                  padding: 0,
-                }}
-                className="rok-resources-belt"
-              >
-                <div
-                  className="hud-res-item res-food rok-res-pill"
-                  title={`${t("food")}: ${formatResourceVal(resources.food || 0)}`}
-                >
-                  <span className="hud-res-icon">
-                    <img
-                      src="/assets/icons/resource_food_european.png"
-                      alt="Food"
-                    />
-                  </span>
-                  <span className="hud-res-copy">
-                    <strong>{formatResourceVal(resources.food || 0)}</strong>
-                  </span>
-                </div>
-                <div
-                  className="hud-res-item res-wood rok-res-pill"
-                  title={`${t("wood")}: ${formatResourceVal(resources.wood || 0)}`}
-                >
-                  <span className="hud-res-icon">
-                    <img
-                      src="/assets/icons/resource_wood_european.png"
-                      alt="Wood"
-                    />
-                  </span>
-                  <span className="hud-res-copy">
-                    <strong>{formatResourceVal(resources.wood || 0)}</strong>
-                  </span>
-                </div>
-                <div
-                  className="hud-res-item res-stone rok-res-pill"
-                  title={`${t("stone")}: ${formatResourceVal(resources.stone || 0)}`}
-                >
-                  <span className="hud-res-icon">
-                    <img
-                      src="/assets/icons/resource_stone_european.png"
-                      alt="Stone"
-                    />
-                  </span>
-                  <span className="hud-res-copy">
-                    <strong>{formatResourceVal(resources.stone || 0)}</strong>
-                  </span>
-                </div>
-                <div
-                  className="hud-res-item res-iron rok-res-pill"
-                  title={`${t("iron")}: ${formatResourceVal(resources.iron || 0)}`}
-                >
-                  <span className="hud-res-icon">
-                    <img
-                      src="/assets/icons/resource_iron_european.png"
-                      alt="Iron"
-                    />
-                  </span>
-                  <span className="hud-res-copy">
-                    <strong>{formatResourceVal(resources.iron || 0)}</strong>
-                  </span>
-                </div>
-                <div
-                  className="hud-res-item res-gold rok-res-pill"
-                  title={`${t("gold")}: ${formatResourceVal(resources.gold || 0)}`}
-                >
-                  <span className="hud-res-icon">
-                    <img
-                      src="/assets/icons/resource_gold_european.png"
-                      alt="Gold"
-                    />
-                  </span>
-                  <span className="hud-res-copy">
-                    <strong>{formatResourceVal(resources.gold || 0)}</strong>
-                  </span>
-                </div>
-                <div
-                  className="hud-res-item res-gems rok-res-pill rok-gem-pill rok-premium-pill"
-                  title={t("gems")}
-                >
-                  <span className="hud-res-icon">
-                    <img src="/assets/icons/icon_red_gem.png" alt="Gems" />
-                  </span>
-                  <span className="hud-res-copy premium">
-                    <strong>{formatResourceVal(resources.gems || 0)}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    className="hud-res-add-btn rok-add-btn"
-                    onClick={() => openModal("shop")}
-                  >
-                    +
-                  </button>
-                </div>
+              <div className="rok-resources-belt hud-resource-belt-complete">
+                {RESOURCE_ORDER.map((resource) => (
+                  <ResourceHudItem
+                    key={resource}
+                    resource={resource}
+                    value={resources[resource] || 0}
+                    capacity={resourceCapacity(resource)}
+                    ratePerHour={resourceRatePerHour(resource)}
+                    connected={Boolean(serverHud.lastSync || nationStatus)}
+                    onAdd={resource === "gems" ? () => openModal("shop") : undefined}
+                  />
+                ))}
               </div>
 
-              {/* Row 2: Floating Quick Action Badges (Rise of Kingdoms Sub-Header Badges) */}
-              <div className="rok-event-badges-row">
-                {/* 1. Sự kiện (Events) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("treasure")}
-                  title="Sự kiện đặc biệt"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-event">
-                    <img
-                      src="/assets/icons/icon_event.png"
-                      alt="Sự kiện"
-                      className="rok-badge-img"
-                    />
-                  </div>
-                  <span className="rok-badge-subtext">Sự kiện</span>
-                </div>
-
-                {/* 2. Quân đội (Army / Military) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("army")}
-                  title="Quản lý quân đội"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-army">
-                    <img
-                      src="/assets/icons/icon_military.png"
-                      alt="Quân đội"
-                      className="rok-badge-img"
-                    />
-                  </div>
-                  <span className="rok-badge-subtext">Quân đội</span>
-                </div>
-
-                {/* 3. Chiến báo (Battle Reports) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("warReport")}
-                  title="Chiến báo & Quân sự"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-war">
-                    <img
-                      src="/assets/icons/icon_report.png"
-                      alt="Chiến báo"
-                      className="rok-badge-img"
-                    />
-                    {reportUnreadCount > 0 ? (
-                      <b className="rok-badge-notif">
-                        {Math.min(99, reportUnreadCount)}
-                      </b>
-                    ) : (
-                      <b className="rok-badge-notif">7</b>
-                    )}
-                  </div>
-                  <span className="rok-badge-subtext">Chiến báo</span>
-                </div>
-
-                {/* 4. Thư tín (Mail) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("mail")}
-                  title="Thư tín"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-mail">
-                    <img
-                      src="/assets/icons/icon_mail.png"
-                      alt="Mail"
-                      className="rok-badge-img"
-                    />
-                    {unreadMailCount > 0 ? (
-                      <b className="rok-badge-notif">
-                        {Math.min(99, unreadMailCount)}
-                      </b>
-                    ) : (
-                      <b className="rok-badge-notif">5</b>
-                    )}
-                  </div>
-                  <span className="rok-badge-subtext">Thư tín</span>
-                </div>
-
-                {/* 5. Cửa hàng (Shop / Offers) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("shop")}
-                  title="Cửa hàng & Gói ưu đãi"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-shop">
-                    <img
-                      src="/assets/icons/icon_shop.png"
-                      alt="Cửa hàng"
-                      className="rok-badge-img"
-                    />
-                    <b className="rok-badge-notif">3</b>
-                  </div>
-                  <span className="rok-badge-subtext">Cửa hàng</span>
-                </div>
-
-                {/* 6. Bảng xếp hạng (Ranking) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("ranking")}
-                  title="Bảng xếp hạng vương quốc"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-ranking">
-                    <img
-                      src="/assets/icons/icon_gold_crown.png"
-                      alt="Bảng xếp hạng"
-                      className="rok-badge-img"
-                    />
-                  </div>
-                  <span className="rok-badge-subtext">BXH</span>
-                </div>
-
-                {/* 7. Cài đặt (Settings) */}
-                <div
-                  className="rok-badge-item"
-                  onClick={() => openModal("settings")}
-                  title="Cài đặt hệ thống"
-                >
-                  <div className="rok-badge-icon-wrap rok-badge-settings">
-                    <img
-                      src="/assets/icons/icon_settings_european.png"
-                      alt="Settings"
-                      className="rok-badge-img"
-                    />
-                  </div>
-                  <span className="rok-badge-subtext">Cài đặt</span>
-                </div>
               </div>
             </div>
-          </div>
 
           {/* MAIN HUD BODY */}
           <div className="hud-main">
@@ -4469,6 +4300,136 @@ export function GameApp({
                   </form>
                 </>
               )}
+            </div>
+
+            {/* Bottom-Right Navigation Menu Dock */}
+            <div className="rok-event-badges-row hud-interactive">
+              {/* 1. Sự kiện (Events) */}
+              <div
+                className="rok-badge-item rok-badge-item-event"
+                onClick={() => openModal("treasure")}
+                title="Sự kiện đặc biệt"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-event">
+                  <img
+                    src="/assets/icons/icon_event.png"
+                    alt="Sự kiện"
+                    className="rok-badge-img"
+                  />
+                </div>
+                <span className="rok-badge-subtext">Sự kiện</span>
+              </div>
+
+              {/* 2. Quân đội (Army / Military) */}
+              <div
+                className="rok-badge-item rok-badge-item-army"
+                onClick={() => openModal("army")}
+                title="Quản lý quân đội"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-army">
+                  <img
+                    src="/assets/icons/icon_military.png"
+                    alt="Quân đội"
+                    className="rok-badge-img"
+                  />
+                </div>
+                <span className="rok-badge-subtext">Quân đội</span>
+              </div>
+
+              {/* 3. Chiến báo (Battle Reports) */}
+              <div
+                className="rok-badge-item rok-badge-item-war"
+                onClick={() => openModal("warReport")}
+                title="Chiến báo & Quân sự"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-war">
+                  <img
+                    src="/assets/icons/icon_report.png"
+                    alt="Chiến báo"
+                    className="rok-badge-img"
+                  />
+                  {reportUnreadCount > 0 ? (
+                    <b className="rok-badge-notif">
+                      {Math.min(99, reportUnreadCount)}
+                    </b>
+                  ) : (
+                    <b className="rok-badge-notif">7</b>
+                  )}
+                </div>
+                <span className="rok-badge-subtext">Chiến báo</span>
+              </div>
+
+              {/* 4. Thư tín (Mail) */}
+              <div
+                className="rok-badge-item rok-badge-item-mail"
+                onClick={() => openModal("mail")}
+                title="Thư tín"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-mail">
+                  <img
+                    src="/assets/icons/icon_mail.png"
+                    alt="Mail"
+                    className="rok-badge-img"
+                  />
+                  {unreadMailCount > 0 ? (
+                    <b className="rok-badge-notif">
+                      {Math.min(99, unreadMailCount)}
+                    </b>
+                  ) : (
+                    <b className="rok-badge-notif">5</b>
+                  )}
+                </div>
+                <span className="rok-badge-subtext">Thư tín</span>
+              </div>
+
+              {/* 5. Cửa hàng (Shop / Offers) */}
+              <div
+                className="rok-badge-item rok-badge-item-shop"
+                onClick={() => openModal("shop")}
+                title="Cửa hàng & Gói ưu đãi"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-shop">
+                  <img
+                    src="/assets/icons/icon_shop.png"
+                    alt="Cửa hàng"
+                    className="rok-badge-img"
+                  />
+                  <b className="rok-badge-notif">3</b>
+                </div>
+                <span className="rok-badge-subtext">Cửa hàng</span>
+              </div>
+
+              {/* 6. Bảng xếp hạng (Ranking) */}
+              <div
+                className="rok-badge-item rok-badge-item-ranking"
+                onClick={() => openModal("ranking")}
+                title="Bảng xếp hạng vương quốc"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-ranking">
+                  <img
+                    src="/assets/icons/icon_gold_crown.png"
+                    alt="Bảng xếp hạng"
+                    className="rok-badge-img"
+                  />
+                </div>
+                <span className="rok-badge-subtext">BXH</span>
+              </div>
+
+              {/* 7. Cài đặt (Settings) */}
+              <div
+                className="rok-badge-item rok-badge-item-settings"
+                onClick={() => openModal("settings")}
+                title="Cài đặt hệ thống"
+              >
+                <div className="rok-badge-icon-wrap rok-badge-settings">
+                  <img
+                    src="/assets/icons/icon_settings_european.png"
+                    alt="Settings"
+                    className="rok-badge-img"
+                  />
+                </div>
+                <span className="rok-badge-subtext">Cài đặt</span>
+              </div>
             </div>
           </div>
 
@@ -5496,64 +5457,68 @@ export function GameApp({
 
       {/* ===== AVATAR PICKER MODAL ===== */}
       {showAvatarPicker && (
-        <div
-          className="avatar-picker-overlay"
-          onClick={() => setShowAvatarPicker(false)}
+        <MedievalModal
+          title="CHỌN ĐẠI DIỆN"
+          onClose={() => setShowAvatarPicker(false)}
+          width="440px"
+          maxWidth="95vw"
         >
-          <div
-            className="avatar-picker-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="avatar-picker-header">
-              <span className="avatar-picker-title">⚔️ Chọn Đại Diện</span>
+          <div className="avatar-picker-grid">
+            {[
+              { id: "emperor", label: "Hoàng Đế" },
+              { id: "warlord", label: "Chiến Tướng" },
+              { id: "merchant", label: "Thương Nhân" },
+              { id: "scholar", label: "Học Giả" },
+              { id: "knight", label: "Kị Sĩ" },
+              { id: "queen", label: "Nữ Hoàng" },
+              { id: "pirate", label: "Hải Tặc" },
+              { id: "nomad", label: "Du Mục" },
+              { id: "alchemist", label: "Giả Kim" },
+              { id: "assassin", label: "Sát Thủ" },
+            ].map((av) => (
               <button
-                className="avatar-picker-close"
-                onClick={() => setShowAvatarPicker(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="avatar-picker-grid">
-              {[
-                { id: "emperor", label: "Hoàng Đế" },
-                { id: "warlord", label: "Chiến Tướng" },
-                { id: "merchant", label: "Thương Nhân" },
-                { id: "scholar", label: "Học Giả" },
-                { id: "knight", label: "Kị Sĩ" },
-                { id: "queen", label: "Nữ Hoàng" },
-                { id: "pirate", label: "Hải Tặc" },
-                { id: "nomad", label: "Du Mục" },
-                { id: "alchemist", label: "Giả Kim" },
-                { id: "assassin", label: "Sát Thủ" },
-              ].map((av) => (
-                <button
-                  key={av.id}
-                  className={`avatar-option${selectedAvatarId === av.id ? " active" : ""}`}
-                  onClick={() => {
-                    setSelectedAvatarId(av.id);
+                key={av.id}
+                className={`avatar-option${selectedAvatarId === av.id ? " active" : ""}`}
+                onClick={async () => {
+                  setSelectedAvatarId(av.id);
+                  setShowAvatarPicker(false);
+                  if (token) {
+                    try {
+                      await fetch("/api/player/profile", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "Authorization": `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ avatarId: av.id }),
+                      });
+                      localStorage.setItem("island_empire_avatar", av.id);
+                    } catch (err) {
+                      console.error("Failed to update avatar on backend:", err);
+                    }
+                  } else {
                     localStorage.setItem("island_empire_avatar", av.id);
-                    setShowAvatarPicker(false);
+                  }
+                }}
+                title={av.label}
+              >
+                <img
+                  src={`/assets/avatars/${av.id}.png`}
+                  alt={av.label}
+                  className="avatar-option-img"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "/assets/avatars/emperor.png";
                   }}
-                  title={av.label}
-                >
-                  <img
-                    src={`/assets/avatars/${av.id}.png`}
-                    alt={av.label}
-                    className="avatar-option-img"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "/assets/avatars/emperor.png";
-                    }}
-                  />
-                  <span className="avatar-option-label">{av.label}</span>
-                  {selectedAvatarId === av.id && (
-                    <div className="avatar-option-check">✓</div>
-                  )}
-                </button>
-              ))}
-            </div>
+                />
+                <span className="avatar-option-label">{av.label}</span>
+                {selectedAvatarId === av.id && (
+                  <div className="avatar-option-check">✓</div>
+                )}
+              </button>
+            ))}
           </div>
-        </div>
+        </MedievalModal>
       )}
     </main>
   );

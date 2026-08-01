@@ -65,9 +65,6 @@ function ResourceCost({
     Gỗ: "wood",
     Đá: "stone",
     Lương: "food",
-    Sắt: "iron",
-    Than: "coal",
-    "Lưu huỳnh": "sulfur",
   };
   return (
     <span className={`cost-pill ${enough ? "" : "insufficient"}`}>
@@ -338,18 +335,14 @@ export function TownManagementModal({
   };
   const extraCosts = {
     infantry: { food: config.infantryCostFood || 0 },
-    cavalry: { food: config.cavalryCostFood || 0, iron: config.cavalryCostIron || 0 },
-    artillery: {
-      iron: config.artilleryCostIron || 0,
-      coal: config.artilleryCostCoal || 0,
-      sulfur: config.artilleryCostSulfur || 0,
-    },
+    cavalry: { food: config.cavalryCostFood || 0 },
+    artillery: {},
   };
 
   const population = Math.max(0, Math.floor(town.population || 32));
   const buildings = town.buildings || {};
   const hasHorsePasture = specialResources.includes("Bãi ngựa");
-  const hasSiegeWorkshop = (buildings.siegeWorkshop || 0) > 0 || specialResources.includes("Xưởng đúc pháo") || specialResources.includes("Xưởng pháo");
+  const hasSiegeWorkshop = (buildings.siegeWorkshop || 0) > 0 || specialResources.includes("Xưởng rèn");
   const warehouseLevel = buildings.warehouse || 0;
   const maxDefending = Math.max(10, Math.floor(town.maxTroops ?? population * 10));
   const storageCap = typeof town.storageCapacity === "number"
@@ -369,12 +362,6 @@ export function TownManagementModal({
           ["Gỗ", "wood"],
           ["Đá", "stone"],
           ["Lương", "food"],
-        ],
-        [
-          ["Sắt", "iron"],
-          ["Than", "coal"],
-          ["Lưu huỳnh", "sulfur"],
-          ["Ngọc", "gems"],
         ],
       ].map((row) => row.map(([label, key]) => {
         const resourceKey = key as keyof ResourceBag;
@@ -399,7 +386,7 @@ export function TownManagementModal({
     },
     artillery: {
       title: "PHÁO BINH DÃ CHIẾN",
-      detail: "Xưởng đúc pháo bổ sung pháo binh công thành.",
+      detail: "Xưởng rèn bổ sung pháo binh công thành.",
       art: <EuropeanArtilleryArt color={playerColor} />,
       owned: town.artilleryCount || 0,
     },
@@ -410,8 +397,8 @@ export function TownManagementModal({
   const recoveryCost = town.recoveryCost || (specialty === "infantry"
     ? { gold: config.infantryCostGold, wood: config.infantryCostWood, food: extraCosts.infantry.food }
     : specialty === "cavalry"
-      ? { gold: config.cavalryCostGold, wood: config.cavalryCostWood, stone: config.cavalryCostStone, food: extraCosts.cavalry.food, iron: extraCosts.cavalry.iron }
-      : { gold: config.artilleryCostGold, stone: config.artilleryCostStone, iron: extraCosts.artillery.iron, coal: extraCosts.artillery.coal, sulfur: extraCosts.artillery.sulfur });
+      ? { gold: config.cavalryCostGold, wood: config.cavalryCostWood, food: extraCosts.cavalry.food }
+      : { gold: config.artilleryCostGold, stone: config.artilleryCostStone });
   const secondsLeft = town.nextTroopRecoveryAt
     ? Math.max(0, Math.ceil((new Date(town.nextTroopRecoveryAt).getTime() - Date.now()) / 1000))
     : Math.max(0, town.troopRecoverySeconds || config.troopRecoverySeconds || 600);
@@ -423,9 +410,8 @@ export function TownManagementModal({
     isolated: "PHÁO ĐÀI ĐANG BỊ CÔ LẬP",
   };
   const blockedText = blockedLabels[town.troopRecoveryBlockedReason || ""] || `BỔ SUNG SAU ${recoveryClock}`;
-  const costLabels: Record<keyof ResourceBag, string> = {
-    gold: "Vàng", wood: "Gỗ", stone: "Đá", food: "Lương",
-    iron: "Sắt", coal: "Than", sulfur: "Lưu huỳnh", gems: "Ngọc",
+  const costLabels: Record<string, string> = {
+    gold: "Vàng", wood: "Gỗ", stone: "Đá", food: "Lương", gems: "Ngọc",
   };
 
   return (

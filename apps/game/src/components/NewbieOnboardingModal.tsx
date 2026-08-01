@@ -173,9 +173,9 @@ const STEPS_DATA = [
     badgeBorder: "#0369a1",
     icon: <ResourceStepIcon />,
     title: "QUẢN LÝ THÀNH PHỐ",
-    shortDesc: "Theo dõi ngân khố Lương, Gỗ, Đá, Sắt, Ngọc và nâng cấp kho lưu trữ tài nguyên.",
+    shortDesc: "Theo dõi ngân khố Lương, Gỗ, Đá, Vàng và Ngọc; nâng cấp kho để tăng sức chứa.",
     detailTitle: "4. QUẢN LÝ THÀNH PHỐ & TÀI NGUYÊN",
-    detailDesc: "Các mỏ tài nguyên Lương thực, Gỗ, Đá, Sắt và Ngọc tự động gia tăng theo thời gian (+135%/h). Chú ý dung tích Kho chứa tài nguyên để không bị tràn và điều phối lực lượng phòng thủ thành trì.",
+    detailDesc: "Mỗi lãnh thổ có sản lượng Lương thực, Gỗ, Đá và Vàng khác nhau. Ngọc chỉ sinh tại Mỏ Ngọc hiếm. Chú ý dung tích kho để tránh tràn.",
     subItems: [
       { icon: <SubTerritoryIcon />, title: "Ngân khố 5 Tài nguyên" },
       { icon: <SubFameIcon />, title: "Sản xuất +135%/giờ" },

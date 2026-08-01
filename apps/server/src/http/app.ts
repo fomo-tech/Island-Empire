@@ -12,6 +12,7 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import { generateWorldTerritories } from "@island/shared";
+import type { ShopProduct } from "@island/shared";
 import { collections } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
 import { requireAdmin, requireAuth, signToken } from "../security/auth.js";
@@ -154,30 +155,6 @@ const SendAllianceAidSchema = z.object({
         .nonnegative()
         .max(MAX_AID_RESOURCE_AMOUNT)
         .default(0),
-      iron: z
-        .number()
-        .int()
-        .nonnegative()
-        .max(MAX_AID_RESOURCE_AMOUNT)
-        .default(0),
-      coal: z
-        .number()
-        .int()
-        .nonnegative()
-        .max(MAX_AID_RESOURCE_AMOUNT)
-        .default(0),
-      sulfur: z
-        .number()
-        .int()
-        .nonnegative()
-        .max(MAX_AID_RESOURCE_AMOUNT)
-        .default(0),
-      gems: z
-        .number()
-        .int()
-        .nonnegative()
-        .max(MAX_AID_RESOURCE_AMOUNT)
-        .default(0),
     })
     .default({}),
   troops: z
@@ -192,19 +169,14 @@ const RESOURCE_KEYS = [
   "wood",
   "stone",
   "food",
-  "iron",
-  "coal",
-  "sulfur",
   "gems",
 ];
+const STORAGE_RESOURCE_KEYS = ["gold", "wood", "stone", "food"];
 const DEFAULT_PLAYER_RESOURCES = {
   gold: 1250,
   wood: 830,
   stone: 670,
   food: 920,
-  iron: 260,
-  coal: 120,
-  sulfur: 80,
   gems: 420,
 };
 const BASE_RESOURCE_CAPACITY = {
@@ -212,20 +184,14 @@ const BASE_RESOURCE_CAPACITY = {
   wood: 2800,
   stone: 2400,
   food: 3200,
-  iron: 1400,
-  coal: 900,
-  sulfur: 520,
-  gems: 1000,
+  gems: 0,
 };
 const TERRITORY_RESOURCE_CAPACITY = {
   gold: 900,
   wood: 1400,
   stone: 1200,
   food: 1600,
-  iron: 700,
-  coal: 500,
-  sulfur: 300,
-  gems: 250,
+  gems: 0,
 };
 const MAX_OFFLINE_RESOURCE_SECONDS = 24 * 60 * 60;
 const MIN_OFFLINE_REPORT_SECONDS = 60;
@@ -425,9 +391,6 @@ function emptyResources() {
     wood: 0,
     stone: 0,
     food: 0,
-    iron: 0,
-    coal: 0,
-    sulfur: 0,
     gems: 0,
   };
 }
@@ -443,7 +406,7 @@ function normalizeResources(resources) {
 }
 function normalizeStoredResources(resources) {
   const bag = emptyResources();
-  RESOURCE_KEYS.forEach((key) => {
+  STORAGE_RESOURCE_KEYS.forEach((key) => {
     const value = resources?.[key];
     bag[key] = Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
   });
@@ -460,7 +423,7 @@ function compactResourceDelta(resources) {
 function resourceCapacityForOwnedTerritories(ownedCount) {
   const cap = emptyResources();
   RESOURCE_KEYS.forEach((key) => {
-    cap[key] =
+    cap[key] = key === "gems" ? 0 :
       BASE_RESOURCE_CAPACITY[key] +
       Math.max(0, ownedCount) * TERRITORY_RESOURCE_CAPACITY[key];
   });
@@ -578,13 +541,13 @@ const BIOME_CLEAR_MULT = {
 // Labels for the dominant resource of each biome
 const BIOME_PRIMARY = {
   0: "Lương thực + Gỗ",
-  1: "Vàng + Đá quý",
-  2: "Sắt + Đá + Than",
-  3: "Sắt + Lưu huỳnh + Than",
-  4: "Đá quý + Đá",
+  1: "Vàng + Đá",
+  2: "Đá + Gỗ",
+  3: "Đá + Vàng",
+  4: "Gỗ + Vàng",
   5: "Lương thực + Vàng",
   6: "Gỗ + Đá",
-  7: "Gỗ + Lương thực + Than",
+  7: "Gỗ + Lương thực",
 };
 /**
  * Calculate clearing time (seconds) based on area and biome difficulty.
@@ -617,26 +580,26 @@ function calcClearingSeconds(
  * Islet bonus: gems × 2.8, sulfur × 1.25, gold × 1.25 (rare island treasures)
  * Islet penalty: wood × 0.3, stone × 0.5, food × 0.45, iron × 0.55, coal × 0.35
  */
-function calcYields(rx, ry, biome, isIslet) {
+function territoryRoll(id, salt = 0) {
+  let value = (Math.imul((id + 1) ^ salt, 2654435761) >>> 0);
+  value ^= value >>> 16;
+  return (value >>> 0) / 4294967295;
+}
+function calcYields(t, hasGemMine = false) {
+  const { rx, ry, biome, isIslet, id } = t;
   const base = BIOME_BASE_YIELDS[biome] ?? BIOME_BASE_YIELDS[0];
   const areaFactor = (rx * ry) / 10000;
-  let gold = base.gold * areaFactor;
-  let wood = base.wood * areaFactor;
-  let stone = base.stone * areaFactor;
-  let food = base.food * areaFactor;
-  let iron = base.iron * areaFactor;
-  let coal = base.coal * areaFactor;
-  let sulfur = base.sulfur * areaFactor;
-  let gems = base.gems * areaFactor;
+  const quality = 0.8 + territoryRoll(id, 0x51f15e) * 0.4;
+  let gold = base.gold * areaFactor * quality;
+  let wood = base.wood * areaFactor * quality;
+  let stone = base.stone * areaFactor * quality;
+  let food = base.food * areaFactor * quality;
+  let gems = hasGemMine ? Math.max(0.004, base.gems * areaFactor * quality) : 0;
   if (isIslet) {
-    gold *= 1.25;
+    gold *= 1.15;
     wood *= 0.3;
     stone *= 0.5;
     food *= 0.45;
-    iron *= 0.55;
-    coal *= 0.35;
-    sulfur *= 1.25;
-    gems *= 2.8;
   }
   const round3 = (n) => Math.round(n * 1000) / 1000;
   return {
@@ -644,64 +607,27 @@ function calcYields(rx, ry, biome, isIslet) {
     yieldWood: round3(wood),
     yieldStone: round3(stone),
     yieldFood: round3(food),
-    yieldIron: round3(iron),
-    yieldCoal: round3(coal),
-    yieldSulfur: round3(sulfur),
     yieldGems: round3(gems),
+    resourceQuality: Math.round(quality * 100),
+    hasGemMine,
   };
 }
 function calcSpecialResources(t) {
   const specials = [];
-  const area = t.rx * t.ry;
-  // Horse Pasture ("Bãi ngựa") - abundant (~40% of territories)
-  if (
-    t.biome === 0 ||
-    t.biome === 1 ||
-    t.biome === 5 ||
-    t.biome === 6 ||
-    t.id % 3 !== 0
-  ) {
-    if (area >= 6500) specials.push("Bãi ngựa");
-  }
-  // Siege Workshop ("Xưởng đúc pháo") - abundant (~40% of territories)
-  if (
-    t.biome === 2 ||
-    t.biome === 3 ||
-    t.biome === 4 ||
-    t.biome === 6 ||
-    t.biome === 7 ||
-    t.id % 2 === 1
-  ) {
-    specials.push("Xưởng đúc pháo");
-  }
+  const specialtyRoll = territoryRoll(t.id, 0xca7a1);
+  if (specialtyRoll < 0.12) specials.push("Bãi ngựa");
+  else if (specialtyRoll < 0.23) specials.push("Xưởng rèn");
   // Natural Harbor ("Bến tàu tự nhiên") - chỉ xuất hiện ở vùng ven biển
   if (t.isIslet || t.coastal) {
     specials.push("Bến tàu tự nhiên");
   }
-  if (
-    (t.biome === 2 || t.biome === 3 || t.biome === 4 || t.biome === 6) &&
-    t.id % 2 === 0
-  )
-    specials.push("Mỏ sắt");
-  if (
-    (t.biome === 1 || t.biome === 2 || t.biome === 3 || t.biome === 6) &&
-    area >= 14000
-  )
-    specials.push("Mỏ đá");
-  if ((t.biome === 1 || t.biome === 5 || t.biome === 3) && t.id % 3 === 1)
-    specials.push("Mạch vàng");
-  if ((t.biome === 1 || t.biome === 4 || t.isIslet) && t.id % 4 === 2)
-    specials.push("Mỏ đá quý");
-  if ((t.biome === 2 || t.biome === 3 || t.biome === 7) && t.id % 3 === 0)
-    specials.push("Vỉa than");
-  if (t.biome === 3 || (t.biome === 7 && t.id % 4 === 0))
-    specials.push("Mỏ lưu huỳnh");
+  if (territoryRoll(t.id, 0x6e6d) < 0.007) specials.push("Mỏ Ngọc");
   return Array.from(new Set(specials));
 }
 function trainingSpecialtyForTerritory(territory: any, settlementKind?: any) {
   const specials = territory?.specialResources || [];
   if (specials.includes("Bãi ngựa")) return "cavalry";
-  if (specials.includes("Xưởng đúc pháo") || specials.includes("Xưởng pháo"))
+  if (specials.includes("Xưởng rèn"))
     return "artillery";
   if (settlementKind === "capital" || settlementKind === "sub_capital")
     return "infantry";
@@ -716,8 +642,8 @@ function buildStaticTerritoryList() {
   const territories = [];
   const baseList = generateWorldTerritories();
   baseList.forEach((t) => {
-    const yields = calcYields(t.rx, t.ry, t.biome, t.isIslet);
     const specialResources = calcSpecialResources(t);
+    const yields = calcYields(t, specialResources.includes("Mỏ Ngọc"));
     territories.push({
       id: t.id,
       isIslet: t.isIslet,
@@ -969,19 +895,17 @@ function townStorageCapacityForTerritory(town, territory) {
   const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
   const areaFactor = territory ? territoryAreaFactorForTown(territory) : 1;
   const capacity = emptyResources();
-  RESOURCE_KEYS.forEach((key) => {
+  STORAGE_RESOURCE_KEYS.forEach((key) => {
     const base = TERRITORY_RESOURCE_CAPACITY[key];
     const warehouseBonus = base * warehouse * 0.55;
-    const fortBonus =
-      key === "food" || key === "iron" || key === "sulfur"
-        ? base * fort * 0.1
-        : 0;
+    const fortBonus = key === "food" ? base * fort * 0.1 : 0;
     const levelBonus = base * Math.max(0, level - 1) * 0.12;
     capacity[key] = Math.max(
       1,
       Math.round((base + warehouseBonus + fortBonus + levelBonus) * areaFactor),
     );
   });
+  capacity.gems = 0;
   return capacity;
 }
 function townPopulationCapacityForTerritory(town: any, territory?: any) {
@@ -1258,7 +1182,7 @@ function townSnapshotsForPlayer(
     towns.forEach((town) => {
       town.storage = emptyResources();
     });
-    RESOURCE_KEYS.forEach((key) => {
+    STORAGE_RESOURCE_KEYS.forEach((key) => {
       const resourceTotal = Math.max(0, Math.floor(resources[key] || 0));
       const totalCapacity = towns.reduce((sum, town) => {
         const capacities = normalizeResources(town.storageCapacity);
@@ -1586,7 +1510,7 @@ async function buildNationStatusSnapshot(
       : gameConfig.powerConnectedTerritory;
     if (specials.includes("Bến tàu tự nhiên"))
       territoryPower += gameConfig.powerNaturalHarborBonus;
-    if (specials.includes("Bãi ngựa") || specials.includes("Xưởng đúc pháo"))
+    if (specials.includes("Bãi ngựa") || specials.includes("Xưởng rèn"))
       territoryPower += gameConfig.powerMilitaryResourceBonus;
     const town = townByTerritoryId.get(territoryId) as any;
     if (!town) return;
@@ -1667,7 +1591,7 @@ async function buildNationStatusSnapshot(
       const storage = normalizeResources(town?.storage || {});
       const townCapacity =
         typeof town?.storageCapacity === "number"
-          ? RESOURCE_KEYS.reduce(
+          ? STORAGE_RESOURCE_KEYS.reduce(
               (bag, key) => ({
                 ...bag,
                 [key]: Number(town.storageCapacity) || 0,
@@ -1675,11 +1599,11 @@ async function buildNationStatusSnapshot(
               emptyResources(),
             )
           : normalizeResources(town?.storageCapacity || {});
-      const storageUsed = RESOURCE_KEYS.reduce(
+      const storageUsed = STORAGE_RESOURCE_KEYS.reduce(
         (sum, key) => sum + storage[key],
         0,
       );
-      const storageCapacity = RESOURCE_KEYS.reduce(
+      const storageCapacity = STORAGE_RESOURCE_KEYS.reduce(
         (sum, key) => sum + townCapacity[key],
         0,
       );
@@ -1804,6 +1728,7 @@ async function buildNationStatusSnapshot(
     towns: townStatuses,
     alerts,
     serverTime: now.toISOString(),
+    avatarId: String((player as any)?.avatarId || "emperor"),
   };
 }
 async function publishPlayerState(
@@ -2113,9 +2038,6 @@ function productionForClaims(claims: any) {
     production.wood += territory.yieldWood * 2.5;
     production.stone += territory.yieldStone * 2.5;
     production.food += territory.yieldFood * 2.5;
-    production.iron += territory.yieldIron * 2.5;
-    production.coal += territory.yieldCoal * 2.5;
-    production.sulfur += territory.yieldSulfur * 2.5;
     production.gems += territory.yieldGems * 2.5;
   });
   RESOURCE_KEYS.forEach((key) => {
@@ -2136,14 +2058,9 @@ function territoryBuildCost(territory) {
     stone: Math.round(
       125 +
         areaFactor * 34 +
-        territory.yieldStone * 76 +
-        territory.yieldIron * 28,
+        territory.yieldStone * 82,
     ),
     food: Math.round(80 + areaFactor * 18 + territory.yieldFood * 42),
-    iron: Math.round(
-      20 + territory.yieldIron * 95 + territory.yieldSulfur * 30,
-    ),
-    gems: Math.round(Math.max(0, territory.yieldGems - 0.28) * 22),
   });
 }
 function clearingBuildCostForRefund(clearing, territory, ownedCount) {
@@ -2161,18 +2078,13 @@ function troopRecoveryCost(unitType, gameConfig) {
     return compactResourceDelta({
       gold: gameConfig.cavalryCostGold,
       wood: gameConfig.cavalryCostWood,
-      stone: gameConfig.cavalryCostStone,
       food: gameConfig.cavalryCostFood,
-      iron: gameConfig.cavalryCostIron,
     });
   }
   if (unitType === "artillery") {
     return compactResourceDelta({
       gold: gameConfig.artilleryCostGold,
       stone: gameConfig.artilleryCostStone,
-      iron: gameConfig.artilleryCostIron,
-      coal: gameConfig.artilleryCostCoal,
-      sulfur: gameConfig.artilleryCostSulfur,
     });
   }
   return compactResourceDelta({
@@ -2217,12 +2129,20 @@ function resourceCostMessage(cost) {
     .join(", ");
 }
 async function collectPlayerResources(playerId, now = new Date()) {
-  const { players, territoryClaims, playerMails } = await collections();
+  const { players, territoryClaims, playerMails, saves } = await collections();
   const [player, ownedClaims] = await Promise.all([
     players.findOne({ _id: playerId }),
     territoryClaims.find({ playerId }).toArray(),
   ]);
-  const current = normalizeResources(player?.resources);
+  const rawResources: any = player?.resources || {};
+  const current = normalizeResources(rawResources);
+  if (((player as any)?.resourceMigrationVersion || 0) < 2) {
+    const iron = Math.max(0, Number(rawResources.iron) || 0);
+    const coal = Math.max(0, Number(rawResources.coal) || 0);
+    const sulfur = Math.max(0, Number(rawResources.sulfur) || 0);
+    current.stone += Math.floor(iron + coal + sulfur);
+    current.gold += Math.floor(iron * 0.2);
+  }
   const capacity = resourceCapacityForOwnedTerritories(ownedClaims.length);
   const productionPerSecond = productionForClaims(ownedClaims);
   const lastCollectedAt =
@@ -2241,8 +2161,9 @@ async function collectPlayerResources(playerId, now = new Date()) {
       0,
       Math.round(productionPerSecond[key] * elapsedSeconds),
     );
-    next[key] =
-      current[key] >= capacity[key]
+    next[key] = key === "gems"
+      ? Math.floor((current[key] + gained[key]) * 100) / 100
+      : current[key] >= capacity[key]
         ? Math.floor(current[key])
         : Math.min(capacity[key], Math.floor(current[key] + gained[key]));
     gained[key] = Math.max(0, next[key] - Math.floor(current[key]));
@@ -2252,6 +2173,7 @@ async function collectPlayerResources(playerId, now = new Date()) {
     {
       $set: {
         resources: next,
+        resourceMigrationVersion: 2,
         lastResourceCollectedAt: now,
         lastSeenAt: now,
       },
@@ -2264,17 +2186,18 @@ async function collectPlayerResources(playerId, now = new Date()) {
     },
     { upsert: true },
   );
+  await saves.updateOne(
+    { playerId },
+    { $set: { resources: next, resourceMigrationVersion: 2, updatedAt: now } },
+  );
   const gainedEntries = RESOURCE_KEYS.filter((key) => gained[key] > 0).map(
     (key) => {
       const labels = {
         gold: "Vàng",
         wood: "Gỗ",
         stone: "Đá",
-        food: "Lúa",
-        iron: "Sắt",
-        coal: "Than",
-        sulfur: "Lưu huỳnh",
-        gems: "Đá quý",
+        food: "Lương thực",
+        gems: "Ngọc",
       };
       return `${labels[key]} +${Math.floor(gained[key]).toLocaleString("vi-VN")}`;
     },
@@ -2520,7 +2443,7 @@ function isNewbieWeek(player: { createdAt?: Date | null }): boolean {
   return Date.now() - new Date(player.createdAt).getTime() < NEWBIE_WEEK_MS;
 }
 
-function shopCatalog(gameConfig, player?: { createdAt?: Date | null }) {
+function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProduct[] {
   const testPrice =
     config.SHOP_TEST_MODE && config.NODE_ENV !== "production" ? 1 : null;
   const packAmount = Math.max(
@@ -2546,7 +2469,6 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }) {
         food: packAmount,
         wood: packAmount,
         stone: packAmount,
-        iron: packAmount,
         gold: Math.floor(packAmount * 0.8),
       },
       ...(newbieWeek && { isNewbiePrice: true, newbiePriceExpiresAt }),
@@ -2564,7 +2486,6 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }) {
         food: packAmount * 2,
         wood: packAmount * 2,
         stone: packAmount * 2,
-        iron: packAmount * 2,
         gold: Math.floor(packAmount * 1.6),
       },
       ...(newbieWeek && { isNewbiePrice: true, newbiePriceExpiresAt }),
@@ -3225,7 +3146,7 @@ async function processActiveBattles(now = new Date()) {
         const attackerCapacity = resourceCapacityForOwnedTerritories(
           attackerClaimCount + 1,
         );
-        RESOURCE_KEYS.forEach((key) => {
+        STORAGE_RESOURCE_KEYS.forEach((key) => {
           const stored = Math.min(
             defenderResources[key] || 0,
             capturedStorage[key] || 0,
@@ -5257,6 +5178,7 @@ export function createApp() {
           ])
           .optional(),
         cityName: z.string().max(60).optional(),
+        avatarId: z.string().max(40).optional(),
       })
       .strict()
       .safeParse(req.body);
@@ -5265,15 +5187,16 @@ export function createApp() {
         .status(400)
         .json({
           error: "bad_request",
-          message: "Màu cờ hoặc biểu tượng không hợp lệ",
+          message: "Thông tin cập nhật không hợp lệ",
         });
     }
-    const { flagColor, emblem, cityName } = parsed.data;
+    const { flagColor, emblem, cityName, avatarId } = parsed.data;
     const { players } = await collections();
     const updateData: any = {};
     if (flagColor) updateData.flagColor = flagColor;
     if (emblem) updateData.emblem = emblem;
     if (cityName) updateData.cityName = cityName;
+    if (avatarId) updateData.avatarId = avatarId;
     if (Object.keys(updateData).length > 0 && req.user?.id) {
       await players.updateOne({ _id: req.user!.id }, { $set: updateData });
     }
@@ -6013,7 +5936,7 @@ export function createApp() {
     });
     const capacity = resourceCapacityForOwnedTerritories(ownedCount);
     const nextResources = { ...resourceState.resources };
-    RESOURCE_KEYS.forEach((key) => {
+    STORAGE_RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(
         capacity[key],
         nextResources[key] + Math.floor(aid.resources[key] || 0),
@@ -6509,7 +6432,7 @@ export function createApp() {
     const capacity = resourceCapacityForOwnedTerritories(ownedCount);
     const refund = clearingBuildCostForRefund(clearing, territory, ownedCount);
     const nextResources = { ...resourceState.resources };
-    RESOURCE_KEYS.forEach((key) => {
+    STORAGE_RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(
         capacity[key],
         Math.floor(nextResources[key] + Math.floor(refund[key] || 0)),
@@ -6993,15 +6916,10 @@ export function createApp() {
         } else if (unitType === "cavalry") {
           unitCost.gold = (gameConfig.cavalryCostGold ?? 48) * count;
           unitCost.wood = (gameConfig.cavalryCostWood ?? 24) * count;
-          unitCost.stone = (gameConfig.cavalryCostStone ?? 18) * count;
           unitCost.food = (gameConfig.cavalryCostFood ?? 20) * count;
-          unitCost.iron = (gameConfig.cavalryCostIron ?? 10) * count;
         } else if (unitType === "artillery") {
           unitCost.gold = (gameConfig.artilleryCostGold ?? 72) * count;
           unitCost.stone = (gameConfig.artilleryCostStone ?? 36) * count;
-          unitCost.iron = (gameConfig.artilleryCostIron ?? 24) * count;
-          unitCost.coal = (gameConfig.artilleryCostCoal ?? 10) * count;
-          unitCost.sulfur = (gameConfig.artilleryCostSulfur ?? 12) * count;
         }
     
         // Check affordability
@@ -7046,12 +6964,12 @@ export function createApp() {
         }
         if (
           unitType === "artillery" &&
-          !specialResources.includes("Xưởng đúc pháo") &&
+          !specialResources.includes("Xưởng rèn") &&
           Math.floor(Number(town.buildings.siegeWorkshop || 0)) <= 0
         ) {
           return res.status(409).json({
             error: "missing_siege_workshop",
-            message: "Thành này cần Xưởng đúc pháo hoặc công trình xưởng pháo để mộ pháo binh",
+            message: "Thành này cần Xưởng rèn để mộ pháo binh",
             town,
             resources: currentRes,
           });
