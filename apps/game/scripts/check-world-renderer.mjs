@@ -20,7 +20,10 @@ const terrain = section(
   "function drawRegionTerrain(",
   "function drawPaintedForestCluster(",
 );
-const castles = section("function drawCastle(t)", "function drawShip(s, i)");
+const castles = section(
+  "function drawTerritoryCastle(",
+  "function drawClaimedTerritoryMarkers(",
+);
 
 rejectCalls("Bản đồ môi trường", terrain, [
   "drawResourceIcon(",

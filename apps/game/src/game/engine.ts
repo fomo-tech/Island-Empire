@@ -1530,6 +1530,7 @@ export function createIslandEmpireGame(
   const strategicAssetImages = new Map<string, HTMLImageElement>();
   let medievalWorldAtlas: HTMLImageElement | null = null;
   let medievalCastleAtlas: HTMLImageElement | null = null;
+  let medievalDetailAtlas: HTMLImageElement | null = null;
   const MEDIEVAL_WORLD_SPRITES: Record<string, [number, number]> = {
     forest_oak: [0, 0],
     forest_pine: [1, 0],
@@ -1600,6 +1601,41 @@ export function createIslandEmpireGame(
     return true;
   }
 
+  function drawMedievalDetailSprite(
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+    size: number,
+  ) {
+    const atlas = getMedievalDetailAtlas();
+    if (!atlas.complete || !atlas.naturalWidth)
+      return false;
+    const cellWidth = atlas.naturalWidth / 2;
+    const cellHeight = atlas.naturalHeight / 2;
+    ctx.drawImage(
+      atlas,
+      column * cellWidth,
+      row * cellHeight,
+      cellWidth,
+      cellHeight,
+      x - size / 2,
+      y - size * 0.76,
+      size,
+      size,
+    );
+    return true;
+  }
+
+  function getMedievalDetailAtlas() {
+    if (!medievalDetailAtlas) {
+      medievalDetailAtlas = new Image();
+      medievalDetailAtlas.decoding = "async";
+      medievalDetailAtlas.src = "/assets/world/medieval_detail_atlas.webp";
+    }
+    return medievalDetailAtlas;
+  }
+
   function drawMedievalCastleSprite(
     column: number,
     row: number,
@@ -1638,6 +1674,7 @@ export function createIslandEmpireGame(
   // Start decoding before the first map frame. Missing atlases never fall back to pixel art.
   getMedievalWorldAtlas();
   getMedievalCastleAtlas();
+  getMedievalDetailAtlas();
 
   function drawMedievalCastleBanner(
     x: number,
@@ -3825,19 +3862,41 @@ export function createIslandEmpireGame(
     const clusterX = Math.floor(r.x / 760);
     const clusterY = Math.floor(r.y / 620);
     const clusterRoll = hash(clusterX * 97.31 + clusterY * 173.17);
-    let sprite = dominantResource;
+    let sprite: string = dominantResource;
     if (special === "Bãi ngựa") sprite = "horse";
     else if (special === "Xưởng rèn") sprite = "forge";
     else if (special === "Bến tàu tự nhiên") sprite = "harbor";
     else if (special === "Mỏ Ngọc") sprite = "gems";
-    else if (terrainBiome === 2) sprite = "forest_snow";
-    else if (terrainBiome === 1 && clusterRoll < 0.72) sprite = "desert";
-    else if (terrainBiome === 3) sprite = "mountain";
-    else if (terrainBiome === 5 && clusterRoll < 0.62)
-      sprite = "forest_autumn";
-    else if (terrainBiome === 6 || (dominantResource === "wood" && clusterRoll < 0.58))
-      sprite = "forest_pine";
-    else if (dominantResource === "wood") sprite = "forest_oak";
+    else if (dominantResource === "wood") {
+      sprite =
+        clusterRoll < 0.34
+          ? terrainBiome === 5
+            ? "forest_autumn"
+            : "forest_oak"
+          : clusterRoll < 0.7
+            ? terrainBiome === 2
+              ? "forest_snow"
+              : "forest_pine"
+            : "wood";
+    } else if (dominantResource === "food") {
+      sprite =
+        clusterRoll < 0.55
+          ? "food"
+          : clusterRoll < 0.78
+            ? "cottage"
+            : "forest_oak";
+    } else if (dominantResource === "stone") {
+      sprite = clusterRoll < 0.66 ? "stone" : clusterRoll < 0.88 ? "mountain" : "ruins";
+    } else if (dominantResource === "gold") {
+      sprite = clusterRoll < 0.78 ? "gold" : "ruins";
+    }
+
+    if (!special && !hasTown && clusterRoll < 0.16) {
+      if (terrainBiome === 1) sprite = "desert";
+      else if (terrainBiome === 2) sprite = "forest_snow";
+      else if (terrainBiome === 3) sprite = "mountain";
+      else if (terrainBiome === 5) sprite = "forest_autumn";
+    }
 
     const baseAngle = hash(clusterX * 311.7 + clusterY * 47.9) * TAU;
     const angle = baseAngle + (hash(seed * 61) - 0.5) * 0.7;
@@ -3853,6 +3912,31 @@ export function createIslandEmpireGame(
       ),
     );
     drawMedievalWorldSprite(sprite, x, y, size, special ? 1 : 0.96);
+
+    const detailRoll = hash(seed * 901 + r.id * 37);
+    if (!hasTown && !special && state.zoom >= 0.66 && detailRoll < 0.24) {
+      const detailAngle = angle + Math.PI;
+      const detailRadius = 0.54 + hash(seed * 919) * 0.1;
+      const detailX = r.x + Math.cos(detailAngle) * rx * detailRadius;
+      const detailY = r.y + Math.sin(detailAngle) * ry * detailRadius;
+      let detailColumn = 0;
+      let detailRow = 1;
+      if (dominantResource === "food") {
+        detailColumn = detailRoll < 0.12 ? 0 : 1;
+        detailRow = 0;
+      } else if (derivedRegionOwnership(r.id) > 0 && detailRoll < 0.08) {
+        detailColumn = 1;
+        detailRow = 1;
+      }
+      const detailSize = Math.max(34, Math.min(62, minDimension * 0.28));
+      drawMedievalDetailSprite(
+        detailColumn,
+        detailRow,
+        detailX,
+        detailY,
+        detailSize,
+      );
+    }
   }
 
   function drawPaintedForestCluster(
@@ -10733,48 +10817,40 @@ export function createIslandEmpireGame(
         : state.regionOwnerDistrictSkins[regionId];
     }
 
-    if (isCapital && equippedSkin) {
-      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
-      const size = 480 * sc;
-      ctx.save();
-      ctx.shadowColor =
-        equippedSkin === "skin_hoa_long_dien"
-          ? "rgba(255, 82, 30, 0.9)"
-          : equippedSkin === "skin_phong_long_cac"
-            ? "rgba(92, 233, 239, 0.9)"
-            : "rgba(244, 196, 71, 0.9)";
-      ctx.shadowBlur = 18 * sc;
-      ctx.drawImage(
-        premiumSprite,
-        x - size / 2,
-        y - size * (470 / 640),
-        size,
-        size,
-      );
-      ctx.restore();
-    } else if (isMilitaryDistrict && equippedSkin) {
-      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
-      const size = 420 * sc;
-      ctx.save();
-      ctx.shadowColor =
-        equippedSkin === "skin_hoa_long_dien"
-          ? "rgba(255, 82, 30, 0.9)"
-          : equippedSkin === "skin_phong_long_cac"
-            ? "rgba(92, 233, 239, 0.9)"
-            : "rgba(244, 196, 71, 0.9)";
-      ctx.shadowBlur = 15 * sc;
-      ctx.drawImage(
-        premiumSprite,
-        x - size / 2,
-        y - size * (470 / 640),
-        size,
-        size,
-      );
-      ctx.restore();
-    } else if (isMilitaryDistrict) {
-      drawMilitaryDistrictSprite(x, y, color, emblem, sc, relation);
+    const level = Math.max(
+      1,
+      Number(playerTown?.level || playerTown?.lvl || 1),
+    );
+    const atlasColumn = equippedSkin
+      ? 3
+      : isCapital
+        ? level >= 20
+          ? 2
+          : level >= 10
+            ? 1
+            : 0
+        : level >= 15
+          ? 2
+          : level >= 7
+            ? 1
+            : 0;
+    const atlasRow = isCapital ? 0 : 1;
+    const castleSize = r.isIslet
+      ? isCapital
+        ? 142
+        : 124
+      : isCapital
+        ? ownerCode === 1
+          ? 198
+          : 170
+        : ownerCode === 1
+          ? 174
+          : 150;
+
+    if (!drawMedievalCastleSprite(atlasColumn, atlasRow, x, y, castleSize)) {
+      drawCastleSilhouette(x, y, castleSize, color);
     } else {
-      drawEmpireCastleSprite(x, y, color, emblem, sc, relation);
+      drawMedievalCastleBanner(x, y, castleSize, color);
     }
 
     // Render 3D Peace Shield Energy Dome & Countdown Timer (Disabled)
