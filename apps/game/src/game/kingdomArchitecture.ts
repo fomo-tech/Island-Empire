@@ -8,6 +8,31 @@ export type KingdomArchitectureId =
 
 export type KingdomBuildingType = "capital" | "fortress" | "district";
 
+export const KINGDOM_BASE_SHEET = "/assets/kingdoms/kingdom_base.webp";
+export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/kingdom_premium.webp";
+export const KINGDOM_SPRITE_CELL = 320;
+
+const ARCHITECTURE_COLUMNS: Record<KingdomArchitectureId, number> = {
+  lionheart: 0,
+  ironshield: 1,
+  firedragon: 2,
+  winddragon: 3,
+  goldencrown: 4,
+  blackeagle: 5,
+};
+
+const BUILDING_ROWS: Record<KingdomBuildingType, number> = {
+  capital: 0,
+  fortress: 1,
+  district: 2,
+};
+
+const PREMIUM_COLUMNS: Record<string, number> = {
+  skin_long_bao_thanh: 0,
+  skin_hoa_long_dien: 1,
+  skin_phong_long_cac: 2,
+};
+
 export const KINGDOM_BUILDING_LAYOUT: Record<KingdomBuildingType, {
   pivotX: number;
   pivotY: number;
@@ -57,11 +82,54 @@ export function kingdomArchitectureFromSkin(skinId?: string | null): KingdomArch
   return null;
 }
 
-export function kingdomBuildingAsset(
+export function kingdomBuildingSprite(
   architectureId: string | null | undefined,
   buildingType: KingdomBuildingType,
+  skinId?: string | null,
 ) {
-  return `/assets/kingdoms/${normalizeKingdomArchitecture(architectureId)}_${buildingType}.webp`;
+  const premiumColumn = buildingType === "capital" && skinId
+    ? PREMIUM_COLUMNS[skinId]
+    : undefined;
+  if (premiumColumn !== undefined) {
+    return {
+      src: KINGDOM_PREMIUM_SHEET,
+      sx: premiumColumn * KINGDOM_SPRITE_CELL,
+      sy: 0,
+      sw: KINGDOM_SPRITE_CELL,
+      sh: KINGDOM_SPRITE_CELL,
+      columns: 3,
+      rows: 1,
+      premium: true,
+    };
+  }
+
+  const normalized = normalizeKingdomArchitecture(architectureId);
+  return {
+    src: KINGDOM_BASE_SHEET,
+    sx: ARCHITECTURE_COLUMNS[normalized] * KINGDOM_SPRITE_CELL,
+    sy: BUILDING_ROWS[buildingType] * KINGDOM_SPRITE_CELL,
+    sw: KINGDOM_SPRITE_CELL,
+    sh: KINGDOM_SPRITE_CELL,
+    columns: 6,
+    rows: 3,
+    premium: false,
+  };
+}
+
+export function kingdomBuildingSpriteStyle(
+  architectureId: string | null | undefined,
+  buildingType: KingdomBuildingType,
+  skinId?: string | null,
+) {
+  const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
+  const column = frame.sx / KINGDOM_SPRITE_CELL;
+  const row = frame.sy / KINGDOM_SPRITE_CELL;
+  return {
+    backgroundImage: `url(${frame.src})`,
+    backgroundSize: `${frame.columns * 100}% ${frame.rows * 100}%`,
+    backgroundPosition: `${frame.columns > 1 ? column / (frame.columns - 1) * 100 : 0}% ${frame.rows > 1 ? row / (frame.rows - 1) * 100 : 0}%`,
+    backgroundRepeat: "no-repeat",
+  };
 }
 
 export function kingdomArchitectureMeta(architectureId?: string | null) {

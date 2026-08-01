@@ -6,7 +6,7 @@ import {
 import {
   kingdomArchitectureFromEmblem,
   kingdomArchitectureFromSkin,
-  kingdomBuildingAsset,
+  kingdomBuildingSprite,
   KINGDOM_BUILDING_LAYOUT,
   normalizeKingdomArchitecture,
   type KingdomBuildingType,
@@ -97,12 +97,6 @@ export function createIslandEmpireGame(
     builder_hammer_up: "/assets/units/medieval/builder_hammer_up.png",
     builder_hammer_down: "/assets/units/medieval/builder_hammer_down.png",
     builder_complete: "/assets/units/medieval/builder_complete.png",
-    infantry_idle: "/assets/units/medieval/infantry_idle.png",
-    infantry_walk_left: "/assets/units/medieval/infantry_walk_left.png",
-    infantry_walk_right: "/assets/units/medieval/infantry_walk_right.png",
-    cavalry_idle: "/assets/units/medieval/cavalry_idle.png",
-    cavalry_walk_left: "/assets/units/medieval/cavalry_walk_left.png",
-    cavalry_walk_right: "/assets/units/medieval/cavalry_walk_right.png",
   };
   Object.entries(medievalUnitSources).forEach(([kind, src]) => {
     const image = new Image();
@@ -110,19 +104,53 @@ export function createIslandEmpireGame(
     image.src = src;
     medievalUnitImages[kind] = image;
   });
+  const medievalArmySheet = new Image();
+  medievalArmySheet.decoding = "async";
+  medievalArmySheet.src = "/assets/units/medieval/medieval_army.webp";
+  const medievalArmyColumns = {
+    infantry: 0,
+    cavalry: 1,
+    artillery: 2,
+    ship: 3,
+  } as const;
 
   function drawMedievalUnitSprite(
-    kind: "builder" | "infantry" | "cavalry",
+    kind: "builder" | "infantry" | "cavalry" | "artillery",
     x: number,
     y: number,
     size: number,
     factionColor?: string,
     frame = "idle",
   ) {
+    if (kind !== "builder") {
+      if (!medievalArmySheet.complete || medievalArmySheet.naturalWidth <= 0)
+        return false;
+      const facingLeft = frame.includes("left");
+      const sourceX = medievalArmyColumns[kind] * 256;
+      ctx.save();
+      drawTroopFootRing(x, y, factionColor || "#d6aa4a");
+      const bob = Math.sin(state.tick * (kind === "cavalry" ? 7 : 8)) * 0.8;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.translate(x, 0);
+      ctx.scale(facingLeft ? -1 : 1, 1);
+      ctx.drawImage(
+        medievalArmySheet,
+        sourceX,
+        0,
+        256,
+        256,
+        -size / 2,
+        y - size + 15 + bob,
+        size,
+        size,
+      );
+      ctx.restore();
+      return true;
+    }
     const image = medievalUnitImages[`${kind}_${frame}`] || medievalUnitImages[`${kind}_idle`];
     if (!image?.complete || image.naturalWidth <= 0) return false;
     ctx.save();
-    if (kind !== "builder" && factionColor) drawTroopFootRing(x, y, factionColor);
     const bobSpeed = kind === "cavalry" ? 7 : 8;
     const bobAmount = kind === "builder" ? 0.45 : 0.8;
     const bob = Math.sin(state.tick * bobSpeed) * bobAmount;
@@ -1696,25 +1724,29 @@ export function createIslandEmpireGame(
     x: number,
     y: number,
     size: number,
-    premiumEffect = false,
+    skinId: string | null = null,
   ) {
     const normalized = normalizeKingdomArchitecture(architectureId);
-    const source = kingdomBuildingAsset(normalized, buildingType);
-    let image = kingdomBuildingImages.get(source);
+    const frame = kingdomBuildingSprite(normalized, buildingType, skinId);
+    let image = kingdomBuildingImages.get(frame.src);
     if (!image) {
       image = new Image();
       image.decoding = "async";
-      image.src = source;
-      kingdomBuildingImages.set(source, image);
+      image.src = frame.src;
+      kingdomBuildingImages.set(frame.src, image);
     }
     if (!image.complete || !image.naturalWidth) return false;
 
-    if (premiumEffect && state.zoom >= 0.5 && !fastRenderMode && !isFastPanning()) {
+    if (frame.premium && state.zoom >= 0.5 && !fastRenderMode && !isFastPanning()) {
       drawKingdomBuildingEffect(normalized, x, y, size);
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
     ctx.drawImage(
       image,
+      frame.sx,
+      frame.sy,
+      frame.sw,
+      frame.sh,
       x - size * layout.pivotX,
       y - size * layout.pivotY,
       size,
@@ -8436,7 +8468,7 @@ export function createIslandEmpireGame(
         : isSubCapital
           ? 158
           : 148;
-    if (!drawKingdomBuildingSprite(architectureId, buildingType, drawX, drawY, size, Boolean(equippedSkin))) {
+    if (!drawKingdomBuildingSprite(architectureId, buildingType, drawX, drawY, size, equippedSkin)) {
       drawCastleSilhouette(drawX, drawY, size, flagColor);
     } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
 
@@ -9733,19 +9765,28 @@ export function createIslandEmpireGame(
     ctx.restore();
   }
 
-  function drawVoyageShip(x, y, color) {
+  function drawVoyageShip(x, y, color, facingLeft = false) {
+    if (!medievalArmySheet.complete || medievalArmySheet.naturalWidth <= 0)
+      return false;
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(1.4, 1.4);
-    pxRect(-24, 16, 48, 8, "rgba(0,0,0,0.34)");
-    pxRect(-20, 5, 40, 14, "#4a2912");
-    pxRect(-14, 16, 28, 6, "#211106");
-    pxRect(-2, -24, 5, 32, "#2b1709");
-    pxRect(3, -20, 24, 18, "#f7ead0");
-    pxRect(-16, -8, 16, 14, "#eee0c2");
-    pxRect(4, -34, 20, 11, color);
-    pxRect(20, -30, 6, 5, color);
+    ctx.scale(facingLeft ? -1 : 1, 1);
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#9adcf3";
+    ctx.beginPath();
+    ctx.ellipse(0, 20, 36, 8, 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(medievalArmySheet, 768, 0, 256, 256, -42, -58, 84, 84);
+    ctx.scale(facingLeft ? -1 : 1, 1);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 26, 3, 0, TAU);
+    ctx.fill();
     ctx.restore();
+    return true;
   }
 
   function drawArmyLodToken(
@@ -9837,6 +9878,9 @@ export function createIslandEmpireGame(
       v.owner === 0 ? state.newbieFlagColor || "#00f0ff" : factionColor;
     const highMarchLoad = state.voyages.length > 28;
     const useLowDetail = fastRenderMode || state.zoom < 0.42 || highMarchLoad;
+    const marchFrame = (v.to?.x ?? x) < (v.from?.x ?? x)
+      ? "walk_left"
+      : "walk_right";
 
     ctx.save();
     const visibleKinds =
@@ -9859,26 +9903,26 @@ export function createIslandEmpireGame(
         troopColor,
       );
     } else if (hasInfantry && hasCavalry && hasArtillery) {
-      if (!drawMedievalUnitSprite("cavalry", -16, -4, 48, troopColor)) drawLegacyPixelCavalry(-16, -4, troopColor, emblem);
-      if (!drawMedievalUnitSprite("infantry", 14, -2, 42, troopColor)) drawPixelInfantry(14, -2, troopColor, emblem);
-      drawLegacyPixelArtillery(0, 14, troopColor, emblem);
+      drawMedievalUnitSprite("cavalry", -16, -4, 48, troopColor, marchFrame);
+      drawMedievalUnitSprite("infantry", 14, -2, 42, troopColor, marchFrame);
+      drawMedievalUnitSprite("artillery", 0, 14, 54, troopColor, marchFrame);
     } else if (hasInfantry && hasCavalry) {
-      if (!drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor)) drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
-      if (!drawMedievalUnitSprite("infantry", 12, 0, 44, troopColor)) drawPixelInfantry(12, 0, troopColor, emblem);
+      drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor, marchFrame);
+      drawMedievalUnitSprite("infantry", 12, 0, 44, troopColor, marchFrame);
     } else if (hasInfantry && hasArtillery) {
-      if (!drawMedievalUnitSprite("infantry", -12, -2, 44, troopColor)) drawPixelInfantry(-12, -2, troopColor, emblem);
-      drawLegacyPixelArtillery(12, 10, troopColor, emblem);
+      drawMedievalUnitSprite("infantry", -12, -2, 44, troopColor, marchFrame);
+      drawMedievalUnitSprite("artillery", 12, 10, 54, troopColor, marchFrame);
     } else if (hasCavalry && hasArtillery) {
-      if (!drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor)) drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
-      drawLegacyPixelArtillery(12, 10, troopColor, emblem);
+      drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor, marchFrame);
+      drawMedievalUnitSprite("artillery", 12, 10, 54, troopColor, marchFrame);
     } else if (hasInfantry) {
-      if (!drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor)) drawPixelInfantry(0, 0, troopColor, emblem);
+      drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor, marchFrame);
     } else if (hasCavalry) {
-      if (!drawMedievalUnitSprite("cavalry", 0, 0, 58, troopColor)) drawLegacyPixelCavalry(0, 0, troopColor, emblem);
+      drawMedievalUnitSprite("cavalry", 0, 0, 58, troopColor, marchFrame);
     } else if (hasArtillery) {
-      drawLegacyPixelArtillery(0, 0, troopColor, emblem);
+      drawMedievalUnitSprite("artillery", 0, 0, 60, troopColor, marchFrame);
     } else {
-      if (!drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor)) drawPixelInfantry(0, 0, troopColor, emblem);
+      drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor, marchFrame);
     }
 
     // March Status & Owner Text above Army (NO Red Box, NO Emojis)
@@ -10126,10 +10170,15 @@ export function createIslandEmpireGame(
         } else if (travelled <= sourceLandLength + seaLength) {
           const seaP = (travelled - sourceLandLength) / seaLength;
           const shipPoint = pointAlongPolyline(seaPath, seaP);
-          drawVoyageShip(shipPoint.x, shipPoint.y, factionColor);
+          drawVoyageShip(
+            shipPoint.x,
+            shipPoint.y,
+            factionColor,
+            v.to.x < v.from.x,
+          );
         } else {
           // The ship remains in water while the army disembarks onto the target territory.
-          drawVoyageShip(tPort.x, tPort.y, factionColor);
+          drawVoyageShip(tPort.x, tPort.y, factionColor, v.to.x < v.from.x);
 
           const landP =
             targetLandLength > 0
@@ -11041,7 +11090,7 @@ export function createIslandEmpireGame(
       x,
       y,
       castleSize,
-      Boolean(equippedSkin),
+      equippedSkin,
     )) {
       drawCastleSilhouette(x, y, castleSize, color);
     } else {

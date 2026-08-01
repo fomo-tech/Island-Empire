@@ -2,9 +2,9 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   KINGDOM_ARCHITECTURES,
-  kingdomBuildingAsset,
   type KingdomBuildingType,
 } from "../game/kingdomArchitecture";
+import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 
 interface KingdomCreationModalProps {
   onClose: () => void;
@@ -71,7 +71,7 @@ export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "Ho
     <div className={`founding-castle-scene architecture-${selectedArchitectureInfo.effect}`}>
       <div className="founding-castle-aura" />
       <div className="founding-castle-plinth" />
-      <img className="founding-building-asset" src={kingdomBuildingAsset(selectedArchitecture, previewType)} alt={`${selectedArchitectureInfo.name} ${previewType}`}/>
+      <KingdomBuildingSprite className="founding-building-asset" architectureId={selectedArchitecture} buildingType={previewType} label={`${selectedArchitectureInfo.name} ${previewType}`}/>
       <div className="founding-building-particles" aria-hidden="true"><i/><i/><i/><i/><i/></div>
       <div className="founding-building-tabs" role="tablist" aria-label="Loại công trình">
         {(["capital", "fortress", "district"] as KingdomBuildingType[]).map((type) => <button key={type} type="button" role="tab" aria-selected={previewType === type} className={previewType === type ? "active" : ""} onClick={() => setPreviewType(type)}>{type === "capital" ? "Hoàng Thành" : type === "fortress" ? "Pháo đài" : "Quân khu"}</button>)}
@@ -89,7 +89,7 @@ export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "Ho
         <div className="founding-panel">{stage === 2 ? <>
           <div className="founding-section"><label htmlFor="founding-name"><span>01</span> Danh xưng Hoàng Thành</label><div className={`founding-name-input status-${nameStatus}`}><input id="founding-name" value={cityName} onChange={(event) => setCityName(event.target.value)} maxLength={24} required/><small>{cityName.length}/24</small></div><p className={`founding-name-status ${nameStatus}`}>{nameStatus === "checking" ? "ĐANG KIỂM TRA TÊN THÀNH" : nameMessage}</p></div>
           <div className="founding-section"><label><span>02</span> Sắc hiệu Vương Triều <b>{selectedColorInfo.name}</b></label><div className="founding-colors">{FLAG_COLORS.map((color) => <button key={color.id} type="button" aria-label={color.name} aria-pressed={selectedColor === color.id} className={selectedColor === color.id ? "selected" : ""} onClick={() => setSelectedColor(color.id)} style={{ "--color": color.id } as CSSProperties}><i/></button>)}</div></div>
-          <div className="founding-section"><label><span>03</span> Kiến trúc Vương Quốc <b>{selectedArchitectureInfo.name}</b></label><div className="founding-emblems founding-architectures">{KINGDOM_ARCHITECTURES.map((architecture) => <button key={architecture.id} type="button" aria-label={architecture.name} aria-pressed={selectedArchitecture === architecture.id} className={selectedArchitecture === architecture.id ? "selected" : ""} onClick={() => setSelectedArchitecture(architecture.id)}><img src={kingdomBuildingAsset(architecture.id, "capital")} alt=""/><small>{architecture.name}</small></button>)}</div></div>
+          <div className="founding-section"><label><span>03</span> Kiến trúc Vương Quốc <b>{selectedArchitectureInfo.name}</b></label><div className="founding-emblems founding-architectures">{KINGDOM_ARCHITECTURES.map((architecture) => <button key={architecture.id} type="button" aria-label={architecture.name} aria-pressed={selectedArchitecture === architecture.id} className={selectedArchitecture === architecture.id ? "selected" : ""} onClick={() => setSelectedArchitecture(architecture.id)}><KingdomBuildingSprite architectureId={architecture.id} buildingType="capital"/><small>{architecture.name}</small></button>)}</div></div>
         </> : <div className="founding-complete"><EmblemIcon id={selectedEmblem}/><span>SẮC LỆNH ĐÃ SẴN SÀNG</span><h3>{cityName}</h3><p>Kiểm tra lần cuối trước khi dựng thành tại <b>{territoryName}</b>.</p><dl><div><dt>Sắc hiệu</dt><dd>{selectedColorInfo.name}</dd></div><div><dt>Kiến trúc</dt><dd>{selectedArchitectureInfo.name}</dd></div></dl></div>}</div>
         <footer className="founding-actions"><p>{stage === 2 ? "Xem trước cập nhật trực tiếp theo lựa chọn của bạn." : "Xác nhận để dựng Hoàng Thành trên lãnh địa đã chọn."}</p><div>{stage === 3 && <button type="button" className="secondary" onClick={() => setStage(2)} disabled={submitting}>QUAY LẠI</button>}<button type="submit" className="primary" disabled={submitting || nameStatus !== "available"}>{submitting ? "ĐANG DỰNG THÀNH" : stage === 2 ? "XEM HOÀN THÀNH" : "DỰNG HOÀNG THÀNH"}</button></div></footer>
       </form>

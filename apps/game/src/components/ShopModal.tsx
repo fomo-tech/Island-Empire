@@ -12,8 +12,8 @@ import {
 } from "./EuroIcons";
 import {
   kingdomArchitectureFromSkin,
-  kingdomBuildingAsset,
 } from "../game/kingdomArchitecture";
+import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 
 type SkinVariant = "gold" | "fire" | "wind";
 
@@ -26,10 +26,11 @@ function KingdomSkinAsset({ skinId, variant, large = false }: {
   return (
     <div className={`premium-castle-preview premium-castle-preview--${variant} ${large ? "is-large" : ""}`}>
       <div className="premium-castle-aura" />
-      <img
+      <KingdomBuildingSprite
         className="premium-castle-building"
-        src={kingdomBuildingAsset(architectureId, "capital")}
-        alt=""
+        architectureId={architectureId}
+        buildingType="capital"
+        skinId={skinId}
       />
       <div className="premium-castle-fx" aria-hidden="true">
         <i /><i /><i /><i /><i /><i />
