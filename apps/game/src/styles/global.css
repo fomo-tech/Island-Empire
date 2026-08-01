@@ -6649,14 +6649,8 @@ canvas {
 
 /* --- Premium Strategy HUD Territory Tooltip React Component CSS --- */
 .rt-tooltip-container {
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif !important;
-  animation: rtTooltipFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  font-family: Marcellus, Cinzel, "Outfit", sans-serif !important;
+  animation: rtTooltipFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes rtTooltipFadeIn {
@@ -6673,16 +6667,25 @@ canvas {
 /* --- 100% Reference Art Matching Territory Tooltip UI --- */
 .rt-tooltip-card {
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(9, 23, 30, 0.97) 0%,
-    rgba(5, 13, 18, 0.99) 100%
-  );
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e5bd5a'%3E%3Cpath d='M0 0h16v3H3v13H0V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e5bd5a'%3E%3Cpath d='M24 0H8v3h13v13h3V0z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e5bd5a'%3E%3Cpath d='M0 24h16v-3H3V8H0v16z'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e5bd5a'%3E%3Cpath d='M24 24H8v-3h13V8h3v16z'/%3E%3C/svg%3E"),
+    radial-gradient(circle, rgba(16, 28, 41, 0.99) 0%, rgba(6, 10, 16, 0.99) 100%) !important;
+  background-position:
+    top 4px left 4px,
+    top 4px right 4px,
+    bottom 4px left 4px,
+    bottom 4px right 4px,
+    center center !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px !important;
   backdrop-filter: blur(20px);
-  border: 2px solid #2d453b;
+  border: 3px double #e5bd5a !important;
   box-shadow:
-    0 0 0 1px #ffd700,
-    inset 0 0 45px rgba(10, 30, 25, 0.9),
+    0 0 0 1px #b38f4f,
+    inset 0 0 35px rgba(229, 189, 90, 0.12),
     0 24px 60px rgba(0, 0, 0, 0.98);
   border-radius: 12px;
   padding: 18px 20px;
@@ -7003,75 +7006,87 @@ canvas {
 .rt-main-action-btn {
   position: relative;
   width: 100%;
-  height: 44px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border-radius: 8px;
-  color: #ffffff;
-  font-family: Georgia, serif !important;
+  gap: 10px;
+  border-radius: 6px;
+  color: #fff2c4 !important;
+  font-family: Cinzel, Georgia, serif !important;
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 1px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: all 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.1) !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+  box-shadow: 
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  border: 2px solid #b38f4f !important;
 }
 
 /* Green Build Theme */
 .rt-main-action-btn.build {
-  background: linear-gradient(180deg, #10b981 0%, #047857 100%) !important;
-  border: 2px solid #ffd700 !important;
+  background: linear-gradient(180deg, #1f4f35 0%, #0d2618 100%) !important;
+  border-color: #b38f4f !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 4px 12px rgba(16, 185, 129, 0.4);
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 10px rgba(74, 222, 128, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.6) !important;
 }
 
 .rt-main-action-btn.build:hover {
-  background: linear-gradient(180deg, #34d399 0%, #059669 100%) !important;
-  border-color: #ffffff !important;
+  background: linear-gradient(180deg, #2b6f4a 0%, #133a25 100%) !important;
+  border-color: #e5bd5a !important;
   box-shadow:
-    0 0 15px rgba(52, 211, 153, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
+    0 0 15px rgba(74, 222, 128, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 12px rgba(74, 222, 128, 0.35);
+  transform: translateY(-3px) scale(1.025);
+  color: #ffffff !important;
 }
 
 /* Red Attacker Theme */
 .rt-main-action-btn.attacker {
-  background: linear-gradient(180deg, #ef4444 0%, #991b1b 100%) !important;
-  border: 2px solid #fca5a5 !important;
+  background: linear-gradient(180deg, #7c1a1a 0%, #450a0a 100%) !important;
+  border-color: #b38f4f !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 4px 12px rgba(239, 68, 68, 0.45);
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 10px rgba(239, 68, 68, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.6) !important;
 }
 
 .rt-main-action-btn.attacker:hover {
-  background: linear-gradient(180deg, #f87171 0%, #b91c1c 100%) !important;
-  border-color: #ffffff !important;
+  background: linear-gradient(180deg, #a62626 0%, #5c0f0f 100%) !important;
+  border-color: #e5bd5a !important;
   box-shadow:
-    0 0 15px rgba(239, 68, 68, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
+    0 0 15px rgba(239, 68, 68, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 12px rgba(239, 68, 68, 0.35);
+  transform: translateY(-3px) scale(1.025);
+  color: #ffffff !important;
 }
 
 /* Blue Defender Theme */
 .rt-main-action-btn.defender {
-  background: linear-gradient(180deg, #3b82f6 0%, #1e3a8a 100%) !important;
-  border: 2px solid #93c5fd !important;
+  background: linear-gradient(180deg, #1e3a5f 0%, #0d1e33 100%) !important;
+  border-color: #b38f4f !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 4px 12px rgba(59, 130, 246, 0.4);
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 10px rgba(59, 130, 246, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.6) !important;
 }
 
 .rt-main-action-btn.defender:hover {
-  background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%) !important;
-  border-color: #ffffff !important;
+  background: linear-gradient(180deg, #2b548a 0%, #132a4a 100%) !important;
+  border-color: #e5bd5a !important;
   box-shadow:
-    0 0 15px rgba(59, 130, 246, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
+    0 0 15px rgba(59, 130, 246, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 12px rgba(59, 130, 246, 0.35);
+  transform: translateY(-3px) scale(1.025);
+  color: #ffffff !important;
 }
 
 .text-gold-serif {
@@ -29900,6 +29915,21 @@ html body .hud-wrapper .rok-badge-subtext {
 .founding-emblems svg,.founding-emblems small{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.founding-preview-card.complete .founding-castle-scene canvas,.founding-preview-card.complete .founding-castle-plinth{animation:none}}
 @media(max-width:800px){.founding-castle-scene canvas{bottom:-28px;width:min(72%,230px)}.founding-castle-plinth{bottom:5%;width:62%}.founding-castle-aura{height:90%}.founding-preview-card.complete{width:min(290px,100%);height:100%;grid-template-rows:30px minmax(0,1fr) 54px}.founding-preview-card.complete .founding-castle-scene canvas{inset:auto auto -28px 50%;width:min(72%,220px)}.founding-preview-card.complete .founding-preview-info>svg{width:32px;height:32px;flex-basis:32px}.founding-preview-card.complete .founding-preview-info strong{font-size:12px}}
+
+/* Unified kingdom assets: onboarding, map and shop share the same 1:1 WebP source. */
+.kingdom-building-sprite{display:block;background-color:transparent;background-origin:border-box;background-clip:border-box}
+.founding-building-asset{position:absolute;z-index:3;left:50%;bottom:-2%;width:min(88%,330px);aspect-ratio:1;transform:translateX(-50%);filter:drop-shadow(0 17px 10px rgba(0,0,0,.78));animation:kingdom-building-idle 4.8s ease-in-out infinite}
+.founding-building-tabs{position:absolute;z-index:6;left:50%;bottom:7px;display:flex;transform:translateX(-50%);border:1px solid #725932;background:rgba(5,10,13,.9);box-shadow:0 3px 9px #000}
+.founding-building-tabs button{height:25px;padding:0 9px;border:0;border-right:1px solid #443824;color:#8c9898;background:transparent;font:700 7px Cinzel,serif;white-space:nowrap;cursor:pointer}.founding-building-tabs button:last-child{border-right:0}.founding-building-tabs button.active{color:#ffe39a;background:#573923}
+.founding-building-particles{position:absolute;z-index:4;inset:7% 10% 18%;pointer-events:none}.founding-building-particles i{position:absolute;width:4px;height:4px;border-radius:50%;background:#f4cf72;box-shadow:0 0 8px currentColor;animation:kingdom-particle-rise 3.6s linear infinite}.founding-building-particles i:nth-child(1){left:14%;top:72%;animation-delay:-.4s}.founding-building-particles i:nth-child(2){left:32%;top:48%;animation-delay:-2.1s}.founding-building-particles i:nth-child(3){left:55%;top:78%;animation-delay:-1.2s}.founding-building-particles i:nth-child(4){left:76%;top:55%;animation-delay:-2.8s}.founding-building-particles i:nth-child(5){left:88%;top:80%;animation-delay:-1.8s}
+.architecture-fire .founding-building-particles{color:#ff6b21}.architecture-fire .founding-building-particles i{background:#ff8a32}.architecture-wind .founding-building-particles{color:#67e8f9}.architecture-wind .founding-building-particles i{background:#a5f3fc}.architecture-shadow .founding-building-particles{color:#c084fc}.architecture-shadow .founding-building-particles i{background:#d8b4fe}.architecture-steel .founding-building-particles{color:#cbd5e1}.architecture-steel .founding-building-particles i{background:#e2e8f0}
+.founding-architectures button{height:78px}.founding-architectures button:before{display:none}.founding-architectures .kingdom-building-sprite{position:relative;z-index:1;width:56px;height:52px;filter:drop-shadow(0 3px 3px #000)}.founding-architectures button.selected .kingdom-building-sprite{filter:drop-shadow(0 0 6px rgba(240,206,118,.46))}
+.premium-castle-building{position:absolute;z-index:3;left:50%;bottom:-2%;width:94%;height:94%;transform:translateX(-50%);filter:drop-shadow(0 13px 8px rgba(0,0,0,.8));animation:kingdom-building-idle 4.8s ease-in-out infinite}
+.premium-castle-preview.is-large .premium-castle-building{width:98%;height:98%}
+@keyframes kingdom-building-idle{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
+@keyframes kingdom-particle-rise{0%{opacity:0;transform:translateY(12px) scale(.7)}20%{opacity:1}100%{opacity:0;transform:translateY(-42px) scale(1.15)}}
+@media(prefers-reduced-motion:reduce){.founding-building-asset,.premium-castle-building,.founding-building-particles i{animation:none}}
+@media(max-width:800px){.founding-building-asset{bottom:-7%;width:min(72%,235px)}.founding-building-tabs{bottom:3px}.founding-building-tabs button{height:22px;padding:0 6px;font-size:6px}.founding-architectures button{height:50px}.founding-architectures .kingdom-building-sprite{width:39px;height:37px}}
 
 /* Prestige leaderboard */
 .prestige-board{position:relative;display:flex;flex-direction:column;max-height:76vh;overflow:hidden;color:#d8cfbd;background:radial-gradient(circle at 50% 0,rgba(133,91,34,.18),transparent 38%),linear-gradient(150deg,#121a20,#080d10 70%);font-family:Inter,"Segoe UI",sans-serif}

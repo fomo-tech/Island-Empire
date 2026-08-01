@@ -10,8 +10,37 @@ import {
   EuroClockIcon,
   EuroRefreshIcon,
 } from "./EuroIcons";
+import {
+  kingdomArchitectureFromSkin,
+} from "../game/kingdomArchitecture";
+import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 
 type SkinVariant = "gold" | "fire" | "wind";
+
+function KingdomSkinAsset({ skinId, variant, large = false }: {
+  skinId: string;
+  variant: SkinVariant;
+  large?: boolean;
+}) {
+  const architectureId = kingdomArchitectureFromSkin(skinId) || "goldencrown";
+  return (
+    <div className={`premium-castle-preview premium-castle-preview--${variant} ${large ? "is-large" : ""}`}>
+      <div className="premium-castle-aura" />
+      <KingdomBuildingSprite
+        className="premium-castle-building"
+        architectureId={architectureId}
+        buildingType="capital"
+        skinId={skinId}
+      />
+      <div className="premium-castle-fx" aria-hidden="true">
+        <i /><i /><i /><i /><i /><i />
+      </div>
+      {variant === "gold" && <div className="premium-gold-runes" aria-hidden="true" />}
+      {variant === "fire" && <><div className="premium-fire-flame flame-left" /><div className="premium-fire-flame flame-right" /></>}
+      {variant === "wind" && <><div className="premium-wind-ring ring-one" /><div className="premium-wind-ring ring-two" /></>}
+    </div>
+  );
+}
 
 const TransparentChestImage: React.FC<{ src: string; alt: string; className: string }> = ({ src, alt, className }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -294,7 +323,6 @@ interface ShopModalProps {
   onResources: (resources: ResourceBag) => void;
   onInventory: (inventory: ShopInventory) => void;
   onNotify: (message: string) => void;
-  getSkinSprite?: (skinId: string) => HTMLCanvasElement | undefined;
 }
 
 export const ShopModal: React.FC<ShopModalProps> = ({
@@ -306,7 +334,6 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   onResources,
   onInventory,
   onNotify,
-  getSkinSprite,
 }) => {
   const [activeTab, setActiveTab] = useState<"resources" | "skins">("resources");
   const [previewSkin, setPreviewSkin] = useState<any | null>(null);
@@ -613,7 +640,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                     onClick={() => setPreviewSkin(skin)}
                     title="Bấm để xem phóng to preview"
                   >
-                    <CastleSkinArt variant={skin.variant} />
+                    <KingdomSkinAsset skinId={skin.id} variant={skin.variant} />
                     <div className="skin-visual-vignette" />
                     <button type="button" className="skin-zoom-btn">
                       PHÓNG TO PREVIEW
@@ -735,7 +762,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
               <div className="skin-modal-body">
                 <div className={`skin-modal-preview-stage skin-modal-preview-stage--${previewSkin.variant}`}>
-                  <CastleSkinArt variant={previewSkin.variant} />
+                  <KingdomSkinAsset skinId={previewSkin.id} variant={previewSkin.variant} large />
                   <div className="skin-modal-vignette" />
                 </div>
 

@@ -14,6 +14,7 @@ export type PlayerDocument = {
   passwordHash?: string;
   flagColor?: string;
   emblem?: string;
+  kingdomArchitectureId?: string;
   starterLandId?: string;
   cityName?: string;
   cityNameKey?: string;

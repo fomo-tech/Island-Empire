@@ -58,6 +58,19 @@ export function getSpecialResourceMeta(rawName: string): SpecialResourceMeta | n
 
 export function SpecialResourceIcon({ name, className = "" }: { name: string; className?: string }) {
   const meta = getSpecialResourceMeta(name);
-  if (!meta) return <span className={`special-resource-fallback ${className}`} aria-hidden="true">◆</span>;
+  if (!meta) return (
+    <span 
+      className={`special-resource-fallback ${className}`} 
+      aria-hidden="true"
+      style={{ 
+        display: "inline-block", 
+        width: "8px", 
+        height: "8px", 
+        backgroundColor: "#ffd700",
+        transform: "rotate(45deg)", 
+        verticalAlign: "middle" 
+      }} 
+    />
+  );
   return <img className={className} src={meta.icon} alt="" aria-hidden="true" />;
 }

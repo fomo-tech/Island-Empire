@@ -394,13 +394,14 @@ export function updatePlayerProfile(
   flagColor: string,
   emblem: string,
   cityName?: string,
+  kingdomArchitectureId?: string,
 ): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>("/api/player/profile", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ flagColor, emblem, cityName }),
+    body: JSON.stringify({ flagColor, emblem, cityName, kingdomArchitectureId }),
   });
 }
 

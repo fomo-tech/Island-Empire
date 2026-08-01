@@ -335,6 +335,7 @@ export type TerritoryInfo = {
   ownerName?: string | null;
   ownerFlagColor?: string;
   ownerEmblem?: string;
+  ownerArchitectureId?: string;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
   settlementKind?: "capital" | "sub_capital" | "military";
@@ -472,7 +473,11 @@ export type GameStateResult = {
   serverTime: string;
   resourceUpdatedAt: string;
   newbieShieldUntil?: string | null;
-  playerProfile?: { flagColor: string; emblem: string } | null;
+  playerProfile?: {
+    flagColor: string;
+    emblem: string;
+    kingdomArchitectureId?: string;
+  } | null;
   nationStatus?: NationStatusSnapshot;
 };
 
