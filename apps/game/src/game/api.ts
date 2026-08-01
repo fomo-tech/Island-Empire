@@ -287,15 +287,19 @@ export interface LeaderboardEntry {
   rank: number;
   playerId: string;
   name: string;
+  cityName: string;
   flagColor: string;
   emblem: string;
   townCount: number;
+  capitalLevel: number;
   totalTroops: number;
+  prestige: number;
+  isCurrentPlayer: boolean;
 }
 
 export function getMilitaryLeaderboard(
   token: string,
-): Promise<{ ok: true; leaderboard: LeaderboardEntry[] }> {
+): Promise<{ ok: true; leaderboard: LeaderboardEntry[]; currentPlayer: LeaderboardEntry | null }> {
   return request("/api/leaderboard/military", {
     headers: { Authorization: `Bearer ${token}` },
   });

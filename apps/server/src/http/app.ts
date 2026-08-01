@@ -5472,22 +5472,56 @@ export function createApp() {
           );
           const outboundTroops = marchTroopsMap.get(playerId) || 0;
           const totalTroops = garrisonTroops + outboundTroops;
+          const capitalLevel = towns.reduce((highest, town: any) => {
+            const kind = town?.kind;
+            return kind === "capital" || kind === "sub_capital"
+              ? Math.max(highest, Math.max(1, Number(town?.level ?? town?.lvl) || 1))
+              : highest;
+          }, 0);
+          const savedPrestige = Number(player.strategicPowerSnapshot?.total);
+          const prestige = Number.isFinite(savedPrestige)
+            ? Math.max(0, Math.round(savedPrestige))
+            : Math.max(0, Math.round(totalTroops + towns.length * 100 + capitalLevel * 200));
           return {
             playerId,
             name: String(player.name || player.username || playerId),
+            cityName: String(player.cityName || (towns.find((town: any) => town?.kind === "capital") as any)?.name || "Hoàng Thành"),
             flagColor: player.flagColor ?? "#ef4444",
             emblem: player.emblem ?? "shield",
             townCount: towns.length,
+            capitalLevel,
             totalTroops,
+            prestige,
+            powerUpdatedAt: new Date(player.strategicPowerSnapshot?.updatedAt || player.createdAt || 0).getTime(),
           };
         })
         .filter(Boolean);
-      leaderboardData.sort((a: any, b: any) => b.totalTroops - a.totalTroops);
-      const top100 = leaderboardData.slice(0, 100).map((entry: any, index) => ({
+      leaderboardData.sort((a: any, b: any) =>
+        b.prestige - a.prestige ||
+        b.capitalLevel - a.capitalLevel ||
+        b.townCount - a.townCount ||
+        b.totalTroops - a.totalTroops ||
+        a.powerUpdatedAt - b.powerUpdatedAt ||
+        a.playerId.localeCompare(b.playerId),
+      );
+      const ranked = leaderboardData.map((entry: any, index) => ({
         rank: index + 1,
-        ...entry,
+        playerId: entry.playerId,
+        name: entry.name,
+        cityName: entry.cityName,
+        flagColor: entry.flagColor,
+        emblem: entry.emblem,
+        townCount: entry.townCount,
+        capitalLevel: entry.capitalLevel,
+        totalTroops: entry.totalTroops,
+        prestige: entry.prestige,
+        isCurrentPlayer: entry.playerId === req.user!.id,
       }));
-      res.json({ ok: true, leaderboard: top100 });
+      res.json({
+        ok: true,
+        leaderboard: ranked.slice(0, 100),
+        currentPlayer: ranked.find((entry: any) => entry.playerId === req.user!.id) || null,
+      });
     } catch (err: any) {
       console.error("Leaderboard error:", err);
       res

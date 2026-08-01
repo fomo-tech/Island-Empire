@@ -82,6 +82,51 @@ export function createIslandEmpireGame(
     };
   ctx.imageSmoothingEnabled = false;
 
+  const medievalUnitImages: Record<string, HTMLImageElement> = {};
+  const medievalUnitSources = {
+    builder_idle: "/assets/units/medieval/builder_idle.png",
+    builder_walk_left: "/assets/units/medieval/builder_walk_left.png",
+    builder_walk_right: "/assets/units/medieval/builder_walk_right.png",
+    builder_carry: "/assets/units/medieval/builder_carry.png",
+    builder_hammer_up: "/assets/units/medieval/builder_hammer_up.png",
+    builder_hammer_down: "/assets/units/medieval/builder_hammer_down.png",
+    builder_complete: "/assets/units/medieval/builder_complete.png",
+    infantry_idle: "/assets/units/medieval/infantry_idle.png",
+    infantry_walk_left: "/assets/units/medieval/infantry_walk_left.png",
+    infantry_walk_right: "/assets/units/medieval/infantry_walk_right.png",
+    cavalry_idle: "/assets/units/medieval/cavalry_idle.png",
+    cavalry_walk_left: "/assets/units/medieval/cavalry_walk_left.png",
+    cavalry_walk_right: "/assets/units/medieval/cavalry_walk_right.png",
+  };
+  Object.entries(medievalUnitSources).forEach(([kind, src]) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = src;
+    medievalUnitImages[kind] = image;
+  });
+
+  function drawMedievalUnitSprite(
+    kind: "builder" | "infantry" | "cavalry",
+    x: number,
+    y: number,
+    size: number,
+    factionColor?: string,
+    frame = "idle",
+  ) {
+    const image = medievalUnitImages[`${kind}_${frame}`] || medievalUnitImages[`${kind}_idle`];
+    if (!image?.complete || image.naturalWidth <= 0) return false;
+    ctx.save();
+    if (kind !== "builder" && factionColor) drawTroopFootRing(x, y, factionColor);
+    const bobSpeed = kind === "cavalry" ? 7 : 8;
+    const bobAmount = kind === "builder" ? 0.45 : 0.8;
+    const bob = Math.sin(state.tick * bobSpeed) * bobAmount;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(image, x - size / 2, y - size + 15 + bob, size, size);
+    ctx.restore();
+    return true;
+  }
+
   let minimapCtx = minimapCanvas?.getContext("2d");
 
   let destroyed = false;
@@ -9342,26 +9387,26 @@ export function createIslandEmpireGame(
         troopColor,
       );
     } else if (hasInfantry && hasCavalry && hasArtillery) {
-      drawLegacyPixelCavalry(-16, -4, troopColor, emblem);
-      drawPixelInfantry(14, -2, troopColor, emblem);
+      if (!drawMedievalUnitSprite("cavalry", -16, -4, 48, troopColor)) drawLegacyPixelCavalry(-16, -4, troopColor, emblem);
+      if (!drawMedievalUnitSprite("infantry", 14, -2, 42, troopColor)) drawPixelInfantry(14, -2, troopColor, emblem);
       drawLegacyPixelArtillery(0, 14, troopColor, emblem);
     } else if (hasInfantry && hasCavalry) {
-      drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
-      drawPixelInfantry(12, 0, troopColor, emblem);
+      if (!drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor)) drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
+      if (!drawMedievalUnitSprite("infantry", 12, 0, 44, troopColor)) drawPixelInfantry(12, 0, troopColor, emblem);
     } else if (hasInfantry && hasArtillery) {
-      drawPixelInfantry(-12, -2, troopColor, emblem);
+      if (!drawMedievalUnitSprite("infantry", -12, -2, 44, troopColor)) drawPixelInfantry(-12, -2, troopColor, emblem);
       drawLegacyPixelArtillery(12, 10, troopColor, emblem);
     } else if (hasCavalry && hasArtillery) {
-      drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
+      if (!drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor)) drawLegacyPixelCavalry(-12, -4, troopColor, emblem);
       drawLegacyPixelArtillery(12, 10, troopColor, emblem);
     } else if (hasInfantry) {
-      drawPixelInfantry(0, 0, troopColor, emblem);
+      if (!drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor)) drawPixelInfantry(0, 0, troopColor, emblem);
     } else if (hasCavalry) {
-      drawLegacyPixelCavalry(0, 0, troopColor, emblem);
+      if (!drawMedievalUnitSprite("cavalry", 0, 0, 58, troopColor)) drawLegacyPixelCavalry(0, 0, troopColor, emblem);
     } else if (hasArtillery) {
       drawLegacyPixelArtillery(0, 0, troopColor, emblem);
     } else {
-      drawPixelInfantry(0, 0, troopColor, emblem);
+      if (!drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor)) drawPixelInfantry(0, 0, troopColor, emblem);
     }
 
     // March Status & Owner Text above Army (NO Red Box, NO Emojis)
@@ -9986,8 +10031,10 @@ export function createIslandEmpireGame(
     pxRect(15, -21 + bob, 30, 2, "#f1cd6e");
     drawFlagEmblem(28, -28 + bob, state.newbieEmblem || "crown", 0.5);
 
+    const hasBuilderSprite = drawMedievalUnitSprite("builder", 0, 4, 53);
+
     // Timber cart and rolled plans make the role readable at map scale.
-    if (!inTravelPhase) {
+    if (!hasBuilderSprite && !inTravelPhase) {
       pxRect(-26, 8, 17, 8, "#72431e");
       pxRect(-24, 5, 13, 5, "#a96c32");
       pxRect(-23, 2, 4, 7, "#d2a05c");
@@ -9997,13 +10044,14 @@ export function createIslandEmpireGame(
       pxRect(-13, 15, 5, 5, "#1b1714");
       pxRect(-24, 16, 3, 3, "#8d969d");
       pxRect(-12, 16, 3, 3, "#8d969d");
-    } else {
+    } else if (!hasBuilderSprite) {
       pxRect(-15, -5 + bob, 6, 21, "#e7d8ae");
       pxRect(-16, -7 + bob, 8, 4, "#6e512d");
       pxRect(-16, 13 + bob, 8, 4, "#6e512d");
       pxRect(-14, -2 + bob, 4, 2, "#b88b4c");
     }
 
+    if (!hasBuilderSprite) {
     // Heavy boots, split doublet and leather engineer apron.
     pxRect(-8 + walk, 6, 6, 11, "#37271d");
     pxRect(2 - walk, 6, 6, 11, "#37271d");
@@ -10059,6 +10107,10 @@ export function createIslandEmpireGame(
       pxRect(21, -2, 2, 2, "#fff0a6");
       pxRect(14, 7, 2, 2, "#e89b2d");
       pxRect(23, 5, 2, 2, "#ffb13b");
+    }
+    } else if (!inTravelPhase && Math.sin(state.tick * 12) > 0.72) {
+      pxRect(18, 4, 2, 2, "#ffd34d");
+      pxRect(22, 0, 1.5, 1.5, "#fff0a6");
     }
     ctx.restore();
 
