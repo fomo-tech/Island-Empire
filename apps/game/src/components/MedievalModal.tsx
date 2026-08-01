@@ -7,6 +7,7 @@ interface MedievalModalProps {
   children: React.ReactNode;
   width?: string;
   maxWidth?: string;
+  className?: string;
 }
 
 export const MedievalModal: React.FC<MedievalModalProps> = ({
@@ -16,24 +17,27 @@ export const MedievalModal: React.FC<MedievalModalProps> = ({
   children,
   width,
   maxWidth,
+  className,
 }) => {
   return (
     <div className="medieval-modal-overlay" onClick={onClose}>
-      <div 
-        className="medieval-modal-container" 
+      <div
+        className={`medieval-modal-container${className ? ` ${className}` : ""}`}
         onClick={(e) => e.stopPropagation()}
         style={{ width, maxWidth }}
       >
-        <button onClick={onClose} className="medieval-modal-close-btn" aria-label="Đóng">
+        <button
+          onClick={onClose}
+          className="medieval-modal-close-btn"
+          aria-label="Đóng"
+        >
           ×
         </button>
         <header className="medieval-modal-header">
           <h2 className="medieval-modal-title">{title}</h2>
           {subtitle && <p className="medieval-modal-subtitle">{subtitle}</p>}
         </header>
-        <div className="medieval-modal-body">
-          {children}
-        </div>
+        <div className="medieval-modal-body">{children}</div>
       </div>
     </div>
   );

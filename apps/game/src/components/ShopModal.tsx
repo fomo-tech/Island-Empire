@@ -704,6 +704,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               <h3 className="chest-reward-title">MỞ RƯƠNG THÀNH CÔNG!</h3>
               <p className="chest-reward-sub">Bạn đã nhận được các vật phẩm quân nhu từ {rewardModalPack.name}:</p>
 
+              <div className="chest-reward-divider" />
+
               <div className="chest-reward-items-grid">
                 {rewardModalPack.contents.map((item: any, idx: number) => (
                   <div className="chest-reward-item-card" key={idx}>
@@ -719,11 +721,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 className="chest-reward-claim-btn"
                 onClick={() => setRewardModalPack(null)}
               >
-                XÁC NHẬN NHẬN VẬT PHẨM
+                ✦ XÁC NHẬN NHẬN VẬT PHẨM ✦
               </button>
+              <div style={{ height: 22 }} />
             </div>
           </div>
         )}
+
 
         {/* Enlarged Interactive Preview Modal */}
         {previewSkin && (

@@ -1,4 +1,10 @@
-import type { ActiveBattle, ResourceBag, TownSnapshot, GameConfig } from "@island/shared";
+import type {
+  ActiveBattle,
+  ResourceBag,
+  TownSnapshot,
+  GameConfig,
+  StrategicPowerBreakdown,
+} from "@island/shared";
 import { getDb } from "./client.js";
 
 export type PlayerDocument = {
@@ -15,6 +21,12 @@ export type PlayerDocument = {
   lastResourceCollectedAt?: Date;
   allianceTroopReserve?: number;
   stateVersion?: number;
+  vipLevel?: number;
+  vipPoints?: number;
+  strategicPowerSnapshot?: StrategicPowerBreakdown & {
+    version: number;
+    updatedAt: Date;
+  };
   shopInventory?: {
     ownedSkins: string[];
     equippedCapitalSkin: string | null;
@@ -23,6 +35,8 @@ export type PlayerDocument = {
   };
   role: "player" | "admin";
   newbieShieldUntil?: Date;
+  newbieWelcomeGrantedAt?: Date;   // timestamp khi đã cấp gói chào mừng (idempotent guard)
+  newbieSkinExpiresAt?: Date;      // skin tân thủ hết hạn sau 7 ngày
   createdAt: Date;
   lastSeenAt: Date;
 };
@@ -87,7 +101,10 @@ export type MarchOrderDocument = {
   arrivesAt: Date;
 };
 
-export type ActiveBattleDocument = Omit<ActiveBattle, "id" | "startedAt" | "resolvesAt" | "hpUpdatedAt"> & {
+export type ActiveBattleDocument = Omit<
+  ActiveBattle,
+  "id" | "startedAt" | "resolvesAt" | "hpUpdatedAt"
+> & {
   _id: string;
   startedAt: Date;
   resolvesAt: Date;
@@ -131,14 +148,44 @@ export type BattleReportDocument = {
   winnerId: string;
   isAttackerWin: boolean;
   attacker: {
-    initial: { infantry: number; cavalry: number; artillery: number; power: number };
-    casualty: { infantry: number; cavalry: number; artillery: number; power: number };
-    survivors: { infantry: number; cavalry: number; artillery: number; power: number };
+    initial: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
+    casualty: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
+    survivors: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
   };
   defender: {
-    initial: { infantry: number; cavalry: number; artillery: number; power: number };
-    casualty: { infantry: number; cavalry: number; artillery: number; power: number };
-    survivors: { infantry: number; cavalry: number; artillery: number; power: number };
+    initial: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
+    casualty: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
+    survivors: {
+      infantry: number;
+      cavalry: number;
+      artillery: number;
+      power: number;
+    };
   };
   lootedResources: { gold: number; wood: number; stone: number; gems: number };
   readBy?: string[];
@@ -156,6 +203,8 @@ export type PlayerMailDocument = {
   requestId: string;
   sentAt: Date;
   readAt?: Date | null;
+  deletedByRecipient?: boolean;
+  deletedBySender?: boolean;
 };
 
 export type ShopPurchaseDocument = {
@@ -176,7 +225,9 @@ export async function collections() {
     saves: db.collection<SaveDocument>("saves"),
     configs: db.collection<ConfigDocument>("configs"),
     territoryClaims: db.collection<TerritoryClaimDocument>("territory_claims"),
-    territoryClearings: db.collection<TerritoryClearingDocument>("territory_clearings"),
+    territoryClearings: db.collection<TerritoryClearingDocument>(
+      "territory_clearings",
+    ),
     marchOrders: db.collection<MarchOrderDocument>("march_orders"),
     activeBattles: db.collection<ActiveBattleDocument>("active_battles"),
     alliances: db.collection<AllianceDocument>("alliances"),
@@ -188,7 +239,19 @@ export async function collections() {
 }
 
 export async function ensureIndexes() {
-  const { players, saves, territoryClaims, territoryClearings, marchOrders, activeBattles, alliances, allianceAids, battleReports, playerMails, shopPurchases } = await collections();
+  const {
+    players,
+    saves,
+    territoryClaims,
+    territoryClearings,
+    marchOrders,
+    activeBattles,
+    alliances,
+    allianceAids,
+    battleReports,
+    playerMails,
+    shopPurchases,
+  } = await collections();
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
     players.createIndex({ lastSeenAt: -1 }),
@@ -203,7 +266,10 @@ export async function ensureIndexes() {
     marchOrders.createIndex({ ownerId: 1 }),
     marchOrders.createIndex(
       { ownerId: 1, requestId: 1 },
-      { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
+      {
+        unique: true,
+        partialFilterExpression: { requestId: { $type: "string" } },
+      },
     ),
     marchOrders.createIndex({ arrivesAt: 1 }),
     marchOrders.createIndex({ fromTerritoryId: 1 }),
@@ -233,10 +299,16 @@ export async function ensureIndexes() {
 // march origin. Territory ids are the only ids consumed by the map renderer.
 export async function repairLegacyMarchTerritoryIds() {
   const { marchOrders } = await collections();
-  const legacy = await marchOrders.find({ fromTerritoryId: { $gte: 9000 } }).toArray();
+  const legacy = await marchOrders
+    .find({ fromTerritoryId: { $gte: 9000 } })
+    .toArray();
   if (legacy.length === 0) return;
-  await Promise.all(legacy.map((march: any) => marchOrders.updateOne(
-    { _id: march._id },
-    { $set: { fromTerritoryId: Number(march.fromTerritoryId) - 9000 } },
-  )));
+  await Promise.all(
+    legacy.map((march: any) =>
+      marchOrders.updateOne(
+        { _id: march._id },
+        { $set: { fromTerritoryId: Number(march.fromTerritoryId) - 9000 } },
+      ),
+    ),
+  );
 }

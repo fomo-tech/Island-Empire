@@ -8,8 +8,10 @@ import {
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
 import {
   cancelClearing,
+  clearPlayerMail,
   completeClearing,
   createMarch,
+  deletePlayerMail,
   getMarchSourceOptions,
   getGameConfig,
   getPlayerSync,
@@ -43,11 +45,11 @@ import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
-import { EuroClockIcon } from "./EuroIcons";
 import { useGameStore } from "../store/gameStore";
 import type {
   BattleReport,
   MarchSourceOption,
+  PlayerMail,
   PlayerSyncResult,
   ResourceBag,
 } from "@island/shared";
@@ -941,7 +943,7 @@ function pickStarterTerritoryId(
 function summarizeBackendHud(
   world: any,
   currentPlayerId: string | null,
-  resources: {
+  _resources: {
     gold: number;
     gems: number;
     food?: number;
@@ -967,11 +969,6 @@ function summarizeBackendHud(
     0,
   );
   const ownedTroops = outboundTroops;
-  const strategicPower =
-    ownedTroops * 1.2 +
-    ownedTerritories * 40 +
-    resources.gold * 0.03 +
-    resources.gems * 0.4;
   return {
     ownedTerritories,
     totalTerritories: territories.length,
@@ -987,7 +984,7 @@ function summarizeBackendHud(
     ).length,
     outboundTroops,
     ownedTroops,
-    strategicPower,
+    strategicPower: 0,
     lastSync: Date.now(),
   };
 }
@@ -1452,8 +1449,6 @@ export function GameApp({
     { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 },
   ]);
   const [chatLog, setChatLog] = useState<string[]>([]);
-  const [xp, setXp] = useState(68);
-  const [level, setLevel] = useState(25);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>(
     () => localStorage.getItem("island_empire_avatar") || "emperor",
   );
@@ -1557,6 +1552,8 @@ export function GameApp({
   const [warReports, setWarReports] = useState<WarReportRecord[]>([]);
   const [mailDraft, setMailDraft] = useState({ to: "", title: "", body: "" });
   const [mailTab, setMailTab] = useState<"inbox" | "sent">("inbox");
+  const [mailDetail, setMailDetail] = useState<PlayerMail | null>(null);
+  const [mailBusyId, setMailBusyId] = useState<string | null>(null);
   const [initialSyncReady, setInitialSyncReady] = useState(false);
   const [realtimeToasts, setRealtimeToasts] = useState<
     Array<{ id: string; title: string; body: string; report?: BattleReport }>
@@ -1706,6 +1703,52 @@ export function GameApp({
       addSystemLine(`ĐÃ GỬI THƯ CÁ NHÂN ĐẾN ${result.mail.recipientName}`);
     } catch (error: any) {
       showGameError(error?.message || "Không thể gửi thư");
+    }
+  };
+
+  const deleteMailItem = async (mail: PlayerMail) => {
+    if (!token || mailBusyId) return;
+    setMailBusyId(mail.id);
+    try {
+      await deletePlayerMail(token, mail.id);
+      if (mailTab === "inbox") {
+        setInbox((current) => current.filter((item) => item.id !== mail.id));
+        if (!mail.readAt) {
+          setMailUnreadCount((count) => Math.max(0, count - 1));
+        }
+      } else {
+        setSentMail((current) => current.filter((item) => item.id !== mail.id));
+      }
+      setMailDetail((current) => (current?.id === mail.id ? null : current));
+    } catch (error: any) {
+      showGameError(error?.message || "Không thể xoá thư");
+    } finally {
+      setMailBusyId(null);
+    }
+  };
+
+  const clearAllMail = async () => {
+    if (!token) return;
+    const list = mailTab === "inbox" ? inbox : sentMail;
+    if (list.length === 0) return;
+    if (
+      !window.confirm(
+        "Xoá toàn bộ thư trong mục này? Hành động không thể hoàn tác.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await clearPlayerMail(token, mailTab);
+      if (mailTab === "inbox") {
+        setInbox([]);
+        setMailUnreadCount(0);
+      } else {
+        setSentMail([]);
+      }
+      setMailDetail(null);
+    } catch (error: any) {
+      showGameError(error?.message || "Không thể xoá thư");
     }
   };
 
@@ -1929,11 +1972,9 @@ export function GameApp({
           snapshots.chat = chatSnapshot;
           setChatLog(recentLog);
         }
-        const metaSnapshot = `${engineState.xp || 68}|${engineState.level || 25}|${engineState.toast || ""}|${engineState.newbiePhase || "none"}|${engineState.newbieSelectedRegion ?? ""}`;
+        const metaSnapshot = `${engineState.toast || ""}|${engineState.newbiePhase || "none"}|${engineState.newbieSelectedRegion ?? ""}`;
         if (metaSnapshot !== snapshots.meta) {
           snapshots.meta = metaSnapshot;
-          setXp(engineState.xp || 68);
-          setLevel(engineState.level || 25);
           setToastMessage(engineState.toast || "");
           setNewbiePhase(engineState.newbiePhase || "none");
           setNewbieSelectedRegion(
@@ -2447,6 +2488,9 @@ export function GameApp({
                 ownerEmblem: event.territory.ownerEmblem,
                 ownerAllianceTag: event.territory.ownerAllianceTag,
                 ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                settlementKind: event.territory.settlementKind,
+                equippedCapitalSkin: event.territory.equippedCapitalSkin,
+                equippedDistrictSkin: event.territory.equippedDistrictSkin,
               },
             ],
           });
@@ -2687,6 +2731,9 @@ export function GameApp({
                   ownerEmblem: event.territory.ownerEmblem,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                  settlementKind: event.territory.settlementKind,
+                  equippedCapitalSkin: event.territory.equippedCapitalSkin,
+                  equippedDistrictSkin: event.territory.equippedDistrictSkin,
                 },
               ],
             });
@@ -3116,8 +3163,6 @@ export function GameApp({
       const clearings: any[] = Array.isArray(activity?.clearings)
         ? activity.clearings
         : [];
-      const latestResources =
-        event.resources || economyClockRef.current.resources;
       const ownedTerritories = territories.filter(
         (t: any) => t?.ownerId === playerId,
       ).length;
@@ -3136,13 +3181,6 @@ export function GameApp({
         ? event.towns.reduce((sum: number, t: any) => sum + (t.troops || 0), 0)
         : 0;
       const ownedTroops = outboundTroops + townTroops;
-      const gold = latestResources?.gold ?? 0;
-      const gems = latestResources?.gems ?? 0;
-      const strategicPower =
-        ownedTroops * 1.2 +
-        ownedTerritories * 40 +
-        (gold || 0) * 0.03 +
-        (gems || 0) * 0.4;
       return {
         ...prev,
         ownedTerritories:
@@ -3158,7 +3196,8 @@ export function GameApp({
           .length,
         outboundTroops,
         ownedTroops,
-        strategicPower: Math.round(strategicPower),
+        strategicPower:
+          event.nationStatus?.strategicPower ?? prev.strategicPower,
         lastSync: Date.now(),
       };
     });
@@ -3292,20 +3331,16 @@ export function GameApp({
     });
     setLeftCollapsed(true);
   };
-  const localTroops = localOwnedTowns.reduce(
-    (sum: number, town: any) => sum + (town.troops || 0),
-    0,
-  );
   const hudOwnedTerritories = serverHud.lastSync
     ? serverHud.ownedTerritories
     : localOwnedTowns.length;
   const hudTotalTerritories = serverHud.totalTerritories || 75;
-  const hudTroops = localTroops + serverHud.outboundTroops;
-  const hudPower =
-    hudTroops * 1.2 +
-    hudOwnedTerritories * 40 +
-    resources.gold * 0.03 +
-    resources.gems * 0.4;
+  const hudPower = nationStatus?.strategicPower ?? serverHud.strategicPower ?? 0;
+  const vipLevel = nationStatus?.vipLevel ?? 0;
+  const powerBreakdown = nationStatus?.strategicPowerBreakdown;
+  const powerTooltip = powerBreakdown
+    ? `Uy thế server: ${formatResourceVal(powerBreakdown.total)}\nQuân lực: ${formatResourceVal(powerBreakdown.military)}\nLãnh thổ: ${formatResourceVal(powerBreakdown.territory)}\nThành trì: ${formatResourceVal(powerBreakdown.settlements)}\nCông trình: ${formatResourceVal(powerBreakdown.buildings)}`
+    : "Uy thế đang đồng bộ từ server";
   const hudMissions = [
     {
       text: "Sở hữu 3 lãnh thổ",
@@ -3770,272 +3805,100 @@ export function GameApp({
               style={{
                 display: "flex",
                 flexDirection: "row",
-                alignItems: "center",
+                alignItems: "flex-start",
+                gap: 10,
                 pointerEvents: "auto",
                 position: "relative",
-                minHeight: 58,
-                padding: "6px 18px 6px 42px",
-                background:
-                  "linear-gradient(135deg, rgba(17,26,43,0.82) 0%, rgba(8,12,22,0.9) 100%)",
-                border: "1.5px solid rgba(255,215,0,0.4)",
-                borderRadius: 999,
-                boxShadow:
-                  "0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,0,0,0.4)",
-                backdropFilter: "blur(3px)",
+                background: "transparent",
+                border: "none",
+                boxShadow: "none",
+                padding: 0,
               }}
               className="rok-profile-card"
             >
-              {/* Avatar circle - overlaps the glass card's left edge */}
+              {/* Lightweight raster VIP frame over the selected portrait. */}
               <div
-                style={{
-                  width: 58,
-                  height: 58,
-                  flexShrink: 0,
-                  position: "absolute",
-                  left: -10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  border: "2.5px solid #ffd700",
-                  borderRadius: "50%",
-                  background: "linear-gradient(180deg,#1e3a8a 0%,#0f172a 100%)",
-                  boxShadow:
-                    "0 0 0 3px #0c1e3d, 0 0 0 4.5px #0284c7, 0 0 16px rgba(255,215,0,0.35), 0 4px 12px rgba(0,0,0,0.85)",
-                  cursor: "pointer",
-                  overflow: "visible",
-                  zIndex: 5,
-                }}
+                className="hud-vip-avatar"
                 onClick={() => setShowAvatarPicker(true)}
                 title="Thay đổi đại diện"
               >
-                {/* Crown icon */}
-                <img
-                  src="/assets/icons/icon_gold_crown.png"
-                  alt=""
-                  style={{
-                    position: "absolute",
-                    top: -11,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 22,
-                    height: 22,
-                    objectFit: "contain",
-                    filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.9))",
-                    zIndex: 12,
-                    pointerEvents: "none",
-                  }}
-                />
-                {/* Avatar image */}
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "50%",
-                    overflow: "hidden",
-                  }}
-                >
+                <div className="hud-vip-avatar-portrait">
                   <img
                     src={`/assets/avatars/${selectedAvatarId}.png`}
                     alt="Player Avatar"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
                         "/assets/avatars/emperor.png";
                     }}
                   />
                 </div>
-                {/* Heraldic ribbon tail */}
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: -14,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 30,
-                    height: 17,
-                    background:
-                      "linear-gradient(180deg,#ffd700 0%,#a1670a 100%)",
-                    clipPath: "polygon(0 0,100% 0,100% 65%,50% 100%,0 65%)",
-                    borderTop: "1px solid #fff2a3",
-                    boxShadow: "0 3px 6px rgba(0,0,0,0.7)",
-                    zIndex: -1,
-                  }}
+                <img
+                  className="hud-vip-avatar-frame"
+                  src="/assets/ui/vip-avatar-frame.webp"
+                  alt=""
+                  aria-hidden="true"
                 />
+                <span className="hud-vip-avatar-edit" aria-hidden="true">
+                  ✎
+                </span>
               </div>
 
-              {/* Profile Info Column */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
-              >
-                {/* Row 1: Power Capsule */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className="hud-profile-details">
+                <button
+                  type="button"
+                  className="hud-profile-ruler-name"
+                  onClick={() => openModal("kingdom")}
+                  title="Mở trạng thái quốc gia"
+                >
+                  {nationStatus?.playerName || "Rising Empire"}
+                </button>
+
+                <div className="hud-profile-metrics-row">
                   <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      height: 20,
-                      padding: "0 9px 0 5px",
-                      background:
-                        "linear-gradient(180deg, rgba(9,23,30,0.92) 0%, rgba(5,13,18,0.96) 100%)",
-                      border: "1px solid rgba(255,215,0,0.4)",
-                      borderRadius: 10,
-                      boxShadow:
-                        "inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.7)",
-                      cursor: "pointer",
-                    }}
-                    title="Uy thế Vương quốc / Sức mạnh quân sự"
+                    className="hud-profile-stat hud-profile-power-stat"
+                    title={powerTooltip}
                     onClick={() => openModal("kingdom")}
                   >
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        width: 13,
-                        height: 13,
-                      }}
-                    >
-                      <img
-                        src="/assets/icons/icon_battle_vs.png"
-                        alt="Power"
-                        style={{ width: 13, height: 13, objectFit: "contain" }}
-                      />
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: "'Outfit',sans-serif",
-                        fontSize: 12.5,
-                        fontWeight: 800,
-                        color: "#fff2a3",
-                        textShadow: "0 1px 2px #000",
-                      }}
-                    >
-                      {Math.round(hudPower).toLocaleString()}
+                    <img
+                      src="/assets/ui/profile-power-emblem.webp"
+                      alt="Uy thế"
+                      className="hud-profile-power-emblem"
+                    />
+                    <span className="hud-profile-stat-copy">
+                      <small>UY THẾ</small>
+                      <strong>{formatResourceVal(Math.round(hudPower))}</strong>
                     </span>
                   </div>
-                </div>
 
-                {/* Row 2: Empire Name (metallic gold text) */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      fontFamily: "'Cinzel','Outfit',serif",
-                      fontSize: 15,
-                      fontWeight: 800,
-                      letterSpacing: 0.3,
-                      backgroundImage:
-                        "linear-gradient(180deg, #fff8db 0%, #ffd700 45%, #a1670a 100%)",
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      color: "transparent",
-                      WebkitTextStroke: "0.5px rgba(0,0,0,0.6)",
-                      filter:
-                        "drop-shadow(0 2px 3px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(255,215,0,0.25))",
-                      whiteSpace: "nowrap",
-                      lineHeight: 1,
-                    }}
+                  <div
+                    className="hud-profile-stat hud-profile-vip-stat"
+                    title="VIP 0 · Tính năng đặc quyền sẽ được cập nhật sau"
                   >
-                    {t("empireName")}
-                  </span>
-                  <button
-                    type="button"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#e2c97e",
-                      cursor: "pointer",
-                      padding: 0,
-                      width: 15,
-                      height: 15,
-                      display: "flex",
-                      alignItems: "center",
-                      opacity: 0.85,
-                    }}
-                    onClick={() => openModal("kingdom")}
-                    title="Đổi tên vương quốc"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ width: 13, height: 13 }}
-                    >
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Row 3: VIP shield badge + UTC clock */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
-                    type="button"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      height: 19,
-                      padding: "0 9px 0 7px",
-                      background:
-                        "linear-gradient(135deg,#ca8a04 0%,#eab308 50%,#854d0e 100%)",
-                      border: "1px solid #fef08a",
-                      borderRadius: 3,
-                      clipPath:
-                        "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%)",
-                      color: "#0f172a",
-                      fontFamily: "'Outfit',sans-serif",
-                      fontWeight: 900,
-                      fontSize: 10,
-                      boxShadow:
-                        "0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5)",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => openModal("shop")}
-                    title="Nâng cấp VIP"
-                  >
-                    <span
-                      style={{
-                        width: 12,
-                        height: 12,
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <img
-                        src="/assets/icons/icon_attacker_lion_shield.png"
-                        alt="VIP"
-                        style={{ width: 12, height: 12, objectFit: "contain" }}
-                      />
+                    <span className="hud-profile-vip-emblem">
+                      <img src="/assets/ui/profile-vip-shield.webp" alt="VIP" />
+                      <b>{vipLevel}</b>
                     </span>
-                    <span>VIP {Math.min(12, Math.floor(level / 3) + 1)}</span>
-                  </button>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontFamily: "monospace",
-                      fontSize: 9.5,
-                      fontWeight: 700,
-                      color: "#cbd5e1",
-                      textShadow: "0 1px 3px #000",
-                      letterSpacing: 0.2,
-                    }}
+                    <span className="hud-profile-stat-copy hud-profile-vip-label">
+                      <small>ĐẶC QUYỀN</small>
+                      <strong>VIP {vipLevel}</strong>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="hud-profile-upgrade-btn"
+                    disabled
+                    title="Tính năng VIP sẽ được cập nhật sau"
                   >
-                    <EuroClockIcon size={11} />
-                    UTC 01/19 14:12
-                  </span>
+                    +
+                  </button>
+                </div>
+
+                <div className="hud-profile-meta-row">
+                  <span>{nationStatus?.rank || "Lãnh Chúa"}</span>
+                  <time>
+                    UTC {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}
+                  </time>
                 </div>
               </div>
             </div>
@@ -5389,71 +5252,150 @@ export function GameApp({
               </div>
               <div className="mail-inbox">
                 <div className="mail-panel-title mail-tabs">
+                  <div className="mail-tabs-group">
+                    <button
+                      type="button"
+                      className={mailTab === "inbox" ? "active" : ""}
+                      onClick={() => {
+                        setMailTab("inbox");
+                        setMailDetail(null);
+                      }}
+                    >
+                      {t("inbox")}{" "}
+                      {mailUnreadCount > 0 ? `(${mailUnreadCount})` : ""}
+                    </button>
+                    <button
+                      type="button"
+                      className={mailTab === "sent" ? "active" : ""}
+                      onClick={() => {
+                        setMailTab("sent");
+                        setMailDetail(null);
+                      }}
+                    >
+                      ĐÃ GỬI
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className={mailTab === "inbox" ? "active" : ""}
-                    onClick={() => setMailTab("inbox")}
+                    className="mail-clear-all-btn"
+                    onClick={clearAllMail}
+                    disabled={
+                      (mailTab === "inbox" ? inbox : sentMail).length === 0
+                    }
+                    title="Xoá toàn bộ thư trong mục này"
                   >
-                    {t("inbox")}{" "}
-                    {mailUnreadCount > 0 ? `(${mailUnreadCount})` : ""}
-                  </button>
-                  <button
-                    type="button"
-                    className={mailTab === "sent" ? "active" : ""}
-                    onClick={() => setMailTab("sent")}
-                  >
-                    ĐÃ GỬI
+                    XOÁ TẤT CẢ
                   </button>
                 </div>
-                <div className="mail-list">
-                  {(mailTab === "inbox" ? inbox : sentMail).length > 0 ? (
-                    (mailTab === "inbox" ? inbox : sentMail).map((mail) => (
-                      <button
-                        key={mail.id}
-                        type="button"
-                        className={`mail-item ${mail.readAt || mailTab === "sent" ? "" : "unread"}`}
-                        onClick={async () => {
-                          if (mailTab !== "inbox" || mail.readAt || !token)
-                            return;
-                          try {
-                            const result = await markPlayerMailRead(
-                              token,
-                              mail.id,
-                            );
-                            setMailUnreadCount(result.unreadCount);
-                            setInbox((current) =>
-                              current.map((item) =>
-                                item.id === mail.id
-                                  ? { ...item, readAt: result.readAt }
-                                  : item,
-                              ),
-                            );
-                          } catch {}
-                        }}
-                      >
-                        <div className="mail-meta">
-                          <span>
-                            {mail.senderName} → {mail.recipientName}
-                          </span>
-                          <span>
-                            {new Date(mail.sentAt).toLocaleString("vi-VN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              day: "2-digit",
-                              month: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                        <div className="mail-title">{mail.title}</div>
-                        <div className="mail-body">{mail.body}</div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="war-report-empty">
-                      {t("noPersonalMail")}
+
+                {mailDetail ? (
+                  <div className="mail-detail">
+                    <button
+                      type="button"
+                      className="mail-detail-back"
+                      onClick={() => setMailDetail(null)}
+                    >
+                      ← Quay lại danh sách
+                    </button>
+                    <div className="mail-meta">
+                      <span>
+                        {mailDetail.senderName} → {mailDetail.recipientName}
+                      </span>
+                      <span>
+                        {new Date(mailDetail.sentAt).toLocaleString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </span>
                     </div>
-                  )}
-                </div>
+                    <div className="mail-detail-title">{mailDetail.title}</div>
+                    <div className="mail-detail-body">{mailDetail.body}</div>
+                    <button
+                      type="button"
+                      className="mail-item-delete-btn"
+                      onClick={() => deleteMailItem(mailDetail)}
+                      disabled={mailBusyId === mailDetail.id}
+                    >
+                      XOÁ THƯ NÀY
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mail-list">
+                    {(mailTab === "inbox" ? inbox : sentMail).length > 0 ? (
+                      (mailTab === "inbox" ? inbox : sentMail).map((mail) => (
+                        <div
+                          key={mail.id}
+                          className={`mail-item ${mail.readAt || mailTab === "sent" ? "" : "unread"}`}
+                        >
+                          <button
+                            type="button"
+                            className="mail-item-main"
+                            onClick={async () => {
+                              if (
+                                mailTab === "inbox" &&
+                                !mail.readAt &&
+                                token
+                              ) {
+                                try {
+                                  const result = await markPlayerMailRead(
+                                    token,
+                                    mail.id,
+                                  );
+                                  setMailUnreadCount(result.unreadCount);
+                                  setInbox((current) =>
+                                    current.map((item) =>
+                                      item.id === mail.id
+                                        ? { ...item, readAt: result.readAt }
+                                        : item,
+                                    ),
+                                  );
+                                } catch {}
+                              }
+                              setMailDetail(mail);
+                            }}
+                          >
+                            <div className="mail-meta">
+                              <span>
+                                {mail.senderName} → {mail.recipientName}
+                              </span>
+                              <span>
+                                {new Date(mail.sentAt).toLocaleString("vi-VN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            <div className="mail-title">{mail.title}</div>
+                            <div className="mail-body mail-body-preview">
+                              {mail.body}
+                            </div>
+                            <span className="mail-view-detail-hint">
+                              Xem chi tiết →
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="mail-item-delete-btn mail-item-delete-icon"
+                            onClick={() => deleteMailItem(mail)}
+                            disabled={mailBusyId === mail.id}
+                            title="Xoá thư"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="war-report-empty">
+                        {t("noPersonalMail")}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -5483,43 +5425,54 @@ export function GameApp({
       )}
 
       {realtimeToasts.length > 0 && (
-        <div className="realtime-toast-stack" aria-live="polite">
-          {realtimeToasts.map((toast) => (
-            <button
-              type="button"
-              className="realtime-toast"
-              key={toast.id}
-              onClick={async () => {
-                setRealtimeToasts((current) =>
-                  current.filter((item) => item.id !== toast.id),
-                );
-                if (toast.report) {
-                  if (token && !toast.report.read) {
-                    try {
-                      const result = await markBattleReportRead(
-                        token,
-                        toast.report.id,
-                      );
-                      setReportUnreadCount(result.unreadCount);
-                      setBattleReports((current) =>
-                        current.map((report) =>
-                          report.id === toast.report?.id
-                            ? { ...report, read: true }
-                            : report,
-                        ),
-                      );
-                    } catch {}
-                  }
-                  setSelectedBattleReport(toast.report);
-                } else if (toast.id.startsWith("mail-")) openModal("mail");
-              }}
-            >
-              <strong>{toast.title}</strong>
-              <span>{toast.body}</span>
-            </button>
-          ))}
+        <div className="realtime-toast-stack" aria-live="polite" aria-label="Thông báo">
+          {realtimeToasts.map((toast) => {
+            const typeClass = toast.report
+              ? "realtime-toast--battle"
+              : toast.id.startsWith("mail-")
+              ? "realtime-toast--info"
+              : toast.id.startsWith("shop-")
+              ? "realtime-toast--success"
+              : "";
+            return (
+              <button
+                type="button"
+                className={`realtime-toast ${typeClass}`}
+                key={toast.id}
+                onClick={async () => {
+                  setRealtimeToasts((current) =>
+                    current.filter((item) => item.id !== toast.id),
+                  );
+                  if (toast.report) {
+                    if (token && !toast.report.read) {
+                      try {
+                        const result = await markBattleReportRead(
+                          token,
+                          toast.report.id,
+                        );
+                        setReportUnreadCount(result.unreadCount);
+                        setBattleReports((current) =>
+                          current.map((report) =>
+                            report.id === toast.report?.id
+                              ? { ...report, read: true }
+                              : report,
+                          ),
+                        );
+                      } catch {}
+                    }
+                    setSelectedBattleReport(toast.report);
+                  } else if (toast.id.startsWith("mail-")) openModal("mail");
+                }}
+              >
+                <strong>{toast.title}</strong>
+                <span>{toast.body}</span>
+                <span className="toast-close-icon" aria-hidden="true">×</span>
+              </button>
+            );
+          })}
         </div>
       )}
+
 
       {/* Newbie Tutorial Modal Overlay */}
       {showTutorial && (

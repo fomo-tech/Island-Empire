@@ -55,6 +55,19 @@ export type GameConfig = {
   shopSkinLongBaoThanhPrice: number;
   shopSkinHoaLongDienPrice: number;
   shopSkinPhongLongCacPrice: number;
+  powerConnectedTerritory: number;
+  powerIsolatedTerritory: number;
+  powerNaturalHarborBonus: number;
+  powerMilitaryResourceBonus: number;
+  powerCapitalBase: number;
+  powerMilitaryDistrictBase: number;
+  powerCapitalLevel: number;
+  powerMilitaryDistrictLevel: number;
+  powerFortLevel: number;
+  powerBarracksLevel: number;
+  powerSiegeWorkshopLevel: number;
+  powerWarehouseLevel: number;
+  powerResourceBuildingLevel: number;
 };
 
 export type PlayerRole = "player" | "admin";
@@ -140,6 +153,14 @@ export type NationStatusAlert = {
   severity: "info" | "warning" | "danger";
 };
 
+export type StrategicPowerBreakdown = {
+  military: number;
+  territory: number;
+  settlements: number;
+  buildings: number;
+  total: number;
+};
+
 export type NationStatusSnapshot = {
   playerId: string;
   playerName: string;
@@ -154,6 +175,11 @@ export type NationStatusSnapshot = {
   ownClearings: number;
   activeBattles: number;
   strategicPower: number;
+  strategicPowerBreakdown: StrategicPowerBreakdown;
+  powerVersion: number;
+  powerUpdatedAt: string;
+  vipLevel: number;
+  vipPoints: number;
   population: number;
   populationCapacity: number;
   resources: ResourceBag;
@@ -230,6 +256,8 @@ export type ShopProduct = {
   resources?: Partial<ResourceBag>;
   skinId?: string;
   skinTarget?: "capital" | "military_district";
+  isNewbiePrice?: boolean;          // true nếu giá tân thủ đặc biệt
+  newbiePriceExpiresAt?: string;    // ISO timestamp hết hạn giá tân thủ
 };
 
 export type ShopInventory = {
@@ -237,6 +265,7 @@ export type ShopInventory = {
   equippedCapitalSkin: string | null;
   equippedDistrictSkin: string | null;
   version: number;
+  newbieSkinExpiresAt?: string | null;   // skin tân thủ hết hạn lúc nào
 };
 
 export type ShopPurchase = {
@@ -262,6 +291,7 @@ export type PlayerSyncResult = {
   shopInventory: ShopInventory;
   version: number;
   serverTime: string;
+  newbieWelcomeClaimed?: boolean;   // true nếu vừa được cấp gói chào mừng lần đầu
 };
 
 export type SaveSnapshot = {
@@ -307,6 +337,8 @@ export type TerritoryInfo = {
   ownerAllianceEmblem?: string;
   settlementKind?: "capital" | "sub_capital" | "military";
   parentTerritoryId?: number;
+  equippedCapitalSkin?: string | null;
+  equippedDistrictSkin?: string | null;
   coastal?: boolean;
   connectionType?: "land" | "sea";
   isolated?: boolean;

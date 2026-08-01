@@ -172,7 +172,7 @@ export function KingdomCreationModal({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (step < 3) return;
+    if (step < 2) return;
     localStorage.setItem("island_empire_avatar", selectedAvatarId);
     onConfirm(selectedColor, selectedEmblem, cityName.trim() || "Hoàng Thành Tân Lập");
   };
@@ -183,13 +183,14 @@ export function KingdomCreationModal({
         <header className="kc-header">
           <div className="kc-title-mark"><EmblemIcon id="crown" /></div>
           <div>
-            <span className="kc-eyebrow">SẮC PHONG VƯƠNG QUỐC (BƯỚC {step} / 3)</span>
+            <span className="kc-eyebrow">SẮC PHONG VƯƠNG QUỐC (BƯỚC {step} / 2)</span>
             <h2>Khởi Tạo Hoàng Thành</h2>
           </div>
           <button type="button" onClick={onClose} className="kc-close" aria-label="Đóng">×</button>
         </header>
 
         <form onSubmit={handleSubmit} className="kc-form">
+          {/* LEFT — Castle Preview */}
           <div className="kc-preview">
             <div className="kc-preview-topline">
               <span>KIẾN TRÚC HOÀNG THÀNH</span>
@@ -199,7 +200,7 @@ export function KingdomCreationModal({
               <div className="kc-scene-sun" />
               <div className="kc-scene-hills hill-left" />
               <div className="kc-scene-hills hill-right" />
-              {getCastleSprite && <canvas ref={canvasRef} style={{ width: "320px", height: "320px", display: "block" }} />}
+              {getCastleSprite && <canvas ref={canvasRef} style={{ display: "block" }} />}
               <div className="kc-scene-ground" />
               <div className="kc-royal-standard" style={{ "--standard-color": selectedColor } as React.CSSProperties}>
                 <span className="kc-standard-top" />
@@ -218,11 +219,12 @@ export function KingdomCreationModal({
             </div>
           </div>
 
+          {/* RIGHT — Controls */}
           <div className="kc-controls">
-            {/* Step 1: Name and Flag Color */}
+            {/* Step 1: Name + Color + Emblem gộp */}
             {step === 1 && (
               <>
-                {/* Section 01 — Tên thành */}
+                {/* 01 — Tên thành */}
                 <div className="kc-section kc-name-section">
                   <div className="kc-section-heading">
                     <span>01</span>
@@ -240,7 +242,7 @@ export function KingdomCreationModal({
                   />
                 </div>
 
-                {/* Section 02 — Màu cờ */}
+                {/* 02 — Màu cờ */}
                 <div className="kc-section">
                   <div className="kc-section-heading">
                     <span>02</span>
@@ -264,40 +266,38 @@ export function KingdomCreationModal({
                     ))}
                   </div>
                 </div>
+
+                {/* 03 — Biểu tượng (icon grid compact, gộp vào step 1) */}
+                <div className="kc-section kc-emblem-section">
+                  <div className="kc-section-heading">
+                    <span>03</span>
+                    <label>Biểu Tượng Vương Quốc</label>
+                    <b>{selectedEmblemInfo.name}</b>
+                  </div>
+                  <div className="kc-emblem-icon-row">
+                    {EMBLEMS.map((emblem) => (
+                      <button
+                        key={emblem.id}
+                        type="button"
+                        title={emblem.name}
+                        aria-label={emblem.name}
+                        aria-pressed={selectedEmblem === emblem.id}
+                        onClick={() => setSelectedEmblem(emblem.id)}
+                        className={`kc-emblem-icon-btn ${selectedEmblem === emblem.id ? "selected" : ""}`}
+                      >
+                        <span className="kc-emblem-medallion">
+                          <EmblemIcon id={emblem.id} />
+                        </span>
+                        <small>{emblem.name}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
 
-            {/* Step 2: Emblem Selection */}
+            {/* Step 2: Chọn Lãnh Chúa */}
             {step === 2 && (
-              <div className="kc-section kc-emblem-section">
-                <div className="kc-section-heading">
-                  <span>03</span>
-                  <label>Chọn Biểu Tượng Vương Quốc</label>
-                </div>
-                <div className="kc-emblem-grid">
-                  {EMBLEMS.map((emblem) => (
-                    <button
-                      key={emblem.id}
-                      type="button"
-                      onClick={() => setSelectedEmblem(emblem.id)}
-                      aria-pressed={selectedEmblem === emblem.id}
-                      className={`kc-emblem-choice ${selectedEmblem === emblem.id ? "selected" : ""}`}
-                    >
-                      <span className="kc-emblem-medallion">
-                        <EmblemIcon id={emblem.id} />
-                      </span>
-                      <span className="kc-emblem-copy">
-                        <b>{emblem.name}</b>
-                        <small>{emblem.style}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Lord selection */}
-            {step === 3 && (
               <div className="kc-section kc-avatar-section">
                 <div className="kc-section-heading">
                   <span>04</span>
@@ -313,7 +313,6 @@ export function KingdomCreationModal({
                       onClick={() => setSelectedAvatarId(av.id)}
                       title={`${av.label} — ${av.role}`}
                     >
-                      {/* Portrait frame */}
                       <div className="kc-av-portrait">
                         <img
                           src={`/assets/avatars/${av.id}.png`}
@@ -321,9 +320,7 @@ export function KingdomCreationModal({
                           className="kc-avatar-img"
                           onError={(e) => { (e.target as HTMLImageElement).src = "/assets/avatars/emperor.png"; }}
                         />
-                        {/* Heraldic class badge */}
                         <div className="kc-av-badge">{av.badge}</div>
-                        {/* Selected glow overlay */}
                         {selectedAvatarId === av.id && <div className="kc-av-selected-ring" />}
                       </div>
                       <span className="kc-avatar-label">{av.label}</span>
@@ -332,11 +329,10 @@ export function KingdomCreationModal({
                 </div>
               </div>
             )}
-
           </div>{/* end kc-controls */}
 
           <footer className="kc-actions">
-            <p>Chân dung Lãnh chúa sẽ đại diện cho Vương quốc trên bản đồ thế giới.</p>
+            <p>Lãnh chúa đại diện Vương quốc trên bản đồ thế giới.</p>
             <div>
               {step === 1 && (
                 <>
@@ -354,12 +350,6 @@ export function KingdomCreationModal({
               {step === 2 && (
                 <>
                   <button type="button" onClick={() => setStep(1)} className="kc-btn kc-btn-secondary">Quay Lại</button>
-                  <button type="button" onClick={() => setStep(3)} className="kc-btn kc-btn-primary">Kế Tiếp</button>
-                </>
-              )}
-              {step === 3 && (
-                <>
-                  <button type="button" onClick={() => setStep(2)} className="kc-btn kc-btn-secondary">Quay Lại</button>
                   <button type="submit" className="kc-btn kc-btn-primary">Dựng Hoàng Thành</button>
                 </>
               )}
@@ -371,3 +361,4 @@ export function KingdomCreationModal({
     document.body,
   );
 }
+

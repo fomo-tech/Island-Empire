@@ -94,6 +94,19 @@ export function AdminApp() {
     shopSkinLongBaoThanhPrice: 1500,
     shopSkinHoaLongDienPrice: 2000,
     shopSkinPhongLongCacPrice: 1800,
+    powerConnectedTerritory: 100,
+    powerIsolatedTerritory: 25,
+    powerNaturalHarborBonus: 30,
+    powerMilitaryResourceBonus: 20,
+    powerCapitalBase: 1000,
+    powerMilitaryDistrictBase: 250,
+    powerCapitalLevel: 200,
+    powerMilitaryDistrictLevel: 80,
+    powerFortLevel: 100,
+    powerBarracksLevel: 60,
+    powerSiegeWorkshopLevel: 80,
+    powerWarehouseLevel: 30,
+    powerResourceBuildingLevel: 20,
   });
 
   const showToast = useCallback((msg: string) => {
@@ -178,6 +191,19 @@ export function AdminApp() {
       shopSkinLongBaoThanhPrice: Number(form.get("shopSkinLongBaoThanhPrice")),
       shopSkinHoaLongDienPrice: Number(form.get("shopSkinHoaLongDienPrice")),
       shopSkinPhongLongCacPrice: Number(form.get("shopSkinPhongLongCacPrice")),
+      powerConnectedTerritory: Number(form.get("powerConnectedTerritory")),
+      powerIsolatedTerritory: Number(form.get("powerIsolatedTerritory")),
+      powerNaturalHarborBonus: Number(form.get("powerNaturalHarborBonus")),
+      powerMilitaryResourceBonus: Number(form.get("powerMilitaryResourceBonus")),
+      powerCapitalBase: Number(form.get("powerCapitalBase")),
+      powerMilitaryDistrictBase: Number(form.get("powerMilitaryDistrictBase")),
+      powerCapitalLevel: Number(form.get("powerCapitalLevel")),
+      powerMilitaryDistrictLevel: Number(form.get("powerMilitaryDistrictLevel")),
+      powerFortLevel: Number(form.get("powerFortLevel")),
+      powerBarracksLevel: Number(form.get("powerBarracksLevel")),
+      powerSiegeWorkshopLevel: Number(form.get("powerSiegeWorkshopLevel")),
+      powerWarehouseLevel: Number(form.get("powerWarehouseLevel")),
+      powerResourceBuildingLevel: Number(form.get("powerResourceBuildingLevel")),
     };
 
     setLoadingId("config-save");
@@ -838,6 +864,31 @@ export function AdminApp() {
                     Giá Ngọc (Gems) mỗi gói
                     <input type="number" name="shopResourcePackPriceGems" defaultValue={configData.shopResourcePackPriceGems} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>UY THẾ VƯƠNG QUỐC</h3>
+                <p style={{ margin: 0, color: "#94a3b8", fontSize: 13 }}>Uy thế do server tính từ quân lực, lãnh thổ, thành trì và công trình. Vàng, ngọc không được cộng.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  {[
+                    ["powerConnectedTerritory", "Lãnh thổ nối liền"],
+                    ["powerIsolatedTerritory", "Lãnh thổ bị cô lập"],
+                    ["powerNaturalHarborBonus", "Thưởng bến tàu"],
+                    ["powerMilitaryResourceBonus", "Thưởng tài nguyên quân sự"],
+                    ["powerCapitalBase", "Nền Hoàng Thành"],
+                    ["powerMilitaryDistrictBase", "Nền Pháo đài"],
+                    ["powerCapitalLevel", "Mỗi cấp Hoàng Thành"],
+                    ["powerMilitaryDistrictLevel", "Mỗi cấp Pháo đài"],
+                    ["powerFortLevel", "Mỗi cấp công sự"],
+                    ["powerBarracksLevel", "Mỗi cấp doanh trại"],
+                    ["powerSiegeWorkshopLevel", "Mỗi cấp xưởng pháo"],
+                    ["powerWarehouseLevel", "Mỗi cấp kho"],
+                    ["powerResourceBuildingLevel", "Mỗi cấp nhà tài nguyên"],
+                  ].map(([name, label]) => (
+                    <label key={name} style={{ display: "grid", gap: 6 }}>
+                      {label}
+                      <input type="number" name={name} defaultValue={configData[name]} min={0} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                    </label>
+                  ))}
                 </div>
 
                 <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>GIÁ SKIN THÀNH TRÌ RỒNG</h3>

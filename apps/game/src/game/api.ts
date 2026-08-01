@@ -33,7 +33,11 @@ export interface AuthResponse {
   playerId: string;
 }
 
-type AntiBotChallenge = { token: string; difficulty: number; expiresInSeconds: number };
+type AntiBotChallenge = {
+  token: string;
+  difficulty: number;
+  expiresInSeconds: number;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -55,19 +59,30 @@ export function getServerStatus() {
 }
 
 function toHex(bytes: ArrayBuffer) {
-  return Array.from(new Uint8Array(bytes)).map((value) => value.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(bytes))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function solveAntiBotChallenge() {
   const challenge = await request<AntiBotChallenge>("/api/auth/challenge");
   const [payload] = challenge.token.split(".");
-  const data = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { nonce: string };
+  const data = JSON.parse(
+    atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+  ) as { nonce: string };
   const prefix = "0".repeat(challenge.difficulty);
   const encoder = new TextEncoder();
   for (let proof = 0; proof <= 2_147_483_647; proof += 1) {
-    const digest = toHex(await crypto.subtle.digest("SHA-256", encoder.encode(`${data.nonce}:${proof}`)));
-    if (digest.startsWith(prefix)) return { challengeToken: challenge.token, proof };
-    if (proof > 0 && proof % 256 === 0) await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    const digest = toHex(
+      await crypto.subtle.digest(
+        "SHA-256",
+        encoder.encode(`${data.nonce}:${proof}`),
+      ),
+    );
+    if (digest.startsWith(prefix))
+      return { challengeToken: challenge.token, proof };
+    if (proof > 0 && proof % 256 === 0)
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
   }
   throw new Error("Không thể hoàn tất xác minh chống spam");
 }
@@ -81,7 +96,10 @@ export function getGameConfig(): Promise<GameConfig> {
   return cachedConfigPromise;
 }
 
-export async function loginPlayer(username: string, password: string): Promise<AuthResponse> {
+export async function loginPlayer(
+  username: string,
+  password: string,
+): Promise<AuthResponse> {
   const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/login", {
     method: "POST",
@@ -95,7 +113,11 @@ export type RegisterProfile = {
   starterLandId: string;
 };
 
-export async function registerPlayer(username: string, password: string, profile?: RegisterProfile): Promise<AuthResponse> {
+export async function registerPlayer(
+  username: string,
+  password: string,
+  profile?: RegisterProfile,
+): Promise<AuthResponse> {
   const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/register", {
     method: "POST",
@@ -111,7 +133,9 @@ export async function loginGuest(name?: string): Promise<AuthResponse> {
   });
 }
 
-export function getWorldTerritories(token: string): Promise<WorldTerritoriesResult> {
+export function getWorldTerritories(
+  token: string,
+): Promise<WorldTerritoriesResult> {
   return request<WorldTerritoriesResult>("/api/world/territories", {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -133,11 +157,18 @@ export function getPlayerSync(token: string): Promise<PlayerSyncResult> {
   });
 }
 
-export function getBattleReports(token: string): Promise<{ ok: true; reports: BattleReport[]; unreadCount: number }> {
-  return request("/api/reports", { headers: { Authorization: `Bearer ${token}` } });
+export function getBattleReports(
+  token: string,
+): Promise<{ ok: true; reports: BattleReport[]; unreadCount: number }> {
+  return request("/api/reports", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
-export function markBattleReportRead(token: string, reportId: string): Promise<{ ok: true; unreadCount: number }> {
+export function markBattleReportRead(
+  token: string,
+  reportId: string,
+): Promise<{ ok: true; unreadCount: number }> {
   return request(`/api/reports/${encodeURIComponent(reportId)}/read`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -145,7 +176,9 @@ export function markBattleReportRead(token: string, reportId: string): Promise<{
   });
 }
 
-export function markAllBattleReportsRead(token: string): Promise<{ ok: true; unreadCount: number }> {
+export function markAllBattleReportsRead(
+  token: string,
+): Promise<{ ok: true; unreadCount: number }> {
   return request("/api/reports/read-all", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -153,12 +186,15 @@ export function markAllBattleReportsRead(token: string): Promise<{ ok: true; unr
   });
 }
 
-export function sendPlayerMail(token: string, input: {
-  recipientId: string;
-  title: string;
-  body: string;
-  requestId: string;
-}): Promise<{ ok: true; mail: PlayerMail; duplicate?: boolean }> {
+export function sendPlayerMail(
+  token: string,
+  input: {
+    recipientId: string;
+    title: string;
+    body: string;
+    requestId: string;
+  },
+): Promise<{ ok: true; mail: PlayerMail; duplicate?: boolean }> {
   return request("/api/mail/send", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -166,7 +202,10 @@ export function sendPlayerMail(token: string, input: {
   });
 }
 
-export function markPlayerMailRead(token: string, mailId: string): Promise<{ ok: true; unreadCount: number; readAt: string }> {
+export function markPlayerMailRead(
+  token: string,
+  mailId: string,
+): Promise<{ ok: true; unreadCount: number; readAt: string }> {
   return request(`/api/mail/${encodeURIComponent(mailId)}/read`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -174,8 +213,33 @@ export function markPlayerMailRead(token: string, mailId: string): Promise<{ ok:
   });
 }
 
-export function getShopCatalog(token: string): Promise<{ ok: true; products: ShopProduct[]; testMode: boolean }> {
-  return request("/api/shop/catalog", { headers: { Authorization: `Bearer ${token}` } });
+export function deletePlayerMail(
+  token: string,
+  mailId: string,
+): Promise<{ ok: true }> {
+  return request(`/api/mail/${encodeURIComponent(mailId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function clearPlayerMail(
+  token: string,
+  folder: "inbox" | "sent",
+): Promise<{ ok: true; folder: string; unreadCount?: number }> {
+  return request("/api/mail/clear", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ folder }),
+  });
+}
+
+export function getShopCatalog(
+  token: string,
+): Promise<{ ok: true; products: ShopProduct[]; testMode: boolean }> {
+  return request("/api/shop/catalog", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function purchaseShopProduct(
@@ -197,7 +261,11 @@ export function purchaseShopProduct(
   });
 }
 
-export function equipShopSkin(token: string, skinId: string, target: "capital" | "military_district"): Promise<{
+export function equipShopSkin(
+  token: string,
+  skinId: string,
+  target: "capital" | "military_district",
+): Promise<{
   ok: true;
   inventory: ShopInventory;
 }> {
@@ -218,14 +286,18 @@ export interface LeaderboardEntry {
   totalTroops: number;
 }
 
-export function getMilitaryLeaderboard(token: string): Promise<{ ok: true; leaderboard: LeaderboardEntry[] }> {
+export function getMilitaryLeaderboard(
+  token: string,
+): Promise<{ ok: true; leaderboard: LeaderboardEntry[] }> {
   return request("/api/leaderboard/military", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-
-export function startClearing(token: string, territoryId: number): Promise<StartClearingResult> {
+export function startClearing(
+  token: string,
+  territoryId: number,
+): Promise<StartClearingResult> {
   return request<StartClearingResult>("/api/game/clearings", {
     method: "POST",
     headers: {
@@ -235,23 +307,35 @@ export function startClearing(token: string, territoryId: number): Promise<Start
   });
 }
 
-export function completeClearing(token: string, territoryId: number): Promise<CompleteClearingResult> {
-  return request<CompleteClearingResult>(`/api/game/clearings/${territoryId}/complete`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
+export function completeClearing(
+  token: string,
+  territoryId: number,
+): Promise<CompleteClearingResult> {
+  return request<CompleteClearingResult>(
+    `/api/game/clearings/${territoryId}/complete`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
     },
-    body: JSON.stringify({}),
-  });
+  );
 }
 
-export function cancelClearing(token: string, territoryId: number): Promise<{ ok: true; resources?: any; refund?: any }> {
-  return request<{ ok: true; resources?: any; refund?: any }>(`/api/game/clearings/${territoryId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
+export function cancelClearing(
+  token: string,
+  territoryId: number,
+): Promise<{ ok: true; resources?: any; refund?: any }> {
+  return request<{ ok: true; resources?: any; refund?: any }>(
+    `/api/game/clearings/${territoryId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 }
 
 export function createMarch(
@@ -293,7 +377,12 @@ export function getMarchSourceOptions(
   });
 }
 
-export function updatePlayerProfile(token: string, flagColor: string, emblem: string, cityName?: string): Promise<{ ok: boolean }> {
+export function updatePlayerProfile(
+  token: string,
+  flagColor: string,
+  emblem: string,
+  cityName?: string,
+): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>("/api/player/profile", {
     method: "POST",
     headers: {
@@ -303,7 +392,10 @@ export function updatePlayerProfile(token: string, flagColor: string, emblem: st
   });
 }
 
-export function updateActiveMap(token: string, activeMap: "world" | "conquest"): Promise<{ ok: true; activeMap: "world" | "conquest" }> {
+export function updateActiveMap(
+  token: string,
+  activeMap: "world" | "conquest",
+): Promise<{ ok: true; activeMap: "world" | "conquest" }> {
   return request("/api/player/active-map", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -319,7 +411,12 @@ export function getAllianceState(token: string): Promise<AllianceStateResult> {
   });
 }
 
-export function createAlliance(token: string, name: string, tag: string, emblem: string): Promise<AllianceActionResult> {
+export function createAlliance(
+  token: string,
+  name: string,
+  tag: string,
+  emblem: string,
+): Promise<AllianceActionResult> {
   return request<AllianceActionResult>("/api/alliance/create", {
     method: "POST",
     headers: {
@@ -329,7 +426,10 @@ export function createAlliance(token: string, name: string, tag: string, emblem:
   });
 }
 
-export function joinAlliance(token: string, allianceId: string): Promise<AllianceActionResult> {
+export function joinAlliance(
+  token: string,
+  allianceId: string,
+): Promise<AllianceActionResult> {
   return request<AllianceActionResult>("/api/alliance/join", {
     method: "POST",
     headers: {
@@ -366,14 +466,20 @@ export function sendAllianceAid(
   });
 }
 
-export function claimAllianceAid(token: string, aidId: string): Promise<AllianceStateResult> {
-  return request<AllianceStateResult>(`/api/alliance/aid/${encodeURIComponent(aidId)}/claim`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
+export function claimAllianceAid(
+  token: string,
+  aidId: string,
+): Promise<AllianceStateResult> {
+  return request<AllianceStateResult>(
+    `/api/alliance/aid/${encodeURIComponent(aidId)}/claim`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
     },
-    body: JSON.stringify({}),
-  });
+  );
 }
 
 export interface RecruitTroopsResult {
@@ -404,11 +510,11 @@ export function recruitTroops(
     requestId?: string;
   },
 ): Promise<RecruitTroopsResult> {
-  const requestId = payload.requestId || (
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+  const requestId =
+    payload.requestId ||
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
-      : `recruit-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
-  );
+      : `recruit-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`);
   return request<RecruitTroopsResult>("/api/game/recruit", {
     method: "POST",
     headers: {

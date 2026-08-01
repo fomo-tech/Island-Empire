@@ -872,8 +872,6 @@ export function createIslandEmpireGame(
     selected: null,
     hover: null,
     tick: 0,
-    level: 25,
-    xp: 68,
     zoom: FIXED_FAR_ZOOM,
     targetZoom: FIXED_FAR_ZOOM,
     panX: 0,
@@ -919,6 +917,8 @@ export function createIslandEmpireGame(
       number,
       "capital" | "sub_capital" | "military"
     >,
+    regionOwnerCapitalSkins: {} as Record<number, string | null>,
+    regionOwnerDistrictSkins: {} as Record<number, string | null>,
     expansionSourceRegionId: null as number | null,
     hasAuthoritativeOwnership: false,
     // Clearing progress per region: 0.0 → 1.0
@@ -1054,6 +1054,8 @@ export function createIslandEmpireGame(
     state.regionOwnerAllianceTags = {};
     state.regionOwnerAllianceEmblems = {};
     state.regionSettlementKinds = {};
+    state.regionOwnerCapitalSkins = {};
+    state.regionOwnerDistrictSkins = {};
     state.hasAuthoritativeOwnership = false;
     state.regionClearing = [];
     state.regionInProgress = -1;
@@ -1361,6 +1363,8 @@ export function createIslandEmpireGame(
     delete state.regionOwnerEmblems[regionId];
     delete state.regionOwnerIds[regionId];
     delete state.regionSettlementKinds[regionId];
+    delete state.regionOwnerCapitalSkins[regionId];
+    delete state.regionOwnerDistrictSkins[regionId];
     if (!canReturnToTown && travel.populationCost) {
       travel.populationCost = 0;
       pushLog("SYSTEM: THÀNH XUẤT PHÁT ĐÃ MẤT, ĐỘI THỢ XÂY THÀNH BỊ TAN RÃ");
@@ -3589,9 +3593,9 @@ export function createIslandEmpireGame(
   function getRegionBattleState(idx: number) {
     const battle = state.activeBattles?.find(
       (b: any) =>
-        b.regionId === idx ||
+        Number(b.regionId) === Number(idx) ||
         (b.townId !== undefined &&
-          towns.find((t: any) => t.id === b.townId && t.regionId === idx)),
+          towns.find((t: any) => t.id === b.townId && Number(t.regionId) === Number(idx))),
     );
     if (battle) {
       const dur = battle.duration || battle.durationSeconds || 25;
@@ -7869,10 +7873,18 @@ export function createIslandEmpireGame(
       rawEmblem,
     );
 
-    if (isUserTown && isCapitalSettlement && state.equippedCapitalSkin) {
-      const premiumSprite = getCachedPremiumCastleSprite(
-        state.equippedCapitalSkin,
-      );
+    // Resolve equipped skin for this castle (local player or remote players)
+    let equippedSkin: string | null = null;
+    if (isUserTown) {
+      equippedSkin = isCapitalSettlement ? state.equippedCapitalSkin : state.equippedDistrictSkin;
+    } else if (regionId >= 0) {
+      equippedSkin = isCapitalSettlement 
+        ? state.regionOwnerCapitalSkins[regionId] 
+        : state.regionOwnerDistrictSkins[regionId];
+    }
+
+    if (isCapitalSettlement && equippedSkin) {
+      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
       const size = (188 * castleScale) / 0.48;
       ctx.drawImage(
         premiumSprite,
@@ -7881,10 +7893,8 @@ export function createIslandEmpireGame(
         size,
         size,
       );
-    } else if (isUserTown && isMilitaryDistrict && state.equippedDistrictSkin) {
-      const premiumSprite = getCachedPremiumCastleSprite(
-        state.equippedDistrictSkin,
-      );
+    } else if (isMilitaryDistrict && equippedSkin) {
+      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
       const size = (172 * castleScale) / 0.48;
       ctx.drawImage(
         premiumSprite,
@@ -8005,8 +8015,18 @@ export function createIslandEmpireGame(
     }
 
     const activeBattle = state.activeBattles?.find(
-      (b: any) => b.townId === t.id,
+      (b: any) =>
+        b.townId === t.id ||
+        (castleRegionId >= 0 && Number(b.regionId) === Number(castleRegionId)),
     );
+    if (state.tick % 120 === 0 && t.id === state.selected) {
+      console.log("ACTIVE BATTLE CHECK:", {
+        townId: t.id,
+        castleRegionId,
+        foundBattle: activeBattle,
+        allBattles: state.activeBattles
+      });
+    }
     if (activeBattle) {
       drawDualFlagBattle(
         drawX,
@@ -8147,9 +8167,7 @@ export function createIslandEmpireGame(
     // ─── 5. UNIVERSAL RTS MULTI-PLAYER COMBAT CREST & TIMER BADGE ───────────
     if (territoryId !== undefined) {
       const activeBattle = state.activeBattles?.find(
-        (b: any) =>
-          b.regionId === reactToCanvasRegionId(territoryId) ||
-          b.regionId === territoryId,
+        (b: any) => Number(b.regionId) === Number(territoryId),
       );
       const conflict = getRegionBattleState(territoryId);
       const remSec = activeBattle?.resolvesAt
@@ -10070,18 +10088,49 @@ export function createIslandEmpireGame(
     const secs = remainingSec % 60;
     const timeStr = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 
-    const bw = 110;
-    const bh = 22;
-    const by = y - 48 + bob;
+    const barW = 80;
+    const barH = 3;
+    const barX = x - barW / 2;
+    const barY = y - 32 + bob;
 
-    pxRect(x - bw / 2 + 2, by + 2, bw, bh, "rgba(0, 0, 0, 0.45)");
-    pxRect(x - bw / 2, by, bw, bh, "rgba(9, 18, 28, 0.95)");
-    ctx.strokeStyle = fillColor;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(Math.round(x - bw / 2), Math.round(by), bw, bh);
+    // Slim progress bar background
+    pxRect(barX, barY, barW, barH, "rgba(0, 0, 0, 0.45)");
+    // Progress fill
+    pxRect(barX, barY, barW * fillPct, barH, fillColor);
 
-    pxRect(x - bw / 2 + 3, by + bh - 4, (bw - 6) * fillPct, 3, fillColor);
-    text(`⏳ ${badgeTitle} ${timeStr}`, x, by + 12, 10, "#ffffff", "center");
+    // Resolve correct player name (using dynamic lookup for enemy names if possible)
+    let resolvedPlayerName = "";
+    if (isMine) {
+      resolvedPlayerName = state.localPlayerName || "BẠN";
+    } else if (timing?.playerId) {
+      const matchingRegion = Object.keys(state.regionOwnerIds).find(
+        (key) => state.regionOwnerIds[Number(key)] === timing.playerId
+      );
+      if (matchingRegion) {
+        resolvedPlayerName = state.regionOwnerNames[Number(matchingRegion)] || "";
+      }
+      if (!resolvedPlayerName) {
+        resolvedPlayerName = "ĐỐI THỦ";
+      }
+    } else {
+      resolvedPlayerName = "BẠN";
+    }
+
+    ctx.save();
+    ctx.font = "bold 11px 'Outfit', 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    
+    // Crisp text shadow for contrast
+    ctx.shadowColor = "#000000";
+    ctx.shadowBlur = 3;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 3.5;
+    
+    const displayText = `${resolvedPlayerName} ${timeStr}`;
+    ctx.strokeText(displayText, x, barY - 6);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(displayText, x, barY - 6);
+    ctx.restore();
   }
 
   function getNewbieShieldRemainingMs() {
@@ -10338,19 +10387,46 @@ export function createIslandEmpireGame(
       ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
     const emblem = resolveCastleEmblem(ownerName, regionId, rawEmblem);
 
-    if (ownerCode === 1 && isCapital && state.equippedCapitalSkin) {
-      const premiumSprite = getCachedPremiumCastleSprite(
-        state.equippedCapitalSkin,
-      );
+    // Resolve equipped skin for this territory castle (local player or remote players)
+    let equippedSkin: string | null = null;
+    if (ownerCode === 1) {
+      equippedSkin = isCapital ? state.equippedCapitalSkin : state.equippedDistrictSkin;
+    } else if (regionId >= 0) {
+      equippedSkin = isCapital 
+        ? state.regionOwnerCapitalSkins[regionId] 
+        : state.regionOwnerDistrictSkins[regionId];
+    }
+
+    if (isCapital && equippedSkin) {
+      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
       const size = 480 * sc;
       ctx.save();
       ctx.shadowColor =
-        state.equippedCapitalSkin === "skin_hoa_long_dien"
+        equippedSkin === "skin_hoa_long_dien"
           ? "rgba(255, 82, 30, 0.9)"
-          : state.equippedCapitalSkin === "skin_phong_long_cac"
+          : equippedSkin === "skin_phong_long_cac"
             ? "rgba(92, 233, 239, 0.9)"
             : "rgba(244, 196, 71, 0.9)";
       ctx.shadowBlur = 18 * sc;
+      ctx.drawImage(
+        premiumSprite,
+        x - size / 2,
+        y - size * (470 / 640),
+        size,
+        size,
+      );
+      ctx.restore();
+    } else if (isMilitaryDistrict && equippedSkin) {
+      const premiumSprite = getCachedPremiumCastleSprite(equippedSkin);
+      const size = 420 * sc;
+      ctx.save();
+      ctx.shadowColor =
+        equippedSkin === "skin_hoa_long_dien"
+          ? "rgba(255, 82, 30, 0.9)"
+          : equippedSkin === "skin_phong_long_cac"
+            ? "rgba(92, 233, 239, 0.9)"
+            : "rgba(244, 196, 71, 0.9)";
+      ctx.shadowBlur = 15 * sc;
       ctx.drawImage(
         premiumSprite,
         x - size / 2,
@@ -10471,7 +10547,7 @@ export function createIslandEmpireGame(
     }
 
     const activeBattle = state.activeBattles?.find(
-      (b: any) => b.regionId === regionId,
+      (b: any) => Number(b.regionId) === Number(regionId),
     );
     if (activeBattle || (conflict && conflict.type !== "none")) {
       const attackerOwner = activeBattle?.attackerOwner ?? 0;
@@ -11160,72 +11236,6 @@ export function createIslandEmpireGame(
       pxRect(sx - 1, sy - 12, 2, 9, "#fef08a");
     }
     ctx.restore();
-  }
-
-  function drawTopBar() {
-    panel(12, 12, 360, 62);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(57, 43, 31, 0, TAU);
-    ctx.clip();
-    pxRect(26, 12, 62, 62, "#76b94d");
-    drawCastle({ x: 57, y: 45, lvl: 1, owner: 0, id: -1 });
-    ctx.restore();
-    ctx.strokeStyle = "#d6a134";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(57, 43, 32, 0, TAU);
-    ctx.stroke();
-    text("LV. 25", 112, 25, 20, "#ffe36e");
-    pxRect(192, 26, 116, 20, "#071018");
-    pxRect(198, 30, state.xp, 12, "#ffb83d");
-    text("68%", 322, 25, 20, "#ffe36e");
-
-    const gearX = W - 62 - 12;
-    const startX = 420;
-    const endX = gearX - 20;
-    const availableWidth = endX - startX;
-    const itemWidth = 150;
-    const gap = (availableWidth - itemWidth * 4) / 3;
-
-    const keys = ["gold", "wood", "stone", "gems"];
-    const items = keys.map((key, i) => {
-      const itemX = startX + i * (itemWidth + gap) + 40;
-      return [key, itemX] as [string, number];
-    });
-
-    items.forEach(([key, x]) => {
-      panel(x - 40, 12, 150, 54);
-      drawResourceIcon(key, x - 12, 38);
-      text(String(Math.floor(state.resources[key])), x + 22, 27, 23, "#fff3d2");
-    });
-
-    panel(gearX, 12, 62, 54);
-    if (state.hover === "fullscreen")
-      pxRect(gearX + 8, 20, 46, 38, "rgba(255,211,77,0.14)");
-    drawGear(gearX + 31, 39);
-  }
-
-  function drawGear(x, y) {
-    ctx.strokeStyle = "#fff0d0";
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.arc(x, y, 14, 0, TAU);
-    ctx.stroke();
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * TAU;
-      pxRect(
-        x + Math.cos(a) * 16 - 3,
-        y + Math.sin(a) * 16 - 3,
-        6,
-        6,
-        "#fff0d0",
-      );
-    }
-    ctx.fillStyle = "#102633";
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, TAU);
-    ctx.fill();
   }
 
   function getDynamicButtons() {
@@ -14174,7 +14184,7 @@ export function createIslandEmpireGame(
       territorySpecialResources(reactToCanvasRegionId(id)),
     getActiveBattleForRegion: (id: number) =>
       state.activeBattles.find(
-        (battle: any) => battle.regionId === reactToCanvasRegionId(id),
+        (battle: any) => Number(battle.regionId) === Number(id),
       ) || null,
     isPlayerOwnedTown: (town: any) => isPlayerOwnedTown(town),
     getMarchRouteStatus: (sourceTown: any, targetRegionId: number) =>
@@ -14351,6 +14361,9 @@ export function createIslandEmpireGame(
         state.regionOwnerEmblems = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
+        state.regionSettlementKinds = {};
+        state.regionOwnerCapitalSkins = {};
+        state.regionOwnerDistrictSkins = {};
         state.activeClearingTimings = {};
         state.regionInProgress = -1;
         state.settlerTravel = {
@@ -14393,6 +14406,12 @@ export function createIslandEmpireGame(
           if (territory.settlementKind)
             state.regionSettlementKinds[territory.id] =
               territory.settlementKind;
+          if (territory.equippedCapitalSkin)
+            state.regionOwnerCapitalSkins[territory.id] =
+              territory.equippedCapitalSkin;
+          if (territory.equippedDistrictSkin)
+            state.regionOwnerDistrictSkins[territory.id] =
+              territory.equippedDistrictSkin;
         });
         if (hasOwnedTerritory) {
           if (state.newbieMode) {
@@ -14417,9 +14436,7 @@ export function createIslandEmpireGame(
             (voyage.to ? regionAtCoords(voyage.to.x, voyage.to.y) : -1);
           const hasActiveBattle = (state.activeBattles || []).some((b: any) => {
             const bReg = b.regionId;
-            return (
-              bReg === targetReg || reactToCanvasRegionId(bReg) === targetReg
-            );
+            return Number(bReg) === Number(targetReg);
           });
           const hasActiveClearing =
             (state.regionClearing || []).includes(targetReg) ||
@@ -14493,6 +14510,8 @@ export function createIslandEmpireGame(
           state.regionOwnerAllianceTags = {};
           state.regionOwnerAllianceEmblems = {};
           state.regionSettlementKinds = {};
+          state.regionOwnerCapitalSkins = {};
+          state.regionOwnerDistrictSkins = {};
         }
         (payload?.territories || []).forEach((territory) => {
           const ownerId = territory.ownerId || null;
@@ -14537,6 +14556,16 @@ export function createIslandEmpireGame(
             state.regionSettlementKinds[territory.id] =
               territory.settlementKind;
           else delete state.regionSettlementKinds[territory.id];
+
+          if (territory.equippedCapitalSkin)
+            state.regionOwnerCapitalSkins[territory.id] =
+              territory.equippedCapitalSkin;
+          else delete state.regionOwnerCapitalSkins[territory.id];
+
+          if (territory.equippedDistrictSkin)
+            state.regionOwnerDistrictSkins[territory.id] =
+              territory.equippedDistrictSkin;
+          else delete state.regionOwnerDistrictSkins[territory.id];
         });
         syncTownOwnersForRegions(touchedRegionIds);
         cancelClearingIfTargetTaken(touchedRegionIds);
