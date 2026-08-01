@@ -1367,14 +1367,17 @@ function toPublicBattle(battle) {
       : new Date(battle.resolvesAt);
   const health = advanceBattleHealth(
     battle,
-    battle.hpUpdatedAt instanceof Date
-      ? battle.hpUpdatedAt
-      : new Date(battle.hpUpdatedAt || Date.now()),
+    new Date(),
   );
   return {
     id: battle._id || battle.id,
     regionId: battle.regionId,
     townId: battle.townId,
+    marchId: battle.marchId,
+    fromTerritoryId: battle.fromTerritoryId,
+    toTerritoryId: battle.toTerritoryId,
+    status: battle.status || "fighting",
+    joinedMarchIds: battle.joinedMarchIds || (battle.marchId ? [battle.marchId] : []),
     attackerId: battle.attackerId,
     defenderId: battle.defenderId,
     attackerPower: battle.attackerPower,
@@ -2819,6 +2822,21 @@ async function processArrivedMarches(now = new Date()) {
       regionId: territory.id,
     });
     if (existingBattle) {
+      const joinedMarchIds = Array.isArray(existingBattle.joinedMarchIds)
+        ? existingBattle.joinedMarchIds
+        : existingBattle.marchId
+          ? [existingBattle.marchId]
+          : [];
+      if (joinedMarchIds.includes(march._id)) {
+        await marchOrders.deleteOne({ _id: march._id });
+        publishRealtime({
+          type: "march_removed",
+          marchId: march._id,
+          territoryId: territory.id,
+          reason: "battle_already_joined",
+        });
+        continue;
+      }
       const isAttackerSide =
         march.ownerId === existingBattle.attackerId || march.kind === "attack";
       const marchInfantry = Math.max(
@@ -2878,8 +2896,9 @@ async function processArrivedMarches(now = new Date()) {
       }
       existingBattle.battleVersion =
         Math.max(1, Number(existingBattle.battleVersion || 1)) + 1;
-      await activeBattles.updateOne(
-        { _id: existingBattle._id },
+      existingBattle.joinedMarchIds = [...joinedMarchIds, march._id];
+      const joinedBattle = await activeBattles.updateOne(
+        { _id: existingBattle._id, joinedMarchIds: { $ne: march._id } },
         {
           $set: {
             attackerInfantry: existingBattle.attackerInfantry,
@@ -2896,9 +2915,23 @@ async function processArrivedMarches(now = new Date()) {
             defenderCurrentHp: existingBattle.defenderCurrentHp,
             hpUpdatedAt: now,
             battleVersion: existingBattle.battleVersion,
+            status: "fighting",
           },
+          $addToSet: { joinedMarchIds: march._id },
         },
       );
+      if (joinedBattle.modifiedCount !== 1) {
+        const persistedBattle = await activeBattles.findOne({
+          _id: existingBattle._id,
+        });
+        const persistedMarchIds = Array.isArray(persistedBattle?.joinedMarchIds)
+          ? persistedBattle.joinedMarchIds
+          : persistedBattle?.marchId
+            ? [persistedBattle.marchId]
+            : [];
+        if (!persistedMarchIds.includes(march._id)) continue;
+        Object.assign(existingBattle, persistedBattle);
+      }
       await marchOrders.deleteOne({ _id: march._id });
       publishRealtime({
         type: "battle_started",
@@ -2974,12 +3007,14 @@ async function processArrivedMarches(now = new Date()) {
       gameConfig,
     );
     const battle = {
-      _id: `battle:${territory.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      _id: `battle:${march._id}`,
       regionId: territory.id,
       townId: defenderTown.id,
       fromTerritoryId: march.fromTerritoryId,
       toTerritoryId: march.toTerritoryId,
       marchId: march._id,
+      joinedMarchIds: [march._id],
+      status: "fighting" as const,
       attackerId: march.ownerId,
       defenderId: targetClaim.playerId,
       attackerPower,
@@ -3001,11 +3036,17 @@ async function processArrivedMarches(now = new Date()) {
       hpUpdatedAt: now,
       battleVersion: 1,
     };
-    await activeBattles.insertOne(battle);
+    await activeBattles.updateOne(
+      { _id: battle._id },
+      { $setOnInsert: battle },
+      { upsert: true },
+    );
+    const persistedBattle = await activeBattles.findOne({ _id: battle._id });
+    if (!persistedBattle) continue;
     await marchOrders.deleteOne({ _id: march._id });
     publishRealtime({
       type: "battle_started",
-      battle: toPublicBattle(battle),
+      battle: toPublicBattle(persistedBattle),
       consumedMarchId: march._id,
     });
     publishRealtime({

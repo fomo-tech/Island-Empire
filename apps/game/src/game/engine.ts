@@ -117,6 +117,7 @@ export function createIslandEmpireGame(
     regionPass2Cache.clear();
     isletPass1Cache.clear();
   }
+  clearAllRegionCache();
   ctx.imageSmoothingEnabled = false;
 
   const medievalInfantrySheet = new Image();
@@ -213,6 +214,13 @@ export function createIslandEmpireGame(
     };
   }
 
+  const directionalFootY: Record<"builder" | "infantry" | "cavalry" | "artillery", Record<MarchDirection, number>> = {
+    infantry: { S: 215, SW: 215, W: 212, NW: 212, N: 215, NE: 212, E: 212, SE: 212 },
+    cavalry: { S: 215, SW: 215, W: 212, NW: 212, N: 215, NE: 212, E: 212, SE: 212 },
+    artillery: { S: 215, SW: 215, W: 212, NW: 212, N: 215, NE: 212, E: 212, SE: 212 },
+    builder: { S: 215, SW: 215, W: 212, NW: 212, N: 215, NE: 212, E: 212, SE: 212 },
+  };
+
   function drawMedievalUnitSprite(
     kind: "builder" | "infantry" | "cavalry" | "artillery",
     x: number,
@@ -287,16 +295,28 @@ export function createIslandEmpireGame(
       const activeSourceCell = useDirectionalSheet ? 256 : sourceCell;
       const sourceX = useDirectionalSheet ? directionalCell.sx : sourceColumn * sourceCell;
       const sourceY = useDirectionalSheet ? directionalCell.sy : 0;
-      const stride = Math.sin(rawMotionPhase * Math.PI / 2) * 0.8;
-      const bobAmount = kind === "artillery" ? 0.35 : kind === "cavalry" ? 1.1 : 0.75;
+      
+      // Grounded Drop Shadow directly under unit's feet
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
+      ctx.beginPath();
+      ctx.ellipse(x, y + 1, size * 0.38, size * 0.12, 0, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
       ctx.save();
       drawTroopFootRing(x, y, factionColor || "#d6aa4a");
-      const bob = Math.sin(rawMotionPhase * Math.PI / 2) * bobAmount;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.translate(x + stride, y + 15 + bob);
-      ctx.rotate(kind === "artillery" ? stride * 0.002 : stride * 0.008);
-      ctx.scale(useDirectionalSheet ? 1 : facingLeft ? -1 : 1, 1 + Math.abs(stride) * 0.006);
+      ctx.translate(x, y);
+      ctx.scale(useDirectionalSheet ? 1 : facingLeft ? -1 : 1, 1);
+      const footY = useDirectionalSheet
+        ? directionalFootY[kind][direction || "S"]
+        : activeSourceCell;
+      const footYRatio = useDirectionalSheet
+        ? (footY / activeSourceCell) * 0.85
+        : 0.85;
+      const walkBob = Math.abs(Math.sin(rawMotionPhase * Math.PI * 0.5)) * 1.2;
       ctx.drawImage(
         activeSheet,
         sourceX,
@@ -304,7 +324,7 @@ export function createIslandEmpireGame(
         activeSourceCell,
         activeSourceCell,
         -size / 2,
-        -size,
+        -size * footYRatio - walkBob,
         size,
         size,
       );
@@ -325,9 +345,9 @@ export function createIslandEmpireGame(
     const sourceY = useDirectionalBuilder ? directionalCell.sy : 0;
     const sourceCell = useDirectionalBuilder ? 256 : 384;
     ctx.save();
-    const isWalking = builderFrame === "walk_left" || builderFrame === "walk_right";
-    const builderPhase = motionPhase ?? state.tick * 9;
-    const bob = isWalking ? Math.sin(builderPhase * Math.PI / 2) * 0.65 : 0;
+    const footY = useDirectionalBuilder
+      ? directionalFootY.builder[direction || "S"]
+      : sourceCell;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(
@@ -337,7 +357,7 @@ export function createIslandEmpireGame(
       sourceCell,
       sourceCell,
       x - size / 2,
-      y - size + 15 + bob,
+      y - size * (footY / sourceCell),
       size,
       size,
     );
@@ -1798,6 +1818,7 @@ export function createIslandEmpireGame(
   let medievalWorldAtlas: HTMLImageElement | null = null;
   let medievalDetailAtlas: HTMLImageElement | null = null;
   let gameEnvAssetsV2: HTMLImageElement | null = null;
+  let territoryVegetationAtlas: HTMLImageElement | null = null;
   const kingdomBuildingImages = new Map<string, HTMLImageElement>();
   const MEDIEVAL_WORLD_SPRITES: Record<string, [number, number]> = {
     forest_oak: [0, 0],
@@ -1817,6 +1838,105 @@ export function createIslandEmpireGame(
     harbor: [2, 3],
     gems: [3, 3],
   };
+  const TERRITORY_VEGETATION_SPRITES: Record<string, [number, number]> = {
+    oak: [0, 0], autumn: [2, 1], pine: [2, 0], blossomTree: [3, 0], deadTree: [0, 0],
+    palm: [0, 1], sapling: [1, 1], broadleaf: [2, 1], cypress: [3, 1], willow: [4, 1],
+    roundBush: [0, 2], leafyBush: [1, 2], berryBush: [2, 2], fern: [3, 2], flowerBush: [4, 2],
+    cactusTall: [0, 3], cactusGroup: [1, 3], cactusRound: [2, 3], cactusPad: [3, 3], agave: [4, 3],
+  };
+
+  function getTerritoryVegetationAtlas() {
+    if (!territoryVegetationAtlas) {
+      territoryVegetationAtlas = new Image();
+      territoryVegetationAtlas.decoding = "async";
+      territoryVegetationAtlas.onload = () => {
+        regionPass2Cache.clear();
+      };
+      territoryVegetationAtlas.src = "/assets/world/territory_vegetation_atlas.webp";
+    }
+    return territoryVegetationAtlas;
+  }
+
+  function drawTerritoryVegetationSprite(
+    sprite: string,
+    x: number,
+    y: number,
+    size: number,
+    alpha = 1,
+  ) {
+    let cell = TERRITORY_VEGETATION_SPRITES[sprite];
+    const atlas = getTerritoryVegetationAtlas();
+    if (!cell || !atlas.complete || !atlas.naturalWidth) return false;
+    // ABSOLUTE SAFETY OVERRIDE: Cell [1, 0] in vegetation atlas is the tree stump with roots diorama.
+    // Replace it 100% with cell [0, 0] (oak green tree).
+    if (cell[0] === 1 && cell[1] === 0) {
+      cell = [0, 0];
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    const pad = 18; // Aggressive inset padding margin (18px) to guarantee zero adjacent cell pixel bleeding
+    const sx = cell[0] * 256 + pad;
+    const sy = cell[1] * 256 + pad;
+    const sw = 256 - pad * 2;
+    const sh = 256 - pad * 2;
+    ctx.drawImage(
+      atlas,
+      sx,
+      sy,
+      sw,
+      sh,
+      x - size / 2,
+      y - size,
+      size,
+      size,
+    );
+    ctx.restore();
+    return true;
+  }
+
+  const GAME_ENV_V2_SPRITES: Record<string, [number, number]> = {
+    // Semantic 4x4 Atlas Names
+    v2_waterfall: [0, 0],
+    v2_swamp: [3, 2], // Replaced tree stump with lush green orchard
+    v2_lava: [2, 0],
+    v2_mushrooms: [3, 0],
+    v2_church: [0, 1],
+    v2_market: [1, 1],
+    v2_watchtower: [2, 1],
+    v2_camp: [3, 1],
+    v2_bridge: [0, 2],
+    v2_graveyard: [1, 2],
+    v2_fountain: [2, 2],
+    v2_orchard: [3, 2],
+    v2_shipwreck: [0, 3],
+    v2_wizard_tower: [1, 3],
+    v2_arena: [2, 3],
+    v2_dragon_bone: [3, 3],
+
+    // Backward-compatible sprite alias keys (all stumps/roots map to lush trees)
+    v2_oak: [3, 2],
+    v2_autumn: [3, 2],
+    v2_pine: [2, 1],
+    v2_cherry: [3, 2],
+    v2_dead_tree: [3, 2],
+    v2_bush_round: [3, 2],
+    v2_bush_leafy: [3, 2],
+    v2_bush_berry: [3, 2],
+    v2_fern: [3, 2],
+    v2_bush_flower: [2, 2],
+    v2_rock_big: [2, 0],
+    v2_rock_cluster: [2, 0],
+    v2_log: [3, 2],
+    v2_stump: [3, 2],
+    v2_roots: [3, 2],
+    v2_bamboo: [3, 2],
+    v2_reeds: [3, 2],
+    v2_flowers: [2, 2],
+    v2_ruin_wall: [3, 3],
+    v2_grass_patch: [3, 2],
+  };
 
   function strategicAssetImage(name: string) {
     const path = STRATEGIC_ASSET_PATHS[name];
@@ -1835,6 +1955,9 @@ export function createIslandEmpireGame(
     if (!medievalWorldAtlas) {
       medievalWorldAtlas = new Image();
       medievalWorldAtlas.decoding = "async";
+      medievalWorldAtlas.onload = () => {
+        regionPass2Cache.clear();
+      };
       medievalWorldAtlas.src = "/assets/world/medieval_world_atlas.webp";
     }
     return medievalWorldAtlas;
@@ -1847,25 +1970,26 @@ export function createIslandEmpireGame(
     size: number,
     alpha = 1,
   ) {
-    const roll = hash(x * 31 + y * 17);
-    if (roll > 0.45) {
-      const drawn = drawGameEnvV2Sprite(sprite, x, y, size, alpha);
-      if (drawn) return true;
-    }
-
     const image = getMedievalWorldAtlas();
     const cell = MEDIEVAL_WORLD_SPRITES[sprite];
-    if (!cell || !image.complete || !image.naturalWidth) return false;
+    // Strictly restrict to Top Row (Row 0: forest_oak, forest_pine, forest_snow, forest_autumn)
+    if (!cell || cell[1] !== 0 || !image.complete || !image.naturalWidth) return false;
     const cellWidth = image.naturalWidth / 4;
     const cellHeight = image.naturalHeight / 4;
+    const padX = Math.max(12, Math.round(cellWidth * 0.075));
+    const padY = Math.max(12, Math.round(cellHeight * 0.075));
+    const sx = cell[0] * cellWidth + padX;
+    const sy = cell[1] * cellHeight + padY;
+    const sw = cellWidth - padX * 2;
+    const sh = cellHeight - padY * 2;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.drawImage(
       image,
-      cell[0] * cellWidth,
-      cell[1] * cellHeight,
-      cellWidth,
-      cellHeight,
+      sx,
+      sy,
+      sw,
+      sh,
       x - size / 2,
       y - size * 0.76,
       size,
@@ -1891,26 +2015,7 @@ export function createIslandEmpireGame(
     size: number,
     alpha = 1,
   ) {
-    const image = getGameEnvAssetsV2();
-    const cell = MEDIEVAL_WORLD_SPRITES[sprite];
-    if (!cell || !image.complete || !image.naturalWidth) return false;
-    const cellWidth = image.naturalWidth / 4;
-    const cellHeight = image.naturalHeight / 4;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(
-      image,
-      cell[0] * cellWidth,
-      cell[1] * cellHeight,
-      cellWidth,
-      cellHeight,
-      x - size / 2,
-      y - size * 0.76,
-      size,
-      size,
-    );
-    ctx.restore();
-    return true;
+    return false; // Completely disabled game-environment-assets-v2.webp as requested
   }
 
   function drawMedievalDetailSprite(
@@ -1920,23 +2025,7 @@ export function createIslandEmpireGame(
     y: number,
     size: number,
   ) {
-    const atlas = getMedievalDetailAtlas();
-    if (!atlas.complete || !atlas.naturalWidth)
-      return false;
-    const cellWidth = atlas.naturalWidth / 2;
-    const cellHeight = atlas.naturalHeight / 2;
-    ctx.drawImage(
-      atlas,
-      column * cellWidth,
-      row * cellHeight,
-      cellWidth,
-      cellHeight,
-      x - size / 2,
-      y - size * 0.76,
-      size,
-      size,
-    );
-    return true;
+    return false; // Completely disabled medieval_detail_atlas.webp as requested
   }
 
   function getMedievalDetailAtlas() {
@@ -3593,12 +3682,18 @@ export function createIslandEmpireGame(
 
   function drawBush(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    const rnd = Math.abs(Math.sin(x * 12.9898 + y * 78.233));
+    const sprite = rnd > 0.5 ? "v2_bush_round" : "v2_bush_leafy";
+    if (!drawGameEnvV2Sprite(sprite, x, y, 42 * sc, 0.95)) {
+      drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    }
   }
 
   function drawPalmTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("desert", x, y, 78 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_dead_tree", x, y, 78 * sc, 0.95)) {
+      drawMedievalWorldSprite("desert", x, y, 78 * sc, 0.95);
+    }
   }
 
   function drawChest(x: number, y: number, scale?: number) {
@@ -3608,28 +3703,38 @@ export function createIslandEmpireGame(
 
   function drawFlower(x: number, y: number, scale?: number, _color1?: string, _color2?: string) {
     const sc = scale || 1;
-    drawMedievalDetailSprite(1, 0, x, y, 40 * sc);
+    if (!drawGameEnvV2Sprite("v2_flowers", x, y, 40 * sc, 0.95)) {
+      drawMedievalDetailSprite(1, 0, x, y, 40 * sc);
+    }
   }
 
   function drawBerryBush(x: number, y: number, scale?: number, _berryColor?: string) {
     const sc = scale || 1;
-    drawMedievalDetailSprite(0, 0, x, y, 44 * sc);
+    if (!drawGameEnvV2Sprite("v2_bush_berry", x, y, 44 * sc, 0.95)) {
+      drawMedievalDetailSprite(0, 0, x, y, 44 * sc);
+    }
   }
 
   function drawMushrooms(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalDetailSprite(1, 1, x, y, 36 * sc);
+    if (!drawGameEnvV2Sprite("v2_log", x, y, 52 * sc, 0.95)) {
+      drawMedievalDetailSprite(1, 1, x, y, 36 * sc);
+    }
   }
 
   function drawSnowTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("forest_snow", x, y, 72 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_cherry", x, y, 72 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_snow", x, y, 72 * sc, 0.95);
+    }
   }
 
   // Swamp tree maps to pine tree sprite
   function drawSwampTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("forest_pine", x, y, 74 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_pine", x, y, 74 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_pine", x, y, 74 * sc, 0.95);
+    }
   }
 
   function drawCrystal(x: number, y: number, scale?: number, _color?: string) {
@@ -3865,32 +3970,7 @@ export function createIslandEmpireGame(
       }
     });
 
-    if (!fastRenderMode && state.zoom >= 0.42) {
-      const specials = territorySpecialResources(r.id).filter(
-        (name) => STRATEGIC_ASSET_PATHS[name],
-      );
-      specials.slice(0, 2).forEach((name, index) => {
-        const harbor = name === "Bến tàu tự nhiên";
-        const angle =
-          hash(seed * 61) * TAU + Math.PI / 2 + index * Math.PI;
-        const radius = hasTown ? 0.78 : harbor ? 0.68 : 0.46 + index * 0.08;
-        const x = r.x + Math.cos(angle) * rx * radius;
-        const y = r.y + Math.sin(angle) * ry * radius;
-        const sprite =
-          name === "Bãi ngựa"
-            ? "horse"
-            : name === "Xưởng rèn"
-              ? "forge"
-              : harbor
-                ? "harbor"
-                : "gems";
-        const size = hasTown ? 44 : state.zoom >= 0.82 ? 78 : 58;
-        if (drawMedievalWorldSprite(sprite, x, y, size, 0.98)) return;
-        const image = strategicAssetImage(name);
-        if (!image?.complete || !image.naturalWidth) return;
-        ctx.drawImage(image, x - size / 2, y - size * 0.68, size, size);
-      });
-    }
+
 
     if (
       !getMedievalWorldAtlas().complete &&
@@ -3917,6 +3997,105 @@ export function createIslandEmpireGame(
     }
   }
 
+  function drawNaturalTerritoryVegetation(
+    r: any,
+    seed: number,
+    rx: number,
+    ry: number,
+    biome: number,
+  ) {
+    const atlas = getTerritoryVegetationAtlas();
+    if (!atlas.complete || !atlas.naturalWidth) return;
+
+    const palettes: Record<number, { canopy: string[]; ground: string[] }> = {
+      0: { canopy: ["oak", "blossomTree", "broadleaf"], ground: ["roundBush", "leafyBush", "flowerBush"] },
+      1: { canopy: ["cactusTall", "cactusGroup", "cactusPad"], ground: ["cactusRound", "agave", "cactusPad"] },
+      2: { canopy: ["pine", "cypress", "oak"], ground: ["roundBush", "fern", "leafyBush"] },
+      3: { canopy: ["pine", "cypress", "broadleaf"], ground: ["leafyBush", "fern", "roundBush"] },
+      4: { canopy: ["palm", "blossomTree", "broadleaf"], ground: ["fern", "flowerBush", "leafyBush"] },
+      5: { canopy: ["autumn", "oak", "broadleaf"], ground: ["berryBush", "leafyBush", "roundBush"] },
+      6: { canopy: ["pine", "cypress", "broadleaf"], ground: ["berryBush", "fern", "leafyBush"] },
+      7: { canopy: ["willow", "oak", "broadleaf"], ground: ["fern", "leafyBush", "roundBush"] },
+    };
+    const palette = palettes[biome] || palettes[0];
+    const medievalCanopy: Record<number, string> = {
+      0: "forest_oak",
+      1: "desert",
+      2: "forest_snow",
+      3: "forest_pine",
+      4: "forest_oak",
+      5: "forest_autumn",
+      6: "forest_pine",
+      7: "forest_oak",
+    };
+    const hasTown = frameTownRegionIds.has(Number(r.id));
+    const clusterCount = state.zoom < 0.52
+      ? 1
+      : 1 + Math.floor(hash(seed * 101.7) * (hasTown ? 1 : 2));
+    const items: Array<{ sprite: string; x: number; y: number; size: number; medieval?: boolean }> = [];
+    const baseAngle = hash(seed * 79.3) * TAU;
+
+    for (let cluster = 0; cluster < clusterCount; cluster++) {
+      const clusterSeed = seed * 137 + cluster * 83;
+      const angle = baseAngle
+        + cluster * (TAU / clusterCount)
+        + (hash(clusterSeed * 1.71) - 0.5) * 0.42;
+      const minRadius = hasTown ? 0.34 : 0.12;
+      const maxRadius = hasTown ? 0.5 : 0.46;
+      const radius = minRadius + hash(clusterSeed * 2.13) * (maxRadius - minRadius);
+      const cx = r.x + Math.cos(angle) * rx * radius;
+      const cy = r.y + Math.sin(angle) * ry * radius * 0.82;
+      const useMedievalCluster = hash(clusterSeed * 7.17) < 0.42;
+      const itemCount = state.zoom < 0.52
+        ? 2
+        : useMedievalCluster
+          ? 2 + Math.floor(hash(clusterSeed * 3.19) * 2)
+          : 3 + Math.floor(hash(clusterSeed * 3.19) * 2);
+
+      for (let item = 0; item < itemCount; item++) {
+        const itemSeed = clusterSeed * 5.31 + item * 47;
+        const groundLayer = useMedievalCluster
+          ? item > 0
+          : item >= Math.ceil(itemCount * 0.58);
+        const slot = item % 4;
+        const offsets = [
+          [0, -4],
+          [-19, 3],
+          [19, 4],
+          [-10, 12],
+        ];
+        const jitterX = (hash(itemSeed * 1.37) - 0.5) * 7;
+        const jitterY = (hash(itemSeed * 2.47) - 0.5) * 4;
+        const x = cx + offsets[slot][0] + jitterX;
+        const y = cy + offsets[slot][1] + jitterY + (groundLayer ? 9 : 0);
+        const spritePool = groundLayer ? palette.ground : palette.canopy;
+        const medieval = useMedievalCluster && item === 0;
+        const sprite = medieval
+          ? medievalCanopy[biome] || "forest_oak"
+          : spritePool[Math.floor(hash(itemSeed * 3.83) * spritePool.length)];
+        const isLowPlant = ["roundBush", "leafyBush", "berryBush", "fern", "flowerBush", "agave", "cactusRound", "cactusPad"].includes(sprite);
+        const baseSize = isLowPlant ? 34 : 68;
+        const variation = 0.94 + hash(itemSeed * 4.91) * 0.12;
+        items.push({
+          sprite,
+          x,
+          y,
+          size: baseSize * variation,
+          medieval,
+        });
+      }
+    }
+
+    items.sort((a, b) => a.y - b.y);
+    items.forEach((item) => {
+      if (item.medieval) {
+        drawMedievalWorldSprite(item.sprite, item.x, item.y, item.size * 1.05, 0.94);
+      } else {
+        drawTerritoryVegetationSprite(item.sprite, item.x, item.y, item.size, 0.97);
+      }
+    });
+  }
+
   function drawRegionTerrain(
     r: any,
     seed: number,
@@ -3929,6 +4108,8 @@ export function createIslandEmpireGame(
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
     if (fastRenderMode || isFastPanning()) return;
+
+    drawNaturalTerritoryVegetation(r, seed, rx, ry, terrainBiome);
 
     const atlas = getMedievalWorldAtlas();
     if (!atlas.complete || !atlas.naturalWidth) return;
@@ -3994,20 +4175,45 @@ export function createIslandEmpireGame(
           : clusterRoll < 0.78
             ? "cottage"
             : "forest_oak";
+<<<<<<< HEAD
     } else if (dominantResource === "stone" || dominantResource === "gold") {
       primarySprite = naturalLandmark;
+=======
+    } else if (dominantResource === "stone") {
+      primarySprite =
+        terrainBiome === 2
+          ? "forest_snow"
+          : terrainBiome === 6
+            ? "forest_pine"
+            : terrainBiome === 5
+              ? "forest_autumn"
+              : terrainBiome === 1
+                ? "desert"
+                : "forest_oak";
+    } else if (dominantResource === "gold") {
+      primarySprite =
+        terrainBiome === 5
+          ? "forest_autumn"
+          : terrainBiome === 2
+            ? "forest_snow"
+            : terrainBiome === 6
+              ? "forest_pine"
+              : terrainBiome === 1
+                ? "desert"
+                : "forest_oak";
+>>>>>>> redesign-assets
     }
 
     if (!special && !hasTown && clusterRoll < 0.16) {
       if (terrainBiome === 1) primarySprite = "desert";
       else if (terrainBiome === 2) primarySprite = "forest_snow";
-      else if (terrainBiome === 3) primarySprite = "mountain";
+      else if (terrainBiome === 3) primarySprite = "forest_pine";
       else if (terrainBiome === 5) primarySprite = "forest_autumn";
     }
 
-    // Now we generate a beautiful diorama cluster
+    // Now we generate a beautiful diorama cluster (Trees, Bushes, Flora & Wildlife ONLY - NO MINES)
     interface DioramaItem {
-      type: "sprite" | "oak" | "autumn" | "pine" | "palm" | "grass" | "bush" | "flower" | "berry" | "mushroom" | "rock" | "ruins" | "chest" | "cave" | "deer" | "boar" | "elephant" | "resource";
+      type: "sprite" | "oak" | "autumn" | "pine" | "palm" | "grass" | "bush" | "flower" | "berry" | "mushroom" | "chest" | "deer" | "boar" | "elephant";
       spriteName?: string;
       x: number;
       y: number;
@@ -4017,7 +4223,6 @@ export function createIslandEmpireGame(
     const items: DioramaItem[] = [];
 
     // Let's decide how many items to place
-    // Special regions and wood/forest regions have more items, others have 3-5
     let itemCount = 3 + Math.floor(hash(seed * 113) * 3); // 3 to 5 items
     if (special) itemCount = 5 + Math.floor(hash(seed * 73) * 3); // 5 to 7 items
     else if (dominantResource === "wood" || primarySprite.startsWith("forest_")) {
@@ -4061,7 +4266,7 @@ export function createIslandEmpireGame(
         y = harborY + Math.sin(angleOffset) * dist;
       }
 
-      // First item is always the primary resource/landmark at the core
+      // First item is always the primary tree/landmark at the core
       if (i === 0) {
         const size = Math.max(
           38,
@@ -4070,8 +4275,8 @@ export function createIslandEmpireGame(
             minDimension * (hasTown ? 0.22 : 0.34),
           ),
         );
-        let posX = r.x + dx * 0.4;
-        let posY = r.y + dy * 0.4;
+        let posX = r.x + dx * (hasTown ? 1 : 0.4);
+        let posY = r.y + dy * (hasTown ? 1 : 0.4);
         if (primarySprite === "harbor") {
           const continent = megaContinents.find((c) => {
             const nx = (r.x - c.x) / c.rx;
@@ -4097,7 +4302,7 @@ export function createIslandEmpireGame(
         continue;
       }
 
-      // Other items are surrounding props depending on the theme
+      // Other items are surrounding flora (trees, bushes, flowers, berries, mushrooms ONLY)
       const roll = hash(itemSeed * 61);
       const scale = 0.8 + hash(itemSeed * 83) * 0.4;
       const size = Math.max(34, Math.min(64, minDimension * (0.16 + roll * 0.12)));
@@ -4111,12 +4316,21 @@ export function createIslandEmpireGame(
           items.push({ type: "flower", x, y, size, scale });
         }
       } else if (special === "Xưởng rèn") {
+<<<<<<< HEAD
         if (roll < 0.38) {
           items.push({ type: "bush", x, y, size, scale });
         } else if (roll < 0.72) {
           items.push({ type: "grass", x, y, size, scale });
         } else {
           items.push({ type: "flower", x, y, size, scale });
+=======
+        if (roll < 0.4) {
+          items.push({ type: "bush", x, y, size, scale });
+        } else if (roll < 0.75) {
+          items.push({ type: "oak", x, y, size, scale });
+        } else {
+          items.push({ type: "berry", x, y, size, scale });
+>>>>>>> redesign-assets
         }
       } else if (special === "Bến tàu tự nhiên") {
         if (roll < 0.4) {
@@ -4127,23 +4341,31 @@ export function createIslandEmpireGame(
           items.push({ type: "bush", x, y, size, scale });
         }
       } else if (special === "Mỏ Ngọc") {
+<<<<<<< HEAD
         if (roll < 0.38) {
           items.push({ type: "flower", x, y, size, scale });
         } else if (roll < 0.72) {
           items.push({ type: "berry", x, y, size, scale });
         } else {
           items.push({ type: "mushroom", x, y, size, scale });
+=======
+        if (roll < 0.4) {
+          items.push({ type: "sprite", spriteName: "gems", x, y, size: size * 0.9, scale });
+        } else if (roll < 0.7) {
+          items.push({ type: "flower", x, y, size, scale });
+        } else {
+          items.push({ type: "bush", x, y, size, scale });
+>>>>>>> redesign-assets
         }
-      } else if (dominantResource === "wood" || primarySprite.startsWith("forest_")) {
-        // Forest / Wood theme
+      } else {
+        // Nature & Flora Theme across all biomes
         if (roll < 0.45) {
-          // Additional trees
           let treeType: "oak" | "pine" | "autumn" | "snow_tree" | "palm" | "sprite" = "oak";
           let spriteName = "forest_oak";
           if (terrainBiome === 2) {
             treeType = "snow_tree";
             spriteName = "forest_snow";
-          } else if (terrainBiome === 6) {
+          } else if (terrainBiome === 6 || terrainBiome === 3) {
             treeType = "pine";
             spriteName = "forest_pine";
           } else if (terrainBiome === 5) {
@@ -4160,20 +4382,12 @@ export function createIslandEmpireGame(
           }
         } else if (roll < 0.65) {
           items.push({ type: "berry", x, y, size, scale });
-        } else if (roll < 0.8) {
+        } else if (roll < 0.82) {
           items.push({ type: "mushroom", x, y, size, scale });
-        } else {
-          items.push({ type: "deer", x, y, size, scale });
-        }
-      } else if (dominantResource === "food") {
-        // Crop / Farm theme
-        if (roll < 0.35) {
-          items.push({ type: "sprite", spriteName: "food", x, y, size, scale });
-        } else if (roll < 0.65) {
-          items.push({ type: "berry", x, y, size, scale });
-        } else if (roll < 0.85) {
+        } else if (roll < 0.92) {
           items.push({ type: "flower", x, y, size, scale });
         } else {
+<<<<<<< HEAD
           items.push({ type: "boar", x, y, size, scale });
         }
       } else if (dominantResource === "stone") {
@@ -4233,6 +4447,9 @@ export function createIslandEmpireGame(
           } else {
             items.push({ type: "bush", x, y, size, scale });
           }
+=======
+          items.push({ type: "bush", x, y, size, scale });
+>>>>>>> redesign-assets
         }
       }
     }
@@ -4289,13 +4506,13 @@ export function createIslandEmpireGame(
       const detailX = r.x + Math.cos(detailAngle) * rx * detailRadius;
       const detailY = r.y + Math.sin(detailAngle) * ry * detailRadius;
       let detailColumn = 0;
-      let detailRow = 1;
+      let detailRow = 0; // Lush green tree
       if (dominantResource === "food") {
         detailColumn = detailRoll < 0.12 ? 0 : 1;
         detailRow = 0;
       } else if (derivedRegionOwnership(r.id) > 0 && detailRoll < 0.08) {
-        detailColumn = 1;
-        detailRow = 1;
+        detailColumn = 0;
+        detailRow = 0;
       }
       const detailSize = Math.max(34, Math.min(62, minDimension * 0.28));
       drawMedievalDetailSprite(
@@ -4353,35 +4570,14 @@ export function createIslandEmpireGame(
     const scale = state.zoom > 0.82 ? 0.95 : 0.72;
 
     if (biome === 0 || biome === 6 || biome === 7) {
-      if (detailRoll < 0.18) {
-        if (drawMedievalWorldSprite("food", x, y, 66 * scale, 0.9)) return;
-        drawFarmPatch(x, y, scale);
+      if (detailRoll < 0.45) {
+        drawMedievalWorldSprite("food", x, y, 66 * scale, 0.9);
         return;
       }
-
-      ctx.save();
-      ctx.globalAlpha = 0.76;
-      ctx.strokeStyle = "#4a311d";
-      ctx.lineWidth = 2.2 * scale;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(x - 17 * scale, y + 7 * scale);
-      ctx.lineTo(x + 18 * scale, y - 5 * scale);
-      ctx.stroke();
-      for (let i = -2; i <= 2; i++) {
-        const px = x + i * 8 * scale;
-        const py = y + (1 - i) * 2.4 * scale;
-        ctx.beginPath();
-        ctx.moveTo(px, py - 5 * scale);
-        ctx.lineTo(px, py + 5 * scale);
-        ctx.stroke();
-      }
-      ctx.restore();
+      drawBerryBush(x, y, scale * 0.85);
     } else if (biome === 1 || biome === 2 || biome === 5) {
-      if (drawMedievalWorldSprite("stone", x, y, 62 * scale, 0.88)) return;
       drawRockPile(x, y, scale * 0.78);
     } else if (detailRoll < 0.16) {
-      if (drawMedievalWorldSprite("ruins", x, y, 64 * scale, 0.9)) return;
       drawRuins(x, y, scale * 0.72);
     }
   }
@@ -4399,6 +4595,19 @@ export function createIslandEmpireGame(
       return {
         type: "battle",
         label: `GIAO TRANH: ${remSec}s`,
+        remainingSec: remSec,
+      };
+    }
+
+    const sourceBattle = state.activeBattles?.find(
+      (b: any) => Number(b.fromTerritoryId) === Number(idx),
+    );
+    if (sourceBattle) {
+      const dur = sourceBattle.duration || sourceBattle.durationSeconds || 25;
+      const remSec = Math.max(0, Math.ceil(dur - (sourceBattle.t || 0)));
+      return {
+        type: "battle_source",
+        label: `ĐANG CÔNG THÀNH: ${remSec}s`,
         remainingSec: remSec,
       };
     }
@@ -5106,8 +5315,11 @@ export function createIslandEmpireGame(
     // Fill overlay based on state (Seamless inflation to hide internal grid seams)
     if (conflict) {
       ctx.save();
-      ctx.globalAlpha = 0.35 + Math.sin(state.tick * 8) * 0.1;
-      fillSmoothPath(targetPoly, "#ef4444");
+      const isBattleSource = conflict.type === "battle_source";
+      ctx.globalAlpha = (isBattleSource ? 0.2 : 0.35) + Math.sin(state.tick * 8) * 0.08;
+      fillSmoothPath(targetPoly, isBattleSource ? "#f59e0b" : "#ef4444");
+      ctx.globalAlpha = isBattleSource ? 0.72 : 0.88;
+      strokeSmoothPath(targetPoly, isBattleSource ? "#fbbf24" : "#fb6a4a", isBattleSource ? 3 : 4);
       ctx.restore();
     } else if (isLocalClearing) {
       ctx.save();
@@ -5612,27 +5824,39 @@ export function createIslandEmpireGame(
 
   function drawOakTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("forest_oak", x, y, 84 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_oak", x, y, 84 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_oak", x, y, 84 * sc, 0.95);
+    }
   }
 
   function drawAutumnTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("forest_autumn", x, y, 82 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_autumn", x, y, 82 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_autumn", x, y, 82 * sc, 0.95);
+    }
   }
 
   function drawPineTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("forest_pine", x, y, 86 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_pine", x, y, 86 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_pine", x, y, 86 * sc, 0.95);
+    }
   }
 
   function drawGrassPatch(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    if (!drawGameEnvV2Sprite("v2_grass_patch", x, y, 42 * sc, 0.95)) {
+      drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    }
   }
 
   function drawRockPile(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    drawMedievalWorldSprite("stone", x, y, 64 * sc, 0.95);
+    const rnd = Math.abs(Math.sin(x * 12.9898 + y * 78.233));
+    const sprite = rnd > 0.5 ? "v2_rock_big" : "v2_rock_cluster";
+    if (!drawGameEnvV2Sprite(sprite, x, y, 64 * sc, 0.95)) {
+      drawMedievalWorldSprite("stone", x, y, 64 * sc, 0.95);
+    }
   }
 
   function drawElephant(x: number, y: number, scale = 1.0) {
@@ -5650,10 +5874,11 @@ export function createIslandEmpireGame(
     drawMedievalWorldSprite("horse", x, y, 68 * sc, 0.95);
   }
 
-  // Draw cactus using desert sprite from atlas
   function drawCactus(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("desert", x, y, 64 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_dead_tree", x, y, 64 * sc, 0.95)) {
+      drawMedievalWorldSprite("desert", x, y, 64 * sc, 0.95);
+    }
   }
 
   function drawCave(x: number, y: number, scale = 1.0) {
@@ -5663,12 +5888,17 @@ export function createIslandEmpireGame(
 
   function drawBananaTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("forest_oak", x, y, 76 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_oak", x, y, 76 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_oak", x, y, 76 * sc, 0.95);
+    }
   }
 
+  // Draw baobab using large oak v2
   function drawBaobabTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("forest_oak", x, y, 86 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_oak", x, y, 86 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_oak", x, y, 86 * sc, 0.95);
+    }
   }
 
   function drawFarmPatch(x: number, y: number, scale = 1.0) {
@@ -5678,42 +5908,58 @@ export function createIslandEmpireGame(
 
   function drawWillowTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("forest_oak", x, y, 82 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_oak", x, y, 82 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_oak", x, y, 82 * sc, 0.95);
+    }
   }
 
   function drawRedwoodTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("forest_pine", x, y, 88 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_pine", x, y, 88 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_pine", x, y, 88 * sc, 0.95);
+    }
   }
 
   function drawFernPalm(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("forest_oak", x, y, 74 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_oak", x, y, 74 * sc, 0.95)) {
+      drawMedievalWorldSprite("forest_oak", x, y, 74 * sc, 0.95);
+    }
   }
 
   function drawDenseFerns(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalDetailSprite(0, 0, x, y, 40 * sc);
+    if (!drawGameEnvV2Sprite("v2_fern", x, y, 40 * sc, 0.95)) {
+      drawMedievalDetailSprite(0, 0, x, y, 40 * sc);
+    }
   }
 
   function drawVineBush(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    if (!drawGameEnvV2Sprite("v2_bush_leafy", x, y, 42 * sc, 0.95)) {
+      drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
+    }
   }
 
   function drawFloweringCactus(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("desert", x, y, 72 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_dead_tree", x, y, 72 * sc, 0.95)) {
+      drawMedievalWorldSprite("desert", x, y, 72 * sc, 0.95);
+    }
   }
 
   function drawRunestone(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("ruins", x, y, 74 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_rock_big", x, y, 74 * sc, 0.95)) {
+      drawMedievalWorldSprite("ruins", x, y, 74 * sc, 0.95);
+    }
   }
 
   function drawRuins(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawMedievalWorldSprite("ruins", x, y, 76 * sc, 0.95);
+    if (!drawGameEnvV2Sprite("v2_ruin_wall", x, y, 76 * sc, 0.95)) {
+      drawMedievalWorldSprite("ruins", x, y, 76 * sc, 0.95);
+    }
   }
 
   function drawTree(x: number, y: number, scale?: number, biomeId = 0) {
@@ -5885,11 +6131,11 @@ export function createIslandEmpireGame(
   }
 
   function ownerTint(owner) {
-    if (owner === 0) return "rgba(47,112,215,0.34)";
-    if (owner === 1) return "rgba(215,70,53,0.32)";
-    if (owner === 2) return "rgba(68,161,61,0.32)";
-    if (owner === 3) return "rgba(216,155,33,0.34)";
-    return "rgba(142,69,188,0.34)";
+    if (owner === 0) return "rgba(47,112,215,0.58)";
+    if (owner === 1) return "rgba(215,70,53,0.55)";
+    if (owner === 2) return "rgba(68,161,61,0.55)";
+    if (owner === 3) return "rgba(216,155,33,0.58)";
+    return "rgba(142,69,188,0.58)";
   }
 
   const townNearDistanceCache = new Map<number, number>();
@@ -8807,20 +9053,26 @@ export function createIslandEmpireGame(
       );
     }
 
-    const activeBattle = state.activeBattles?.find(
-      (b: any) =>
-        b.townId === t.id ||
-        (castleRegionId >= 0 && Number(b.regionId) === Number(castleRegionId)),
-    );
-    if (state.tick % 120 === 0 && t.id === state.selected) {
-      console.log("ACTIVE BATTLE CHECK:", {
-        townId: t.id,
-        castleRegionId,
-        foundBattle: activeBattle,
-        allBattles: state.activeBattles
-      });
-    }
+    const activeBattle = state.activeBattles?.find((b: any) => {
+      if (b.townId !== undefined && String(b.townId) === String(t.id)) return true;
+      const bCanvasReg = reactToCanvasRegionId(b.regionId);
+      if (bCanvasReg >= 0 && regionId >= 0 && Number(bCanvasReg) === Number(regionId)) return true;
+      if (regionId >= 0 && Number(b.regionId) === Number(regionId)) return true;
+      if (b.x !== undefined && b.y !== undefined && Math.hypot(b.x - drawX, b.y - drawY) < 60) return true;
+      return false;
+    });
+
     if (activeBattle) {
+      // Draw active battle aura and indicator banner
+      ctx.save();
+      const pulse = Math.sin(state.tick * 6) * 0.25 + 0.75;
+      ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, 48 + Math.sin(state.tick * 4) * 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
       drawDualFlagBattle(
         drawX,
         drawY,
@@ -9074,21 +9326,21 @@ export function createIslandEmpireGame(
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
     ctx.beginPath();
-    ctx.ellipse(x, y + 10, 16, 5.5, 0, 0, TAU);
+    ctx.ellipse(x, y + 2.5, 16, 4.2, 0, 0, TAU);
     ctx.fill();
 
     ctx.globalAlpha = 0.78;
     ctx.strokeStyle = ringColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(x, y + 9, 17, 6, 0, 0, TAU);
+    ctx.ellipse(x, y + 2, 17, 4.8, 0, 0, TAU);
     ctx.stroke();
 
     ctx.globalAlpha = 0.58;
     ctx.strokeStyle = "#e9c66b";
     ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.ellipse(x, y + 9, 14.5, 4.5, 0, 0, TAU);
+    ctx.ellipse(x, y + 2, 14.5, 3.6, 0, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
@@ -10155,8 +10407,9 @@ export function createIslandEmpireGame(
       (v.to?.y ?? y) - (v.from?.y ?? y),
     );
     const marchFrame = "walk";
-    const strideLength = hasArtillery && !hasInfantry && !hasCavalry ? 5.5 : 4.25;
-    const motionPhase = distanceTravelled / strideLength;
+    const strideLength = hasArtillery && !hasInfantry && !hasCavalry ? 18 : 14;
+    const cadence = hasCavalry ? 0.16 : hasArtillery ? 0.08 : 0.12;
+    const motionPhase = (distanceTravelled / strideLength) + (state.tick * cadence);
 
     ctx.save();
     const visibleKinds =
@@ -10382,14 +10635,7 @@ export function createIslandEmpireGame(
 
   function easedRouteProgress(progress: number) {
     const p = Math.max(0, Math.min(1, progress));
-    const edge = 0.06;
-    const distanceScale = 1 - edge;
-    if (p < edge) return (p * p) / (2 * edge * distanceScale);
-    if (p > 1 - edge) {
-      const remaining = 1 - p;
-      return 1 - (remaining * remaining) / (2 * edge * distanceScale);
-    }
-    return (p - edge / 2) / distanceScale;
+    return 0.5 - 0.5 * Math.cos(p * Math.PI);
   }
 
   function routeMovementState(progress: number) {
@@ -10400,6 +10646,105 @@ export function createIslandEmpireGame(
     return "marching";
   }
 
+  function drawActiveBattleConnections(vp?: any) {
+    if (!state.activeBattles || state.activeBattles.length === 0) return;
+    state.activeBattles.forEach((battle: any) => {
+      let toX = battle.x;
+      let toY = battle.y;
+      if (toX === undefined || toY === undefined) {
+        if (battle.townId !== undefined) {
+          const tw = towns.find((t: any) => String(t.id) === String(battle.townId));
+          if (tw) {
+            toX = tw.x;
+            toY = tw.y;
+          }
+        }
+        if ((toX === undefined || toY === undefined) && battle.regionId !== undefined) {
+          const canvasRegId = reactToCanvasRegionId(battle.regionId);
+          const r = landById(canvasRegId >= 0 ? canvasRegId : battle.regionId);
+          if (r) {
+            toX = r.x;
+            toY = r.y;
+          }
+        }
+      }
+      if (toX === undefined || toY === undefined) return;
+
+      // Find origin position (from attacker town or associated voyage)
+      let fromX: number | undefined = battle.from?.x;
+      let fromY: number | undefined = battle.from?.y;
+      if (fromX === undefined && battle.fromTerritoryId !== undefined) {
+        const sourceRegion = landById(battle.fromTerritoryId);
+        if (sourceRegion) {
+          fromX = sourceRegion.x;
+          fromY = sourceRegion.y;
+        }
+      }
+      if (fromX === undefined && battle.attackerTownId !== undefined) {
+        const attTown = towns.find((t: any) => String(t.id) === String(battle.attackerTownId));
+        if (attTown) {
+          fromX = attTown.x;
+          fromY = attTown.y;
+        }
+      }
+      if (fromX === undefined && state.voyages) {
+        const canvasRegId = reactToCanvasRegionId(battle.regionId);
+        const matchingVoyage = state.voyages.find(
+          (v: any) =>
+            v.targetRegionId === battle.regionId ||
+            v.targetRegionId === canvasRegId ||
+            (v.to && Math.hypot(v.to.x - toX, v.to.y - toY) < 60),
+        );
+        if (matchingVoyage) {
+          fromX = matchingVoyage.from.x;
+          fromY = matchingVoyage.from.y;
+        }
+      }
+      if (fromX === undefined && battle.attackerOwner !== undefined) {
+        const attTown = towns.find((t: any) => t.owner === battle.attackerOwner);
+        if (attTown) {
+          fromX = attTown.x;
+          fromY = attTown.y;
+        }
+      }
+
+      // Draw active pulsing battle connecting line from origin to battle target
+      if (fromX !== undefined && fromY !== undefined) {
+        const dist = Math.hypot(toX - fromX, toY - fromY);
+        if (dist > 20) {
+          const ux = (toX - fromX) / dist;
+          const uy = (toY - fromY) / dist;
+          const lineStartX = fromX + ux * Math.min(34, dist * 0.2);
+          const lineStartY = fromY + uy * Math.min(34, dist * 0.2);
+          const lineEndX = toX - ux * Math.min(54, dist * 0.28);
+          const lineEndY = toY - uy * Math.min(54, dist * 0.28);
+          ctx.save();
+          const pulse = Math.sin(state.tick * 6) * 0.25 + 0.75;
+          ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
+          ctx.lineWidth = 3.5;
+          ctx.setLineDash([12, 6]);
+          ctx.lineDashOffset = -state.tick * 3;
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, lineStartY);
+          ctx.lineTo(lineEndX, lineEndY);
+          ctx.stroke();
+
+          // Outer glowing line
+          ctx.strokeStyle = `rgba(255, 100, 100, ${pulse * 0.4})`;
+          ctx.lineWidth = 7;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Render fighting troops at battle location
+      const attColor = factions[battle.attackerOwner ?? 1]?.color || "#ef4444";
+      const motionPhase = state.tick * 0.15;
+      drawMedievalUnitSprite("infantry", toX - 12, toY - 4, 32, attColor, "attack_down", motionPhase);
+      drawMedievalUnitSprite("cavalry", toX + 14, toY - 6, 38, attColor, "attack_up", motionPhase);
+    });
+  }
+
   function drawVoyages(vp?: any) {
     if (isConquestLayout) return;
     state.voyages.forEach((v) => {
@@ -10407,9 +10752,24 @@ export function createIslandEmpireGame(
       // Endpoint-only culling made those persisted marches disappear after reload.
       if (!voyageIntersectsViewport(v, vp)) return;
       const serverProgress = Math.min(1, v.displayProgress ?? v.t / v.duration);
-      const t = easedRouteProgress(serverProgress);
+      let t = easedRouteProgress(serverProgress);
       v.movementState = routeMovementState(serverProgress);
-      if (t >= 1) return;
+
+      const targetReg =
+        v.targetRegionId ?? (v.to ? regionAtCoords(v.to.x, v.to.y) : -1);
+      const isTargetInBattle = (state.activeBattles || []).some((b: any) => {
+        if (b.townId !== undefined && v.to) {
+          const tMatch = towns.find((tw: any) => tw.id === b.townId);
+          if (tMatch && Math.hypot(tMatch.x - v.to.x, tMatch.y - v.to.y) < 60)
+            return true;
+        }
+        return Number(b.regionId) === Number(targetReg);
+      });
+
+      if (t >= 1) {
+        if (!isTargetInBattle) return;
+        t = 1.0; // Keep march line active and pinned at destination during active battle!
+      }
       const factionColor = factions[v.owner ?? 0]?.color || factions[0].color;
 
       if (v.crossingSea) {
@@ -10530,6 +10890,8 @@ export function createIslandEmpireGame(
         );
       }
     });
+
+    drawActiveBattleConnections(vp);
   }
 
   function getNearestPlayerTown(
@@ -10813,7 +11175,7 @@ export function createIslandEmpireGame(
 
     const renderedTravelP = inTravelPhase ? easedRouteProgress(travelP) : travelP;
     const directRouteDistance = Math.hypot(r.x - origin.x, r.y - origin.y);
-    const builderMotionPhase = renderedTravelP * directRouteDistance / 4;
+    const builderMotionPhase = state.tick * 5.2 + renderedTravelP * directRouteDistance / 7;
 
     if (inTravelPhase) {
       x = lerp(origin.x, r.x, renderedTravelP);
@@ -10911,7 +11273,7 @@ export function createIslandEmpireGame(
 
     ctx.fillStyle = "rgba(0,0,0,0.34)";
     ctx.beginPath();
-    ctx.ellipse(0, 18, 19, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 6, 17, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Royal engineer pennant.
@@ -12054,13 +12416,11 @@ export function createIslandEmpireGame(
       drawRoKConquestPassesAndMountains(vp);
     }
 
-    if (!isConquestLayout) {
-      drawTerritoryResources(visibleRegions, visibleIslets);
-    }
+    // Resource production is communicated by the territory tooltip. The old
+    // icon pass duplicated dioramas with mines and obscured borders/towns.
     if (!fastRenderMode && !isConquestLayout) drawDecoration(vp);
     drawVoyages(vp);
     drawClaimedTerritoryMarkers(vp);
-    drawCoastalHarbors(vp);
     if (!isConquestLayout) {
       activeClearingRegionIds().forEach((regionId) =>
         drawSettlerForRegion(regionId),
@@ -14366,6 +14726,14 @@ export function createIslandEmpireGame(
 
   function mapBackendBattle(battle: any) {
     const regId = reactToCanvasRegionId(battle.regionId);
+    const fromRegId = battle.fromTerritoryId === undefined
+      ? undefined
+      : reactToCanvasRegionId(battle.fromTerritoryId);
+    const toRegId = battle.toTerritoryId === undefined
+      ? regId
+      : reactToCanvasRegionId(battle.toTerritoryId);
+    const fromRegion = fromRegId === undefined ? null : landById(fromRegId);
+    const targetRegion = landById(toRegId >= 0 ? toRegId : regId);
     const dur = Math.max(
       1,
       battle.durationSeconds ||
@@ -14383,6 +14751,11 @@ export function createIslandEmpireGame(
       ...battle,
       id: battle.id || battle._id,
       regionId: regId,
+      fromTerritoryId: fromRegId,
+      toTerritoryId: toRegId,
+      from: fromRegion ? { x: fromRegion.x, y: fromRegion.y } : battle.from,
+      target: targetRegion ? { x: targetRegion.x, y: targetRegion.y } : battle.target,
+      attackerOwner: battle.attackerId === state.localPlayerId ? 0 : 1,
       townId: battle.townId ?? 9000 + regId,
       startedAt: battle.startedAt,
       resolvesAt: battle.resolvesAt,
@@ -14896,8 +15269,27 @@ export function createIslandEmpireGame(
         v.displayProgress = Math.min(1, v.t / v.duration);
       }
       if (v.t >= v.duration) {
-        state.voyages.splice(i, 1);
-        continue;
+        const targetReg =
+          v.targetRegionId ?? (v.to ? regionAtCoords(v.to.x, v.to.y) : -1);
+        const isTargetInBattle = (state.activeBattles || []).some((b: any) => {
+          if (b.townId !== undefined && v.to) {
+            const tMatch = towns.find((tw: any) => String(tw.id) === String(b.townId));
+            if (tMatch && Math.hypot(tMatch.x - v.to.x, tMatch.y - v.to.y) < 60)
+              return true;
+          }
+          const canvasReg = reactToCanvasRegionId(b.regionId);
+          if (canvasReg >= 0 && targetReg >= 0 && Number(canvasReg) === Number(targetReg))
+            return true;
+          return Number(b.regionId) === Number(targetReg);
+        });
+
+        if (!isTargetInBattle) {
+          state.voyages.splice(i, 1);
+          continue;
+        } else {
+          v.t = v.duration;
+          v.displayProgress = 1.0;
+        }
       }
     }
 

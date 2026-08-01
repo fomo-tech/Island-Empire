@@ -115,6 +115,8 @@ export type ActiveBattleDocument = Omit<
   fromTerritoryId: number;
   toTerritoryId: number;
   marchId: string;
+  joinedMarchIds?: string[];
+  status?: "fighting" | "resolved";
   hpUpdatedAt?: Date;
 };
 
@@ -288,6 +290,7 @@ export async function ensureIndexes() {
     marchOrders.createIndex({ fromTerritoryId: 1 }),
     marchOrders.createIndex({ toTerritoryId: 1 }),
     activeBattles.createIndex({ regionId: 1 }),
+    activeBattles.createIndex({ marchId: 1 }, { unique: true, sparse: true }),
     activeBattles.createIndex({ resolvesAt: 1 }),
     activeBattles.createIndex({ attackerId: 1 }),
     activeBattles.createIndex({ defenderId: 1 }),

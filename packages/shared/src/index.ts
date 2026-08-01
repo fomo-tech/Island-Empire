@@ -412,6 +412,11 @@ export type ActiveBattle = {
   id: string;
   regionId: number;
   townId?: number;
+  marchId?: string;
+  fromTerritoryId?: number;
+  toTerritoryId?: number;
+  status?: "fighting" | "resolved";
+  joinedMarchIds?: string[];
   attackerId: string;
   defenderId: string | null;
   attackerPower: number;
