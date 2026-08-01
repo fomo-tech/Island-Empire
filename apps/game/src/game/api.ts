@@ -20,11 +20,12 @@ import type {
 } from "@island/shared";
 
 function getApiUrl() {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    return `http://${window.location.hostname}:4000`;
-  }
-  return "http://127.0.0.1:4000";
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  // Keep requests on the page origin. In production Nginx forwards /api;
+  // in local development Vite proxies it to the API process. This also avoids
+  // HTTPS mixed-content failures and unreachable :4000 URLs on mobile.
+  return "";
 }
 
 const API_URL = getApiUrl();
@@ -394,7 +395,7 @@ export function updatePlayerProfile(
   emblem: string,
   cityName?: string,
   kingdomArchitectureId?: string,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; onboardingState?: "needs_claim" }> {
   return request<{ ok: boolean }>("/api/player/profile", {
     method: "POST",
     headers: {

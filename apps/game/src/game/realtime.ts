@@ -1,15 +1,24 @@
 import type { RealtimeEnvelope, RealtimeEvent } from "@island/shared";
 
 function getApiUrl() {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    return `http://${window.location.hostname}:4000`;
-  }
-  return "http://127.0.0.1:4000";
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  return "";
 }
 
 const API_URL = getApiUrl();
-const WS_BASE_URL = (import.meta.env.VITE_WS_URL ?? API_URL.replace(/^http/, "ws")).replace(/\/ws\/?$/, "");
+function getWsBaseUrl() {
+  const configured = import.meta.env.VITE_WS_URL?.trim();
+  if (configured) return configured.replace(/\/ws\/?$/, "").replace(/\/$/, "");
+  if (API_URL) return API_URL.replace(/^http/, "ws").replace(/\/ws\/?$/, "");
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+  }
+  return "ws://127.0.0.1:4000";
+}
+
+const WS_BASE_URL = getWsBaseUrl();
 let activeSocket: WebSocket | null = null;
 
 export function sendWorldChat(text: string) {

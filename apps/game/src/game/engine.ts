@@ -402,7 +402,7 @@ export function createIslandEmpireGame(
 
   function getDefaultFarZoom() {
     if (options?.layout === "conquest") return W <= 700 ? 0.28 : 0.48;
-    if (W <= 600) return 0.3;
+    if (W <= 600) return 0.42;
     if (W <= 1024) return 0.4;
     return 0.52;
   }
@@ -2060,6 +2060,9 @@ export function createIslandEmpireGame(
       drawKingdomBuildingEffect(normalized, x, y, size);
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(
       image,
       frame.sx,
@@ -2071,6 +2074,7 @@ export function createIslandEmpireGame(
       size,
       size,
     );
+    ctx.restore();
     return true;
   }
 
@@ -4175,10 +4179,6 @@ export function createIslandEmpireGame(
           : clusterRoll < 0.78
             ? "cottage"
             : "forest_oak";
-<<<<<<< HEAD
-    } else if (dominantResource === "stone" || dominantResource === "gold") {
-      primarySprite = naturalLandmark;
-=======
     } else if (dominantResource === "stone") {
       primarySprite =
         terrainBiome === 2
@@ -4201,7 +4201,6 @@ export function createIslandEmpireGame(
               : terrainBiome === 1
                 ? "desert"
                 : "forest_oak";
->>>>>>> redesign-assets
     }
 
     if (!special && !hasTown && clusterRoll < 0.16) {
@@ -4316,21 +4315,12 @@ export function createIslandEmpireGame(
           items.push({ type: "flower", x, y, size, scale });
         }
       } else if (special === "Xưởng rèn") {
-<<<<<<< HEAD
-        if (roll < 0.38) {
-          items.push({ type: "bush", x, y, size, scale });
-        } else if (roll < 0.72) {
-          items.push({ type: "grass", x, y, size, scale });
-        } else {
-          items.push({ type: "flower", x, y, size, scale });
-=======
         if (roll < 0.4) {
           items.push({ type: "bush", x, y, size, scale });
         } else if (roll < 0.75) {
           items.push({ type: "oak", x, y, size, scale });
         } else {
           items.push({ type: "berry", x, y, size, scale });
->>>>>>> redesign-assets
         }
       } else if (special === "Bến tàu tự nhiên") {
         if (roll < 0.4) {
@@ -4341,21 +4331,12 @@ export function createIslandEmpireGame(
           items.push({ type: "bush", x, y, size, scale });
         }
       } else if (special === "Mỏ Ngọc") {
-<<<<<<< HEAD
-        if (roll < 0.38) {
-          items.push({ type: "flower", x, y, size, scale });
-        } else if (roll < 0.72) {
-          items.push({ type: "berry", x, y, size, scale });
-        } else {
-          items.push({ type: "mushroom", x, y, size, scale });
-=======
         if (roll < 0.4) {
           items.push({ type: "sprite", spriteName: "gems", x, y, size: size * 0.9, scale });
         } else if (roll < 0.7) {
           items.push({ type: "flower", x, y, size, scale });
         } else {
           items.push({ type: "bush", x, y, size, scale });
->>>>>>> redesign-assets
         }
       } else {
         // Nature & Flora Theme across all biomes
@@ -4387,69 +4368,7 @@ export function createIslandEmpireGame(
         } else if (roll < 0.92) {
           items.push({ type: "flower", x, y, size, scale });
         } else {
-<<<<<<< HEAD
-          items.push({ type: "boar", x, y, size, scale });
-        }
-      } else if (dominantResource === "stone") {
-        if (roll < 0.4) {
           items.push({ type: "bush", x, y, size, scale });
-        } else if (roll < 0.72) {
-          items.push({ type: "grass", x, y, size, scale });
-        } else {
-          items.push({ type: "rock", x, y, size: size * 0.72, scale });
-        }
-      } else if (dominantResource === "gold") {
-        if (roll < 0.42) {
-          items.push({ type: "flower", x, y, size, scale });
-        } else if (roll < 0.76) {
-          items.push({ type: "bush", x, y, size, scale });
-        } else {
-          items.push({ type: "berry", x, y, size, scale });
-        }
-      } else {
-        // Fallback for plain/empty regions
-        if (terrainBiome === 1) {
-          // Desert / Savanna: Cacti (desert sprite), dry grass, small rocks
-          if (roll < 0.42) {
-            items.push({ type: "sprite", spriteName: "desert", x, y, size: size * 0.85, scale });
-          } else if (roll < 0.75) {
-            items.push({ type: "bush", x, y, size: size * 0.9, scale });
-          } else {
-            items.push({ type: "rock", x, y, size: size * 0.8, scale });
-          }
-        } else {
-          // Grasslands / Forest realms: Scatter trees, grasses, flowers, bushes
-          if (roll < 0.32) {
-            let treeType: "oak" | "pine" | "autumn" | "snow_tree" | "palm" | "sprite" = "oak";
-            let spriteName = "forest_oak";
-            if (terrainBiome === 2) {
-              treeType = "snow_tree";
-              spriteName = "forest_snow";
-            } else if (terrainBiome === 6) {
-              treeType = "pine";
-              spriteName = "forest_pine";
-            } else if (terrainBiome === 5) {
-              treeType = "autumn";
-              spriteName = "forest_autumn";
-            } else if (terrainBiome === 1) {
-              treeType = "palm";
-            }
-            
-            if (roll < 0.15 && treeType !== "palm") {
-              items.push({ type: treeType, x, y, size, scale });
-            } else {
-              items.push({ type: "sprite", spriteName, x, y, size, scale });
-            }
-          } else if (roll < 0.65) {
-            items.push({ type: "grass", x, y, size, scale });
-          } else if (roll < 0.85) {
-            items.push({ type: "flower", x, y, size, scale });
-          } else {
-            items.push({ type: "bush", x, y, size, scale });
-          }
-=======
-          items.push({ type: "bush", x, y, size, scale });
->>>>>>> redesign-assets
         }
       }
     }
@@ -8954,12 +8873,12 @@ export function createIslandEmpireGame(
         : "district";
     const size = isUserTown
       ? isCapitalSettlement
-        ? 198
+        ? 232
         : isSubCapital
           ? 184
           : 174
       : isCapitalSettlement
-        ? 166
+        ? 194
         : isSubCapital
           ? 158
           : 148;
@@ -11165,6 +11084,24 @@ export function createIslandEmpireGame(
       drawTree(origin.x + 6, origin.y - 4, 0.65);
     }
 
+    if (!inTravelPhase) {
+      const constructionArchitecture = isMine
+        ? normalizeKingdomArchitecture(state.newbieArchitectureId)
+        : state.regionOwnerArchitectureIds[regionId]
+          ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[regionId])
+          : "lionheart";
+      ctx.save();
+      ctx.globalAlpha = 0.72 + buildP * 0.28;
+      drawKingdomBuildingSprite(
+        constructionArchitecture,
+        "construction",
+        r.x,
+        r.y,
+        178 + buildP * 20,
+      );
+      ctx.restore();
+    }
+
     let x = r.x;
     let y = r.y;
     let onShip = false;
@@ -11825,12 +11762,12 @@ export function createIslandEmpireGame(
         : "district";
     const preferredCastleSize = r.isIslet
       ? isCapital
-        ? 142
+        ? 164
         : 124
       : isCapital
         ? ownerCode === 1
-          ? 198
-          : 170
+          ? 232
+          : 194
         : ownerCode === 1
           ? 174
           : 150;

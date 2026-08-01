@@ -1566,6 +1566,8 @@ export function GameApp({
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<
     number | null
   >(null);
+  const [showKingdomCreation, setShowKingdomCreation] = useState(false);
+  const [kingdomProfileReady, setKingdomProfileReady] = useState(false);
   const [kingdomCreationRegion, setKingdomCreationRegion] = useState<
     number | null
   >(null);
@@ -1618,6 +1620,7 @@ export function GameApp({
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">(
     "none",
   );
+  const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false);
@@ -2225,9 +2228,32 @@ export function GameApp({
           const hasOwnClearing = world.clearings.some(
             (clearing: any) => clearing.playerId === playerId,
           );
+          const kingdomProfileComplete = Boolean(
+            world.playerProfile?.cityName &&
+              world.playerProfile?.flagColor &&
+              world.playerProfile?.kingdomArchitectureId &&
+              world.playerProfile?.onboardingState !== "profile_required",
+          );
+          setKingdomProfileReady(kingdomProfileComplete);
           if (!hasOwnedTerritory && !hasOwnClearing) {
             localStorage.setItem(ONBOARDING_KEY, "1");
             setKingdomCreationRegion(null);
+            if (!kingdomProfileComplete) {
+              setShowKingdomCreation(true);
+              setNewbiePhase("create_kingdom");
+            } else {
+              setShowKingdomCreation(false);
+              engineRef.current?.startNewbieOnboarding(
+                world.playerProfile!.flagColor!,
+                world.playerProfile!.emblem || "shield",
+                world.playerProfile!.cityName!,
+                world.playerProfile!.kingdomArchitectureId!,
+              );
+              engineRef.current?.cancelNewbieOnboarding();
+              setNewbiePhase("select_land");
+            }
+          } else {
+            setShowKingdomCreation(false);
           }
           if (localStorage.getItem(ONBOARDING_KEY) === "1") {
             const owned = territories.find((t) => t.ownerCode === 1);
@@ -2930,8 +2956,7 @@ export function GameApp({
     activeModal === "chat" ||
     activeModal === "tutorial" ||
     showTutorial ||
-    kingdomCreationRegion !== null ||
-    (newbiePhase === "choose_banner" && newbieSelectedRegion !== null);
+    showKingdomCreation;
 
   useEffect(() => {
     engineRef.current?.handleAction("setUiOverlayActive", {
@@ -3651,6 +3676,7 @@ export function GameApp({
   return (
     <main
       className={`game-shell${isMobileLandscape ? " mobile-forced-landscape" : ""}`}
+      data-selection={selectedRegion ? "territory" : selectedTown ? "town" : "none"}
     >
       {runtimeError && (
         <div
@@ -4115,12 +4141,12 @@ export function GameApp({
 
           {!conquestMode && (
             <nav
-              className="hud-command-dock hud-interactive"
+              className={`hud-command-dock hud-interactive ${mobileActionsExpanded ? "is-expanded" : ""}`}
               aria-label="Lệnh nhanh"
             >
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-army-action"
                 onClick={() => openModal("army")}
               >
                 <img src="/assets/icons/icon_military.png" alt="" />
@@ -4128,7 +4154,15 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-town-action"
+                onClick={() => openModal("kingdom")}
+              >
+                <img src="/assets/icons/icon_tower.png" alt="" />
+                <span>Thành trì</span>
+              </button>
+              <button
+                type="button"
+                className="hud-command-button mobile-secondary-action"
                 onClick={() => openModal("treasure")}
               >
                 <img src="/assets/icons/icon_bag.png" alt="" />
@@ -4136,7 +4170,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button primary active"
+                className="hud-command-button mobile-main-action mobile-map-action primary active"
                 onClick={() => handleAction("map")}
               >
                 <img src="/assets/icons/icon_map.png" alt="" />
@@ -4144,7 +4178,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-conquest-action"
                 onClick={onOpenConquest}
               >
                 <img src="/assets/icons/icon_tower.png" alt="" />
@@ -4152,7 +4186,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button ${activeModal === "warReport" ? "active" : ""}`}
+                className={`hud-command-button mobile-secondary-action ${activeModal === "warReport" ? "active" : ""}`}
                 onClick={() => openModal("warReport")}
               >
                 <img src="/assets/icons/icon_report.png" alt="" />
@@ -4165,7 +4199,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button ${activeModal === "mail" ? "active" : ""}`}
+                className={`hud-command-button mobile-secondary-action ${activeModal === "mail" ? "active" : ""}`}
                 onClick={() => openModal("mail")}
               >
                 <img src="/assets/icons/icon_mail.png" alt="" />
@@ -4175,6 +4209,15 @@ export function GameApp({
                     {Math.min(99, unreadMailCount)}
                   </b>
                 )}
+              </button>
+              <button
+                type="button"
+                className={`hud-command-button mobile-main-action mobile-more-action ${mobileActionsExpanded ? "active" : ""}`}
+                aria-expanded={mobileActionsExpanded}
+                onClick={() => setMobileActionsExpanded((value) => !value)}
+              >
+                <img src="/assets/icons/icon_bag.png" alt="" />
+                <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
               </button>
             </nav>
           )}
@@ -4394,16 +4437,14 @@ export function GameApp({
               (localStorage.getItem(ONBOARDING_KEY) === "1" ||
                 playerTerritoriesCount === 0)
             ) {
-              engineRef.current?.selectNewbieLand?.(regionId);
-              if (engineState) {
-                engineState.selectedRegion = null;
-                engineState.selected = null;
+              if (!kingdomProfileReady) {
+                setShowKingdomCreation(true);
+                setNewbiePhase("create_kingdom");
+                setSelectedRegion(null);
+                return;
               }
-              setNewbiePhase("choose_banner");
+              engineRef.current?.selectNewbieLand?.(regionId);
               setNewbieSelectedRegion(regionId);
-              setKingdomCreationRegion(regionId);
-              setSelectedRegion(null);
-              return;
             }
             try {
               const result = await startClearing(
@@ -4537,32 +4578,22 @@ export function GameApp({
         />
       )}
 
-      {(kingdomCreationRegion !== null ||
-        (newbiePhase === "choose_banner" && newbieSelectedRegion !== null)) &&
-        engineRef.current && (
+      {showKingdomCreation && engineRef.current && (
           <KingdomCreationModal
-            defaultCityName="Thành Trì Vương Quốc"
-            territoryName={`Lãnh địa ${territoryLabel(kingdomCreationRegion ?? newbieSelectedRegion ?? 0)}`}
+            required
+            defaultCityName="Vương Quốc Tân Lập"
+            territoryName="Chưa chọn lãnh thổ"
             checkName={checkKingdomName}
-            onClose={() => {
-              engineRef.current?.handleAction("setUiOverlayActive", {
-                active: false,
-              });
-              setKingdomCreationRegion(null);
-              if (engineRef.current) {
-                engineRef.current.cancelNewbieOnboarding();
-              }
-            }}
+            onClose={() => undefined}
             onConfirm={async (flagColor, emblem, cityName, architectureId) => {
-              const regionId = kingdomCreationRegion ?? newbieSelectedRegion;
-              if (!token || regionId === null) {
+              if (!token) {
                 showGameError(
-                  "Chưa kết nối server, không thể xây thành tân thủ",
+                  "Chưa kết nối server, không thể thành lập vương quốc",
                 );
                 return;
               }
               engineRef.current?.handleAction("setToast", {
-                message: "ĐANG GỬI LỆNH XÂY THÀNH TÂN THỦ LÊN SERVER",
+                message: "ĐANG GỬI SẮC LỆNH THÀNH LẬP VƯƠNG QUỐC",
               });
               try {
                 await updatePlayerProfile(
@@ -4578,27 +4609,17 @@ export function GameApp({
                   cityName,
                   architectureId,
                 );
-                const result = await startClearing(
-                  token,
-                  engineToServerTerritoryId(regionId),
-                );
-                engineRef.current?.handleAction("applyBackendClearing", {
-                  clearing: result.clearing,
-                });
-                engineRef.current?.handleAction("setUiOverlayActive", {
-                  active: false,
-                });
+                engineRef.current?.cancelNewbieOnboarding();
+                setKingdomProfileReady(true);
+                setShowKingdomCreation(false);
+                setNewbiePhase("select_land");
                 setKingdomCreationRegion(null);
                 addSystemLine(
-                  `KHỞI CÔNG HOÀNG THÀNH ${cityName.toUpperCase()}`,
+                  `VƯƠNG QUỐC ${cityName.toUpperCase()} ĐÃ THÀNH LẬP · HÃY CHỌN LÃNH THỔ ĐỂ DỰNG THÀNH`,
                 );
               } catch (err: any) {
-                engineRef.current?.handleAction("setUiOverlayActive", {
-                  active: true,
-                });
-                engineRef.current?.cancelNewbieOnboarding();
                 showGameError(
-                  err.message || "Không thể khởi tạo thành trì tân thủ",
+                  err.message || "Không thể thành lập vương quốc tân thủ",
                 );
               }
             }}

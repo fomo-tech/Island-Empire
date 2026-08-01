@@ -18,7 +18,14 @@ function formatTime(value: string) {
 
 export function ChatPanel({ messages, currentUserId, online, onSend }: ChatPanelProps) {
   const [tab, setTab] = useState<ChatTab>("user");
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window !== "undefined" &&
+    window
+      .matchMedia(
+        "(max-width: 760px), (max-height: 599px) and (pointer: coarse)",
+      )
+      .matches,
+  );
   const [input, setInput] = useState("");
   const [unread, setUnread] = useState({ user: 0, system: 0 });
   const [pendingBelow, setPendingBelow] = useState(0);
@@ -30,6 +37,7 @@ export function ChatPanel({ messages, currentUserId, online, onSend }: ChatPanel
     () => messages.filter((message) => message.kind === tab).slice(-100),
     [messages, tab],
   );
+  const latestMessage = messages[messages.length - 1];
 
   useEffect(() => {
     const previous = previousIdsRef.current;
@@ -79,7 +87,7 @@ export function ChatPanel({ messages, currentUserId, online, onSend }: ChatPanel
 
   return (
     <section className={`strategy-chat hud-interactive ${collapsed ? "is-collapsed" : ""}`}>
-      <button className="strategy-chat__header" type="button" onClick={() => setCollapsed((value) => !value)}>
+      <button className="strategy-chat__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed((value) => !value)}>
         <img src="/assets/icons/icon_chat_users_european.png" alt="" />
         <span>
           <strong>QUẢNG TRƯỜNG</strong>
@@ -89,6 +97,13 @@ export function ChatPanel({ messages, currentUserId, online, onSend }: ChatPanel
         </span>
         <b>{unread.user + unread.system > 0 ? unread.user + unread.system : collapsed ? "+" : "−"}</b>
       </button>
+
+      {collapsed && (
+        <button className="strategy-chat__preview" type="button" onClick={() => setCollapsed(false)}>
+          <strong>{latestMessage ? (latestMessage.kind === "system" ? "Hệ thống" : latestMessage.userName) : "Quảng trường"}</strong>
+          <span>{latestMessage?.text || "Chạm để mở trò chuyện"}</span>
+        </button>
+      )}
 
       {!collapsed && (
         <>

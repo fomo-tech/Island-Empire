@@ -2351,6 +2351,9 @@ async function buildGameStatePayload(playerId) {
             emblem: player.emblem ?? "shield",
             kingdomArchitectureId:
               player.kingdomArchitectureId ?? "lionheart",
+            cityName: player.cityName,
+            onboardingState:
+              player.onboardingState ?? (player.cityName ? "needs_claim" : "profile_required"),
           }
         : null,
     };
@@ -4843,7 +4846,7 @@ export function createApp() {
       flagColor,
       emblem,
       starterLandId,
-      onboardingState: "needs_claim",
+      onboardingState: "profile_required",
       resources: DEFAULT_PLAYER_RESOURCES,
       lastResourceCollectedAt: now,
       role: "player",
@@ -4932,7 +4935,7 @@ export function createApp() {
           flagColor: "#2f70d7",
           emblem: "shield",
           createdAt: now,
-          onboardingState: "needs_claim",
+          onboardingState: "profile_required",
           resources: DEFAULT_PLAYER_RESOURCES,
           lastResourceCollectedAt: now,
           newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
@@ -5298,6 +5301,9 @@ export function createApp() {
     if (avatarId) updateData.avatarId = avatarId;
     if (kingdomArchitectureId)
       updateData.kingdomArchitectureId = kingdomArchitectureId;
+    if (flagColor && emblem && cityName && kingdomArchitectureId) {
+      updateData.onboardingState = "needs_claim";
+    }
     if (Object.keys(updateData).length > 0 && req.user?.id) {
       try {
         await players.updateOne({ _id: req.user!.id }, { $set: updateData });
@@ -5310,7 +5316,7 @@ export function createApp() {
     if (req.user?.id) {
       await publishPlayerState(req.user!.id, "profile_updated", null, null);
     }
-    res.json({ ok: true });
+    res.json({ ok: true, onboardingState: updateData.onboardingState });
   });
   app.post("/api/player/active-map", requireAuth, async (req, res) => {
     if (!enforceActionLimit(req, res, "player:active-map", 30, 60_000)) return;

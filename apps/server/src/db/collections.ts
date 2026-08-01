@@ -20,7 +20,7 @@ export type PlayerDocument = {
   cityNameKey?: string;
   isBot?: boolean;
   activeMap?: "world" | "conquest";
-  onboardingState?: "needs_claim" | "claiming" | "settled";
+  onboardingState?: "profile_required" | "needs_claim" | "claiming" | "settled";
   resources?: ResourceBag;
   lastResourceCollectedAt?: Date;
   allianceTroopReserve?: number;
