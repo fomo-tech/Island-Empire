@@ -1610,6 +1610,7 @@ export function GameApp({
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">(
     "none",
   );
+  const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false);
@@ -3637,6 +3638,7 @@ export function GameApp({
   return (
     <main
       className={`game-shell${isMobileLandscape ? " mobile-forced-landscape" : ""}`}
+      data-selection={selectedRegion ? "territory" : selectedTown ? "town" : "none"}
     >
       {runtimeError && (
         <div
@@ -4101,12 +4103,12 @@ export function GameApp({
 
           {!conquestMode && (
             <nav
-              className="hud-command-dock hud-interactive"
+              className={`hud-command-dock hud-interactive ${mobileActionsExpanded ? "is-expanded" : ""}`}
               aria-label="Lệnh nhanh"
             >
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-army-action"
                 onClick={() => openModal("army")}
               >
                 <img src="/assets/icons/icon_military.png" alt="" />
@@ -4114,7 +4116,15 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-town-action"
+                onClick={() => openModal("kingdom")}
+              >
+                <img src="/assets/icons/icon_tower.png" alt="" />
+                <span>Thành trì</span>
+              </button>
+              <button
+                type="button"
+                className="hud-command-button mobile-secondary-action"
                 onClick={() => openModal("treasure")}
               >
                 <img src="/assets/icons/icon_bag.png" alt="" />
@@ -4122,7 +4132,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button primary active"
+                className="hud-command-button mobile-main-action mobile-map-action primary active"
                 onClick={() => handleAction("map")}
               >
                 <img src="/assets/icons/icon_map.png" alt="" />
@@ -4130,7 +4140,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button"
+                className="hud-command-button mobile-main-action mobile-conquest-action"
                 onClick={onOpenConquest}
               >
                 <img src="/assets/icons/icon_tower.png" alt="" />
@@ -4138,7 +4148,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button ${activeModal === "warReport" ? "active" : ""}`}
+                className={`hud-command-button mobile-secondary-action ${activeModal === "warReport" ? "active" : ""}`}
                 onClick={() => openModal("warReport")}
               >
                 <img src="/assets/icons/icon_report.png" alt="" />
@@ -4151,7 +4161,7 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button ${activeModal === "mail" ? "active" : ""}`}
+                className={`hud-command-button mobile-secondary-action ${activeModal === "mail" ? "active" : ""}`}
                 onClick={() => openModal("mail")}
               >
                 <img src="/assets/icons/icon_mail.png" alt="" />
@@ -4161,6 +4171,15 @@ export function GameApp({
                     {Math.min(99, unreadMailCount)}
                   </b>
                 )}
+              </button>
+              <button
+                type="button"
+                className={`hud-command-button mobile-main-action mobile-more-action ${mobileActionsExpanded ? "active" : ""}`}
+                aria-expanded={mobileActionsExpanded}
+                onClick={() => setMobileActionsExpanded((value) => !value)}
+              >
+                <img src="/assets/icons/icon_bag.png" alt="" />
+                <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
               </button>
             </nav>
           )}

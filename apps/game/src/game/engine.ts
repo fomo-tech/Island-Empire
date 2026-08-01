@@ -164,7 +164,7 @@ export function createIslandEmpireGame(
 
   function getDefaultFarZoom() {
     if (options?.layout === "conquest") return W <= 700 ? 0.28 : 0.48;
-    if (W <= 600) return 0.3;
+    if (W <= 600) return 0.42;
     if (W <= 1024) return 0.4;
     return 0.52;
   }

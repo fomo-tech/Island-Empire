@@ -12,6 +12,36 @@ function AppRouter() {
   const [path, setPath] = useState(window.location.pathname);
 
   useEffect(() => {
+    const rootElement = document.documentElement;
+    const coarsePointer = window.matchMedia("(pointer: coarse)");
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const keyboardOffset = Math.max(
+        0,
+        window.innerHeight - viewportHeight - (viewport?.offsetTop ?? 0),
+      );
+      rootElement.style.setProperty("--app-height", `${viewportHeight}px`);
+      rootElement.style.setProperty("--keyboard-offset", `${keyboardOffset}px`);
+      rootElement.dataset.keyboardOpen = keyboardOffset > 120 ? "true" : "false";
+      rootElement.dataset.touch = coarsePointer.matches ? "true" : "false";
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport, { passive: true });
+    window.addEventListener("orientationchange", updateViewport, { passive: true });
+    window.visualViewport?.addEventListener("resize", updateViewport, { passive: true });
+    window.visualViewport?.addEventListener("scroll", updateViewport, { passive: true });
+    coarsePointer.addEventListener("change", updateViewport);
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateViewport);
+      coarsePointer.removeEventListener("change", updateViewport);
+    };
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => setPath(window.location.pathname);
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
