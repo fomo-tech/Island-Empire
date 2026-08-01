@@ -3957,12 +3957,25 @@ export function createIslandEmpireGame(
     const baseAngle = hash(clusterX * 311.7 + clusterY * 47.9) * TAU;
     const angle = baseAngle + (hash(seed * 61) - 0.5) * 0.7;
 
-    // Determine primary sprite
-    let primarySprite: string = dominantResource;
+    const naturalLandmark = terrainBiome === 2
+      ? "forest_snow"
+      : terrainBiome === 5
+        ? "forest_autumn"
+        : terrainBiome === 6
+          ? "forest_pine"
+          : terrainBiome === 1
+            ? "desert"
+            : clusterRoll < 0.52
+              ? "forest_oak"
+              : "forest_pine";
+
+    // Resources stay authoritative in the tooltip/economy. On the world map
+    // they are represented by natural vegetation instead of mine buildings.
+    let primarySprite: string = naturalLandmark;
     if (special === "Bãi ngựa") primarySprite = "horse";
-    else if (special === "Xưởng rèn") primarySprite = "forge";
+    else if (special === "Xưởng rèn") primarySprite = "cottage";
     else if (special === "Bến tàu tự nhiên") primarySprite = "harbor";
-    else if (special === "Mỏ Ngọc") primarySprite = "gems";
+    else if (special === "Mỏ Ngọc") primarySprite = naturalLandmark;
     else if (dominantResource === "wood") {
       primarySprite =
         clusterRoll < 0.34
@@ -3981,10 +3994,8 @@ export function createIslandEmpireGame(
           : clusterRoll < 0.78
             ? "cottage"
             : "forest_oak";
-    } else if (dominantResource === "stone") {
-      primarySprite = clusterRoll < 0.66 ? "stone" : clusterRoll < 0.88 ? "mountain" : "ruins";
-    } else if (dominantResource === "gold") {
-      primarySprite = clusterRoll < 0.78 ? "gold" : "ruins";
+    } else if (dominantResource === "stone" || dominantResource === "gold") {
+      primarySprite = naturalLandmark;
     }
 
     if (!special && !hasTown && clusterRoll < 0.16) {
@@ -4013,8 +4024,8 @@ export function createIslandEmpireGame(
       itemCount = 5 + Math.floor(hash(seed * 97) * 4); // 5 to 8 items
     }
 
-    const minRadius = hasTown ? 0.38 : 0.12;
-    const maxRadius = hasTown ? 0.72 : 0.54;
+    const minRadius = hasTown ? 0.34 : 0.12;
+    const maxRadius = hasTown ? 0.62 : 0.48;
     const minDimension = Math.min(rx * 2, ry * 2);
 
     for (let i = 0; i < itemCount; i++) {
@@ -4100,12 +4111,12 @@ export function createIslandEmpireGame(
           items.push({ type: "flower", x, y, size, scale });
         }
       } else if (special === "Xưởng rèn") {
-        if (roll < 0.4) {
-          items.push({ type: "rock", x, y, size, scale });
-        } else if (roll < 0.75) {
-          items.push({ type: "resource", spriteName: "stone", x, y, size, scale });
-        } else {
+        if (roll < 0.38) {
           items.push({ type: "bush", x, y, size, scale });
+        } else if (roll < 0.72) {
+          items.push({ type: "grass", x, y, size, scale });
+        } else {
+          items.push({ type: "flower", x, y, size, scale });
         }
       } else if (special === "Bến tàu tự nhiên") {
         if (roll < 0.4) {
@@ -4116,12 +4127,12 @@ export function createIslandEmpireGame(
           items.push({ type: "bush", x, y, size, scale });
         }
       } else if (special === "Mỏ Ngọc") {
-        if (roll < 0.4) {
-          items.push({ type: "sprite", spriteName: "gems", x, y, size: size * 0.9, scale });
-        } else if (roll < 0.7) {
-          items.push({ type: "cave", x, y, size, scale });
+        if (roll < 0.38) {
+          items.push({ type: "flower", x, y, size, scale });
+        } else if (roll < 0.72) {
+          items.push({ type: "berry", x, y, size, scale });
         } else {
-          items.push({ type: "rock", x, y, size, scale });
+          items.push({ type: "mushroom", x, y, size, scale });
         }
       } else if (dominantResource === "wood" || primarySprite.startsWith("forest_")) {
         // Forest / Wood theme
@@ -4166,26 +4177,20 @@ export function createIslandEmpireGame(
           items.push({ type: "boar", x, y, size, scale });
         }
       } else if (dominantResource === "stone") {
-        // Stone / Mountain theme
-        if (roll < 0.35) {
-          items.push({ type: "sprite", spriteName: "stone", x, y, size, scale });
-        } else if (roll < 0.6) {
-          items.push({ type: "rock", x, y, size, scale });
-        } else if (roll < 0.8) {
-          items.push({ type: "cave", x, y, size, scale });
+        if (roll < 0.4) {
+          items.push({ type: "bush", x, y, size, scale });
+        } else if (roll < 0.72) {
+          items.push({ type: "grass", x, y, size, scale });
         } else {
-          items.push({ type: "ruins", x, y, size, scale });
+          items.push({ type: "rock", x, y, size: size * 0.72, scale });
         }
       } else if (dominantResource === "gold") {
-        // Gold / Ruins theme
-        if (roll < 0.35) {
-          items.push({ type: "sprite", spriteName: "gold", x, y, size, scale });
-        } else if (roll < 0.65) {
-          items.push({ type: "ruins", x, y, size, scale });
-        } else if (roll < 0.85) {
-          items.push({ type: "chest", x, y, size, scale });
+        if (roll < 0.42) {
+          items.push({ type: "flower", x, y, size, scale });
+        } else if (roll < 0.76) {
+          items.push({ type: "bush", x, y, size, scale });
         } else {
-          items.push({ type: "rock", x, y, size, scale });
+          items.push({ type: "berry", x, y, size, scale });
         }
       } else {
         // Fallback for plain/empty regions
