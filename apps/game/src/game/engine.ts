@@ -6033,11 +6033,11 @@ export function createIslandEmpireGame(
   }
 
   function ownerTint(owner) {
-    if (owner === 0) return "rgba(47,112,215,0.34)";
-    if (owner === 1) return "rgba(215,70,53,0.32)";
-    if (owner === 2) return "rgba(68,161,61,0.32)";
-    if (owner === 3) return "rgba(216,155,33,0.34)";
-    return "rgba(142,69,188,0.34)";
+    if (owner === 0) return "rgba(47,112,215,0.58)";
+    if (owner === 1) return "rgba(215,70,53,0.55)";
+    if (owner === 2) return "rgba(68,161,61,0.55)";
+    if (owner === 3) return "rgba(216,155,33,0.58)";
+    return "rgba(142,69,188,0.58)";
   }
 
   const townNearDistanceCache = new Map<number, number>();
