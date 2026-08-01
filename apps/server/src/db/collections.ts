@@ -15,6 +15,8 @@ export type PlayerDocument = {
   flagColor?: string;
   emblem?: string;
   starterLandId?: string;
+  cityName?: string;
+  cityNameKey?: string;
   isBot?: boolean;
   activeMap?: "world" | "conquest";
   onboardingState?: "needs_claim" | "claiming" | "settled";
@@ -264,6 +266,7 @@ export async function ensureIndexes() {
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
     players.createIndex({ lastSeenAt: -1 }),
+    players.createIndex({ cityNameKey: 1 }, { unique: true, sparse: true }),
     saves.createIndex({ playerId: 1 }, { unique: true }),
     saves.createIndex({ updatedAt: -1 }),
     saves.createIndex({ "towns.nextTroopRecoveryAt": 1 }),

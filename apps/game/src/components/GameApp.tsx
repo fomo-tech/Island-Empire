@@ -8,6 +8,7 @@ import {
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
 import {
   cancelClearing,
+  checkCityName,
   clearPlayerMail,
   completeClearing,
   createMarch,
@@ -2251,6 +2252,14 @@ export function GameApp({
       console.warn("Không tải được lịch sử chat:", error);
     }
   }, [token]);
+
+  const checkKingdomName = useCallback(
+    (cityName: string) =>
+      token
+        ? checkCityName(token, cityName)
+        : Promise.resolve({ available: false, normalizedName: cityName, message: "Chưa kết nối server" }),
+    [token],
+  );
 
   useEffect(() => {
     void refreshChatHistory();
@@ -4556,6 +4565,8 @@ export function GameApp({
         engineRef.current && (
           <KingdomCreationModal
             defaultCityName="Thành Trì Vương Quốc"
+            territoryName={`Lãnh địa ${territoryLabel(kingdomCreationRegion ?? newbieSelectedRegion ?? 0)}`}
+            checkName={checkKingdomName}
             getCastleSprite={(color, emblem) =>
               engineRef.current?.getCastleSprite(color, emblem)
             }

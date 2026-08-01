@@ -5243,6 +5243,17 @@ export function createApp() {
     );
     res.json({ ok: true, folder, unreadCount: 0 });
   });
+  const normalizeCityName = (value: string) =>
+    value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+  const CityNameSchema = z.string().trim().min(3).max(24);
+  app.post("/api/player/city-name/check", requireAuth, async (req, res) => {
+    const parsed = CityNameSchema.safeParse(req.body?.cityName);
+    if (!parsed.success) return res.status(400).json({ available: false, message: "Tên thành phải có từ 3 đến 24 ký tự" });
+    const cityNameKey = normalizeCityName(parsed.data);
+    const { players } = await collections();
+    const existing = await players.findOne({ cityNameKey, _id: { $ne: req.user!.id } }, { projection: { _id: 1 } });
+    res.json({ available: !existing, normalizedName: parsed.data.trim(), message: existing ? "Tên Hoàng Thành đã được sử dụng" : "Tên Hoàng Thành có thể sử dụng" });
+  });
   app.post("/api/player/profile", requireAuth, async (req, res) => {
     if (!enforceActionLimit(req, res, "profile:update", 12, 60_000)) return;
     const parsed = z
@@ -5272,7 +5283,7 @@ export function createApp() {
             "spear",
           ])
           .optional(),
-        cityName: z.string().max(60).optional(),
+        cityName: CityNameSchema.optional(),
       })
       .strict()
       .safeParse(req.body);
@@ -5289,9 +5300,19 @@ export function createApp() {
     const updateData: any = {};
     if (flagColor) updateData.flagColor = flagColor;
     if (emblem) updateData.emblem = emblem;
-    if (cityName) updateData.cityName = cityName;
+    if (cityName) {
+      updateData.cityName = cityName.trim().replace(/\s+/g, " ");
+      updateData.cityNameKey = normalizeCityName(cityName);
+      const existing = await players.findOne({ cityNameKey: updateData.cityNameKey, _id: { $ne: req.user!.id } }, { projection: { _id: 1 } });
+      if (existing) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
+    }
     if (Object.keys(updateData).length > 0 && req.user?.id) {
-      await players.updateOne({ _id: req.user!.id }, { $set: updateData });
+      try {
+        await players.updateOne({ _id: req.user!.id }, { $set: updateData });
+      } catch (error: any) {
+        if (error?.code === 11000) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
+        throw error;
+      }
     }
     await bumpWorldCacheVersion();
     if (req.user?.id) {

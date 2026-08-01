@@ -399,6 +399,14 @@ export function updatePlayerProfile(
   });
 }
 
+export function checkCityName(token: string, cityName: string) {
+  return request<{ available: boolean; normalizedName: string; message: string }>("/api/player/city-name/check", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ cityName }),
+  });
+}
+
 export function updateActiveMap(
   token: string,
   activeMap: "world" | "conquest",
