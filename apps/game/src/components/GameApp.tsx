@@ -1941,15 +1941,6 @@ export function GameApp({
           snapshots.missions = missionSnapshot;
           setMissions([...(engineState.missions || [])]);
         }
-        const recentLog = Array.isArray(engineState.log)
-          ? engineState.log.slice(-8)
-          : [];
-        const chatSnapshot = `${recentLog.length}|${recentLog[recentLog.length - 1] || ""}`;
-        if (chatSnapshot !== snapshots.chat) {
-          snapshots.chat = chatSnapshot;
-          const latestLine = recentLog[recentLog.length - 1];
-          if (latestLine) addSystemLine(latestLine);
-        }
         const metaSnapshot = `${engineState.toast || ""}|${engineState.newbiePhase || "none"}|${engineState.newbieSelectedRegion ?? ""}`;
         if (metaSnapshot !== snapshots.meta) {
           snapshots.meta = metaSnapshot;
