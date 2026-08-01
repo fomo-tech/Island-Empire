@@ -1,4 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
 import {
   cancelClearing,
@@ -16,7 +22,12 @@ import {
   updatePlayerProfile,
 } from "../game/api";
 import { connectGameSocket, sendWorldChat } from "../game/realtime";
-import { detectDeviceLanguage, saveLanguage, translate, type GameLanguage } from "../game/i18n";
+import {
+  detectDeviceLanguage,
+  saveLanguage,
+  translate,
+  type GameLanguage,
+} from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
 import { TerritoryTooltip } from "./TerritoryTooltip";
 import { NewbieOnboardingModal } from "./NewbieOnboardingModal";
@@ -32,8 +43,14 @@ import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
+import { EuroClockIcon } from "./EuroIcons";
 import { useGameStore } from "../store/gameStore";
-import type { BattleReport, MarchSourceOption, PlayerSyncResult, ResourceBag } from "@island/shared";
+import type {
+  BattleReport,
+  MarchSourceOption,
+  PlayerSyncResult,
+  ResourceBag,
+} from "@island/shared";
 
 const CAMERA_KEY = "island_empire_camera_v1";
 const TOKEN_KEY = "island_empire_token";
@@ -110,55 +127,317 @@ function HudIcon({ name }: { name: HudIconName }) {
             <stop offset="100%" stopColor="#7dd3fc" />
           </linearGradient>
         </defs>
-        <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#diaDarkHud)" stroke="#0c4a6e" strokeWidth="1.5" />
-        <polygon points="32,58 10,24 32,24" fill="url(#diaLightHud)" stroke="#0c4a6e" strokeWidth="1.5" />
-        <polygon points="32,58 32,24 54,24" fill="url(#diaLightHud)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
-        <polygon points="10,24 20,8 32,24" fill="url(#diaTopHud)" stroke="#0c4a6e" strokeWidth="1.5" />
-        <polygon points="54,24 44,8 32,24" fill="url(#diaTopHud)" opacity="0.8" stroke="#0c4a6e" strokeWidth="1.5" />
-        <polygon points="20,8 44,8 32,24" fill="#f0f9ff" stroke="#0c4a6e" strokeWidth="1.5" />
+        <polygon
+          points="32,58 10,24 20,8 44,8 54,24"
+          fill="url(#diaDarkHud)"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="32,58 10,24 32,24"
+          fill="url(#diaLightHud)"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="32,58 32,24 54,24"
+          fill="url(#diaLightHud)"
+          opacity="0.8"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="10,24 20,8 32,24"
+          fill="url(#diaTopHud)"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="54,24 44,8 32,24"
+          fill="url(#diaTopHud)"
+          opacity="0.8"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="20,8 44,8 32,24"
+          fill="#f0f9ff"
+          stroke="#0c4a6e"
+          strokeWidth="1.5"
+        />
       </svg>
     );
   }
 
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  const paths: Record<Exclude<HudIconName, "gold" | "diamonds" | "food" | "wood" | "stone" | "iron" | "gems">, ReactNode> = {
-    logout: <><path {...common} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline {...common} points="16 17 21 12 16 7"/><line {...common} x1="21" y1="12" x2="9" y2="12"/></>,
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  const paths: Record<
+    Exclude<
+      HudIconName,
+      "gold" | "diamonds" | "food" | "wood" | "stone" | "iron" | "gems"
+    >,
+    ReactNode
+  > = {
+    logout: (
+      <>
+        <path {...common} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline {...common} points="16 17 21 12 16 7" />
+        <line {...common} x1="21" y1="12" x2="9" y2="12" />
+      </>
+    ),
     chevronUp: <polyline {...common} points="18 15 12 9 6 15" />,
     minus: <line {...common} x1="5" y1="12" x2="19" y2="12" />,
-    scroll: <><path {...common} d="M6 4h10a2 2 0 0 1 2 2v13H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2Z"/><path {...common} d="M7 9h8M7 13h7M7 17h5"/></>,
-    chart: <><path {...common} d="M4 19V5"/><path {...common} d="M8 19v-7"/><path {...common} d="M12 19V8"/><path {...common} d="M16 19v-4"/><path {...common} d="M3 19h18"/></>,
-    swords: <><path {...common} d="M4 20 20 4M15 4h5v5M13 7l4 4"/><path {...common} d="M20 20 4 4M4 9V4h5M7 13l4 4"/></>,
-    pickaxe: <><path {...common} d="M14 5c-3-1-6 0-8 3"/><path {...common} d="M8 8 20 20"/><path {...common} d="M5 19 12 12"/></>,
-    shield: <><path {...common} d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z"/><path {...common} d="M12 6v12"/></>,
-    hammer: <><path {...common} d="M14 4 20 10"/><path {...common} d="M12 6l6 6"/><path {...common} d="M3 21l8-8"/><path {...common} d="M9 15l-2-2"/></>,
-    flask: <><path {...common} d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path {...common} d="M7 16h10"/></>,
-    crown: <><path {...common} d="M4 18h16l-1-10-5 4-2-7-2 7-5-4-1 10Z"/><path {...common} d="M5 21h14"/></>,
-    handshake: <><path {...common} d="M8 12 5 15a2 2 0 0 0 3 3l2-2"/><path {...common} d="M16 12l3 3a2 2 0 0 1-3 3l-5-5"/><path {...common} d="M7 11l4-4 3 3 3-3 4 4"/><path {...common} d="M3 10l4-4M21 10l-4-4"/></>,
-    banner: <><path {...common} d="M6 21V4"/><path {...common} d="M6 5h12l-2 4 2 4H6"/></>,
-    castle: <><path {...common} d="M4 21V9h4V5h3v4h2V5h3v4h4v12"/><path {...common} d="M8 21v-5a4 4 0 0 1 8 0v5"/><path {...common} d="M4 12h16"/></>,
-    map: <><path {...common} d="M4 6 10 3l4 2 6-3v16l-6 3-4-2-6 3V6Z"/><path {...common} d="M10 3v16M14 5v16"/></>,
-    door: <><path {...common} d="M6 21V4h10v17"/><path {...common} d="M4 21h16"/><path {...common} d="M13 13h.01"/></>,
-    key: <><circle {...common} cx="8" cy="15" r="4"/><path {...common} d="M11 12 20 3M16 7l2 2M14 9l2 2"/></>,
-    chat: <><path {...common} d="M4 5h16v11H8l-4 4V5Z"/><path {...common} d="M8 9h8M8 13h6"/></>,
-    mail: <><path {...common} d="M4 6h16v12H4V6Z"/><path {...common} d="m4 7 8 6 8-6"/><path {...common} d="m4 18 6-5M20 18l-6-5"/></>,
-    star: <><path {...common} d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></>,
-    bell: <><path {...common} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path {...common} d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
-    gear: <><circle {...common} cx="12" cy="12" r="3"/><path {...common} d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
-    book: <><path {...common} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path {...common} d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
-    bag: <><path {...common} d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line {...common} x1="3" y1="6" x2="21" y2="6"/><path {...common} d="M16 10a4 4 0 0 1-8 0"/></>,
-    gift: <><polyline {...common} points="20 12 20 22 4 22 4 12"/><rect {...common} x="2" y="7" width="20" height="5"/><line {...common} x1="12" y1="22" x2="12" y2="7"/><path {...common} d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path {...common} d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></>,
-    pin: <><path {...common} d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle {...common} cx="12" cy="10" r="3"/></>,
-    helmet: <><path {...common} d="M12 2a10 10 0 0 0-10 10v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6A10 10 0 0 0 12 2z"/><path {...common} d="M12 6v6"/><path {...common} d="M6 12h12"/></>,
-    globe: <><circle {...common} cx="12" cy="12" r="10"/><line {...common} x1="2" y1="12" x2="22" y2="12"/><path {...common} d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
-    info: <><circle {...common} cx="12" cy="12" r="10"/><line {...common} x1="12" y1="16" x2="12" y2="12"/><line {...common} x1="12" y1="8" x2="12.01" y2="8"/></>,
-    anchor: <><circle {...common} cx="12" cy="5" r="3"/><line {...common} x1="12" y1="8" x2="12" y2="21"/><line {...common} x1="5" y1="12" x2="19" y2="12"/><path {...common} d="M5 12a7 7 0 0 0 14 0"/></>,
-    search: <><circle {...common} cx="11" cy="11" r="8"/><line {...common} x1="21" y1="21" x2="16.65" y2="16.65"/></>,
-    target: <><circle {...common} cx="12" cy="12" r="9"/><circle {...common} cx="12" cy="12" r="3"/><line {...common} x1="12" y1="1" x2="12" y2="5"/><line {...common} x1="12" y1="19" x2="12" y2="23"/><line {...common} x1="1" y1="12" x2="5" y2="12"/><line {...common} x1="19" y1="12" x2="23" y2="12"/></>,
-    clock: <><circle {...common} cx="12" cy="12" r="9"/><polyline {...common} points="12 7 12 12 15 15"/></>,
-    lightning: <><polygon {...common} points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>,
-    fullscreen: <><path {...common} d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></>,
+    scroll: (
+      <>
+        <path
+          {...common}
+          d="M6 4h10a2 2 0 0 1 2 2v13H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2Z"
+        />
+        <path {...common} d="M7 9h8M7 13h7M7 17h5" />
+      </>
+    ),
+    chart: (
+      <>
+        <path {...common} d="M4 19V5" />
+        <path {...common} d="M8 19v-7" />
+        <path {...common} d="M12 19V8" />
+        <path {...common} d="M16 19v-4" />
+        <path {...common} d="M3 19h18" />
+      </>
+    ),
+    swords: (
+      <>
+        <path {...common} d="M4 20 20 4M15 4h5v5M13 7l4 4" />
+        <path {...common} d="M20 20 4 4M4 9V4h5M7 13l4 4" />
+      </>
+    ),
+    pickaxe: (
+      <>
+        <path {...common} d="M14 5c-3-1-6 0-8 3" />
+        <path {...common} d="M8 8 20 20" />
+        <path {...common} d="M5 19 12 12" />
+      </>
+    ),
+    shield: (
+      <>
+        <path {...common} d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z" />
+        <path {...common} d="M12 6v12" />
+      </>
+    ),
+    hammer: (
+      <>
+        <path {...common} d="M14 4 20 10" />
+        <path {...common} d="M12 6l6 6" />
+        <path {...common} d="M3 21l8-8" />
+        <path {...common} d="M9 15l-2-2" />
+      </>
+    ),
+    flask: (
+      <>
+        <path
+          {...common}
+          d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"
+        />
+        <path {...common} d="M7 16h10" />
+      </>
+    ),
+    crown: (
+      <>
+        <path {...common} d="M4 18h16l-1-10-5 4-2-7-2 7-5-4-1 10Z" />
+        <path {...common} d="M5 21h14" />
+      </>
+    ),
+    handshake: (
+      <>
+        <path {...common} d="M8 12 5 15a2 2 0 0 0 3 3l2-2" />
+        <path {...common} d="M16 12l3 3a2 2 0 0 1-3 3l-5-5" />
+        <path {...common} d="M7 11l4-4 3 3 3-3 4 4" />
+        <path {...common} d="M3 10l4-4M21 10l-4-4" />
+      </>
+    ),
+    banner: (
+      <>
+        <path {...common} d="M6 21V4" />
+        <path {...common} d="M6 5h12l-2 4 2 4H6" />
+      </>
+    ),
+    castle: (
+      <>
+        <path {...common} d="M4 21V9h4V5h3v4h2V5h3v4h4v12" />
+        <path {...common} d="M8 21v-5a4 4 0 0 1 8 0v5" />
+        <path {...common} d="M4 12h16" />
+      </>
+    ),
+    map: (
+      <>
+        <path {...common} d="M4 6 10 3l4 2 6-3v16l-6 3-4-2-6 3V6Z" />
+        <path {...common} d="M10 3v16M14 5v16" />
+      </>
+    ),
+    door: (
+      <>
+        <path {...common} d="M6 21V4h10v17" />
+        <path {...common} d="M4 21h16" />
+        <path {...common} d="M13 13h.01" />
+      </>
+    ),
+    key: (
+      <>
+        <circle {...common} cx="8" cy="15" r="4" />
+        <path {...common} d="M11 12 20 3M16 7l2 2M14 9l2 2" />
+      </>
+    ),
+    chat: (
+      <>
+        <path {...common} d="M4 5h16v11H8l-4 4V5Z" />
+        <path {...common} d="M8 9h8M8 13h6" />
+      </>
+    ),
+    mail: (
+      <>
+        <path {...common} d="M4 6h16v12H4V6Z" />
+        <path {...common} d="m4 7 8 6 8-6" />
+        <path {...common} d="m4 18 6-5M20 18l-6-5" />
+      </>
+    ),
+    star: (
+      <>
+        <path
+          {...common}
+          d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"
+        />
+      </>
+    ),
+    bell: (
+      <>
+        <path {...common} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path {...common} d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </>
+    ),
+    gear: (
+      <>
+        <circle {...common} cx="12" cy="12" r="3" />
+        <path
+          {...common}
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+        />
+      </>
+    ),
+    book: (
+      <>
+        <path {...common} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path
+          {...common}
+          d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+        />
+      </>
+    ),
+    bag: (
+      <>
+        <path
+          {...common}
+          d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+        />
+        <line {...common} x1="3" y1="6" x2="21" y2="6" />
+        <path {...common} d="M16 10a4 4 0 0 1-8 0" />
+      </>
+    ),
+    gift: (
+      <>
+        <polyline {...common} points="20 12 20 22 4 22 4 12" />
+        <rect {...common} x="2" y="7" width="20" height="5" />
+        <line {...common} x1="12" y1="22" x2="12" y2="7" />
+        <path {...common} d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+        <path {...common} d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+      </>
+    ),
+    pin: (
+      <>
+        <path {...common} d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle {...common} cx="12" cy="10" r="3" />
+      </>
+    ),
+    helmet: (
+      <>
+        <path
+          {...common}
+          d="M12 2a10 10 0 0 0-10 10v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6A10 10 0 0 0 12 2z"
+        />
+        <path {...common} d="M12 6v6" />
+        <path {...common} d="M6 12h12" />
+      </>
+    ),
+    globe: (
+      <>
+        <circle {...common} cx="12" cy="12" r="10" />
+        <line {...common} x1="2" y1="12" x2="22" y2="12" />
+        <path
+          {...common}
+          d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+        />
+      </>
+    ),
+    info: (
+      <>
+        <circle {...common} cx="12" cy="12" r="10" />
+        <line {...common} x1="12" y1="16" x2="12" y2="12" />
+        <line {...common} x1="12" y1="8" x2="12.01" y2="8" />
+      </>
+    ),
+    anchor: (
+      <>
+        <circle {...common} cx="12" cy="5" r="3" />
+        <line {...common} x1="12" y1="8" x2="12" y2="21" />
+        <line {...common} x1="5" y1="12" x2="19" y2="12" />
+        <path {...common} d="M5 12a7 7 0 0 0 14 0" />
+      </>
+    ),
+    search: (
+      <>
+        <circle {...common} cx="11" cy="11" r="8" />
+        <line {...common} x1="21" y1="21" x2="16.65" y2="16.65" />
+      </>
+    ),
+    target: (
+      <>
+        <circle {...common} cx="12" cy="12" r="9" />
+        <circle {...common} cx="12" cy="12" r="3" />
+        <line {...common} x1="12" y1="1" x2="12" y2="5" />
+        <line {...common} x1="12" y1="19" x2="12" y2="23" />
+        <line {...common} x1="1" y1="12" x2="5" y2="12" />
+        <line {...common} x1="19" y1="12" x2="23" y2="12" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle {...common} cx="12" cy="12" r="9" />
+        <polyline {...common} points="12 7 12 12 15 15" />
+      </>
+    ),
+    lightning: (
+      <>
+        <polygon {...common} points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </>
+    ),
+    fullscreen: (
+      <>
+        <path
+          {...common}
+          d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"
+        />
+      </>
+    ),
   };
-  return <svg className="hud-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+  return (
+    <svg className="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {paths[name]}
+    </svg>
+  );
 }
 
 /* Rich Vector Color Icons matching Mockup Screenshot 3 */
@@ -199,14 +478,65 @@ function VectorWoodIcon() {
           <stop offset="100%" stopColor="#b45309" />
         </radialGradient>
       </defs>
-      <rect x="6" y="34" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
-      <ellipse cx="44" cy="42" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
-      
-      <rect x="18" y="42" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
-      <ellipse cx="56" cy="50" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
-      
-      <rect x="12" y="20" width="38" height="16" rx="4" fill="url(#woodGrad)" stroke="#451a03" strokeWidth="1.5" />
-      <ellipse cx="50" cy="28" rx="4" ry="8" fill="url(#ringGrad)" stroke="#451a03" strokeWidth="1.5" />
+      <rect
+        x="6"
+        y="34"
+        width="38"
+        height="16"
+        rx="4"
+        fill="url(#woodGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="44"
+        cy="42"
+        rx="4"
+        ry="8"
+        fill="url(#ringGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
+
+      <rect
+        x="18"
+        y="42"
+        width="38"
+        height="16"
+        rx="4"
+        fill="url(#woodGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="56"
+        cy="50"
+        rx="4"
+        ry="8"
+        fill="url(#ringGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
+
+      <rect
+        x="12"
+        y="20"
+        width="38"
+        height="16"
+        rx="4"
+        fill="url(#woodGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="50"
+        cy="28"
+        rx="4"
+        ry="8"
+        fill="url(#ringGrad)"
+        stroke="#451a03"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -228,9 +558,24 @@ function VectorStoneIcon() {
           <stop offset="100%" stopColor="#94a3b8" />
         </linearGradient>
       </defs>
-      <polygon points="32,6 56,18 32,30 8,18" fill="url(#stoneTop)" stroke="#1e293b" strokeWidth="1.5" />
-      <polygon points="8,18 32,30 32,58 8,44" fill="url(#stoneLight)" stroke="#1e293b" strokeWidth="1.5" />
-      <polygon points="32,30 56,18 56,44 32,58" fill="url(#stoneDark)" stroke="#1e293b" strokeWidth="1.5" />
+      <polygon
+        points="32,6 56,18 32,30 8,18"
+        fill="url(#stoneTop)"
+        stroke="#1e293b"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="8,18 32,30 32,58 8,44"
+        fill="url(#stoneLight)"
+        stroke="#1e293b"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="32,30 56,18 56,44 32,58"
+        fill="url(#stoneDark)"
+        stroke="#1e293b"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -250,9 +595,28 @@ function VectorIronIcon() {
           <stop offset="100%" stopColor="#475569" />
         </linearGradient>
       </defs>
-      <polygon points="10,14 54,14 44,48 20,48" fill="url(#metalGrad)" stroke="#0f172a" strokeWidth="1.5" />
-      <polygon points="54,14 44,48 48,48 58,14" fill="url(#metalSide)" stroke="#0f172a" strokeWidth="1.5" />
-      <line x1="16" y1="18" x2="50" y2="18" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
+      <polygon
+        points="10,14 54,14 44,48 20,48"
+        fill="url(#metalGrad)"
+        stroke="#0f172a"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="54,14 44,48 48,48 58,14"
+        fill="url(#metalSide)"
+        stroke="#0f172a"
+        strokeWidth="1.5"
+      />
+      <line
+        x1="16"
+        y1="18"
+        x2="50"
+        y2="18"
+        stroke="#ffffff"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        opacity="0.85"
+      />
     </svg>
   );
 }
@@ -274,12 +638,44 @@ function VectorGemsIcon() {
           <stop offset="100%" stopColor="#f43f5e" />
         </linearGradient>
       </defs>
-      <polygon points="32,58 10,24 20,8 44,8 54,24" fill="url(#rubyDark)" stroke="#4c0519" strokeWidth="1.5" />
-      <polygon points="32,58 10,24 32,24" fill="url(#rubyLight)" stroke="#4c0519" strokeWidth="1.5" />
-      <polygon points="32,58 32,24 54,24" fill="url(#rubyLight)" opacity="0.8" stroke="#4c0519" strokeWidth="1.5" />
-      <polygon points="10,24 20,8 32,24" fill="url(#rubyTop)" stroke="#4c0519" strokeWidth="1.5" />
-      <polygon points="54,24 44,8 32,24" fill="url(#rubyTop)" opacity="0.8" stroke="#4c0519" strokeWidth="1.5" />
-      <polygon points="20,8 44,8 32,24" fill="#ffe4e6" stroke="#4c0519" strokeWidth="1.5" />
+      <polygon
+        points="32,58 10,24 20,8 44,8 54,24"
+        fill="url(#rubyDark)"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="32,58 10,24 32,24"
+        fill="url(#rubyLight)"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="32,58 32,24 54,24"
+        fill="url(#rubyLight)"
+        opacity="0.8"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="10,24 20,8 32,24"
+        fill="url(#rubyTop)"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="54,24 44,8 32,24"
+        fill="url(#rubyTop)"
+        opacity="0.8"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="20,8 44,8 32,24"
+        fill="#ffe4e6"
+        stroke="#4c0519"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -295,16 +691,67 @@ function VectorGoldIcon() {
           <stop offset="100%" stopColor="#854d0e" />
         </linearGradient>
       </defs>
-      <ellipse cx="20" cy="46" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      <ellipse cx="20" cy="38" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      
-      <ellipse cx="44" cy="50" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      <ellipse cx="44" cy="42" rx="13" ry="6.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      
-      <ellipse cx="32" cy="34" rx="15" ry="7.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      <ellipse cx="32" cy="26" rx="15" ry="7.5" fill="url(#goldCoinGrad)" stroke="#854d0e" strokeWidth="1.5" />
-      
-      <polygon points="36,16 38,20 42,20 39,23 40,27 36,25 32,27 33,23 30,20 34,20" fill="#ffffff" />
+      <ellipse
+        cx="20"
+        cy="46"
+        rx="13"
+        ry="6.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="20"
+        cy="38"
+        rx="13"
+        ry="6.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+
+      <ellipse
+        cx="44"
+        cy="50"
+        rx="13"
+        ry="6.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="44"
+        cy="42"
+        rx="13"
+        ry="6.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+
+      <ellipse
+        cx="32"
+        cy="34"
+        rx="15"
+        ry="7.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+      <ellipse
+        cx="32"
+        cy="26"
+        rx="15"
+        ry="7.5"
+        fill="url(#goldCoinGrad)"
+        stroke="#854d0e"
+        strokeWidth="1.5"
+      />
+
+      <polygon
+        points="36,16 38,20 42,20 39,23 40,27 36,25 32,27 33,23 30,20 34,20"
+        fill="#ffffff"
+      />
     </svg>
   );
 }
@@ -312,8 +759,18 @@ function VectorGoldIcon() {
 function VectorCoalIcon() {
   return (
     <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <polygon points="5,17 9,9 17,9 19,17 13,20" fill="#1e293b" stroke="#0f172a" strokeWidth="1.2" />
-      <polygon points="12,7 16,3 21,5 19,10" fill="#334155" stroke="#0f172a" strokeWidth="1" />
+      <polygon
+        points="5,17 9,9 17,9 19,17 13,20"
+        fill="#1e293b"
+        stroke="#0f172a"
+        strokeWidth="1.2"
+      />
+      <polygon
+        points="12,7 16,3 21,5 19,10"
+        fill="#334155"
+        stroke="#0f172a"
+        strokeWidth="1"
+      />
       <polygon points="9,9 17,9 13,15 8,13" fill="#475569" />
     </svg>
   );
@@ -322,9 +779,19 @@ function VectorCoalIcon() {
 function VectorSulfurIcon() {
   return (
     <svg viewBox="0 0 24 24" className="vector-res-svg">
-      <polygon points="6,18 10,8 18,9 19,17 12,20" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <polygon
+        points="6,18 10,8 18,9 19,17 12,20"
+        fill="#eab308"
+        stroke="#ca8a04"
+        strokeWidth="1"
+      />
       <polygon points="10,8 18,9 13,15" fill="#fef08a" />
-      <polygon points="4,12 8,5 12,8" fill="#ca8a04" stroke="#a16207" strokeWidth="1" />
+      <polygon
+        points="4,12 8,5 12,8"
+        fill="#ca8a04"
+        stroke="#a16207"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
@@ -333,8 +800,16 @@ function VectorSulfurIcon() {
 function StatusIconLeaf() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <path d="M 12,2 C 18,4 22,10 20,17 C 18,22 11,22 5,19 C 4,13 6,5 12,2 Z" fill="#4ade80" />
-      <path d="M 12,4 Q 10,13 5,19" stroke="#166534" strokeWidth="1.5" fill="none" />
+      <path
+        d="M 12,2 C 18,4 22,10 20,17 C 18,22 11,22 5,19 C 4,13 6,5 12,2 Z"
+        fill="#4ade80"
+      />
+      <path
+        d="M 12,4 Q 10,13 5,19"
+        stroke="#166534"
+        strokeWidth="1.5"
+        fill="none"
+      />
     </svg>
   );
 }
@@ -342,7 +817,12 @@ function StatusIconLeaf() {
 function StatusIconShield() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <path d="M 12,3 L 20,6 C 20,14 12,21 12,21 C 12,21 4,14 4,6 Z" fill="#60a5fa" stroke="#1e40af" strokeWidth="1" />
+      <path
+        d="M 12,3 L 20,6 C 20,14 12,21 12,21 C 12,21 4,14 4,6 Z"
+        fill="#60a5fa"
+        stroke="#1e40af"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
@@ -350,7 +830,12 @@ function StatusIconShield() {
 function StatusIconBlood() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <path d="M 12,3 C 16,8 19,13 19,16 C 19,20 16,22 12,22 C 8,22 5,20 5,16 C 5,13 8,8 12,3 Z" fill="#f87171" stroke="#991b1b" strokeWidth="1" />
+      <path
+        d="M 12,3 C 16,8 19,13 19,16 C 19,20 16,22 12,22 C 8,22 5,20 5,16 C 5,13 8,8 12,3 Z"
+        fill="#f87171"
+        stroke="#991b1b"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
@@ -358,7 +843,16 @@ function StatusIconBlood() {
 function StatusIconVault() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <rect x="4" y="8" width="16" height="13" rx="2" fill="#ef4444" stroke="#991b1b" strokeWidth="1" />
+      <rect
+        x="4"
+        y="8"
+        width="16"
+        height="13"
+        rx="2"
+        fill="#ef4444"
+        stroke="#991b1b"
+        strokeWidth="1"
+      />
       <path d="M 4,13 L 20,13" stroke="#fef08a" strokeWidth="1.5" />
     </svg>
   );
@@ -367,7 +861,12 @@ function StatusIconVault() {
 function StatusIconBolt() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
+      <polygon
+        points="13,2 3,14 12,14 11,22 21,10 12,10"
+        fill="#facc15"
+        stroke="#ca8a04"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
@@ -375,7 +874,12 @@ function StatusIconBolt() {
 function StatusIconSwords() {
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
-      <path d="M 4,20 L 20,4 M 16,4 L 20,4 L 20,8 M 4,4 L 20,20 M 4,16 L 4,20 L 8,20" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+      <path
+        d="M 4,20 L 20,4 M 16,4 L 20,4 L 20,8 M 4,4 L 20,20 M 4,16 L 4,20 L 8,20"
+        stroke="#f59e0b"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -394,7 +898,7 @@ function applyNewbieResetOnce() {
   window.history.replaceState(
     null,
     "",
-    `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`
+    `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`,
   );
 }
 
@@ -419,9 +923,17 @@ function stableHash(input: string) {
   return hash >>> 0;
 }
 
-function pickStarterTerritoryId(playerId: string, territories: Array<{ id: number; ownerCode: number; isIslet?: boolean }>) {
-  const wild = territories.filter((territory) => territory.ownerCode === 0 && !territory.isIslet);
-  const pool = wild.length > 0 ? wild : territories.filter((territory) => territory.ownerCode === 0);
+function pickStarterTerritoryId(
+  playerId: string,
+  territories: Array<{ id: number; ownerCode: number; isIslet?: boolean }>,
+) {
+  const wild = territories.filter(
+    (territory) => territory.ownerCode === 0 && !territory.isIslet,
+  );
+  const pool =
+    wild.length > 0
+      ? wild
+      : territories.filter((territory) => territory.ownerCode === 0);
   if (pool.length === 0) return null;
   return pool[stableHash(playerId) % pool.length].id;
 }
@@ -429,24 +941,50 @@ function pickStarterTerritoryId(playerId: string, territories: Array<{ id: numbe
 function summarizeBackendHud(
   world: any,
   currentPlayerId: string | null,
-  resources: { gold: number; gems: number; food?: number; iron?: number; coal?: number; sulfur?: number },
+  resources: {
+    gold: number;
+    gems: number;
+    food?: number;
+    iron?: number;
+    coal?: number;
+    sulfur?: number;
+  },
 ) {
-  const territories = Array.isArray(world?.territories) ? world.territories : [];
+  const territories = Array.isArray(world?.territories)
+    ? world.territories
+    : [];
   const marches = Array.isArray(world?.marches) ? world.marches : [];
   const clearings = Array.isArray(world?.clearings) ? world.clearings : [];
-  const ownedTerritories = territories.filter((territory: any) => territory.ownerId && territory.ownerId === currentPlayerId).length;
-  const outboundMarches = marches.filter((march: any) => march.ownerId === currentPlayerId);
-  const outboundTroops = outboundMarches.reduce((sum: number, march: any) => sum + (march.troops || 0), 0);
+  const ownedTerritories = territories.filter(
+    (territory: any) =>
+      territory.ownerId && territory.ownerId === currentPlayerId,
+  ).length;
+  const outboundMarches = marches.filter(
+    (march: any) => march.ownerId === currentPlayerId,
+  );
+  const outboundTroops = outboundMarches.reduce(
+    (sum: number, march: any) => sum + (march.troops || 0),
+    0,
+  );
   const ownedTroops = outboundTroops;
-  const strategicPower = ownedTroops * 1.2 + ownedTerritories * 40 + resources.gold * 0.03 + resources.gems * 0.4;
+  const strategicPower =
+    ownedTroops * 1.2 +
+    ownedTerritories * 40 +
+    resources.gold * 0.03 +
+    resources.gems * 0.4;
   return {
     ownedTerritories,
     totalTerritories: territories.length,
-    enemyTerritories: territories.filter((territory: any) => territory.ownerId && territory.ownerId !== currentPlayerId).length,
+    enemyTerritories: territories.filter(
+      (territory: any) =>
+        territory.ownerId && territory.ownerId !== currentPlayerId,
+    ).length,
     activeMarches: marches.length,
     ownMarches: outboundMarches.length,
     activeClearings: clearings.length,
-    ownClearings: clearings.filter((clearing: any) => clearing.playerId === currentPlayerId).length,
+    ownClearings: clearings.filter(
+      (clearing: any) => clearing.playerId === currentPlayerId,
+    ).length,
     outboundTroops,
     ownedTroops,
     strategicPower,
@@ -461,7 +999,9 @@ function mapServerBattlesForClient(battles: any[] = []) {
     attPower: battle.attackerPower ?? battle.attPower ?? 0,
     defPower: battle.defenderPower ?? battle.defPower ?? 0,
     duration: battle.durationSeconds ?? battle.duration ?? 1,
-    t: battle.startedAt ? Math.max(0, (Date.now() - new Date(battle.startedAt).getTime()) / 1000) : battle.t ?? 0,
+    t: battle.startedAt
+      ? Math.max(0, (Date.now() - new Date(battle.startedAt).getTime()) / 1000)
+      : (battle.t ?? 0),
   }));
 }
 
@@ -470,7 +1010,10 @@ function isNewerBattleSnapshot(next: any, current: any) {
   const nextVersion = Number(next?.battleVersion || 0);
   const currentVersion = Number(current?.battleVersion || 0);
   if (nextVersion !== currentVersion) return nextVersion > currentVersion;
-  return new Date(next?.hpUpdatedAt || 0).getTime() >= new Date(current?.hpUpdatedAt || 0).getTime();
+  return (
+    new Date(next?.hpUpdatedAt || 0).getTime() >=
+    new Date(current?.hpUpdatedAt || 0).getTime()
+  );
 }
 
 // Helper to format numbers with dot separators, e.g. 13.718
@@ -494,10 +1037,10 @@ function parseChatLine(line: string) {
   }
   const namePart = line.substring(0, colonIndex).trim();
   const msgPart = line.substring(colonIndex + 1).trim();
-  
+
   let channel = "THẾ GIỚI";
   let name = namePart;
-  
+
   if (namePart.startsWith("[HỆ THỐNG]")) {
     channel = "HỆ THỐNG";
     name = namePart.replace("[HỆ THỐNG]", "").trim() || "SYSTEM";
@@ -508,7 +1051,7 @@ function parseChatLine(line: string) {
     channel = "THẾ GIỚI";
     name = namePart.replace("[THẾ GIỚI]", "").trim();
   }
-  
+
   return { channel, name, message: msgPart };
 }
 
@@ -566,46 +1109,180 @@ function stableJson(value: unknown) {
 
 function CastleArt() {
   return (
-    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
-      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
-      <rect x="35" y="45" width="30" height="30" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
-      <path d="M 44,75 L 44,60 Q 50,55 56,60 L 56,75 Z" fill="#020617" stroke="#ffd34d" strokeWidth="1.5" />
-      <rect x="25" y="35" width="12" height="40" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
-      <polygon points="23,35 31,20 39,35" fill="#ef4444" stroke="#ffd34d" strokeWidth="1" />
-      <rect x="63" y="35" width="12" height="40" fill="#64748b" stroke="#f8fafc" strokeWidth="1" />
-      <polygon points="61,35 69,20 77,35" fill="#ef4444" stroke="#ffd34d" strokeWidth="1" />
+    <svg
+      viewBox="0 0 100 100"
+      width="80"
+      height="80"
+      style={{ display: "block" }}
+    >
+      <circle
+        cx="50"
+        cy="50"
+        r="41"
+        fill="#0b1422"
+        stroke="#ffd34d"
+        strokeWidth="2.5"
+      />
+      <rect
+        x="35"
+        y="45"
+        width="30"
+        height="30"
+        fill="#64748b"
+        stroke="#f8fafc"
+        strokeWidth="1"
+      />
+      <path
+        d="M 44,75 L 44,60 Q 50,55 56,60 L 56,75 Z"
+        fill="#020617"
+        stroke="#ffd34d"
+        strokeWidth="1.5"
+      />
+      <rect
+        x="25"
+        y="35"
+        width="12"
+        height="40"
+        fill="#64748b"
+        stroke="#f8fafc"
+        strokeWidth="1"
+      />
+      <polygon
+        points="23,35 31,20 39,35"
+        fill="#ef4444"
+        stroke="#ffd34d"
+        strokeWidth="1"
+      />
+      <rect
+        x="63"
+        y="35"
+        width="12"
+        height="40"
+        fill="#64748b"
+        stroke="#f8fafc"
+        strokeWidth="1"
+      />
+      <polygon
+        points="61,35 69,20 77,35"
+        fill="#ef4444"
+        stroke="#ffd34d"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
 
 function ArmyArt() {
   return (
-    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
-      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
-      <path d="M25 75 L75 25 M30 80 L80 30 M70 20 L80 30 M20 70 L30 80" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-      <path d="M75 75 L25 25 M70 80 L20 30 M30 20 L20 30 M80 70 L70 80" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="50" cy="50" r="10" fill="#ef4444" stroke="#ffd34d" strokeWidth="1.5" />
+    <svg
+      viewBox="0 0 100 100"
+      width="80"
+      height="80"
+      style={{ display: "block" }}
+    >
+      <circle
+        cx="50"
+        cy="50"
+        r="41"
+        fill="#0b1422"
+        stroke="#ffd34d"
+        strokeWidth="2.5"
+      />
+      <path
+        d="M25 75 L75 25 M30 80 L80 30 M70 20 L80 30 M20 70 L30 80"
+        stroke="#cbd5e1"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M75 75 L25 25 M70 80 L20 30 M30 20 L20 30 M80 70 L70 80"
+        stroke="#cbd5e1"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <circle
+        cx="50"
+        cy="50"
+        r="10"
+        fill="#ef4444"
+        stroke="#ffd34d"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
 
 function ResourceArt() {
   return (
-    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
-      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
-      <polygon points="35,60 45,45 60,48 55,68 40,65" fill="#facc15" stroke="#ca8a04" strokeWidth="1.5" />
-      <polygon points="50,30 65,30 72,42 50,60 28,42" fill="#10b981" stroke="#047857" strokeWidth="1.5" />
-      <rect x="25" y="48" width="22" height="6" rx="2" fill="#b45309" stroke="#78350f" strokeWidth="1" />
+    <svg
+      viewBox="0 0 100 100"
+      width="80"
+      height="80"
+      style={{ display: "block" }}
+    >
+      <circle
+        cx="50"
+        cy="50"
+        r="41"
+        fill="#0b1422"
+        stroke="#ffd34d"
+        strokeWidth="2.5"
+      />
+      <polygon
+        points="35,60 45,45 60,48 55,68 40,65"
+        fill="#facc15"
+        stroke="#ca8a04"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="50,30 65,30 72,42 50,60 28,42"
+        fill="#10b981"
+        stroke="#047857"
+        strokeWidth="1.5"
+      />
+      <rect
+        x="25"
+        y="48"
+        width="22"
+        height="6"
+        rx="2"
+        fill="#b45309"
+        stroke="#78350f"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
 
 function DiplomacyArt() {
   return (
-    <svg viewBox="0 0 100 100" width="80" height="80" style={{ display: "block" }}>
-      <circle cx="50" cy="50" r="41" fill="#0b1422" stroke="#ffd34d" strokeWidth="2.5" />
-      <path d="M 25,50 C 35,40 45,40 55,50 C 65,60 75,50 75,50" stroke="#ffd34d" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <path d="M 35,50 Q 50,60 65,50" stroke="#3b82f6" strokeWidth="2" fill="none" />
+    <svg
+      viewBox="0 0 100 100"
+      width="80"
+      height="80"
+      style={{ display: "block" }}
+    >
+      <circle
+        cx="50"
+        cy="50"
+        r="41"
+        fill="#0b1422"
+        stroke="#ffd34d"
+        strokeWidth="2.5"
+      />
+      <path
+        d="M 25,50 C 35,40 45,40 55,50 C 65,60 75,50 75,50"
+        stroke="#ffd34d"
+        strokeWidth="3"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M 35,50 Q 50,60 65,50"
+        stroke="#3b82f6"
+        strokeWidth="2"
+        fill="none"
+      />
       <circle cx="50" cy="45" r="8" fill="#ffd700" opacity="0.8" />
     </svg>
   );
@@ -648,9 +1325,36 @@ export function GameApp({
     productionPerSecond: ResourceBag;
     updatedAt: number;
   }>({
-    resources: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
-    capacity: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
-    productionPerSecond: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
+    resources: {
+      gold: 0,
+      wood: 0,
+      stone: 0,
+      food: 0,
+      iron: 0,
+      coal: 0,
+      sulfur: 0,
+      gems: 0,
+    },
+    capacity: {
+      gold: 0,
+      wood: 0,
+      stone: 0,
+      food: 0,
+      iron: 0,
+      coal: 0,
+      sulfur: 0,
+      gems: 0,
+    },
+    productionPerSecond: {
+      gold: 0,
+      wood: 0,
+      stone: 0,
+      food: 0,
+      iron: 0,
+      coal: 0,
+      sulfur: 0,
+      gems: 0,
+    },
     updatedAt: Date.now(),
   });
   const lastHudSnapshotRef = useRef({
@@ -665,11 +1369,13 @@ export function GameApp({
     events: "",
     prevToast: "",
   });
-  
+
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  const [token, setToken] = useState<string | null>(() => (isNewbieMode() ? null : localStorage.getItem(TOKEN_KEY)));
+  const [token, setToken] = useState<string | null>(() =>
+    isNewbieMode() ? null : localStorage.getItem(TOKEN_KEY),
+  );
   const [playerId, setPlayerId] = useState<string | null>(() =>
-    isNewbieMode() ? null : localStorage.getItem(PLAYER_ID_KEY)
+    isNewbieMode() ? null : localStorage.getItem(PLAYER_ID_KEY),
   );
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [gameReady, setGameReady] = useState<boolean>(false);
@@ -704,7 +1410,7 @@ export function GameApp({
       return () => clearTimeout(t);
     }
   }, [loadingProgress, gameReady, isAuthenticated]);
-  
+
   // Game states captured from Engine Loop
   const resources = useGameStore((state) => state.resources);
   const setResources = useGameStore((state) => state.setResources);
@@ -719,7 +1425,9 @@ export function GameApp({
   const battleReports = useGameStore((state) => state.battleReports);
   const setBattleReports = useGameStore((state) => state.setBattleReports);
   const reportUnreadCount = useGameStore((state) => state.reportUnreadCount);
-  const setReportUnreadCount = useGameStore((state) => state.setReportUnreadCount);
+  const setReportUnreadCount = useGameStore(
+    (state) => state.setReportUnreadCount,
+  );
   const inbox = useGameStore((state) => state.inbox);
   const setInbox = useGameStore((state) => state.setInbox);
   const sentMail = useGameStore((state) => state.sentMail);
@@ -736,19 +1444,23 @@ export function GameApp({
   const setServerTowns = useGameStore((state) => state.setTowns);
   const upsertServerTown = useGameStore((state) => state.upsertTown);
   const resetGameStore = useGameStore((state) => state.resetGameStore);
-  const [, setMissions] = useState<Array<{ text: string; value: number; goal: number }>>([
+  const [, setMissions] = useState<
+    Array<{ text: string; value: number; goal: number }>
+  >([
     { text: "CHIẾM 3 THÀNH PHỐ", value: 0, goal: 3 },
     { text: "GỬI 1 ĐẠO QUÂN HÀNH QUÂN", value: 0, goal: 1 },
-    { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 }
+    { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 },
   ]);
   const [chatLog, setChatLog] = useState<string[]>([]);
   const [xp, setXp] = useState(68);
   const [level, setLevel] = useState(25);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>(
-    () => localStorage.getItem("island_empire_avatar") || "emperor"
+    () => localStorage.getItem("island_empire_avatar") || "emperor",
   );
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [toastMessage, setToastMessage] = useState("CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH");
+  const [toastMessage, setToastMessage] = useState(
+    "CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH",
+  );
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   function applyResourceSnapshot(snapshot: {
     resources?: Partial<ResourceBag>;
@@ -760,8 +1472,14 @@ export function GameApp({
     if (!snapshot.resources) return;
     const previous = economyClockRef.current;
     const resources = { ...previous.resources, ...snapshot.resources };
-    const capacity = { ...previous.capacity, ...(snapshot.resourceCapacity || {}) };
-    const productionPerSecond = { ...previous.productionPerSecond, ...(snapshot.productionPerSecond || {}) };
+    const capacity = {
+      ...previous.capacity,
+      ...(snapshot.resourceCapacity || {}),
+    };
+    const productionPerSecond = {
+      ...previous.productionPerSecond,
+      ...(snapshot.productionPerSecond || {}),
+    };
     economyClockRef.current = {
       resources,
       capacity,
@@ -775,29 +1493,48 @@ export function GameApp({
   const [_tick, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => {
-      setTick(t => t + 1);
+      setTick((t) => t + 1);
       const economy = economyClockRef.current;
-      const elapsedSeconds = Math.max(0, (Date.now() - economy.updatedAt) / 1000);
+      const elapsedSeconds = Math.max(
+        0,
+        (Date.now() - economy.updatedAt) / 1000,
+      );
       const next = { ...economy.resources };
       (Object.keys(next) as Array<keyof ResourceBag>).forEach((key) => {
         const capacity = Math.max(0, economy.capacity[key] || 0);
-        const estimated = economy.resources[key] + (economy.productionPerSecond[key] || 0) * elapsedSeconds;
-        const capped = capacity > 0 && economy.resources[key] < capacity
-          ? Math.min(capacity, estimated)
-          : economy.resources[key];
+        const estimated =
+          economy.resources[key] +
+          (economy.productionPerSecond[key] || 0) * elapsedSeconds;
+        const capped =
+          capacity > 0 && economy.resources[key] < capacity
+            ? Math.min(capacity, estimated)
+            : economy.resources[key];
         next[key] = Math.floor(capped * 100) / 100;
       });
       setResources(next);
-      setServerTowns((towns) => towns.map((town: any) => {
-        const rate = Math.max(0, Number(town.populationPerSecond || 0));
-        const capacity = Math.max(0, Number(town.populationCapacity || town.population || 0));
-        if (rate <= 0 || capacity <= 0 || Number(town.population || 0) >= capacity) return town;
-        return {
-          ...town,
-          population: Math.min(capacity, Math.floor((Number(town.population || 0) + rate) * 100) / 100),
-          lastPopulationAt: new Date().toISOString(),
-        };
-      }));
+      setServerTowns((towns) =>
+        towns.map((town: any) => {
+          const rate = Math.max(0, Number(town.populationPerSecond || 0));
+          const capacity = Math.max(
+            0,
+            Number(town.populationCapacity || town.population || 0),
+          );
+          if (
+            rate <= 0 ||
+            capacity <= 0 ||
+            Number(town.population || 0) >= capacity
+          )
+            return town;
+          return {
+            ...town,
+            population: Math.min(
+              capacity,
+              Math.floor((Number(town.population || 0) + rate) * 100) / 100,
+            ),
+            lastPopulationAt: new Date().toISOString(),
+          };
+        }),
+      );
     }, 1000);
     return () => clearInterval(id);
   }, []);
@@ -805,18 +1542,29 @@ export function GameApp({
   const [selectedTown, setSelectedTown] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
-  const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<number | null>(null);
-  const [kingdomCreationRegion, setKingdomCreationRegion] = useState<number | null>(null);
+  const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<
+    number | null
+  >(null);
+  const [kingdomCreationRegion, setKingdomCreationRegion] = useState<
+    number | null
+  >(null);
   const [coordinateSearch, setCoordinateSearch] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [chatChannel, setChatChannel] = useState<ChatChannel>("THẾ GIỚI");
-  const [language, setLanguage] = useState<GameLanguage>(() => detectDeviceLanguage());
+  const [language, setLanguage] = useState<GameLanguage>(() =>
+    detectDeviceLanguage(),
+  );
   const [warReports, setWarReports] = useState<WarReportRecord[]>([]);
   const [mailDraft, setMailDraft] = useState({ to: "", title: "", body: "" });
   const [mailTab, setMailTab] = useState<"inbox" | "sent">("inbox");
   const [initialSyncReady, setInitialSyncReady] = useState(false);
-  const [realtimeToasts, setRealtimeToasts] = useState<Array<{ id: string; title: string; body: string; report?: BattleReport }>>([]);
-  const t = useCallback((key: Parameters<typeof translate>[1]) => translate(language, key), [language]);
+  const [realtimeToasts, setRealtimeToasts] = useState<
+    Array<{ id: string; title: string; body: string; report?: BattleReport }>
+  >([]);
+  const t = useCallback(
+    (key: Parameters<typeof translate>[1]) => translate(language, key),
+    [language],
+  );
   const setGameLanguage = useCallback((next: GameLanguage) => {
     saveLanguage(next);
     setLanguage(next);
@@ -826,16 +1574,25 @@ export function GameApp({
     document.documentElement.lang = language;
     document.title = t("appName");
   }, [language, t]);
-  const [deployTarget, setDeployTarget] = useState<{ targetRegionId: number; isAttack: boolean; battleSide?: "attacker" | "defender" } | null>(null);
+  const [deployTarget, setDeployTarget] = useState<{
+    targetRegionId: number;
+    isAttack: boolean;
+    battleSide?: "attacker" | "defender";
+  } | null>(null);
   const [deploySourceTown, setDeploySourceTown] = useState<any>(null);
   const [deployError, setDeployError] = useState<string | null>(null);
-  const [marchSourceOptions, setMarchSourceOptions] = useState<MarchSourceOption[] | null>(null);
+  const [marchSourceOptions, setMarchSourceOptions] = useState<
+    MarchSourceOption[] | null
+  >(null);
   const [activeModal, setActiveModal] = useState<string>("none");
-  const [selectedBattleReport, setSelectedBattleReport] = useState<BattleReportData | null>(null);
-  const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">("none");
+  const [selectedBattleReport, setSelectedBattleReport] =
+    useState<BattleReportData | null>(null);
+  const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">(
+    "none",
+  );
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
-  const [chatCollapsed, setChatCollapsed] = useState<boolean>(true);
+  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false);
   const [socketOnline, setSocketOnline] = useState(false);
   const [serverEventLog, setServerEventLog] = useState<string[]>([]);
@@ -844,12 +1601,20 @@ export function GameApp({
 
   useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
-      const msg = event?.error?.stack || event?.error?.message || event?.message || "Lỗi JavaScript không xác định";
+      const msg =
+        event?.error?.stack ||
+        event?.error?.message ||
+        event?.message ||
+        "Lỗi JavaScript không xác định";
       console.error("Global JS Error:", event);
       setRuntimeError(`[JS ERROR] ${msg}`);
     };
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const msg = event?.reason?.stack || event?.reason?.message || String(event?.reason) || "Promise bị từ chối";
+      const msg =
+        event?.reason?.stack ||
+        event?.reason?.message ||
+        String(event?.reason) ||
+        "Promise bị từ chối";
       console.error("Unhandled Rejection:", event.reason);
       setRuntimeError(`[ASYNC ERROR] ${msg}`);
     };
@@ -858,36 +1623,67 @@ export function GameApp({
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
     return () => {
       window.removeEventListener("error", handleGlobalError);
-      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
     };
   }, []);
 
-  const addWarReport = useCallback((report: Omit<WarReportRecord, "time"> & { time?: number }) => {
-    setWarReports((prev) => {
-      const idx = prev.findIndex((item) => item.id === report.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = { ...copy[idx], ...report, time: report.time ?? copy[idx].time };
-        return copy;
-      }
-      return [{ ...report, time: report.time ?? Date.now() }, ...prev].slice(0, 100);
-    });
-  }, []);
+  const addWarReport = useCallback(
+    (report: Omit<WarReportRecord, "time"> & { time?: number }) => {
+      setWarReports((prev) => {
+        const idx = prev.findIndex((item) => item.id === report.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = {
+            ...copy[idx],
+            ...report,
+            time: report.time ?? copy[idx].time,
+          };
+          return copy;
+        }
+        return [{ ...report, time: report.time ?? Date.now() }, ...prev].slice(
+          0,
+          100,
+        );
+      });
+    },
+    [],
+  );
 
   const addSystemLine = useCallback((message: string) => {
-    setServerEventLog((prev) => [...prev.slice(-14), `[HỆ THỐNG] SYSTEM: ${message}`]);
+    setServerEventLog((prev) => [
+      ...prev.slice(-14),
+      `[HỆ THỐNG] SYSTEM: ${message}`,
+    ]);
   }, []);
 
-  const pushRealtimeToast = useCallback((toast: { id: string; title: string; body: string; report?: BattleReport }) => {
-    setRealtimeToasts((current) => [toast, ...current.filter((item) => item.id !== toast.id)].slice(0, 3));
-    window.setTimeout(() => {
-      setRealtimeToasts((current) => current.filter((item) => item.id !== toast.id));
-    }, 8000);
-  }, []);
+  const pushRealtimeToast = useCallback(
+    (toast: {
+      id: string;
+      title: string;
+      body: string;
+      report?: BattleReport;
+    }) => {
+      setRealtimeToasts((current) =>
+        [toast, ...current.filter((item) => item.id !== toast.id)].slice(0, 3),
+      );
+      window.setTimeout(() => {
+        setRealtimeToasts((current) =>
+          current.filter((item) => item.id !== toast.id),
+        );
+      }, 8000);
+    },
+    [],
+  );
 
-  const addPrivateReportMail = useCallback((title: string, body: string) => {
-    pushRealtimeToast({ id: `system-${Date.now()}`, title, body });
-  }, [pushRealtimeToast]);
+  const addPrivateReportMail = useCallback(
+    (title: string, body: string) => {
+      pushRealtimeToast({ id: `system-${Date.now()}`, title, body });
+    },
+    [pushRealtimeToast],
+  );
 
   const sendPrivateMail = async () => {
     const to = mailDraft.to.trim();
@@ -901,7 +1697,10 @@ export function GameApp({
         body,
         requestId: crypto.randomUUID(),
       });
-      setSentMail((current) => [result.mail, ...current.filter((mail) => mail.id !== result.mail.id)]);
+      setSentMail((current) => [
+        result.mail,
+        ...current.filter((mail) => mail.id !== result.mail.id),
+      ]);
       setMailDraft({ to: "", title: "", body: "" });
       setMailTab("sent");
       addSystemLine(`ĐÃ GỬI THƯ CÁ NHÂN ĐẾN ${result.mail.recipientName}`);
@@ -913,16 +1712,24 @@ export function GameApp({
   const jumpToCoordinates = useCallback(() => {
     const matches = coordinateSearch.match(/-?\d+(?:\.\d+)?/g);
     if (!matches || matches.length < 2) {
-      engineRef.current?.handleAction("setToast", { message: "NHẬP TỌA ĐỘ DẠNG X:Y, VÍ DỤ 13120:11063" });
+      engineRef.current?.handleAction("setToast", {
+        message: "NHẬP TỌA ĐỘ DẠNG X:Y, VÍ DỤ 13120:11063",
+      });
       return;
     }
     const x = Math.round(Number(matches[0]));
     const y = Math.round(Number(matches[1]));
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      engineRef.current?.handleAction("setToast", { message: "TỌA ĐỘ KHÔNG HỢP LỆ" });
+      engineRef.current?.handleAction("setToast", {
+        message: "TỌA ĐỘ KHÔNG HỢP LỆ",
+      });
       return;
     }
-    engineRef.current?.handleAction("centerCamera", { x, y, label: `X:${x} Y:${y}` });
+    engineRef.current?.handleAction("centerCamera", {
+      x,
+      y,
+      label: `X:${x} Y:${y}`,
+    });
     setMobileMenu("none");
   }, [coordinateSearch]);
 
@@ -943,9 +1750,14 @@ export function GameApp({
   useEffect(() => {
     if (gameReady) {
       if (engineRef.current && minimapCanvasRef.current) {
-        engineRef.current.handleAction("setMinimapCanvas", minimapCanvasRef.current);
+        engineRef.current.handleAction(
+          "setMinimapCanvas",
+          minimapCanvasRef.current,
+        );
       }
-      const completed = localStorage.getItem("island_empire_tutorial_completed");
+      const completed = localStorage.getItem(
+        "island_empire_tutorial_completed",
+      );
       if (completed !== "1") {
         setShowTutorial(true);
       }
@@ -1003,61 +1815,98 @@ export function GameApp({
     engineRef.current = createIslandEmpireGame(
       canvas,
       (engineState, engineTowns) => {
-        if (token && Array.isArray(engineState.pendingBackendClearingStarts) && engineState.pendingBackendClearingStarts.length > 0) {
-          engineState.pendingBackendClearingStarts.forEach((regionId: number) => {
-            if (backendClearingStartRef.current.has(regionId)) return;
-            backendClearingStartRef.current.add(regionId);
-            startClearing(token, engineToServerTerritoryId(regionId))
+        if (
+          token &&
+          Array.isArray(engineState.pendingBackendClearingStarts) &&
+          engineState.pendingBackendClearingStarts.length > 0
+        ) {
+          engineState.pendingBackendClearingStarts.forEach(
+            (regionId: number) => {
+              if (backendClearingStartRef.current.has(regionId)) return;
+              backendClearingStartRef.current.add(regionId);
+              startClearing(token, engineToServerTerritoryId(regionId))
+                .then((result) => {
+                  engineRef.current?.handleAction("applyBackendClearing", {
+                    clearing: result.clearing,
+                  });
+                  engineRef.current?.handleAction(
+                    "consumeBackendClearingStarts",
+                  );
+                })
+                .catch((err) => {
+                  console.error("Backend clearing start failed:", err);
+                  engineRef.current?.handleAction("markClearingRejected", {
+                    regionId,
+                    message: err.message || "Server từ chối xây thành",
+                  });
+                })
+                .finally(() => {
+                  backendClearingStartRef.current.delete(regionId);
+                });
+            },
+          );
+        }
+
+        if (
+          token &&
+          Array.isArray(engineState.pendingBackendClaims) &&
+          engineState.pendingBackendClaims.length > 0
+        ) {
+          engineState.pendingBackendClaims.forEach((regionId: number) => {
+            if (backendClaimCompleteRef.current.has(regionId)) return;
+            backendClaimCompleteRef.current.add(regionId);
+            completeClearing(token, engineToServerTerritoryId(regionId))
               .then((result) => {
-                engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
-                engineRef.current?.handleAction("consumeBackendClearingStarts");
+                if (result.territory) {
+                  engineRef.current?.handleAction("applyWorldOwnership", {
+                    territories: [
+                      {
+                        id: serverToEngineTerritoryId(result.territory.id),
+                        ownerCode:
+                          result.territory.ownerId === playerId ? 1 : 2,
+                        ownerId: result.territory.ownerId,
+                        ownerName:
+                          result.territory.ownerId === playerId
+                            ? "Bạn"
+                            : (result.territory.ownerName ??
+                              result.territory.ownerId ??
+                              "Đối thủ"),
+                        ownerFlagColor: result.territory.ownerFlagColor,
+                        ownerEmblem: result.territory.ownerEmblem,
+                        ownerAllianceTag: result.territory.ownerAllianceTag,
+                        ownerAllianceEmblem:
+                          result.territory.ownerAllianceEmblem,
+                      },
+                    ],
+                  });
+                }
+                engineRef.current?.handleAction("consumeBackendClaim", {
+                  regionId,
+                });
               })
               .catch((err) => {
-                console.error("Backend clearing start failed:", err);
-                engineRef.current?.handleAction("markClearingRejected", { regionId, message: err.message || "Server từ chối xây thành" });
+                console.error("Backend clearing complete failed:", err);
+                if (
+                  err?.message?.includes("chưa hoàn tất") ||
+                  err?.message?.includes("not_ready")
+                ) {
+                  return;
+                }
+                engineRef.current?.handleAction("markClaimRejected", {
+                  regionId,
+                });
               })
               .finally(() => {
-                backendClearingStartRef.current.delete(regionId);
+                backendClaimCompleteRef.current.delete(regionId);
               });
           });
         }
 
-	        if (token && Array.isArray(engineState.pendingBackendClaims) && engineState.pendingBackendClaims.length > 0) {
-	          engineState.pendingBackendClaims.forEach((regionId: number) => {
-	            if (backendClaimCompleteRef.current.has(regionId)) return;
-	            backendClaimCompleteRef.current.add(regionId);
-	            completeClearing(token, engineToServerTerritoryId(regionId))
-	              .then((result) => {
-	                if (result.territory) {
-	                  engineRef.current?.handleAction("applyWorldOwnership", {
-	                    territories: [{
-	                      id: serverToEngineTerritoryId(result.territory.id),
-	                      ownerCode: result.territory.ownerId === playerId ? 1 : 2,
-	                      ownerId: result.territory.ownerId,
-	                      ownerName: result.territory.ownerId === playerId ? "Bạn" : result.territory.ownerName ?? result.territory.ownerId ?? "Đối thủ",
-	                      ownerFlagColor: result.territory.ownerFlagColor,
-	                      ownerEmblem: result.territory.ownerEmblem,
-	                      ownerAllianceTag: result.territory.ownerAllianceTag,
-	                      ownerAllianceEmblem: result.territory.ownerAllianceEmblem,
-	                    }],
-	                  });
-	                }
-	                engineRef.current?.handleAction("consumeBackendClaim", { regionId });
-	              })
-	              .catch((err) => {
-	                console.error("Backend clearing complete failed:", err);
-	                if (err?.message?.includes("chưa hoàn tất") || err?.message?.includes("not_ready")) {
-	                  return;
-	                }
-	                engineRef.current?.handleAction("markClaimRejected", { regionId });
-	              })
-	              .finally(() => {
-	                backendClaimCompleteRef.current.delete(regionId);
-	              });
-	          });
-	        }
-
-        if (token && Array.isArray(engineState.pendingBackendConquests) && engineState.pendingBackendConquests.length > 0) {
+        if (
+          token &&
+          Array.isArray(engineState.pendingBackendConquests) &&
+          engineState.pendingBackendConquests.length > 0
+        ) {
           engineRef.current?.handleAction("consumeBackendConquests");
           refreshGameStateFromServer();
         }
@@ -1072,7 +1921,9 @@ export function GameApp({
           snapshots.missions = missionSnapshot;
           setMissions([...(engineState.missions || [])]);
         }
-        const recentLog = Array.isArray(engineState.log) ? engineState.log.slice(-8) : [];
+        const recentLog = Array.isArray(engineState.log)
+          ? engineState.log.slice(-8)
+          : [];
         const chatSnapshot = `${recentLog.length}|${recentLog[recentLog.length - 1] || ""}`;
         if (chatSnapshot !== snapshots.chat) {
           snapshots.chat = chatSnapshot;
@@ -1086,9 +1937,10 @@ export function GameApp({
           setToastMessage(engineState.toast || "");
           setNewbiePhase(engineState.newbiePhase || "none");
           setNewbieSelectedRegion(
-            engineState.newbieSelectedRegion !== undefined && engineState.newbieSelectedRegion !== null
+            engineState.newbieSelectedRegion !== undefined &&
+              engineState.newbieSelectedRegion !== null
               ? engineState.newbieSelectedRegion
-              : null
+              : null,
           );
         }
 
@@ -1096,16 +1948,25 @@ export function GameApp({
           const battleSnapshot = `${engineState.activeBattles.length}|${engineState.activeBattles.map((b: any) => `${b.regionId}:${Math.round(b.t || 0)}`).join(",")}`;
           if (battleSnapshot !== snapshots.battles) {
             snapshots.battles = battleSnapshot;
-            setWorldActivity((prev) => ({ ...prev, battles: [...engineState.activeBattles] }));
+            setWorldActivity((prev) => ({
+              ...prev,
+              battles: [...engineState.activeBattles],
+            }));
           }
         }
 
         // Handle region selection
-        if (engineState.selectedRegion !== null && engineState.selectedRegion !== undefined) {
+        if (
+          engineState.selectedRegion !== null &&
+          engineState.selectedRegion !== undefined
+        ) {
           const id = engineState.selectedRegion;
           const regObj = engineRef.current?.getRegion?.(id);
           const isIslet = Boolean(regObj?.isIslet);
-          const ownership = engineRef.current?.getRegionOwnership?.(id) ?? engineState.regionOwnership?.[id] ?? 0;
+          const ownership =
+            engineRef.current?.getRegionOwnership?.(id) ??
+            engineState.regionOwnership?.[id] ??
+            0;
           const regionSnapshot = `${id}|${isIslet ? 1 : 0}|${ownership}`;
           if (regionSnapshot !== snapshots.selectedRegion) {
             snapshots.selectedRegion = regionSnapshot;
@@ -1118,7 +1979,9 @@ export function GameApp({
           }
         }
 
-        const selected = engineTowns.find((t: any) => t.id === engineState.selected);
+        const selected = engineTowns.find(
+          (t: any) => t.id === engineState.selected,
+        );
         const townSnapshot = selected
           ? `${selected.id}|${selected.owner}|${selected.troops}|${selected.lvl}|${selected.population || 0}|${selected.infantryCount || 0}|${selected.cavalryCount || 0}|${selected.artilleryCount || 0}`
           : "none";
@@ -1135,9 +1998,12 @@ export function GameApp({
       (report: BattleReportData) => {
         setSelectedBattleReport(report);
       },
-      { layout: conquestMode ? "conquest" : "world" }
+      { layout: conquestMode ? "conquest" : "world" },
     );
-    engineRef.current?.handleAction?.("setLocalPlayer", { playerId, playerName: "Bạn" });
+    engineRef.current?.handleAction?.("setLocalPlayer", {
+      playerId,
+      playerName: "Bạn",
+    });
 
     if (token && playerId) {
       setInitialSyncReady(false);
@@ -1155,21 +2021,36 @@ export function GameApp({
           applyPlayerSync(sync);
           return sync.gameState;
         }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Server timeout 15s")), 15000))
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Server timeout 15s")), 15000),
+        ),
       ]);
 
       fetchWorldData
         .then((world) => {
-          const effectivePlayerId = (world.playerId && world.playerId !== playerId) ? world.playerId : playerId;
+          const effectivePlayerId =
+            world.playerId && world.playerId !== playerId
+              ? world.playerId
+              : playerId;
           if (world.playerId && world.playerId !== playerId) {
             localStorage.setItem(PLAYER_ID_KEY, world.playerId);
             setPlayerId(world.playerId);
           }
           const territories = world.territories.map((territory) => ({
             id: serverToEngineTerritoryId(territory.id),
-            ownerCode: territory.ownerId === null ? 0 : territory.ownerId === effectivePlayerId ? 1 : 2,
+            ownerCode:
+              territory.ownerId === null
+                ? 0
+                : territory.ownerId === effectivePlayerId
+                  ? 1
+                  : 2,
             ownerId: territory.ownerId,
-            ownerName: territory.ownerId === null ? "" : territory.ownerId === effectivePlayerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
+            ownerName:
+              territory.ownerId === null
+                ? ""
+                : territory.ownerId === effectivePlayerId
+                  ? "Bạn"
+                  : (territory.ownerName ?? territory.ownerId),
             ownerFlagColor: territory.ownerFlagColor,
             ownerEmblem: territory.ownerEmblem,
             ownerAllianceTag: territory.ownerAllianceTag,
@@ -1180,7 +2061,9 @@ export function GameApp({
             territories: conquestMode ? [] : territories,
             clearings: conquestMode ? [] : world.clearings,
             marches: conquestMode ? [] : world.marches,
-            battles: conquestMode ? [] : mapServerBattlesForClient(world.battles || []),
+            battles: conquestMode
+              ? []
+              : mapServerBattlesForClient(world.battles || []),
             towns: conquestMode ? [] : world.towns,
             resources: world.resources,
             newbieShieldUntil: world.newbieShieldUntil,
@@ -1192,40 +2075,87 @@ export function GameApp({
             if (!cancelled && world.marches?.length) {
               world.marches.forEach((march: any) => {
                 try {
-                  engineRef.current?.handleAction("applyBackendMarch", { march });
+                  engineRef.current?.handleAction("applyBackendMarch", {
+                    march,
+                  });
                 } catch (e) {
                   console.warn("Failed to re-apply march on second pass:", e);
                 }
               });
-              const ownMarch = world.marches.find((march: any) => march.ownerId === playerId);
+              const ownMarch = world.marches.find(
+                (march: any) => march.ownerId === playerId,
+              );
               if (ownMarch) {
-                engineRef.current?.handleAction("focusBackendMarch", { marchId: ownMarch.id });
+                engineRef.current?.handleAction("focusBackendMarch", {
+                  marchId: ownMarch.id,
+                });
               } else {
-                const ownClearing = world.clearings.find((clearing: any) => clearing.playerId === playerId);
+                const ownClearing = world.clearings.find(
+                  (clearing: any) => clearing.playerId === playerId,
+                );
                 if (ownClearing) {
-                  engineRef.current?.handleAction("focusBackendClearing", { territoryId: ownClearing.territoryId });
+                  engineRef.current?.handleAction("focusBackendClearing", {
+                    territoryId: ownClearing.territoryId,
+                  });
                 }
               }
             }
           }, 180);
           applyResourceSnapshot(world);
           setNationStatus(world.nationStatus || null);
-          setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
+          setServerTowns(
+            (world.towns || []).map((town: any) =>
+              normalizeTownForClient(town),
+            ),
+          );
           setInitialSyncReady(true);
           setWorldActivity({
             marches: world.marches,
             clearings: world.clearings,
             battles: mapServerBattlesForClient(world.battles || []),
-            territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
+            territoryById: Object.fromEntries(
+              world.territories.map((territory: any) => [
+                serverToEngineTerritoryId(territory.id),
+                territory,
+              ]),
+            ),
           });
           setServerHud(summarizeBackendHud(world, playerId, world.resources));
           setMissions([
-            { text: "SỞ HỮU 3 LÃNH THỔ", value: Math.min(territories.filter((territory) => territory.ownerCode === 1).length, 3), goal: 3 },
-            { text: "CÓ 1 ĐẠO QUÂN ĐANG HÀNH QUÂN", value: Math.min(world.marches.filter((march: any) => march.ownerId === playerId).length, 1), goal: 1 },
-            { text: "HOÀN TẤT 1 XÂY THÀNH", value: Math.min(territories.filter((territory) => territory.ownerCode === 1).length, 1), goal: 1 }
+            {
+              text: "SỞ HỮU 3 LÃNH THỔ",
+              value: Math.min(
+                territories.filter((territory) => territory.ownerCode === 1)
+                  .length,
+                3,
+              ),
+              goal: 3,
+            },
+            {
+              text: "CÓ 1 ĐẠO QUÂN ĐANG HÀNH QUÂN",
+              value: Math.min(
+                world.marches.filter((march: any) => march.ownerId === playerId)
+                  .length,
+                1,
+              ),
+              goal: 1,
+            },
+            {
+              text: "HOÀN TẤT 1 XÂY THÀNH",
+              value: Math.min(
+                territories.filter((territory) => territory.ownerCode === 1)
+                  .length,
+                1,
+              ),
+              goal: 1,
+            },
           ]);
-          const hasOwnedTerritory = territories.some((territory) => territory.ownerCode === 1);
-          const hasOwnClearing = world.clearings.some((clearing: any) => clearing.playerId === playerId);
+          const hasOwnedTerritory = territories.some(
+            (territory) => territory.ownerCode === 1,
+          );
+          const hasOwnClearing = world.clearings.some(
+            (clearing: any) => clearing.playerId === playerId,
+          );
           if (!hasOwnedTerritory && !hasOwnClearing) {
             localStorage.setItem(ONBOARDING_KEY, "1");
             setKingdomCreationRegion(null);
@@ -1233,24 +2163,47 @@ export function GameApp({
           if (localStorage.getItem(ONBOARDING_KEY) === "1") {
             const owned = territories.find((t) => t.ownerCode === 1);
             if (owned) {
-              engineRef.current?.handleAction("setStarterRegion", { regionId: owned.id, zoom: 1.18 });
+              engineRef.current?.handleAction("setStarterRegion", {
+                regionId: owned.id,
+                zoom: 1.18,
+              });
               localStorage.removeItem(ONBOARDING_KEY);
             } else {
-              const starterRegionId = pickStarterTerritoryId(playerId, territories);
+              const starterRegionId = pickStarterTerritoryId(
+                playerId,
+                territories,
+              );
               if (starterRegionId !== null) {
-                engineRef.current?.handleAction("setStarterRegion", { regionId: starterRegionId, zoom: 1.18 });
+                engineRef.current?.handleAction("setStarterRegion", {
+                  regionId: starterRegionId,
+                  zoom: 1.18,
+                });
               }
             }
           }
           setLoadingText("ĐÃ ĐỒNG BỘ XONG, ĐANG VÀO GAME");
           enterGame("ĐÃ ĐỒNG BỘ XONG, ĐANG VÀO GAME");
           getGameConfig()
-            .then((config) => engineRef.current?.handleAction("applyConfig", { config }))
-            .catch((err) => console.warn("Could not load game config, using engine defaults:", err));
+            .then((config) =>
+              engineRef.current?.handleAction("applyConfig", { config }),
+            )
+            .catch((err) =>
+              console.warn(
+                "Could not load game config, using engine defaults:",
+                err,
+              ),
+            );
         })
         .catch((err) => {
-          console.warn("Could not load backend world ownership, fallback to offline engine:", err);
-          if (err?.message?.includes("401") || err?.message?.includes("unauthorized") || err?.message?.includes("not_found")) {
+          console.warn(
+            "Could not load backend world ownership, fallback to offline engine:",
+            err,
+          );
+          if (
+            err?.message?.includes("401") ||
+            err?.message?.includes("unauthorized") ||
+            err?.message?.includes("not_found")
+          ) {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(PLAYER_ID_KEY);
             setToken(null);
@@ -1275,382 +2228,562 @@ export function GameApp({
 
   useEffect(() => {
     if (!isAuthenticated || !token || !playerId || !initialSyncReady) return;
-    return connectGameSocket(token, (event) => {
-      if (event.type === "world_chat") {
-        setChatLog((prev) => [...prev.slice(-24), `[THẾ GIỚI] ${event.playerName}: ${event.message}`]);
-        return;
-      }
-      if (event.type === "hello") {
-        setSocketOnline(true);
-        socketHelloCountRef.current += 1;
-        if (socketHelloCountRef.current > 1) {
-          // Đây là lần kết nối LẠI (sau server reload / mất mạng)
-          // → Fetch toàn bộ game state để phục hồi:
-          //   quân đang hành quân, xây thành đang chạy, trận đánh v.v.
-          // Delay nhỏ để WebSocket handshake hoàn tất trước.
-          setTimeout(() => refreshGameStateFromServer("socket-reconnect", true), 500);
+    return connectGameSocket(
+      token,
+      (event) => {
+        if (event.type === "world_chat") {
+          setChatLog((prev) => [
+            ...prev.slice(-24),
+            `[THẾ GIỚI] ${event.playerName}: ${event.message}`,
+          ]);
+          return;
         }
-      }
-      if (event.type === "player_state_updated") {
-        applyRealtimePlayerState(event);
-      }
-      if (event.type === "troop_recovery_updated") {
-        applyRealtimePlayerState(event);
-        const recovered = event.updates.reduce((sum, update) => sum + update.recovered, 0);
-        if (recovered > 0) {
-          setToastMessage(`ĐÃ BỔ SUNG ${recovered} QUÂN TỪ CÁC LÃNH THỔ`);
-        }
-        return;
-      }
-      if ("version" in event && typeof event.version === "number") {
-        const currentVersion = useGameStore.getState().syncVersion;
-        if (event.version < currentVersion) return;
-        setSyncVersion(Math.max(currentVersion, event.version));
-      }
-      if (event.type === "nation_state_updated") {
-        setNationStatus(event.state);
-        syncShopInventoryToEngine(useGameStore.getState().shopInventory, event.state);
-        return;
-      }
-      if (event.type === "army_state_updated") {
-        setArmyState(event.state);
-        return;
-      }
-      if (event.type === "battle_report_created") {
-        setBattleReports((current) => [event.report, ...current.filter((report) => report.id !== event.report.id)]);
-        setReportUnreadCount(event.unreadCount);
-        const won = event.report.winnerId === playerId;
-        pushRealtimeToast({
-          id: `report-${event.report.id}`,
-          title: won ? "CHIẾN THẮNG" : "CHIẾN BÁO MỚI",
-          body: `${event.report.territoryName}: ${won ? "quân ta giành thắng lợi" : "trận đánh đã kết thúc"}.`,
-          report: event.report,
-        });
-        return;
-      }
-      if (event.type === "battle_report_read") {
-        setReportUnreadCount(event.unreadCount);
-        if (event.reportId) {
-          setBattleReports((current) => current.map((report) => report.id === event.reportId ? { ...report, read: true } : report));
-        }
-        return;
-      }
-      if (event.type === "mail_received") {
-        setInbox((current) => [event.mail, ...current.filter((mail) => mail.id !== event.mail.id)]);
-        setMailUnreadCount(event.unreadCount);
-        if (event.mail.title !== "Báo cáo tài nguyên offline") {
-          pushRealtimeToast({
-            id: `mail-${event.mail.id}`,
-            title: `THƯ MỚI TỪ ${event.mail.senderName}`,
-            body: event.mail.title,
-          });
-        }
-        return;
-      }
-      if (event.type === "mail_read") {
-        setMailUnreadCount(event.unreadCount);
-        if (event.mailId) {
-          setInbox((current) => current.map((mail) => mail.id === event.mailId ? { ...mail, readAt: event.serverTime } : mail));
-        }
-        return;
-      }
-      if (event.type === "shop_purchase_completed") {
-        setShopInventory(event.inventory);
-        syncShopInventoryToEngine(event.inventory);
-        applyResourceSnapshot({ resources: event.resources });
-        engineRef.current?.handleAction("syncResources", { resources: event.resources });
-        return;
-      }
-      if (event.type === "shop_inventory_updated") {
-        setShopInventory(event.inventory);
-        syncShopInventoryToEngine(event.inventory);
-        return;
-      }
-      if (event.type === "battle_resolved") {
-        if (event.territory) {
-          const engTerritoryId = serverToEngineTerritoryId(event.territory.id);
-          const isMine = event.territory.ownerId === playerId;
-          engineRef.current?.handleAction("applyWorldOwnership", {
-            territories: [{
-              id: engTerritoryId,
-              ownerCode: isMine ? 1 : (event.territory.ownerId ? 2 : 0),
-              ownerId: event.territory.ownerId,
-              ownerName: isMine ? "Bạn" : event.territory.ownerName ?? "Đối thủ",
-              ownerFlagColor: event.territory.ownerFlagColor,
-              ownerEmblem: event.territory.ownerEmblem,
-              ownerAllianceTag: event.territory.ownerAllianceTag,
-              ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
-            }],
-          });
-        }
-
-        if (event.report) {
-          const rep = event.report;
-          const isAttacker = rep.attackerId === playerId;
-          const isDefender = rep.defenderId === playerId;
-          if (isAttacker || isDefender) {
-            const isWinner = isAttacker ? rep.isAttackerWin : !rep.isAttackerWin;
-            const reportTitle = isWinner
-              ? `CHIẾN THẮNG TẠI LÃNH THỔ #${rep.regionId + 1}`
-              : `THẤT THỦ TẠI LÃNH THỔ #${rep.regionId + 1}`;
-            const myCasualties = isAttacker ? rep.attacker?.casualty?.power : rep.defender?.casualty?.power;
-            const reportBody = isWinner
-              ? `Bạn đã dành chiến thắng! Tiêu diệt quân đối phương. Tổn thất của bạn: -${myCasualties || 0} quân.`
-              : `Bị đánh bại tại trận địa. Quân số tổn thất: -${myCasualties || 0} quân.`;
-
-            addWarReport({
-              id: rep._id || `report-${Date.now()}`,
-              kind: "battle",
-              title: reportTitle,
-              body: reportBody,
-              meta: `Bấm để xem chi tiết tổn thất và quân còn lại`,
-              detailReport: rep,
-            });
-
-            showGameError(isWinner ? `CHIẾN THẮNG! BẠN ĐÃ THẮNG TRẬN TẠI LÃNH THỔ #${rep.regionId + 1}` : `THẤT THỦ! LÃNH THỔ #${rep.regionId + 1} BỊ ĐÁNH BẠI`);
+        if (event.type === "hello") {
+          setSocketOnline(true);
+          socketHelloCountRef.current += 1;
+          if (socketHelloCountRef.current > 1) {
+            // Đây là lần kết nối LẠI (sau server reload / mất mạng)
+            // → Fetch toàn bộ game state để phục hồi:
+            //   quân đang hành quân, xây thành đang chạy, trận đánh v.v.
+            // Delay nhỏ để WebSocket handshake hoàn tất trước.
+            setTimeout(
+              () => refreshGameStateFromServer("socket-reconnect", true),
+              500,
+            );
           }
         }
-      }
-      if (event.type === "territory_claimed") {
-        addWarReport({
-          id: `socket-claim-${event.territory.id}-${event.territory.ownerId}`,
-          kind: "clearing",
-          title: `${event.territory.ownerId === playerId ? "Bạn" : event.territory.ownerName || "Người chơi"} đã chiếm ${territoryLabel(serverToEngineTerritoryId(event.territory.id))}`,
-          body: event.territory.ownerId === playerId
-            ? "Xây thành hoàn tất. Thành trì mới đã sẵn sàng nhận lệnh."
-            : "Một lãnh thổ trên thế giới vừa đổi chủ.",
-          meta: `Tọa độ X:${event.territory.x} Y:${event.territory.y}`,
-          isMine: event.territory.ownerId === playerId,
-        });
+        if (event.type === "player_state_updated") {
+          applyRealtimePlayerState(event);
+        }
+        if (event.type === "troop_recovery_updated") {
+          applyRealtimePlayerState(event);
+          const recovered = event.updates.reduce(
+            (sum, update) => sum + update.recovered,
+            0,
+          );
+          if (recovered > 0) {
+            setToastMessage(`ĐÃ BỔ SUNG ${recovered} QUÂN TỪ CÁC LÃNH THỔ`);
+          }
+          return;
+        }
+        if ("version" in event && typeof event.version === "number") {
+          const currentVersion = useGameStore.getState().syncVersion;
+          if (event.version < currentVersion) return;
+          setSyncVersion(Math.max(currentVersion, event.version));
+        }
+        if (event.type === "nation_state_updated") {
+          setNationStatus(event.state);
+          syncShopInventoryToEngine(
+            useGameStore.getState().shopInventory,
+            event.state,
+          );
+          return;
+        }
+        if (event.type === "army_state_updated") {
+          setArmyState(event.state);
+          return;
+        }
+        if (event.type === "battle_report_created") {
+          setBattleReports((current) => [
+            event.report,
+            ...current.filter((report) => report.id !== event.report.id),
+          ]);
+          setReportUnreadCount(event.unreadCount);
+          const won = event.report.winnerId === playerId;
+          pushRealtimeToast({
+            id: `report-${event.report.id}`,
+            title: won ? "CHIẾN THẮNG" : "CHIẾN BÁO MỚI",
+            body: `${event.report.territoryName}: ${won ? "quân ta giành thắng lợi" : "trận đánh đã kết thúc"}.`,
+            report: event.report,
+          });
+          return;
+        }
+        if (event.type === "battle_report_read") {
+          setReportUnreadCount(event.unreadCount);
+          if (event.reportId) {
+            setBattleReports((current) =>
+              current.map((report) =>
+                report.id === event.reportId
+                  ? { ...report, read: true }
+                  : report,
+              ),
+            );
+          }
+          return;
+        }
+        if (event.type === "mail_received") {
+          setInbox((current) => [
+            event.mail,
+            ...current.filter((mail) => mail.id !== event.mail.id),
+          ]);
+          setMailUnreadCount(event.unreadCount);
+          if (event.mail.title !== "Báo cáo tài nguyên offline") {
+            pushRealtimeToast({
+              id: `mail-${event.mail.id}`,
+              title: `THƯ MỚI TỪ ${event.mail.senderName}`,
+              body: event.mail.title,
+            });
+          }
+          return;
+        }
+        if (event.type === "mail_read") {
+          setMailUnreadCount(event.unreadCount);
+          if (event.mailId) {
+            setInbox((current) =>
+              current.map((mail) =>
+                mail.id === event.mailId
+                  ? { ...mail, readAt: event.serverTime }
+                  : mail,
+              ),
+            );
+          }
+          return;
+        }
+        if (event.type === "shop_purchase_completed") {
+          setShopInventory(event.inventory);
+          syncShopInventoryToEngine(event.inventory);
+          applyResourceSnapshot({ resources: event.resources });
+          engineRef.current?.handleAction("syncResources", {
+            resources: event.resources,
+          });
+          return;
+        }
+        if (event.type === "shop_inventory_updated") {
+          setShopInventory(event.inventory);
+          syncShopInventoryToEngine(event.inventory);
+          return;
+        }
+        if (event.type === "battle_resolved") {
+          if (event.territory) {
+            const engTerritoryId = serverToEngineTerritoryId(
+              event.territory.id,
+            );
+            const isMine = event.territory.ownerId === playerId;
+            engineRef.current?.handleAction("applyWorldOwnership", {
+              territories: [
+                {
+                  id: engTerritoryId,
+                  ownerCode: isMine ? 1 : event.territory.ownerId ? 2 : 0,
+                  ownerId: event.territory.ownerId,
+                  ownerName: isMine
+                    ? "Bạn"
+                    : (event.territory.ownerName ?? "Đối thủ"),
+                  ownerFlagColor: event.territory.ownerFlagColor,
+                  ownerEmblem: event.territory.ownerEmblem,
+                  ownerAllianceTag: event.territory.ownerAllianceTag,
+                  ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                },
+              ],
+            });
+          }
+
+          if (event.report) {
+            const rep = event.report;
+            const isAttacker = rep.attackerId === playerId;
+            const isDefender = rep.defenderId === playerId;
+            if (isAttacker || isDefender) {
+              const isWinner = isAttacker
+                ? rep.isAttackerWin
+                : !rep.isAttackerWin;
+              const reportTitle = isWinner
+                ? `CHIẾN THẮNG TẠI LÃNH THỔ #${rep.regionId + 1}`
+                : `THẤT THỦ TẠI LÃNH THỔ #${rep.regionId + 1}`;
+              const myCasualties = isAttacker
+                ? rep.attacker?.casualty?.power
+                : rep.defender?.casualty?.power;
+              const reportBody = isWinner
+                ? `Bạn đã dành chiến thắng! Tiêu diệt quân đối phương. Tổn thất của bạn: -${myCasualties || 0} quân.`
+                : `Bị đánh bại tại trận địa. Quân số tổn thất: -${myCasualties || 0} quân.`;
+
+              addWarReport({
+                id: rep._id || `report-${Date.now()}`,
+                kind: "battle",
+                title: reportTitle,
+                body: reportBody,
+                meta: `Bấm để xem chi tiết tổn thất và quân còn lại`,
+                detailReport: rep,
+              });
+
+              showGameError(
+                isWinner
+                  ? `CHIẾN THẮNG! BẠN ĐÃ THẮNG TRẬN TẠI LÃNH THỔ #${rep.regionId + 1}`
+                  : `THẤT THỦ! LÃNH THỔ #${rep.regionId + 1} BỊ ĐÁNH BẠI`,
+              );
+            }
+          }
+        }
+        if (event.type === "territory_claimed") {
+          addWarReport({
+            id: `socket-claim-${event.territory.id}-${event.territory.ownerId}`,
+            kind: "clearing",
+            title: `${event.territory.ownerId === playerId ? "Bạn" : event.territory.ownerName || "Người chơi"} đã chiếm ${territoryLabel(serverToEngineTerritoryId(event.territory.id))}`,
+            body:
+              event.territory.ownerId === playerId
+                ? "Xây thành hoàn tất. Thành trì mới đã sẵn sàng nhận lệnh."
+                : "Một lãnh thổ trên thế giới vừa đổi chủ.",
+            meta: `Tọa độ X:${event.territory.x} Y:${event.territory.y}`,
+            isMine: event.territory.ownerId === playerId,
+          });
           if (event.territory.ownerId === playerId) {
             addPrivateReportMail(
-            `Lãnh thổ mới: ${territoryLabel(serverToEngineTerritoryId(event.territory.id))}`,
-            "Xây thành hoàn tất qua đồng bộ server. Vùng đất đã thuộc quyền kiểm soát của bạn."
+              `Lãnh thổ mới: ${territoryLabel(serverToEngineTerritoryId(event.territory.id))}`,
+              "Xây thành hoàn tất qua đồng bộ server. Vùng đất đã thuộc quyền kiểm soát của bạn.",
             );
             refreshGameStateWithRetry("stronghold-completed", 3, 300);
           }
-        engineRef.current?.handleAction("applyWorldOwnership", {
-          territories: [{
-            id: serverToEngineTerritoryId(event.territory.id),
-            ownerCode: event.territory.ownerId === playerId ? 1 : 2,
-            ownerId: event.territory.ownerId,
-            ownerName: event.territory.ownerId === playerId ? "Bạn" : event.territory.ownerName ?? event.territory.ownerId ?? "Đối thủ",
-            ownerFlagColor: event.territory.ownerFlagColor,
-            ownerEmblem: event.territory.ownerEmblem,
-            ownerAllianceTag: event.territory.ownerAllianceTag,
-            ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
-          }],
-        });
-        setWorldActivity((prev) => ({
-          ...prev,
-          clearings: prev.clearings.filter((clearing) => clearing.territoryId !== serverToEngineTerritoryId(event.territory.id)),
-          territoryById: {
-            ...prev.territoryById,
-            [serverToEngineTerritoryId(event.territory.id)]: event.territory,
-          },
-        }));
-        setServerHud((prev) => ({
-          ...prev,
-          ownedTerritories: prev.ownedTerritories + (event.territory.ownerId === playerId ? 1 : 0),
-          enemyTerritories: prev.enemyTerritories + (event.territory.ownerId && event.territory.ownerId !== playerId ? 1 : 0),
-          activeClearings: Math.max(0, prev.activeClearings - 1),
-          ownClearings: Math.max(0, prev.ownClearings - (event.territory.ownerId === playerId ? 1 : 0)),
-          lastSync: Date.now(),
-        }));
-      }
-      if (event.type === "territory_clearing_started") {
-        addWarReport({
-          id: `socket-clearing-${event.clearing.territoryId}-${event.clearing.playerId}`,
-          kind: "clearing",
-          title: `${event.clearing.playerId === playerId ? "Bạn" : "Người chơi"} bắt đầu xây thành ${territoryLabel(serverToEngineTerritoryId(event.clearing.territoryId))}`,
-          body: "Một nông dân đã được điều động tới vùng đất hoang. Khi hoàn tất, lãnh thổ sẽ đổi chủ.",
-          meta: `Hoàn tất sau ${formatTimeLeft(event.clearing.completesAt)}`,
-          isMine: event.clearing.playerId === playerId,
-        });
-        engineRef.current?.handleAction("applyBackendClearing", { clearing: event.clearing });
-        setWorldActivity((prev) => ({
-          ...prev,
-          clearings: [
-            ...prev.clearings.filter((clearing) => clearing.territoryId !== event.clearing.territoryId),
-            event.clearing,
-          ],
-        }));
-        setServerHud((prev) => ({
-          ...prev,
-          activeClearings: prev.activeClearings + 1,
-          ownClearings: prev.ownClearings + (event.clearing.playerId === playerId ? 1 : 0),
-          lastSync: Date.now(),
-        }));
-      }
-      if (event.type === "territory_clearing_cancelled") {
-        const canvasId = serverToEngineTerritoryId(event.territoryId);
-        engineRef.current?.handleAction("cancelClaimRegion", canvasId);
-        setWorldActivity((prev) => ({
-          ...prev,
-          clearings: prev.clearings.filter((clearing) => clearing.territoryId !== event.territoryId),
-        }));
-        setServerHud((prev) => ({
-          ...prev,
-          activeClearings: Math.max(0, prev.activeClearings - 1),
-          ownClearings: Math.max(0, prev.ownClearings - (event.playerId === playerId ? 1 : 0)),
-          lastSync: Date.now(),
-        }));
-      }
-      if (event.type === "march_created") {
-        addWarReport({
-          id: `socket-march-${event.march.id}`,
-          kind: event.march.kind === "attack" ? "battle" : "march",
-          title: `${event.march.ownerId === playerId ? "Bạn" : "Đối thủ"} ${event.march.kind === "reinforce" ? "gửi tiếp viện" : "phát binh"} đến ${territoryLabel(serverToEngineTerritoryId(event.march.toTerritoryId))}`,
-          body: `${formatNum(event.march.troops || 0)} quân đang hành quân bằng ${event.march.usesShip ? "đường biển" : "đường bộ"}.`,
-          meta: `${event.march.distanceKm ?? 0}km · đến ${formatTimeLeft(event.march.arrivesAt)}`,
-          isMine: event.march.ownerId === playerId,
-        });
-        if (event.march.ownerId === playerId) {
-          addPrivateReportMail(
-            event.march.kind === "reinforce" ? "Lệnh tiếp viện đã xuất phát" : "Lệnh tấn công đã xuất phát",
-            `${formatNum(event.march.troops || 0)} quân đang di chuyển tới ${territoryLabel(serverToEngineTerritoryId(event.march.toTerritoryId))}. Dự kiến đến nơi sau ${formatTimeLeft(event.march.arrivesAt)}.`
-          );
-        }
-        engineRef.current?.handleAction("applyBackendMarch", { march: event.march });
-        if (event.sourceTown && event.march.ownerId === playerId) {
-          const normalized = normalizeTownForClient(event.sourceTown);
-          setServerTowns((prev) => [
-            ...prev.filter((town) => town.id !== normalized.id),
-            normalized,
-          ]);
-          engineRef.current?.handleAction("applyBackendTownSnapshots", { towns: [normalized] });
-        }
-        setWorldActivity((prev) => ({
-          ...prev,
-          marches: [
-            ...prev.marches.filter((march) => march.id !== event.march.id),
-            event.march,
-          ],
-        }));
-        setToastMessage(event.march.ownerId === playerId ? "Lệnh hành quân đã gửi lên server" : "Có đội quân đang hành quân trên bản đồ");
-        setServerHud((prev) => ({
-          ...prev,
-          activeMarches: prev.activeMarches + 1,
-          ownMarches: prev.ownMarches + (event.march.ownerId === playerId ? 1 : 0),
-          outboundTroops: prev.outboundTroops + (event.march.ownerId === playerId ? event.march.troops || 0 : 0),
-          lastSync: Date.now(),
-        }));
-      }
-      if (event.type === "march_removed") {
-        engineRef.current?.handleAction("removeBackendMarch", { marchId: event.marchId });
-        setWorldActivity((prev) => ({
-          ...prev,
-          marches: prev.marches.filter((march) => (march.id || march._id || march.marchId) !== event.marchId),
-        }));
-        setServerHud((prev) => ({ ...prev, lastSync: Date.now() }));
-      }
-      if (event.type === "battle_started") {
-        const isMyBattle = event.battle.attackerId === playerId || event.battle.defenderId === playerId;
-        addWarReport({
-          id: `socket-battle-${event.battle.id}`,
-          kind: "battle",
-          title: `Công thành ${territoryLabel(serverToEngineTerritoryId(event.battle.regionId))}`,
-          body: `Công ${formatNum(event.battle.attackerPower)} / Thủ ${formatNum(event.battle.defenderPower)}. Trận đánh sẽ do server tổng kết.`,
-          meta: `Kết thúc sau ${formatTimeLeft(event.battle.resolvesAt)}`,
-          isMine: isMyBattle,
-        });
-        setWorldActivity((prev) => ({
-          ...prev,
-          marches: event.consumedMarchId
-            ? prev.marches.filter((march) => (march.id || march._id || march.marchId) !== event.consumedMarchId)
-            : prev.marches,
-          battles: (() => {
-            const incoming = { ...event.battle, regionId: serverToEngineTerritoryId(event.battle.regionId) };
-            const current = prev.battles.find((battle) => battle.id === event.battle.id);
-            if (!isNewerBattleSnapshot(incoming, current)) return prev.battles;
-            return [...prev.battles.filter((battle) => battle.id !== event.battle.id), incoming];
-          })(),
-        }));
-        if (event.consumedMarchId) {
-          engineRef.current?.handleAction("removeBackendMarch", { marchId: event.consumedMarchId });
-        }
-        engineRef.current?.handleAction("applyBackendBattles", { battles: [event.battle], merge: true });
-      }
-      if (event.type === "battle_state_updated") {
-        const battles = mapServerBattlesForClient(event.battles);
-        setWorldActivity((prev) => {
-          const currentById = new Map(prev.battles.map((battle: any) => [battle.id, battle]));
-          return {
-            ...prev,
-            battles: battles.map((battle: any) => {
-              const current = currentById.get(battle.id);
-              return isNewerBattleSnapshot(battle, current) ? battle : current;
-            }),
-          };
-        });
-        engineRef.current?.handleAction("applyBackendBattles", { battles: event.battles, merge: false });
-        return;
-      }
-      if (event.type === "battle_resolved") {
-        if (event.territory) {
-          const engineRegId = serverToEngineTerritoryId(event.territory.id);
-          const isMe = event.territory.ownerId === playerId;
-          const ownerCode = event.territory.ownerId === null ? 0 : isMe ? 1 : 2;
           engineRef.current?.handleAction("applyWorldOwnership", {
-            territories: [{
-              id: engineRegId,
-              ownerCode,
-              ownerId: event.territory.ownerId,
-              ownerName: isMe ? "Bạn" : (event.territory.ownerName ?? "Đối thủ"),
-              ownerFlagColor: event.territory.ownerFlagColor,
-              ownerEmblem: event.territory.ownerEmblem,
-              ownerAllianceTag: event.territory.ownerAllianceTag,
-              ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
-            }],
+            territories: [
+              {
+                id: serverToEngineTerritoryId(event.territory.id),
+                ownerCode: event.territory.ownerId === playerId ? 1 : 2,
+                ownerId: event.territory.ownerId,
+                ownerName:
+                  event.territory.ownerId === playerId
+                    ? "Bạn"
+                    : (event.territory.ownerName ??
+                      event.territory.ownerId ??
+                      "Đối thủ"),
+                ownerFlagColor: event.territory.ownerFlagColor,
+                ownerEmblem: event.territory.ownerEmblem,
+                ownerAllianceTag: event.territory.ownerAllianceTag,
+                ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+              },
+            ],
+          });
+          setWorldActivity((prev) => ({
+            ...prev,
+            clearings: prev.clearings.filter(
+              (clearing) =>
+                clearing.territoryId !==
+                serverToEngineTerritoryId(event.territory.id),
+            ),
+            territoryById: {
+              ...prev.territoryById,
+              [serverToEngineTerritoryId(event.territory.id)]: event.territory,
+            },
+          }));
+          setServerHud((prev) => ({
+            ...prev,
+            ownedTerritories:
+              prev.ownedTerritories +
+              (event.territory.ownerId === playerId ? 1 : 0),
+            enemyTerritories:
+              prev.enemyTerritories +
+              (event.territory.ownerId && event.territory.ownerId !== playerId
+                ? 1
+                : 0),
+            activeClearings: Math.max(0, prev.activeClearings - 1),
+            ownClearings: Math.max(
+              0,
+              prev.ownClearings -
+                (event.territory.ownerId === playerId ? 1 : 0),
+            ),
+            lastSync: Date.now(),
+          }));
+        }
+        if (event.type === "territory_clearing_started") {
+          addWarReport({
+            id: `socket-clearing-${event.clearing.territoryId}-${event.clearing.playerId}`,
+            kind: "clearing",
+            title: `${event.clearing.playerId === playerId ? "Bạn" : "Người chơi"} bắt đầu xây thành ${territoryLabel(serverToEngineTerritoryId(event.clearing.territoryId))}`,
+            body: "Một nông dân đã được điều động tới vùng đất hoang. Khi hoàn tất, lãnh thổ sẽ đổi chủ.",
+            meta: `Hoàn tất sau ${formatTimeLeft(event.clearing.completesAt)}`,
+            isMine: event.clearing.playerId === playerId,
+          });
+          engineRef.current?.handleAction("applyBackendClearing", {
+            clearing: event.clearing,
+          });
+          setWorldActivity((prev) => ({
+            ...prev,
+            clearings: [
+              ...prev.clearings.filter(
+                (clearing) =>
+                  clearing.territoryId !== event.clearing.territoryId,
+              ),
+              event.clearing,
+            ],
+          }));
+          setServerHud((prev) => ({
+            ...prev,
+            activeClearings: prev.activeClearings + 1,
+            ownClearings:
+              prev.ownClearings +
+              (event.clearing.playerId === playerId ? 1 : 0),
+            lastSync: Date.now(),
+          }));
+        }
+        if (event.type === "territory_clearing_cancelled") {
+          const canvasId = serverToEngineTerritoryId(event.territoryId);
+          engineRef.current?.handleAction("cancelClaimRegion", canvasId);
+          setWorldActivity((prev) => ({
+            ...prev,
+            clearings: prev.clearings.filter(
+              (clearing) => clearing.territoryId !== event.territoryId,
+            ),
+          }));
+          setServerHud((prev) => ({
+            ...prev,
+            activeClearings: Math.max(0, prev.activeClearings - 1),
+            ownClearings: Math.max(
+              0,
+              prev.ownClearings - (event.playerId === playerId ? 1 : 0),
+            ),
+            lastSync: Date.now(),
+          }));
+        }
+        if (event.type === "march_created") {
+          addWarReport({
+            id: `socket-march-${event.march.id}`,
+            kind: event.march.kind === "attack" ? "battle" : "march",
+            title: `${event.march.ownerId === playerId ? "Bạn" : "Đối thủ"} ${event.march.kind === "reinforce" ? "gửi tiếp viện" : "phát binh"} đến ${territoryLabel(serverToEngineTerritoryId(event.march.toTerritoryId))}`,
+            body: `${formatNum(event.march.troops || 0)} quân đang hành quân bằng ${event.march.usesShip ? "đường biển" : "đường bộ"}.`,
+            meta: `${event.march.distanceKm ?? 0}km · đến ${formatTimeLeft(event.march.arrivesAt)}`,
+            isMine: event.march.ownerId === playerId,
+          });
+          if (event.march.ownerId === playerId) {
+            addPrivateReportMail(
+              event.march.kind === "reinforce"
+                ? "Lệnh tiếp viện đã xuất phát"
+                : "Lệnh tấn công đã xuất phát",
+              `${formatNum(event.march.troops || 0)} quân đang di chuyển tới ${territoryLabel(serverToEngineTerritoryId(event.march.toTerritoryId))}. Dự kiến đến nơi sau ${formatTimeLeft(event.march.arrivesAt)}.`,
+            );
+          }
+          engineRef.current?.handleAction("applyBackendMarch", {
+            march: event.march,
+          });
+          if (event.sourceTown && event.march.ownerId === playerId) {
+            const normalized = normalizeTownForClient(event.sourceTown);
+            setServerTowns((prev) => [
+              ...prev.filter((town) => town.id !== normalized.id),
+              normalized,
+            ]);
+            engineRef.current?.handleAction("applyBackendTownSnapshots", {
+              towns: [normalized],
+            });
+          }
+          setWorldActivity((prev) => ({
+            ...prev,
+            marches: [
+              ...prev.marches.filter((march) => march.id !== event.march.id),
+              event.march,
+            ],
+          }));
+          setToastMessage(
+            event.march.ownerId === playerId
+              ? "Lệnh hành quân đã gửi lên server"
+              : "Có đội quân đang hành quân trên bản đồ",
+          );
+          setServerHud((prev) => ({
+            ...prev,
+            activeMarches: prev.activeMarches + 1,
+            ownMarches:
+              prev.ownMarches + (event.march.ownerId === playerId ? 1 : 0),
+            outboundTroops:
+              prev.outboundTroops +
+              (event.march.ownerId === playerId ? event.march.troops || 0 : 0),
+            lastSync: Date.now(),
+          }));
+        }
+        if (event.type === "march_removed") {
+          engineRef.current?.handleAction("removeBackendMarch", {
+            marchId: event.marchId,
+          });
+          setWorldActivity((prev) => ({
+            ...prev,
+            marches: prev.marches.filter(
+              (march) =>
+                (march.id || march._id || march.marchId) !== event.marchId,
+            ),
+          }));
+          setServerHud((prev) => ({ ...prev, lastSync: Date.now() }));
+        }
+        if (event.type === "battle_started") {
+          const isMyBattle =
+            event.battle.attackerId === playerId ||
+            event.battle.defenderId === playerId;
+          addWarReport({
+            id: `socket-battle-${event.battle.id}`,
+            kind: "battle",
+            title: `Công thành ${territoryLabel(serverToEngineTerritoryId(event.battle.regionId))}`,
+            body: `Công ${formatNum(event.battle.attackerPower)} / Thủ ${formatNum(event.battle.defenderPower)}. Trận đánh sẽ do server tổng kết.`,
+            meta: `Kết thúc sau ${formatTimeLeft(event.battle.resolvesAt)}`,
+            isMine: isMyBattle,
+          });
+          setWorldActivity((prev) => ({
+            ...prev,
+            marches: event.consumedMarchId
+              ? prev.marches.filter(
+                  (march) =>
+                    (march.id || march._id || march.marchId) !==
+                    event.consumedMarchId,
+                )
+              : prev.marches,
+            battles: (() => {
+              const incoming = {
+                ...event.battle,
+                regionId: serverToEngineTerritoryId(event.battle.regionId),
+              };
+              const current = prev.battles.find(
+                (battle) => battle.id === event.battle.id,
+              );
+              if (!isNewerBattleSnapshot(incoming, current))
+                return prev.battles;
+              return [
+                ...prev.battles.filter(
+                  (battle) => battle.id !== event.battle.id,
+                ),
+                incoming,
+              ];
+            })(),
+          }));
+          if (event.consumedMarchId) {
+            engineRef.current?.handleAction("removeBackendMarch", {
+              marchId: event.consumedMarchId,
+            });
+          }
+          engineRef.current?.handleAction("applyBackendBattles", {
+            battles: [event.battle],
+            merge: true,
           });
         }
-        addWarReport({
-          id: `socket-battle-resolved-${event.battleId || Date.now()}`,
-          kind: "battle",
-          title: event.winner === "attacker" ? "Công thành thắng lợi" : "Thủ thành thành công",
-          body: `${event.territory?.id !== undefined ? territoryLabel(serverToEngineTerritoryId(event.territory.id)) : "Lãnh thổ"} đã được server tổng kết.`,
-          meta: event.winner === "attacker" ? "Quyền sở hữu đã cập nhật" : "Thành vẫn được giữ",
-          isMine: event.territory?.ownerId === playerId,
-        });
-        setWorldActivity((prev) => ({
-          ...prev,
-          battles: prev.battles.filter((battle) => battle.id !== event.battleId),
-        }));
-        engineRef.current?.handleAction("removeBackendBattle", { battleId: event.battleId });
-      }
-      if (event.type === "player_eliminated" && event.playerId === playerId) {
-        localStorage.setItem(ONBOARDING_KEY, "1");
-        setKingdomCreationRegion(null);
-        setSelectedTown(null);
-        setSelectedRegion(null);
-        applyResourceSnapshot({
-          resources: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
-          resourceCapacity: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
-          productionPerSecond: { gold: 0, wood: 0, stone: 0, food: 0, iron: 0, coal: 0, sulfur: 0, gems: 0 },
-        });
-        engineRef.current?.handleAction("setToast", { message: "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI" });
-        addPrivateReportMail(
-          "Vương quốc thất thủ",
-          "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc."
-        );
-      }
-      if (event.type === "territories_pruned") {
-        refreshGameStateFromServer("territories-pruned");
-        if (event.playerId === playerId && Array.isArray(event.prunedTerritoryIds)) {
-          showGameError(`⚠️ Mắt xích lãnh thổ bị đứt! ${event.prunedTerritoryIds.length} Quân khu cô lập đã bị phá hủy hoàn toàn!`);
+        if (event.type === "battle_state_updated") {
+          const battles = mapServerBattlesForClient(event.battles);
+          setWorldActivity((prev) => {
+            const currentById = new Map(
+              prev.battles.map((battle: any) => [battle.id, battle]),
+            );
+            return {
+              ...prev,
+              battles: battles.map((battle: any) => {
+                const current = currentById.get(battle.id);
+                return isNewerBattleSnapshot(battle, current)
+                  ? battle
+                  : current;
+              }),
+            };
+          });
+          engineRef.current?.handleAction("applyBackendBattles", {
+            battles: event.battles,
+            merge: false,
+          });
+          return;
+        }
+        if (event.type === "battle_resolved") {
+          if (event.territory) {
+            const engineRegId = serverToEngineTerritoryId(event.territory.id);
+            const isMe = event.territory.ownerId === playerId;
+            const ownerCode =
+              event.territory.ownerId === null ? 0 : isMe ? 1 : 2;
+            engineRef.current?.handleAction("applyWorldOwnership", {
+              territories: [
+                {
+                  id: engineRegId,
+                  ownerCode,
+                  ownerId: event.territory.ownerId,
+                  ownerName: isMe
+                    ? "Bạn"
+                    : (event.territory.ownerName ?? "Đối thủ"),
+                  ownerFlagColor: event.territory.ownerFlagColor,
+                  ownerEmblem: event.territory.ownerEmblem,
+                  ownerAllianceTag: event.territory.ownerAllianceTag,
+                  ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                },
+              ],
+            });
+          }
+          addWarReport({
+            id: `socket-battle-resolved-${event.battleId || Date.now()}`,
+            kind: "battle",
+            title:
+              event.winner === "attacker"
+                ? "Công thành thắng lợi"
+                : "Thủ thành thành công",
+            body: `${event.territory?.id !== undefined ? territoryLabel(serverToEngineTerritoryId(event.territory.id)) : "Lãnh thổ"} đã được server tổng kết.`,
+            meta:
+              event.winner === "attacker"
+                ? "Quyền sở hữu đã cập nhật"
+                : "Thành vẫn được giữ",
+            isMine: event.territory?.ownerId === playerId,
+          });
+          setWorldActivity((prev) => ({
+            ...prev,
+            battles: prev.battles.filter(
+              (battle) => battle.id !== event.battleId,
+            ),
+          }));
+          engineRef.current?.handleAction("removeBackendBattle", {
+            battleId: event.battleId,
+          });
+        }
+        if (event.type === "player_eliminated" && event.playerId === playerId) {
+          localStorage.setItem(ONBOARDING_KEY, "1");
+          setKingdomCreationRegion(null);
+          setSelectedTown(null);
+          setSelectedRegion(null);
+          applyResourceSnapshot({
+            resources: {
+              gold: 0,
+              wood: 0,
+              stone: 0,
+              food: 0,
+              iron: 0,
+              coal: 0,
+              sulfur: 0,
+              gems: 0,
+            },
+            resourceCapacity: {
+              gold: 0,
+              wood: 0,
+              stone: 0,
+              food: 0,
+              iron: 0,
+              coal: 0,
+              sulfur: 0,
+              gems: 0,
+            },
+            productionPerSecond: {
+              gold: 0,
+              wood: 0,
+              stone: 0,
+              food: 0,
+              iron: 0,
+              coal: 0,
+              sulfur: 0,
+              gems: 0,
+            },
+          });
+          engineRef.current?.handleAction("setToast", {
+            message: "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI",
+          });
           addPrivateReportMail(
-            "Cảnh báo cô lập lãnh thổ",
-            `Mắt xích giao thông kết nối bị đứt đoạn. ${event.prunedTerritoryIds.length} Quân khu bị cô lập đằng sau đã bị giải phóng trở lại đất hoang.`
+            "Vương quốc thất thủ",
+            "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc.",
           );
         }
-      }
-      if (event.type === "world_state_hint") {
-        refreshGameStateFromServer("socket-hint");
-      }
-      if (event.type === "resync_required") {
-        refreshGameStateWithRetry(`socket-${event.reason}`, 4, 600);
-      }
-    }, setSocketOnline);
+        if (event.type === "territories_pruned") {
+          refreshGameStateFromServer("territories-pruned");
+          if (
+            event.playerId === playerId &&
+            Array.isArray(event.prunedTerritoryIds)
+          ) {
+            showGameError(
+              `⚠️ Mắt xích lãnh thổ bị đứt! ${event.prunedTerritoryIds.length} Quân khu cô lập đã bị phá hủy hoàn toàn!`,
+            );
+            addPrivateReportMail(
+              "Cảnh báo cô lập lãnh thổ",
+              `Mắt xích giao thông kết nối bị đứt đoạn. ${event.prunedTerritoryIds.length} Quân khu bị cô lập đằng sau đã bị giải phóng trở lại đất hoang.`,
+            );
+          }
+        }
+        if (event.type === "world_state_hint") {
+          refreshGameStateFromServer("socket-hint");
+        }
+        if (event.type === "resync_required") {
+          refreshGameStateWithRetry(`socket-${event.reason}`, 4, 600);
+        }
+      },
+      setSocketOnline,
+    );
   }, [isAuthenticated, token, playerId, initialSyncReady]);
 
   const handleLoginSuccess = (newToken: string, newPlayerId: string) => {
@@ -1695,12 +2828,16 @@ export function GameApp({
     (newbiePhase === "choose_banner" && newbieSelectedRegion !== null);
 
   useEffect(() => {
-    engineRef.current?.handleAction("setUiOverlayActive", { active: isUiOverlayVisible });
+    engineRef.current?.handleAction("setUiOverlayActive", {
+      active: isUiOverlayVisible,
+    });
   }, [isUiOverlayVisible]);
 
   const handleFullscreenToggle = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch((err) => console.log(err));
+      document.documentElement
+        .requestFullscreen?.()
+        .catch((err) => console.log(err));
     } else {
       document.exitFullscreen?.().catch((err) => console.log(err));
     }
@@ -1730,12 +2867,16 @@ export function GameApp({
 
   const normalizeTownForClient = (town: any) => {
     if (!town) return town;
-    const level = Math.max(1, Math.floor(Number(town.lvl ?? town.level ?? 1) || 1));
+    const level = Math.max(
+      1,
+      Math.floor(Number(town.lvl ?? town.level ?? 1) || 1),
+    );
     return {
       ...town,
       lvl: level,
       level,
-      owner: town.owner ?? (town.ownerId ? (town.ownerId === playerId ? 0 : 1) : 0),
+      owner:
+        town.owner ?? (town.ownerId ? (town.ownerId === playerId ? 0 : 1) : 0),
       buildings: { ...(town.buildings || {}) },
       storage: { ...(town.storage || {}) },
     };
@@ -1745,7 +2886,11 @@ export function GameApp({
     if (!town) return town;
     const serverTown = serverTownsById[Number(town.id)];
     const merged = { ...town, ...(serverTown || {}) };
-    if (town.owner === 0 || town.ownerCode === 1 || (playerId && town.ownerId === playerId)) {
+    if (
+      town.owner === 0 ||
+      town.ownerCode === 1 ||
+      (playerId && town.ownerId === playerId)
+    ) {
       merged.owner = 0;
       merged.ownerCode = 1;
       if (playerId) merged.ownerId = playerId;
@@ -1757,7 +2902,9 @@ export function GameApp({
     if (!town) return false;
     return Boolean(
       engineRef.current?.isPlayerOwnedTown?.(town) ||
-      (playerId && (town.ownerId === playerId || serverTownsById[Number(town.id)]?.ownerId === playerId))
+      (playerId &&
+        (town.ownerId === playerId ||
+          serverTownsById[Number(town.id)]?.ownerId === playerId)),
     );
   };
 
@@ -1775,44 +2922,84 @@ export function GameApp({
       ...(engine.getPlayerOwnedTowns?.() || []),
       ...Object.values(serverTownsById)
         .filter((town: any) => playerId && town?.ownerId === playerId)
-        .map((town: any) => ({ ...(knownTowns.find((candidate: any) => candidate.id === town.id) || {}), ...town, owner: 0 })),
-    ].filter((town, index, list) => isEligibleSourceTown(town) && list.findIndex((candidate: any) => candidate.id === town.id) === index);
+        .map((town: any) => ({
+          ...(knownTowns.find((candidate: any) => candidate.id === town.id) ||
+            {}),
+          ...town,
+          owner: 0,
+        })),
+    ].filter(
+      (town, index, list) =>
+        isEligibleSourceTown(town) &&
+        list.findIndex((candidate: any) => candidate.id === town.id) === index,
+    );
     if (ownedTowns.length > 0) {
-      const sorted = [...ownedTowns].sort((a: any, b: any) => (b.troops || 0) - (a.troops || 0));
+      const sorted = [...ownedTowns].sort(
+        (a: any, b: any) => (b.troops || 0) - (a.troops || 0),
+      );
       return mergeTownWithServer(sorted[0]);
     }
     return engine.getSourceTown?.() || null;
   };
 
-  const loadRecommendedMarchSource = async (targetRegionId: number, kind: "attack" | "reinforce" | "move") => {
+  const loadRecommendedMarchSource = async (
+    targetRegionId: number,
+    kind: "attack" | "reinforce" | "move",
+  ) => {
     if (!token || !engineRef.current) return null;
-    const result = await getMarchSourceOptions(token, engineToServerTerritoryId(targetRegionId), kind);
+    const result = await getMarchSourceOptions(
+      token,
+      engineToServerTerritoryId(targetRegionId),
+      kind,
+    );
     setMarchSourceOptions(result.sources);
-    const recommended = result.sources.find((source) => source.townId === result.recommendedTownId) ||
-      result.sources.find((source) => source.valid);
+    const recommended =
+      result.sources.find(
+        (source) => source.townId === result.recommendedTownId,
+      ) || result.sources.find((source) => source.valid);
     if (!recommended) {
-      setDeployError("Không có thành nào đủ điều kiện xuất quân tới lãnh thổ này");
+      setDeployError(
+        "Không có thành nào đủ điều kiện xuất quân tới lãnh thổ này",
+      );
       return null;
     }
     const ownedTowns = engineRef.current.getPlayerOwnedTowns?.() || [];
-    const town = ownedTowns.find((candidate: any) => Number(candidate.id) === Number(recommended.townId)) ||
-      ownedTowns.find((candidate: any) =>
-        engineToServerTerritoryId(engineRef.current?.getTownRegionId?.(candidate) ?? -1) === recommended.territoryId
+    const town =
+      ownedTowns.find(
+        (candidate: any) => Number(candidate.id) === Number(recommended.townId),
+      ) ||
+      ownedTowns.find(
+        (candidate: any) =>
+          engineToServerTerritoryId(
+            engineRef.current?.getTownRegionId?.(candidate) ?? -1,
+          ) === recommended.territoryId,
       );
     return town ? mergeTownWithServer(town) : null;
   };
 
-  function syncShopInventoryToEngine(inventory: typeof shopInventory, nation = useGameStore.getState().nationStatus) {
+  function syncShopInventoryToEngine(
+    inventory: typeof shopInventory,
+    nation = useGameStore.getState().nationStatus,
+  ) {
     const nationTowns = nation?.towns || [];
-    const explicitCapitalTowns = nationTowns.filter((town) => town.kind === "capital" || town.kind === "sub_capital");
-    const capitalTowns = explicitCapitalTowns.length > 0 ? explicitCapitalTowns : nationTowns.slice(0, 1);
+    const explicitCapitalTowns = nationTowns.filter(
+      (town) => town.kind === "capital" || town.kind === "sub_capital",
+    );
+    const capitalTowns =
+      explicitCapitalTowns.length > 0
+        ? explicitCapitalTowns
+        : nationTowns.slice(0, 1);
     const capitalTerritoryIds = capitalTowns
       .map((town) => serverToEngineTerritoryId(Number(town.territoryId)))
       .filter(Number.isFinite);
     const capitalTownIds = capitalTowns
       .map((town) => Number(town.townId))
       .filter(Number.isFinite);
-    engineRef.current?.handleAction("setShopInventory", { inventory, capitalTerritoryIds, capitalTownIds });
+    engineRef.current?.handleAction("setShopInventory", {
+      inventory,
+      capitalTerritoryIds,
+      capitalTownIds,
+    });
   }
 
   function applyPlayerSync(sync: PlayerSyncResult) {
@@ -1831,23 +3018,29 @@ export function GameApp({
 
   function applyBackendWorldState(world: any, resetBattles = false) {
     if (!playerId) return;
-          if (world.playerId && world.playerId !== playerId) {
-            localStorage.setItem(PLAYER_ID_KEY, world.playerId);
-            setPlayerId(world.playerId);
-            return;
-          }
-          if (world.activeMap === "conquest") {
-            onOpenConquest();
-            return;
-          }
+    if (world.playerId && world.playerId !== playerId) {
+      localStorage.setItem(PLAYER_ID_KEY, world.playerId);
+      setPlayerId(world.playerId);
+      return;
+    }
+    if (world.activeMap === "conquest") {
+      onOpenConquest();
+      return;
+    }
     // Always hydrate battles through the same client shape used by the
     // initial load. Raw server battles do not have the render timing fields.
     const battles = mapServerBattlesForClient(world.battles || []);
     const territories = world.territories.map((territory: any) => ({
       id: serverToEngineTerritoryId(territory.id),
-      ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
+      ownerCode:
+        territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
       ownerId: territory.ownerId,
-      ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
+      ownerName:
+        territory.ownerId === null
+          ? ""
+          : territory.ownerId === playerId
+            ? "Bạn"
+            : (territory.ownerName ?? territory.ownerId),
       ownerFlagColor: territory.ownerFlagColor,
       ownerEmblem: territory.ownerEmblem,
       ownerAllianceTag: territory.ownerAllianceTag,
@@ -1873,12 +3066,19 @@ export function GameApp({
     }
     applyResourceSnapshot(world);
     setNationStatus(world.nationStatus || null);
-    setServerTowns((world.towns || []).map((town: any) => normalizeTownForClient(town)));
+    setServerTowns(
+      (world.towns || []).map((town: any) => normalizeTownForClient(town)),
+    );
     setWorldActivity((prev) => ({
       marches: world.marches,
       clearings: world.clearings,
-      battles: world.battles ? battles : (resetBattles ? [] : prev.battles),
-      territoryById: Object.fromEntries(world.territories.map((territory: any) => [serverToEngineTerritoryId(territory.id), territory])),
+      battles: world.battles ? battles : resetBattles ? [] : prev.battles,
+      territoryById: Object.fromEntries(
+        world.territories.map((territory: any) => [
+          serverToEngineTerritoryId(territory.id),
+          territory,
+        ]),
+      ),
     }));
     setServerHud(summarizeBackendHud(world, playerId, world.resources));
   }
@@ -1890,27 +3090,47 @@ export function GameApp({
     }
     if (event.resources) {
       applyResourceSnapshot(event);
-      engineRef.current?.handleAction("syncResources", { resources: event.resources });
+      engineRef.current?.handleAction("syncResources", {
+        resources: event.resources,
+      });
     }
     if (Array.isArray(event.towns)) {
-      const towns = event.towns.map((town: any) => normalizeTownForClient(town));
+      const towns = event.towns.map((town: any) =>
+        normalizeTownForClient(town),
+      );
       setServerTowns(towns);
       engineRef.current?.handleAction("applyBackendTownSnapshots", { towns });
     }
     if (event.newbieShieldUntil !== undefined) {
-      engineRef.current?.handleAction("updateNewbieShield", { until: event.newbieShieldUntil });
+      engineRef.current?.handleAction("updateNewbieShield", {
+        until: event.newbieShieldUntil,
+      });
     }
     // Recalculate National Status HUD stats using latest world activity + fresh resources/towns
     setServerHud((prev) => {
       const activity = useGameStore.getState().worldActivity;
       const territories: any[] = Object.values(activity?.territoryById || {});
-      const marches: any[] = Array.isArray(activity?.marches) ? activity.marches : [];
-      const clearings: any[] = Array.isArray(activity?.clearings) ? activity.clearings : [];
-      const latestResources = event.resources || economyClockRef.current.resources;
-      const ownedTerritories = territories.filter((t: any) => t?.ownerId === playerId).length;
-      const enemyTerritories = territories.filter((t: any) => t?.ownerId && t.ownerId !== playerId).length;
-      const outboundMarches = marches.filter((m: any) => m?.ownerId === playerId);
-      const outboundTroops = outboundMarches.reduce((sum: number, m: any) => sum + (m.troops || 0), 0);
+      const marches: any[] = Array.isArray(activity?.marches)
+        ? activity.marches
+        : [];
+      const clearings: any[] = Array.isArray(activity?.clearings)
+        ? activity.clearings
+        : [];
+      const latestResources =
+        event.resources || economyClockRef.current.resources;
+      const ownedTerritories = territories.filter(
+        (t: any) => t?.ownerId === playerId,
+      ).length;
+      const enemyTerritories = territories.filter(
+        (t: any) => t?.ownerId && t.ownerId !== playerId,
+      ).length;
+      const outboundMarches = marches.filter(
+        (m: any) => m?.ownerId === playerId,
+      );
+      const outboundTroops = outboundMarches.reduce(
+        (sum: number, m: any) => sum + (m.troops || 0),
+        0,
+      );
       // Include garrisoned troops from towns received in this event
       const townTroops = Array.isArray(event.towns)
         ? event.towns.reduce((sum: number, t: any) => sum + (t.troops || 0), 0)
@@ -1918,16 +3138,24 @@ export function GameApp({
       const ownedTroops = outboundTroops + townTroops;
       const gold = latestResources?.gold ?? 0;
       const gems = latestResources?.gems ?? 0;
-      const strategicPower = ownedTroops * 1.2 + ownedTerritories * 40 + (gold || 0) * 0.03 + (gems || 0) * 0.4;
+      const strategicPower =
+        ownedTroops * 1.2 +
+        ownedTerritories * 40 +
+        (gold || 0) * 0.03 +
+        (gems || 0) * 0.4;
       return {
         ...prev,
-        ownedTerritories: ownedTerritories > 0 ? ownedTerritories : prev.ownedTerritories,
-        totalTerritories: territories.length > 0 ? territories.length : prev.totalTerritories,
-        enemyTerritories: territories.length > 0 ? enemyTerritories : prev.enemyTerritories,
+        ownedTerritories:
+          ownedTerritories > 0 ? ownedTerritories : prev.ownedTerritories,
+        totalTerritories:
+          territories.length > 0 ? territories.length : prev.totalTerritories,
+        enemyTerritories:
+          territories.length > 0 ? enemyTerritories : prev.enemyTerritories,
         activeMarches: marches.length,
         ownMarches: outboundMarches.length,
         activeClearings: clearings.length,
-        ownClearings: clearings.filter((c: any) => c?.playerId === playerId).length,
+        ownClearings: clearings.filter((c: any) => c?.playerId === playerId)
+          .length,
         outboundTroops,
         ownedTroops,
         strategicPower: Math.round(strategicPower),
@@ -1937,7 +3165,10 @@ export function GameApp({
     return true;
   }
 
-  function refreshGameStateFromServer(reason = "manual", force = false): Promise<boolean> {
+  function refreshGameStateFromServer(
+    reason = "manual",
+    force = false,
+  ): Promise<boolean> {
     if (!token || !playerId) return Promise.resolve(false);
     const now = Date.now();
     if (!force && now - lastGameStateRefreshAtRef.current < 4000) {
@@ -1964,12 +3195,19 @@ export function GameApp({
         gameStateRefreshInFlightRef.current = false;
         if (gameStateRefreshQueuedRef.current) {
           gameStateRefreshQueuedRef.current = false;
-          window.setTimeout(() => refreshGameStateFromServer(`${reason}:queued`, true), 120);
+          window.setTimeout(
+            () => refreshGameStateFromServer(`${reason}:queued`, true),
+            120,
+          );
         }
       });
   }
 
-  function refreshGameStateWithRetry(reason = "manual", attempts = 3, delayMs = 900) {
+  function refreshGameStateWithRetry(
+    reason = "manual",
+    attempts = 3,
+    delayMs = 900,
+  ) {
     const run = (attempt: number) => {
       refreshGameStateFromServer(`${reason}:${attempt}`, true).then((ok) => {
         if (!ok && attempt < attempts) {
@@ -1996,29 +3234,37 @@ export function GameApp({
   }
 
   const localOwnedTowns = engineRef.current?.getPlayerOwnedTowns?.() || [];
-  const selectedTownForModal = selectedTown ? mergeTownWithServer(selectedTown) : null;
+  const selectedTownForModal = selectedTown
+    ? mergeTownWithServer(selectedTown)
+    : null;
   const selectedTerritoryForTooltip = selectedRegion
     ? worldActivity.territoryById[Number(selectedRegion.id)]
     : undefined;
   const selectedServerTownForTooltip = selectedRegion
-    ? Object.values(serverTownsById).find((town: any) =>
-      Number(town?.territoryId) === Number(selectedRegion.id) ||
-      (
-        selectedTerritoryForTooltip &&
-        Math.hypot(
-          Number(town?.x || 0) - Number(selectedTerritoryForTooltip.x || 0),
-          Number(town?.y || 0) - Number(selectedTerritoryForTooltip.y || 0)
-        ) < 96
+    ? Object.values(serverTownsById).find(
+        (town: any) =>
+          Number(town?.territoryId) === Number(selectedRegion.id) ||
+          (selectedTerritoryForTooltip &&
+            Math.hypot(
+              Number(town?.x || 0) - Number(selectedTerritoryForTooltip.x || 0),
+              Number(town?.y || 0) - Number(selectedTerritoryForTooltip.y || 0),
+            ) < 96),
       )
-    )
     : undefined;
   const selectedClearingForTooltip = selectedRegion
-    ? worldActivity.clearings.find((clearing: any) => Number(clearing?.territoryId) === Number(selectedRegion.id))
+    ? worldActivity.clearings.find(
+        (clearing: any) =>
+          Number(clearing?.territoryId) === Number(selectedRegion.id),
+      )
     : undefined;
   const selectedBattleForTooltip = selectedRegion
-    ? worldActivity.battles.find((battle: any) => Number(battle?.regionId) === Number(selectedRegion.id))
+    ? worldActivity.battles.find(
+        (battle: any) => Number(battle?.regionId) === Number(selectedRegion.id),
+      )
     : undefined;
-  const ownedServerTowns = Object.values(serverTownsById).filter((town: any) => !playerId || town?.ownerId === playerId);
+  const ownedServerTowns = Object.values(serverTownsById).filter(
+    (town: any) => !playerId || town?.ownerId === playerId,
+  );
   const locateNationTown = (town: any, sourceTown?: any) => {
     engineRef.current?.handleAction("centerCamera", {
       townId: town.townId,
@@ -2046,23 +3292,53 @@ export function GameApp({
     });
     setLeftCollapsed(true);
   };
-  const localTroops = localOwnedTowns.reduce((sum: number, town: any) => sum + (town.troops || 0), 0);
-  const hudOwnedTerritories = serverHud.lastSync ? serverHud.ownedTerritories : localOwnedTowns.length;
+  const localTroops = localOwnedTowns.reduce(
+    (sum: number, town: any) => sum + (town.troops || 0),
+    0,
+  );
+  const hudOwnedTerritories = serverHud.lastSync
+    ? serverHud.ownedTerritories
+    : localOwnedTowns.length;
   const hudTotalTerritories = serverHud.totalTerritories || 75;
   const hudTroops = localTroops + serverHud.outboundTroops;
-  const hudPower = hudTroops * 1.2 + hudOwnedTerritories * 40 + resources.gold * 0.03 + resources.gems * 0.4;
+  const hudPower =
+    hudTroops * 1.2 +
+    hudOwnedTerritories * 40 +
+    resources.gold * 0.03 +
+    resources.gems * 0.4;
   const hudMissions = [
-    { text: "Sở hữu 3 lãnh thổ", value: Math.min(hudOwnedTerritories, 3), goal: 3 },
-    { text: "Có 1 đạo quân đang hành quân", value: Math.min(serverHud.ownMarches, 1), goal: 1 },
-    { text: "Hoàn tất 1 xây thành", value: Math.min(hudOwnedTerritories, 1), goal: 1 },
+    {
+      text: "Sở hữu 3 lãnh thổ",
+      value: Math.min(hudOwnedTerritories, 3),
+      goal: 3,
+    },
+    {
+      text: "Có 1 đạo quân đang hành quân",
+      value: Math.min(serverHud.ownMarches, 1),
+      goal: 1,
+    },
+    {
+      text: "Hoàn tất 1 xây thành",
+      value: Math.min(hudOwnedTerritories, 1),
+      goal: 1,
+    },
   ];
   const allChatLines = [...chatLog, ...serverEventLog].slice(-50);
   const displayChatLog = allChatLines
     .filter((line) => parseChatLine(line).channel === chatChannel)
     .slice(-18);
   const unreadMailCount = mailUnreadCount;
-  const backendStatusText = apiOnline === null ? "ĐANG KIỂM TRA" : apiOnline ? "API ONLINE" : "API MẤT KẾT NỐI";
-  const socketStatusText = socketOnline ? "SOCKET LIVE" : token ? "SOCKET ĐANG NỐI" : "CHƯA ĐĂNG NHẬP";
+  const backendStatusText =
+    apiOnline === null
+      ? "ĐANG KIỂM TRA"
+      : apiOnline
+        ? "API ONLINE"
+        : "API MẤT KẾT NỐI";
+  const socketStatusText = socketOnline
+    ? "SOCKET LIVE"
+    : token
+      ? "SOCKET ĐANG NỐI"
+      : "CHƯA ĐĂNG NHẬP";
   const ownerNameForTerritory = (id: number) => {
     const territory = worldActivity.territoryById[id];
     if (!territory?.ownerId) return "Hoang dã";
@@ -2071,11 +3347,14 @@ export function GameApp({
   };
   const activityTerritoryLabel = (id: number) => {
     const territory = worldActivity.territoryById[id];
-    const town = Object.values(serverTownsById).find((item: any) => Number(item?.territoryId) === Number(id)) as any;
+    const town = Object.values(serverTownsById).find(
+      (item: any) => Number(item?.territoryId) === Number(id),
+    ) as any;
     const kind = town?.kind || territory?.settlementKind;
     if (kind === "capital") return `Hoàng Thành #${id + 1}`;
     if (kind === "sub_capital") return `Thành trì #${id + 1}`;
-    if (kind === "military" || kind === "military_district") return `Pháo đài #${id + 1}`;
+    if (kind === "military" || kind === "military_district")
+      return `Pháo đài #${id + 1}`;
     return territoryLabel(id);
   };
   const battleTimeLeft = (battle: any) => {
@@ -2120,7 +3399,10 @@ export function GameApp({
     if (!Number.isFinite(territoryId)) return;
     const marchId = march.id || march._id || march.marchId;
     const target = worldActivity.territoryById[territoryId];
-    const incomingAttack = march.ownerId !== playerId && march.kind === "attack" && target?.ownerId === playerId;
+    const incomingAttack =
+      march.ownerId !== playerId &&
+      march.kind === "attack" &&
+      target?.ownerId === playerId;
     if (incomingAttack) {
       battlefieldActivities.push({
         id: `incoming-${marchId || territoryId}`,
@@ -2145,7 +3427,9 @@ export function GameApp({
           ? `Tiếp viện đang đến ${activityTerritoryLabel(territoryId)}`
           : `Quân đang di chuyển đến ${activityTerritoryLabel(territoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
-      icon: isAttack ? "/assets/icons/icon_battle_vs.png" : "/assets/icons/icon_military.png",
+      icon: isAttack
+        ? "/assets/icons/icon_battle_vs.png"
+        : "/assets/icons/icon_military.png",
       tone: isAttack ? "warning" : "active",
       priority: isAttack ? 2 : 3,
       territoryId,
@@ -2159,7 +3443,9 @@ export function GameApp({
     .forEach((clearing: any) => {
       const territoryId = Number(clearing.territoryId);
       if (!Number.isFinite(territoryId)) return;
-      const isTravelling = clearing.arrivesAt && new Date(clearing.arrivesAt).getTime() > Date.now();
+      const isTravelling =
+        clearing.arrivesAt &&
+        new Date(clearing.arrivesAt).getTime() > Date.now();
       battlefieldActivities.push({
         id: `clearing-${territoryId}`,
         title: isTravelling
@@ -2178,7 +3464,11 @@ export function GameApp({
 
   (nationStatus?.towns || []).forEach((town: any) => {
     const territoryId = Number(town.territoryId);
-    if (town.status !== "under_attack" || trackedBattleTerritories.has(territoryId)) return;
+    if (
+      town.status !== "under_attack" ||
+      trackedBattleTerritories.has(territoryId)
+    )
+      return;
     battlefieldActivities.push({
       id: `town-danger-${territoryId}`,
       title: `${activityTerritoryLabel(territoryId)} đang bị tấn công`,
@@ -2192,20 +3482,25 @@ export function GameApp({
   });
 
   battlefieldActivities.sort((a, b) => a.priority - b.priority);
-  const visibleBattlefieldActivities = battlefieldActivities.length > 0
-    ? battlefieldActivities.slice(0, 4)
-    : [{
-      id: "frontier-calm",
-      title: "Biên cương yên ổn",
-      meta: "Không có hành quân hay giao tranh",
-      icon: "/assets/icons/icon_tower.png",
-      tone: "calm" as const,
-      priority: 9,
-    }];
+  const visibleBattlefieldActivities =
+    battlefieldActivities.length > 0
+      ? battlefieldActivities.slice(0, 4)
+      : [
+          {
+            id: "frontier-calm",
+            title: "Biên cương yên ổn",
+            meta: "Không có hành quân hay giao tranh",
+            icon: "/assets/icons/icon_tower.png",
+            tone: "calm" as const,
+            priority: 9,
+          },
+        ];
   const focusBattlefieldActivity = (activity: BattlefieldActivityItem) => {
     if (!activity.focus) return;
     if (activity.focus === "march" && activity.marchId) {
-      engineRef.current?.handleAction("focusBackendMarch", { marchId: activity.marchId });
+      engineRef.current?.handleAction("focusBackendMarch", {
+        marchId: activity.marchId,
+      });
     } else if (activity.territoryId !== undefined) {
       engineRef.current?.handleAction("focusTerritory", {
         territoryId: activity.territoryId,
@@ -2234,50 +3529,77 @@ export function GameApp({
       title: `${march.kind === "reinforce" ? "Tiếp viện" : "Hành quân"} đến ${territoryLabel(march.toTerritoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
     }));
-  const warReportRows = [...battleRows, ...attackRows, ...clearingRows, ...ownMarchRows].slice(0, 8);
+  const warReportRows = [
+    ...battleRows,
+    ...attackRows,
+    ...clearingRows,
+    ...ownMarchRows,
+  ].slice(0, 8);
   const compactWarRows = warReportRows.slice(0, 3);
   const recentWarReports = battleReports.slice(0, 40);
 
   // 6 Kingdom Status items requested by User
   const activeEnemyMarch = (worldActivity?.marches || []).find(
-    (m: any) => m.ownerId !== playerId && (m.kind === "attack" || m.kind === "marchAttack")
+    (m: any) =>
+      m.ownerId !== playerId &&
+      (m.kind === "attack" || m.kind === "marchAttack"),
   );
   const activePlayerBattle = (worldActivity?.battles || []).find(
-    (b: any) => b.isPlayerInvolved || (b.defenderId && b.defenderId === playerId)
+    (b: any) =>
+      b.isPlayerInvolved || (b.defenderId && b.defenderId === playerId),
   );
-  const attackTargetName = activePlayerBattle?.regionName || activeEnemyMarch?.targetName || null;
+  const attackTargetName =
+    activePlayerBattle?.regionName || activeEnemyMarch?.targetName || null;
 
   const economyTelemetry = economyClockRef.current;
-  const currentStorageCap = (Object.values(economyTelemetry.capacity) as number[]).reduce((sum, value) => sum + Math.max(0, value || 0), 0);
-  const totalStoredRes = (Object.values(resources) as number[]).reduce((sum, value) => sum + Math.max(0, value || 0), 0);
-  const storagePercent = currentStorageCap > 0
-    ? Math.min(100, Math.round((totalStoredRes / currentStorageCap) * 100))
-    : 0;
+  const currentStorageCap = (
+    Object.values(economyTelemetry.capacity) as number[]
+  ).reduce((sum, value) => sum + Math.max(0, value || 0), 0);
+  const totalStoredRes = (Object.values(resources) as number[]).reduce(
+    (sum, value) => sum + Math.max(0, value || 0),
+    0,
+  );
+  const storagePercent =
+    currentStorageCap > 0
+      ? Math.min(100, Math.round((totalStoredRes / currentStorageCap) * 100))
+      : 0;
   const isStorageFull = storagePercent >= 90;
-  const resourceCapacity = (key: keyof ResourceBag) => Math.max(0, economyTelemetry.capacity[key] || 0);
-  const resourceRatePerHour = (key: keyof ResourceBag) => Math.max(0, (economyTelemetry.productionPerSecond[key] || 0) * 3600);
+  const resourceCapacity = (key: keyof ResourceBag) =>
+    Math.max(0, economyTelemetry.capacity[key] || 0);
+  const resourceRatePerHour = (key: keyof ResourceBag) =>
+    Math.max(0, (economyTelemetry.productionPerSecond[key] || 0) * 3600);
   return (
-    <main className={`game-shell${isMobileLandscape ? " mobile-forced-landscape" : ""}`}>
+    <main
+      className={`game-shell${isMobileLandscape ? " mobile-forced-landscape" : ""}`}
+    >
       {runtimeError && (
-        <div style={{
-          position: "fixed",
-          top: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 99999,
-          background: "#450a0a",
-          border: "2px solid #ef4444",
-          color: "#fecaca",
-          padding: "12px 18px",
-          borderRadius: "8px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.85)",
-          maxWidth: "92vw",
-          fontSize: "12px",
-          fontFamily: "monospace",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word"
-        }}>
-          <div style={{ fontWeight: "bold", marginBottom: "6px", color: "#f87171" }}>
+        <div
+          style={{
+            position: "fixed",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 99999,
+            background: "#450a0a",
+            border: "2px solid #ef4444",
+            color: "#fecaca",
+            padding: "12px 18px",
+            borderRadius: "8px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.85)",
+            maxWidth: "92vw",
+            fontSize: "12px",
+            fontFamily: "monospace",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              marginBottom: "6px",
+              color: "#f87171",
+            }}
+          >
             ⚠️ PHÁT HIỆN LỖI CHI TIẾT (DEBUG ERROR LOG):
           </div>
           <div>{runtimeError}</div>
@@ -2293,7 +3615,7 @@ export function GameApp({
               borderRadius: "4px",
               cursor: "pointer",
               fontSize: "12px",
-              fontWeight: "bold"
+              fontWeight: "bold",
             }}
           >
             ĐÓNG THÔNG BÁO LỖI
@@ -2301,53 +3623,66 @@ export function GameApp({
         </div>
       )}
 
-      <canvas 
-        ref={canvasRef} 
-        id="game" 
-        style={{ 
-          width: "100vw", 
-          height: "100dvh", 
-          position: "absolute", 
-          inset: 0, 
+      <canvas
+        ref={canvasRef}
+        id="game"
+        style={{
+          width: "100vw",
+          height: "100dvh",
+          position: "absolute",
+          inset: 0,
           zIndex: 1,
-          pointerEvents: gameReady ? "auto" : "none"
-        }} 
-        aria-label={t("appName")} 
+          pointerEvents: gameReady ? "auto" : "none",
+        }}
+        aria-label={t("appName")}
       />
 
       {isAuthenticated && !gameReady && (
         <div className="game-loading-screen">
           <div className="game-loading-bottom-dock">
             <div className="game-loading-tip-line">
-              <span className="tip-tag">{t("loadingTipLabel")}</span> {t("loadingTip")}
+              <span className="tip-tag">{t("loadingTipLabel")}</span>{" "}
+              {t("loadingTip")}
             </div>
-            
+
             <div className="game-loading-bar-wrapper">
               <div className="game-loading-bar-track">
-                <div className="game-loading-bar-fill" style={{ width: `${loadingProgress}%` }} />
+                <div
+                  className="game-loading-bar-fill"
+                  style={{ width: `${loadingProgress}%` }}
+                />
                 <span className="game-loading-pct">{loadingProgress}%</span>
               </div>
             </div>
 
             <div className="game-loading-status-line">
-              <span className="diamond-ornament">❖</span> {loadingError || loadingText} <span className="diamond-ornament">❖</span>
+              <span className="diamond-ornament">❖</span>{" "}
+              {loadingError || loadingText}{" "}
+              <span className="diamond-ornament">❖</span>
             </div>
 
             {loadingError && (
-              <button type="button" className="game-loading-retry-btn" onClick={() => window.location.reload()}>
+              <button
+                type="button"
+                className="game-loading-retry-btn"
+                onClick={() => window.location.reload()}
+              >
                 {t("reloadPage")}
               </button>
             )}
           </div>
         </div>
       )}
-      
+
       {/* High Fidelity HTML Overlay HUD */}
       {gameReady && (
         <div className="hud-wrapper">
           {/* CONQUEST MODE 14 HOLY SITES HEADER BAR */}
           {conquestMode && (
-            <header className="conquest-top-bar hud-interactive" style={{ position: "relative", zIndex: 110, margin: "6px 12px" }}>
+            <header
+              className="conquest-top-bar hud-interactive"
+              style={{ position: "relative", zIndex: 110, margin: "6px 12px" }}
+            >
               <div className="conquest-top-left-gate" title="Cửa Ải Đã Mở">
                 <div className="conquest-gate-badge">
                   <span className="gate-icon">🏰</span>
@@ -2365,15 +3700,32 @@ export function GameApp({
                   { name: "Surge", icon: "🔮", color: "#0284c7", val: "+3%" },
                   { name: "Storm", icon: "🌀", color: "#06b6d4", val: "+20%" },
                   { name: "Flame", icon: "🔥", color: "#f97316", val: "+5%" },
-                  { name: "Harvest", icon: "🌾", color: "#84cc16", val: "+10%" },
+                  {
+                    name: "Harvest",
+                    icon: "🌾",
+                    color: "#84cc16",
+                    val: "+10%",
+                  },
                   { name: "Earth", icon: "🍃", color: "#15803d", val: "+5%" },
                   { name: "Order", icon: "👑", color: "#a855f7", val: "+3%" },
-                  { name: "Radiance", icon: "☀️", color: "#f43f5e", val: "+20%" },
-                  { name: "Honor", icon: "🎖️", color: "#d97706", val: "+5%" },
-                  { name: "War", icon: "⚔️", color: "#dc2626", val: "+10%" },
+                  {
+                    name: "Radiance",
+                    icon: "☀️",
+                    color: "#f43f5e",
+                    val: "+20%",
+                  },
                 ].map((site) => (
-                  <div key={site.name} className="conquest-site-pill" style={{ borderBottomColor: site.color }}>
-                    <div className="site-pill-icon" style={{ color: site.color }}>{site.icon}</div>
+                  <div
+                    key={site.name}
+                    className="conquest-site-pill"
+                    style={{ borderBottomColor: site.color }}
+                  >
+                    <div
+                      className="site-pill-icon"
+                      style={{ color: site.color }}
+                    >
+                      {site.icon}
+                    </div>
                     <div className="site-pill-info">
                       <span className="site-pill-name">{site.name}</span>
                       <span className="site-pill-buff">{site.val}</span>
@@ -2383,258 +3735,628 @@ export function GameApp({
               </div>
 
               <div className="conquest-top-right">
-                <span className="conquest-unique-label">× Unique quantity of holy sites</span>
-                <button className="conquest-close-btn" onClick={onOpenWorld || (() => window.location.href = "/")}>
+                <span className="conquest-unique-label">
+                  × Unique quantity of holy sites
+                </span>
+                <button
+                  className="conquest-close-btn"
+                  onClick={onOpenWorld || (() => (window.location.href = "/"))}
+                >
                   ✕ QUAY VỀ BẢN ĐỒ THẾ GIỚI
                 </button>
               </div>
             </header>
           )}
 
-          {/* TOP BAR */}
-          <div className="hud-topbar hud-interactive">
-            {/* Profile Badge - Circular Avatar (Level & VIP removed) */}
-            <div className="hud-profile-circle-wrapper">
+          {/* TOP BAR - PIXEL PERFECT RISE OF KINGDOMS (ROK) HUD */}
+          <div
+            style={{
+              position: "fixed",
+              inset: "0 0 auto 0",
+              zIndex: 1000,
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              padding: "8px 12px 0 12px",
+              background: "transparent",
+              border: "none",
+              pointerEvents: "none",
+            }}
+            className="hud-topbar hud-interactive rok-hud-topbar"
+          >
+            {/* TOP-LEFT: ROK PROFILE CARD */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                pointerEvents: "auto",
+                position: "relative",
+                minHeight: 58,
+                padding: "6px 18px 6px 42px",
+                background:
+                  "linear-gradient(135deg, rgba(17,26,43,0.82) 0%, rgba(8,12,22,0.9) 100%)",
+                border: "1.5px solid rgba(255,215,0,0.4)",
+                borderRadius: 999,
+                boxShadow:
+                  "0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,0,0,0.4)",
+                backdropFilter: "blur(3px)",
+              }}
+              className="rok-profile-card"
+            >
+              {/* Avatar circle - overlaps the glass card's left edge */}
               <div
-                className="hud-avatar-container"
+                style={{
+                  width: 58,
+                  height: 58,
+                  flexShrink: 0,
+                  position: "absolute",
+                  left: -10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "2.5px solid #ffd700",
+                  borderRadius: "50%",
+                  background: "linear-gradient(180deg,#1e3a8a 0%,#0f172a 100%)",
+                  boxShadow:
+                    "0 0 0 3px #0c1e3d, 0 0 0 4.5px #0284c7, 0 0 16px rgba(255,215,0,0.35), 0 4px 12px rgba(0,0,0,0.85)",
+                  cursor: "pointer",
+                  overflow: "visible",
+                  zIndex: 5,
+                }}
                 onClick={() => setShowAvatarPicker(true)}
-                style={{ cursor: "pointer" }}
+                title="Thay đổi đại diện"
               >
-                <div className="hud-avatar-img-mask">
+                {/* Crown icon */}
+                <img
+                  src="/assets/icons/icon_gold_crown.png"
+                  alt=""
+                  style={{
+                    position: "absolute",
+                    top: -11,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 22,
+                    height: 22,
+                    objectFit: "contain",
+                    filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.9))",
+                    zIndex: 12,
+                    pointerEvents: "none",
+                  }}
+                />
+                {/* Avatar image */}
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                  }}
+                >
                   <img
                     src={`/assets/avatars/${selectedAvatarId}.png`}
                     alt="Player Avatar"
-                    className="hud-avatar-img"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/assets/avatars/emperor.png"; }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "/assets/avatars/emperor.png";
+                    }}
                   />
                 </div>
-                <div className="hud-avatar-edit-hint">📷</div>
-                <div className="hud-avatar-badge" title="Cấp độ người chơi">
-                  <img src="/assets/icons/icon_gold_crown.png" className="hud-avatar-badge-png" alt="Crown" />
+                {/* Heraldic ribbon tail */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: -14,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 30,
+                    height: 17,
+                    background:
+                      "linear-gradient(180deg,#ffd700 0%,#a1670a 100%)",
+                    clipPath: "polygon(0 0,100% 0,100% 65%,50% 100%,0 65%)",
+                    borderTop: "1px solid #fff2a3",
+                    boxShadow: "0 3px 6px rgba(0,0,0,0.7)",
+                    zIndex: -1,
+                  }}
+                />
+              </div>
+
+              {/* Profile Info Column */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                {/* Row 1: Power Capsule */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      height: 20,
+                      padding: "0 9px 0 5px",
+                      background:
+                        "linear-gradient(180deg, rgba(9,23,30,0.92) 0%, rgba(5,13,18,0.96) 100%)",
+                      border: "1px solid rgba(255,215,0,0.4)",
+                      borderRadius: 10,
+                      boxShadow:
+                        "inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.7)",
+                      cursor: "pointer",
+                    }}
+                    title="Uy thế Vương quốc / Sức mạnh quân sự"
+                    onClick={() => openModal("kingdom")}
+                  >
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        width: 13,
+                        height: 13,
+                      }}
+                    >
+                      <img
+                        src="/assets/icons/icon_battle_vs.png"
+                        alt="Power"
+                        style={{ width: 13, height: 13, objectFit: "contain" }}
+                      />
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "'Outfit',sans-serif",
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        color: "#fff2a3",
+                        textShadow: "0 1px 2px #000",
+                      }}
+                    >
+                      {Math.round(hudPower).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 2: Empire Name (metallic gold text) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span
+                    style={{
+                      fontFamily: "'Cinzel','Outfit',serif",
+                      fontSize: 15,
+                      fontWeight: 800,
+                      letterSpacing: 0.3,
+                      backgroundImage:
+                        "linear-gradient(180deg, #fff8db 0%, #ffd700 45%, #a1670a 100%)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                      WebkitTextStroke: "0.5px rgba(0,0,0,0.6)",
+                      filter:
+                        "drop-shadow(0 2px 3px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(255,215,0,0.25))",
+                      whiteSpace: "nowrap",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {t("empireName")}
+                  </span>
+                  <button
+                    type="button"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#e2c97e",
+                      cursor: "pointer",
+                      padding: 0,
+                      width: 15,
+                      height: 15,
+                      display: "flex",
+                      alignItems: "center",
+                      opacity: 0.85,
+                    }}
+                    onClick={() => openModal("kingdom")}
+                    title="Đổi tên vương quốc"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ width: 13, height: 13 }}
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Row 3: VIP shield badge + UTC clock */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    type="button"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      height: 19,
+                      padding: "0 9px 0 7px",
+                      background:
+                        "linear-gradient(135deg,#ca8a04 0%,#eab308 50%,#854d0e 100%)",
+                      border: "1px solid #fef08a",
+                      borderRadius: 3,
+                      clipPath:
+                        "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%)",
+                      color: "#0f172a",
+                      fontFamily: "'Outfit',sans-serif",
+                      fontWeight: 900,
+                      fontSize: 10,
+                      boxShadow:
+                        "0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5)",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => openModal("shop")}
+                    title="Nâng cấp VIP"
+                  >
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <img
+                        src="/assets/icons/icon_attacker_lion_shield.png"
+                        alt="VIP"
+                        style={{ width: 12, height: 12, objectFit: "contain" }}
+                      />
+                    </span>
+                    <span>VIP {Math.min(12, Math.floor(level / 3) + 1)}</span>
+                  </button>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontFamily: "monospace",
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      color: "#cbd5e1",
+                      textShadow: "0 1px 3px #000",
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    <EuroClockIcon size={11} />
+                    UTC 01/19 14:12
+                  </span>
                 </div>
               </div>
-              <div className="hud-profile-info">
-                <div className="hud-profile-name-row">
-                  <span className="hud-profile-name" onClick={() => setShowAvatarPicker(true)}>{t("empireName")}</span>
-                  <div className="hud-profile-vip-tag">
-                    <span>VIP {Math.min(12, Math.floor(level / 3) + 1)}</span>
-                    <button className="hud-vip-up-btn" onClick={() => openModal("shop")} title="Nâng cấp VIP">
-                      ▲
-                    </button>
-                  </div>
+            </div>
+
+            {/* TOP-RIGHT: ROK FLOATING RESOURCE BAR & QUICK ACTION BADGES */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: 6,
+                pointerEvents: "auto",
+              }}
+              className="rok-top-right-group"
+            >
+              {/* Row 1: Floating Resources Belt */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "transparent",
+                  padding: 0,
+                }}
+                className="rok-resources-belt"
+              >
+                <div
+                  className="hud-res-item res-food rok-res-pill"
+                  title={`${t("food")}: ${formatResourceVal(resources.food || 0)}`}
+                >
+                  <span className="hud-res-icon">
+                    <img
+                      src="/assets/icons/resource_food_european.png"
+                      alt="Food"
+                    />
+                  </span>
+                  <span className="hud-res-copy">
+                    <strong>{formatResourceVal(resources.food || 0)}</strong>
+                  </span>
                 </div>
-                <div className="hud-profile-power-row">
-                  <div className="hud-profile-power-badge" title="Uy thế Vương quốc">
-                    <span className="hud-power-icon">
-                      <img src="/assets/icons/icon_troop_total_helmet.png" className="hud-power-icon-png" alt="Prestige" />
-                    </span>
-                    <span className="hud-power-val">{Math.round(hudPower).toLocaleString()}</span>
-                  </div>
-                  <button className="hud-power-up-btn" onClick={() => openModal("kingdom")} title="Quản lý thành trì">
-                    <span>▲</span>
+                <div
+                  className="hud-res-item res-wood rok-res-pill"
+                  title={`${t("wood")}: ${formatResourceVal(resources.wood || 0)}`}
+                >
+                  <span className="hud-res-icon">
+                    <img
+                      src="/assets/icons/resource_wood_european.png"
+                      alt="Wood"
+                    />
+                  </span>
+                  <span className="hud-res-copy">
+                    <strong>{formatResourceVal(resources.wood || 0)}</strong>
+                  </span>
+                </div>
+                <div
+                  className="hud-res-item res-stone rok-res-pill"
+                  title={`${t("stone")}: ${formatResourceVal(resources.stone || 0)}`}
+                >
+                  <span className="hud-res-icon">
+                    <img
+                      src="/assets/icons/resource_stone_european.png"
+                      alt="Stone"
+                    />
+                  </span>
+                  <span className="hud-res-copy">
+                    <strong>{formatResourceVal(resources.stone || 0)}</strong>
+                  </span>
+                </div>
+                <div
+                  className="hud-res-item res-iron rok-res-pill"
+                  title={`${t("iron")}: ${formatResourceVal(resources.iron || 0)}`}
+                >
+                  <span className="hud-res-icon">
+                    <img
+                      src="/assets/icons/resource_iron_european.png"
+                      alt="Iron"
+                    />
+                  </span>
+                  <span className="hud-res-copy">
+                    <strong>{formatResourceVal(resources.iron || 0)}</strong>
+                  </span>
+                </div>
+                <div
+                  className="hud-res-item res-gold rok-res-pill"
+                  title={`${t("gold")}: ${formatResourceVal(resources.gold || 0)}`}
+                >
+                  <span className="hud-res-icon">
+                    <img
+                      src="/assets/icons/resource_gold_european.png"
+                      alt="Gold"
+                    />
+                  </span>
+                  <span className="hud-res-copy">
+                    <strong>{formatResourceVal(resources.gold || 0)}</strong>
+                  </span>
+                </div>
+                <div
+                  className="hud-res-item res-gems rok-res-pill rok-gem-pill rok-premium-pill"
+                  title={t("gems")}
+                >
+                  <span className="hud-res-icon">
+                    <img src="/assets/icons/icon_red_gem.png" alt="Gems" />
+                  </span>
+                  <span className="hud-res-copy premium">
+                    <strong>{formatResourceVal(resources.gems || 0)}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    className="hud-res-add-btn rok-add-btn"
+                    onClick={() => openModal("shop")}
+                  >
+                    +
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Resources capsules grouped - Compact & Clean Layout */}
-            <div className="hud-resources-unified">
-              {/* Ordinary Resources Block (Lúa, Gỗ, Đá, Sắt, Than, Lưu Huỳnh) */}
-              <div className="hud-res-group ordinary-group">
-                <div className="hud-res-item res-food" title={`${t("food")}: ${formatResourceVal(resources.food || 0)} / ${formatResourceVal(resourceCapacity("food"))} (+${formatResourceVal(resourceRatePerHour("food"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_food_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.food || 0)}</strong></span>
+              {/* Row 2: Floating Quick Action Badges (Rise of Kingdoms Sub-Header Badges) */}
+              <div className="rok-event-badges-row">
+                {/* 1. Sự kiện (Events) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("treasure")}
+                  title="Sự kiện đặc biệt"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-event">
+                    <img
+                      src="/assets/icons/icon_event.png"
+                      alt="Sự kiện"
+                      className="rok-badge-img"
+                    />
+                  </div>
+                  <span className="rok-badge-subtext">Sự kiện</span>
                 </div>
-                <div className="hud-res-item res-wood" title={`${t("wood")}: ${formatResourceVal(resources.wood || 0)} / ${formatResourceVal(resourceCapacity("wood"))} (+${formatResourceVal(resourceRatePerHour("wood"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_wood_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.wood || 0)}</strong></span>
+
+                {/* 2. Quân đội (Army / Military) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("army")}
+                  title="Quản lý quân đội"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-army">
+                    <img
+                      src="/assets/icons/icon_military.png"
+                      alt="Quân đội"
+                      className="rok-badge-img"
+                    />
+                  </div>
+                  <span className="rok-badge-subtext">Quân đội</span>
                 </div>
-                <div className="hud-res-item res-stone" title={`${t("stone")}: ${formatResourceVal(resources.stone || 0)} / ${formatResourceVal(resourceCapacity("stone"))} (+${formatResourceVal(resourceRatePerHour("stone"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_stone_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.stone || 0)}</strong></span>
+
+                {/* 3. Chiến báo (Battle Reports) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("warReport")}
+                  title="Chiến báo & Quân sự"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-war">
+                    <img
+                      src="/assets/icons/icon_report.png"
+                      alt="Chiến báo"
+                      className="rok-badge-img"
+                    />
+                    {reportUnreadCount > 0 ? (
+                      <b className="rok-badge-notif">
+                        {Math.min(99, reportUnreadCount)}
+                      </b>
+                    ) : (
+                      <b className="rok-badge-notif">7</b>
+                    )}
+                  </div>
+                  <span className="rok-badge-subtext">Chiến báo</span>
                 </div>
-                <div className="hud-res-item res-iron" title={`${t("iron")}: ${formatResourceVal(resources.iron || 0)} / ${formatResourceVal(resourceCapacity("iron"))} (+${formatResourceVal(resourceRatePerHour("iron"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_iron_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.iron || 0)}</strong></span>
+
+                {/* 4. Thư tín (Mail) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("mail")}
+                  title="Thư tín"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-mail">
+                    <img
+                      src="/assets/icons/icon_mail.png"
+                      alt="Mail"
+                      className="rok-badge-img"
+                    />
+                    {unreadMailCount > 0 ? (
+                      <b className="rok-badge-notif">
+                        {Math.min(99, unreadMailCount)}
+                      </b>
+                    ) : (
+                      <b className="rok-badge-notif">5</b>
+                    )}
+                  </div>
+                  <span className="rok-badge-subtext">Thư tín</span>
                 </div>
-                <div className="hud-res-item res-coal" title={`${t("coal")}: ${formatResourceVal(resources.coal || 0)} / ${formatResourceVal(resourceCapacity("coal"))} (+${formatResourceVal(resourceRatePerHour("coal"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_coal_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.coal || 0)}</strong></span>
+
+                {/* 5. Cửa hàng (Shop / Offers) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("shop")}
+                  title="Cửa hàng & Gói ưu đãi"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-shop">
+                    <img
+                      src="/assets/icons/icon_shop.png"
+                      alt="Cửa hàng"
+                      className="rok-badge-img"
+                    />
+                    <b className="rok-badge-notif">3</b>
+                  </div>
+                  <span className="rok-badge-subtext">Cửa hàng</span>
                 </div>
-                <div className="hud-res-item res-sulfur" title={`${t("sulfur")}: ${formatResourceVal(resources.sulfur || 0)} / ${formatResourceVal(resourceCapacity("sulfur"))} (+${formatResourceVal(resourceRatePerHour("sulfur"))}/h)`}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_sulfur_european.png" alt="" /></span>
-                  <span className="hud-res-copy"><strong>{formatResourceVal(resources.sulfur || 0)}</strong></span>
+
+                {/* 6. Bảng xếp hạng (Ranking) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("ranking")}
+                  title="Bảng xếp hạng vương quốc"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-ranking">
+                    <img
+                      src="/assets/icons/icon_gold_crown.png"
+                      alt="Bảng xếp hạng"
+                      className="rok-badge-img"
+                    />
+                  </div>
+                  <span className="rok-badge-subtext">BXH</span>
+                </div>
+
+                {/* 7. Cài đặt (Settings) */}
+                <div
+                  className="rok-badge-item"
+                  onClick={() => openModal("settings")}
+                  title="Cài đặt hệ thống"
+                >
+                  <div className="rok-badge-icon-wrap rok-badge-settings">
+                    <img
+                      src="/assets/icons/icon_settings_european.png"
+                      alt="Settings"
+                      className="rok-badge-img"
+                    />
+                  </div>
+                  <span className="rok-badge-subtext">Cài đặt</span>
                 </div>
               </div>
-
-              {/* Premium Resources Block (Ruby, Vàng, Kim Cương) */}
-              <div className="hud-res-group premium-group">
-                <div className="hud-res-item res-gems" title={t("gems")}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_gems_european.png" alt="" /></span>
-                  <span className="hud-res-copy premium"><strong>{formatResourceVal(resources.gems || 0)}</strong></span>
-                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
-                </div>
-                <div className="hud-res-item res-gold" title={t("gold")}>
-                  <span className="hud-res-icon"><img src="/assets/icons/resource_gold_european.png" alt="" /></span>
-                  <span className="hud-res-copy premium"><strong>{formatResourceVal(resources.gold || 0)}</strong></span>
-                  <button type="button" className="hud-res-add-btn" onClick={() => openModal("shop")}>+</button>
-                </div>
-              </div>
             </div>
-
-            {/* Reference controls: mail and settings */}
-            <div className="hud-sys-controls hud-sys-controls--minimal">
-              <button
-                type="button"
-                className="hud-sys-btn hud-sys-btn--mail"
-                onClick={() => openModal("mail")}
-                title="Thư tín"
-                aria-label="Thư tín"
-              >
-                <img src="/assets/icons/icon_mail.png" alt="" />
-                {unreadMailCount > 0 && <b className="hud-sys-badge">{Math.min(99, unreadMailCount)}</b>}
-              </button>
-              <span className="hud-sys-sep" aria-hidden="true" />
-              <button
-                type="button"
-                className="hud-sys-btn hud-sys-btn--settings"
-                onClick={() => openModal("settings")}
-                title="Cài đặt"
-              >
-                <img src="/assets/icons/icon_settings_european.png" alt="" />
-              </button>
-            </div>
-
           </div>
 
           {/* MAIN HUD BODY */}
           <div className="hud-main">
-            {/* LEFT PANELS - TABBED SIDEBAR RAIL & QUEST SLIDING CARD */}
-            {!conquestMode && (
-              <div className="hud-left-command-cluster">
-                {/* Vertical Rail (matching Mockup) */}
-                <nav className="hud-sidebar-vertical-rail hud-interactive" aria-label="Điều hướng vương quốc">
-                  {/* 1. Trạng thái quốc gia */}
-                  <button
-                    type="button"
-                    className={`hud-rail-button-v ${activeModal === "kingdom" || !activeModal ? "active" : ""}`}
-                    onClick={() => openModal("kingdom")}
-                    title="Thành chính"
-                  >
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_tower.png" className="hud-rail-icon-png" alt="kingdom" />
-                    </div>
-                    <span>Thành chính</span>
-                  </button>
-
-                  {/* 2. Bản đồ */}
-                  <button type="button" className="hud-rail-button-v" onClick={() => handleAction("map")} title={t("map")}>
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_map.png" className="hud-rail-icon-png" alt="map" />
-                    </div>
-                    <span>Bản đồ</span>
-                  </button>
-
-                  {/* 3. Sự kiện */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "treasure" ? "active" : ""}`} onClick={() => openModal("treasure")} title={t("event")}>
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_event.png" className="hud-rail-icon-png" alt="event" />
-                    </div>
-                    <span>{t("event")}</span>
-                  </button>
-
-                  {/* 4. Quân đội */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "army" ? "active" : ""}`} onClick={() => openModal("army")} title={t("army")}>
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_military.png" className="hud-rail-icon-png" alt="military" />
-                    </div>
-                    <span>Quân đội</span>
-                  </button>
-
-                  {/* 5. Chiến báo */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "warReport" ? "active" : ""}`} onClick={() => openModal("warReport")} title="Chiến báo">
-                    <div className="hud-rail-icon-wrapper" style={{ position: "relative" }}>
-                      <img src="/assets/icons/icon_report.png" className="hud-rail-icon-png" alt="report" />
-                      {reportUnreadCount > 0 && <span className="hud-rail-badge">{Math.min(99, reportUnreadCount)}</span>}
-                    </div>
-                    <span>Chiến báo</span>
-                  </button>
-
-                  {/* 6. Thư */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "mail" ? "active" : ""}`} onClick={() => openModal("mail")} title={t("mail")}>
-                    <div className="hud-rail-icon-wrapper" style={{ position: "relative" }}>
-                      <img src="/assets/icons/icon_mail.png" className="hud-rail-icon-png" alt="mail" />
-                      {unreadMailCount > 0 && (
-                        <span className="hud-rail-badge" style={{ backgroundColor: "#ef4444", border: "1px solid #ffffff", width: "16px", height: "16px", borderRadius: "50%", position: "absolute", top: "-2px", right: "-2px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px", fontWeight: "bold", color: "#ffffff" }}>
-                          {unreadMailCount}
-                        </span>
-                      )}
-                    </div>
-                    <span>Thư tín</span>
-                  </button>
-
-                  {/* 7. Cửa hàng */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "shop" ? "active" : ""}`} onClick={() => openModal("shop")} title="Cửa hàng">
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_shop.png" className="hud-rail-icon-png" alt="shop" />
-                    </div>
-                    <span>Cửa hàng</span>
-                  </button>
-
-                  {/* 8. Xếp hạng */}
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "ranking" ? "active" : ""}`} onClick={() => openModal("ranking")} title={t("ranking")}>
-                    <div className="hud-rail-icon-wrapper">
-                      <img src="/assets/icons/icon_gold_crown.png" className="hud-rail-icon-png" alt="ranking" />
-                    </div>
-                    <span>{t("ranking")}</span>
-                  </button>
-
-                  <button type="button" className={`hud-rail-button-v ${activeModal === "settings" ? "active" : ""}`} onClick={() => openModal("settings")} title="Cài đặt">
-                    <div className="hud-rail-icon-wrapper"><img src="/assets/icons/icon_settings_european.png" className="hud-rail-icon-png" alt="" /></div>
-                    <span>Cài đặt</span>
-                  </button>
-                </nav>
-
-              </div>
-            )}
+            {/* LEFT PANELS - (Removed vertical side menu rail as requested) */}
+            {!conquestMode && <div className="hud-left-command-cluster"></div>}
             {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
             <div className="hud-right-side hud-interactive">
               {/* Minimap card with Gold Trim (matching Mockup) */}
-              <div className={`hud-minimap-card premium-framed ${minimapCollapsed ? "collapsed" : ""}`}>
+              <div
+                className={`hud-minimap-card premium-framed ${minimapCollapsed ? "collapsed" : ""}`}
+              >
                 <div className="hud-minimap-header">
                   <span className="hud-minimap-title">
-                    <span className="hud-minimap-svg-icon"><img src="/assets/icons/icon_map.png" alt="" /></span> {t("worldMap")}
+                    <span className="hud-minimap-svg-icon">
+                      <img src="/assets/icons/icon_map.png" alt="" />
+                    </span>{" "}
+                    {t("worldMap")}
                   </span>
                   <button
                     type="button"
                     className="hud-mini-icon-btn-plus"
-                    title={minimapCollapsed ? "Mở rộng bản đồ" : "Thu gọn bản đồ"}
+                    title={
+                      minimapCollapsed ? "Mở rộng bản đồ" : "Thu gọn bản đồ"
+                    }
                     onClick={() => setMinimapCollapsed(!minimapCollapsed)}
                   >
-                    <img className={minimapCollapsed ? "is-collapsed" : ""} src="/assets/icons/icon_collapse_european.png" alt="" />
+                    <img
+                      className={minimapCollapsed ? "is-collapsed" : ""}
+                      src="/assets/icons/icon_collapse_european.png"
+                      alt=""
+                    />
                   </button>
                 </div>
 
                 <div className="hud-minimap-coords-display">
                   <span className="coords-text">X: 10650 Y: 6254</span>
-                  <button type="button" className="hud-mini-icon-btn" onClick={jumpToCoordinates} title={t("search")} style={{ marginLeft: "auto" }}>
+                  <button
+                    type="button"
+                    className="hud-mini-icon-btn"
+                    onClick={jumpToCoordinates}
+                    title={t("search")}
+                    style={{ marginLeft: "auto" }}
+                  >
                     <img src="/assets/icons/icon_search_european.png" alt="" />
                   </button>
                 </div>
 
                 <div className="hud-minimap-canvas-wrapper">
-                  <canvas 
-                    ref={minimapCanvasRef} 
-                    width={160} 
-                    height={120} 
-                    className="hud-minimap-canvas" 
-                    style={{ width: "100%", height: "96px", display: "block", background: "#060f16" }} 
+                  <canvas
+                    ref={minimapCanvasRef}
+                    width={160}
+                    height={120}
+                    className="hud-minimap-canvas"
+                    style={{
+                      width: "100%",
+                      height: "96px",
+                      display: "block",
+                      background: "#060f16",
+                    }}
                   />
                 </div>
-                <section className="hud-main-missions" aria-label="Tình hình chiến trường">
+                <section
+                  className="hud-main-missions"
+                  aria-label="Tình hình chiến trường"
+                >
                   <div className="hud-main-missions-header">
                     <span>TÌNH HÌNH CHIẾN TRƯỜNG</span>
-                    <i><img src="/assets/icons/icon_collapse_european.png" alt="" /></i>
+                    <i>
+                      <img
+                        src="/assets/icons/icon_collapse_european.png"
+                        alt=""
+                      />
+                    </i>
                   </div>
                   <div className="hud-main-missions-list">
                     {visibleBattlefieldActivities.map((activity) => (
@@ -2644,16 +4366,30 @@ export function GameApp({
                         key={activity.id}
                         disabled={!activity.focus}
                         onClick={() => focusBattlefieldActivity(activity)}
-                        title={activity.focus ? `Định vị ${activity.title.toLowerCase()}` : activity.meta}
+                        title={
+                          activity.focus
+                            ? `Định vị ${activity.title.toLowerCase()}`
+                            : activity.meta
+                        }
                       >
-                        <span className="hud-main-mission-icon"><img src={activity.icon} alt="" /></span>
+                        <span className="hud-main-mission-icon">
+                          <img src={activity.icon} alt="" />
+                        </span>
                         <span className="hud-main-mission-copy">
                           <b>{activity.title}</b>
-                          <span className="hud-main-mission-meta">{activity.meta}</span>
+                          <span className="hud-main-mission-meta">
+                            {activity.meta}
+                          </span>
                         </span>
                         {activity.focus && (
-                          <span className="hud-main-mission-locate" aria-hidden="true">
-                            <img src="/assets/icons/icon_search_european.png" alt="" />
+                          <span
+                            className="hud-main-mission-locate"
+                            aria-hidden="true"
+                          >
+                            <img
+                              src="/assets/icons/icon_search_european.png"
+                              alt=""
+                            />
                           </span>
                         )}
                       </button>
@@ -2664,110 +4400,190 @@ export function GameApp({
             </div>
           </div>
 
-
           {/* HORIZONTAL EMPIRE ACTION DOCK (Redesigned Centered Curved Dock) */}
           <div className="hud-center-dock-container hud-interactive">
             {/* Toast / Territory Selection Banner */}
             <div className="hud-toast-banner">
-              <div className="toast-title">{selectedRegion ? `${t("selectedTerritory")} #${selectedRegion.id}` : (toastMessage || `${t("selectedTerritory")} #259`)}</div>
-              <div className="toast-sub">{selectedRegion ? t("buildFromTooltip") : (language === "vi" ? "Bấm vào ô lãnh thổ để ra lệnh" : "Click territory to issue orders")}</div>
+              <div className="toast-title">
+                {selectedRegion
+                  ? `${t("selectedTerritory")} #${selectedRegion.id}`
+                  : toastMessage || `${t("selectedTerritory")} #259`}
+              </div>
+              <div className="toast-sub">
+                {selectedRegion
+                  ? t("buildFromTooltip")
+                  : language === "vi"
+                    ? "Bấm vào ô lãnh thổ để ra lệnh"
+                    : "Click territory to issue orders"}
+              </div>
             </div>
           </div>
 
           {!conquestMode && (
-            <nav className="hud-command-dock hud-interactive" aria-label="Lệnh nhanh">
-              <button type="button" className="hud-command-button" onClick={() => openModal("army")}>
+            <nav
+              className="hud-command-dock hud-interactive"
+              aria-label="Lệnh nhanh"
+            >
+              <button
+                type="button"
+                className="hud-command-button"
+                onClick={() => openModal("army")}
+              >
                 <img src="/assets/icons/icon_military.png" alt="" />
                 <span>Quân đội</span>
               </button>
-              <button type="button" className="hud-command-button" onClick={() => openModal("treasure")}>
+              <button
+                type="button"
+                className="hud-command-button"
+                onClick={() => openModal("treasure")}
+              >
                 <img src="/assets/icons/icon_bag.png" alt="" />
                 <span>Kho báu</span>
               </button>
-              <button type="button" className="hud-command-button primary active" onClick={() => handleAction("map")}>
+              <button
+                type="button"
+                className="hud-command-button primary active"
+                onClick={() => handleAction("map")}
+              >
                 <img src="/assets/icons/icon_map.png" alt="" />
                 <span>Bản đồ</span>
               </button>
-              <button type="button" className="hud-command-button" onClick={onOpenConquest}>
+              <button
+                type="button"
+                className="hud-command-button"
+                onClick={onOpenConquest}
+              >
                 <img src="/assets/icons/icon_tower.png" alt="" />
                 <span>Chinh phạt</span>
               </button>
-              <button type="button" className={`hud-command-button ${activeModal === "warReport" ? "active" : ""}`} onClick={() => openModal("warReport")}>
+              <button
+                type="button"
+                className={`hud-command-button ${activeModal === "warReport" ? "active" : ""}`}
+                onClick={() => openModal("warReport")}
+              >
                 <img src="/assets/icons/icon_report.png" alt="" />
                 <span>Chiến báo</span>
-                {reportUnreadCount > 0 && <b className="hud-command-badge">{Math.min(99, reportUnreadCount)}</b>}
+                {reportUnreadCount > 0 && (
+                  <b className="hud-command-badge">
+                    {Math.min(99, reportUnreadCount)}
+                  </b>
+                )}
               </button>
-              <button type="button" className={`hud-command-button ${activeModal === "mail" ? "active" : ""}`} onClick={() => openModal("mail")}>
+              <button
+                type="button"
+                className={`hud-command-button ${activeModal === "mail" ? "active" : ""}`}
+                onClick={() => openModal("mail")}
+              >
                 <img src="/assets/icons/icon_mail.png" alt="" />
                 <span>Thư tín</span>
-                {unreadMailCount > 0 && <b className="hud-command-badge">{Math.min(99, unreadMailCount)}</b>}
+                {unreadMailCount > 0 && (
+                  <b className="hud-command-badge">
+                    {Math.min(99, unreadMailCount)}
+                  </b>
+                )}
               </button>
             </nav>
           )}
 
           {!conquestMode && (
-            <button type="button" className="hud-capital-shortcut hud-interactive" onClick={() => openModal("kingdom")} title="Mở Thành chính">
+            <button
+              type="button"
+              className="hud-capital-shortcut hud-interactive"
+              onClick={() => openModal("kingdom")}
+              title="Mở Thành chính"
+            >
               <img src="/assets/icons/icon_tower.png" alt="" />
               <span>Thành chính</span>
-              <b><img src="/assets/icons/icon_collapse_european.png" alt="" /></b>
+              <b>
+                <img src="/assets/icons/icon_collapse_european.png" alt="" />
+              </b>
             </button>
           )}
 
           {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
           <div className="hud-bottombar-unified">
             {/* FLOATING CHAT BOX (Bottom Left) */}
-            <div className={`hud-floating-chat hud-interactive ${chatCollapsed ? "collapsed" : ""}`}>
-              <div className="hud-chat-header" onClick={() => setChatCollapsed(!chatCollapsed)}>
-                <span className="hud-chat-header-main"><img src="/assets/icons/icon_mail.png" alt="" /> {t("chat")}</span>
-                <span className={`hud-chat-toggle-btn ${chatCollapsed ? "" : "is-open"}`}><img src="/assets/icons/icon_collapse_european.png" alt="" /></span>
+            <div
+              className={`hud-floating-chat hud-interactive ${chatCollapsed ? "collapsed" : ""}`}
+            >
+              <div
+                className="hud-chat-header"
+                onClick={() => setChatCollapsed(!chatCollapsed)}
+              >
+                <span className="hud-chat-header-main">
+                  <img src="/assets/icons/icon_mail.png" alt="" /> {t("chat")}
+                </span>
+                <span
+                  className={`hud-chat-toggle-btn ${chatCollapsed ? "" : "is-open"}`}
+                >
+                  <img src="/assets/icons/icon_collapse_european.png" alt="" />
+                </span>
               </div>
               {!chatCollapsed && (
                 <>
                   <div className="hud-chat-tabs-pills">
-                    {(["THẾ GIỚI", "HỆ THỐNG"] as ChatChannel[]).map((channel) => (
-                      <button
-                        key={channel}
-                        type="button"
-                        className={`hud-chat-tab-pill ${
-                          (channel === "HỆ THỐNG" && chatChannel === "HỆ THỐNG") ||
-                          (channel === "THẾ GIỚI" && chatChannel === "THẾ GIỚI")
-                            ? "active" : ""
-                        }`}
-                        onClick={() => {
-                          setChatChannel(channel);
-                          setChatInput("");
-                        }}
-                      >
-                        {channel === "HỆ THỐNG" ? "Hệ thống" : "Thế giới"}
-                      </button>
-                    ))}
+                    {(["THẾ GIỚI", "HỆ THỐNG"] as ChatChannel[]).map(
+                      (channel) => (
+                        <button
+                          key={channel}
+                          type="button"
+                          className={`hud-chat-tab-pill ${
+                            (channel === "HỆ THỐNG" &&
+                              chatChannel === "HỆ THỐNG") ||
+                            (channel === "THẾ GIỚI" &&
+                              chatChannel === "THẾ GIỚI")
+                              ? "active"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setChatChannel(channel);
+                            setChatInput("");
+                          }}
+                        >
+                          {channel === "HỆ THỐNG" ? "Hệ thống" : "Thế giới"}
+                        </button>
+                      ),
+                    )}
                   </div>
                   <div className="hud-chat-lines">
-                    {displayChatLog.length > 0 ? displayChatLog.map((line, i) => {
-                      const chat = parseChatLine(line);
-                      let prefix = `[${chat.channel === "HỆ THỐNG" ? "Hệ Thống" : "Thế Giới"}]`;
-                      let isSys = chat.channel === "HỆ THỐNG";
-                      if (line.includes("PLAYER")) {
-                        prefix = "[Thế giới]";
-                        isSys = false;
-                      } else if (line.includes("Bang HOANGIA") || line.includes("SYSTEM")) {
-                        prefix = "[Hệ thống]";
-                        isSys = true;
-                      }
-                      return (
-                        <div key={i} className="hud-chat-line">
-                          <span className={`hud-chat-channel ${isSys ? "system" : "world"}`}>
-                            {prefix}
-                          </span>
-                          <span className="hud-chat-name"> {chat.name}: </span>
-                          <span className="hud-chat-msg">{chat.message}</span>
-                        </div>
-                      );
-                    }) : (
+                    {displayChatLog.length > 0 ? (
+                      displayChatLog.map((line, i) => {
+                        const chat = parseChatLine(line);
+                        let prefix = `[${chat.channel === "HỆ THỐNG" ? "Hệ Thống" : "Thế Giới"}]`;
+                        let isSys = chat.channel === "HỆ THỐNG";
+                        if (line.includes("PLAYER")) {
+                          prefix = "[Thế giới]";
+                          isSys = false;
+                        } else if (
+                          line.includes("Bang HOANGIA") ||
+                          line.includes("SYSTEM")
+                        ) {
+                          prefix = "[Hệ thống]";
+                          isSys = true;
+                        }
+                        return (
+                          <div key={i} className="hud-chat-line">
+                            <span
+                              className={`hud-chat-channel ${isSys ? "system" : "world"}`}
+                            >
+                              {prefix}
+                            </span>
+                            <span className="hud-chat-name">
+                              {" "}
+                              {chat.name}:{" "}
+                            </span>
+                            <span className="hud-chat-msg">{chat.message}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
                       <div className="hud-chat-empty">{t("noChat")}</div>
                     )}
                   </div>
-                  <form onSubmit={handleChatSubmit} className="hud-chat-input-bar">
+                  <form
+                    onSubmit={handleChatSubmit}
+                    className="hud-chat-input-bar"
+                  >
                     <input
                       type="text"
                       className="hud-chat-input"
@@ -2777,24 +4593,34 @@ export function GameApp({
                       maxLength={100}
                       disabled={chatChannel === "HỆ THỐNG"}
                     />
-                    <button type="submit" className="hud-chat-send" disabled={chatChannel === "HỆ THỐNG"}>
-                      <img src="/assets/icons/icon_collapse_european.png" alt="" />
+                    <button
+                      type="submit"
+                      className="hud-chat-send"
+                      disabled={chatChannel === "HỆ THỐNG"}
+                    >
+                      <img
+                        src="/assets/icons/icon_collapse_european.png"
+                        alt=""
+                      />
                     </button>
                   </form>
                 </>
               )}
             </div>
-
-
           </div>
 
-
-
           {/* Connection status pill hidden or styled elegantly */}
-          <div 
-            className="connection-pill hud-interactive" 
-            data-online={apiOnline === true} 
-            style={{ position: "fixed", bottom: "4px", right: "220px", zIndex: 10, pointerEvents: "none", opacity: 0.5 }}
+          <div
+            className="connection-pill hud-interactive"
+            data-online={apiOnline === true}
+            style={{
+              position: "fixed",
+              bottom: "4px",
+              right: "220px",
+              zIndex: 10,
+              pointerEvents: "none",
+              opacity: 0.5,
+            }}
           >
             {backendStatusText} · {socketStatusText}
           </div>
@@ -2825,12 +4651,20 @@ export function GameApp({
               return;
             }
             const engineState = engineRef.current?.getState?.();
-            const playerTerritoriesCount = Object.keys(engineState?.regionOwnership || {}).filter((territoryId) =>
-              engineState?.regionOwnership?.[Number(territoryId)] === 1 ||
-              engineState?.regionOwnerIds?.[Number(territoryId)] === playerId
+            const playerTerritoriesCount = Object.keys(
+              engineState?.regionOwnership || {},
+            ).filter(
+              (territoryId) =>
+                engineState?.regionOwnership?.[Number(territoryId)] === 1 ||
+                engineState?.regionOwnerIds?.[Number(territoryId)] === playerId,
             ).length;
-            const hasExistingLand = (serverHud.ownedTerritories > 0) || (playerTerritoriesCount > 0);
-            if (!hasExistingLand && (localStorage.getItem(ONBOARDING_KEY) === "1" || playerTerritoriesCount === 0)) {
+            const hasExistingLand =
+              serverHud.ownedTerritories > 0 || playerTerritoriesCount > 0;
+            if (
+              !hasExistingLand &&
+              (localStorage.getItem(ONBOARDING_KEY) === "1" ||
+                playerTerritoriesCount === 0)
+            ) {
               engineRef.current?.selectNewbieLand?.(regionId);
               if (engineState) {
                 engineState.selectedRegion = null;
@@ -2843,10 +4677,17 @@ export function GameApp({
               return;
             }
             try {
-              const result = await startClearing(token, engineToServerTerritoryId(regionId));
-              engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
+              const result = await startClearing(
+                token,
+                engineToServerTerritoryId(regionId),
+              );
+              engineRef.current?.handleAction("applyBackendClearing", {
+                clearing: result.clearing,
+              });
               setSelectedRegion(null);
-              addSystemLine(`ĐỘI THỢ XÂY ĐANG ĐI TỪ PHÁO ĐÀI BIÊN GIỚI GẦN NHẤT TỚI ${territoryLabel(regionId).toUpperCase()}`);
+              addSystemLine(
+                `ĐỘI THỢ XÂY ĐANG ĐI TỪ PHÁO ĐÀI BIÊN GIỚI GẦN NHẤT TỚI ${territoryLabel(regionId).toUpperCase()}`,
+              );
             } catch (err: any) {
               showGameError(err.message || "Server từ chối lệnh xây Pháo Đài");
             }
@@ -2858,7 +4699,9 @@ export function GameApp({
             const serverTerritoryId = engineToServerTerritoryId(regionId);
             setWorldActivity((prev) => ({
               ...prev,
-              clearings: prev.clearings.filter((c) => c.territoryId !== serverTerritoryId),
+              clearings: prev.clearings.filter(
+                (c) => c.territoryId !== serverTerritoryId,
+              ),
             }));
             setServerHud((prev) => ({
               ...prev,
@@ -2870,54 +4713,80 @@ export function GameApp({
               cancelClearing(token, serverTerritoryId)
                 .then((result) => {
                   if (result.resources) {
-                    engineRef.current?.handleAction("syncResources", { resources: result.resources });
+                    engineRef.current?.handleAction("syncResources", {
+                      resources: result.resources,
+                    });
                     applyResourceSnapshot(result);
                   }
                 })
                 .catch((err) => {
-                  showGameError(err.message || "Không hủy được xây thành trên server");
+                  showGameError(
+                    err.message || "Không hủy được xây thành trên server",
+                  );
                   // Rollback: re-sync from server if cancel fails
                   refreshGameStateWithRetry("cancel-clearing-rollback", 2, 800);
                 });
             }
           }}
           onAttack={(regionId) => {
-            const source = (deploySourceTown && isEligibleSourceTown(deploySourceTown))
-              ? mergeTownWithServer(deploySourceTown)
-              : getValidSourceTown();
+            const source =
+              deploySourceTown && isEligibleSourceTown(deploySourceTown)
+                ? mergeTownWithServer(deploySourceTown)
+                : getValidSourceTown();
             if (!source) {
               showGameError("Bạn cần có thành trì trước khi tấn công!");
               return;
             }
-            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: true,
+            });
             setDeployError(null);
             setMarchSourceOptions(null);
-            setDeployTarget({ targetRegionId: regionId, isAttack: true, battleSide: "attacker" });
+            setDeployTarget({
+              targetRegionId: regionId,
+              isAttack: true,
+              battleSide: "attacker",
+            });
             setDeploySourceTown({ ...source });
             void loadRecommendedMarchSource(regionId, "attack")
               .then((recommended) => {
                 if (recommended) setDeploySourceTown({ ...recommended });
               })
-              .catch((err) => setDeployError(err?.message || "Không tải được danh sách thành xuất quân"));
+              .catch((err) =>
+                setDeployError(
+                  err?.message || "Không tải được danh sách thành xuất quân",
+                ),
+              );
           }}
           onReinforce={(regionId, side = "attacker") => {
-            const source = (deploySourceTown && isEligibleSourceTown(deploySourceTown))
-              ? mergeTownWithServer(deploySourceTown)
-              : getValidSourceTown();
+            const source =
+              deploySourceTown && isEligibleSourceTown(deploySourceTown)
+                ? mergeTownWithServer(deploySourceTown)
+                : getValidSourceTown();
             if (!source) {
               showGameError("Bạn cần có thành trì trước khi tiếp viện!");
               return;
             }
-            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: true,
+            });
             setDeployError(null);
             setMarchSourceOptions(null);
-            setDeployTarget({ targetRegionId: regionId, isAttack: false, battleSide: side });
+            setDeployTarget({
+              targetRegionId: regionId,
+              isAttack: false,
+              battleSide: side,
+            });
             setDeploySourceTown({ ...source });
             void loadRecommendedMarchSource(regionId, "reinforce")
               .then((recommended) => {
                 if (recommended) setDeploySourceTown({ ...recommended });
               })
-              .catch((err) => setDeployError(err?.message || "Không tải được danh sách thành xuất quân"));
+              .catch((err) =>
+                setDeployError(
+                  err?.message || "Không tải được danh sách thành xuất quân",
+                ),
+              );
           }}
         />
       )}
@@ -2925,51 +4794,81 @@ export function GameApp({
       {activeModal === "tutorial" && (
         <NewbieOnboardingModal
           onClose={() => {
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setActiveModal("");
           }}
           onConfirm={() => {
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setActiveModal("");
           }}
         />
       )}
 
-      {(kingdomCreationRegion !== null || (newbiePhase === "choose_banner" && newbieSelectedRegion !== null)) && engineRef.current && (
-        <KingdomCreationModal
-          defaultCityName="Thành Trì Vương Quốc"
-          getCastleSprite={(color, emblem) => engineRef.current?.getCastleSprite(color, emblem)}
-          onClose={() => {
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
-            setKingdomCreationRegion(null);
-            if (engineRef.current) {
-              engineRef.current.cancelNewbieOnboarding();
+      {(kingdomCreationRegion !== null ||
+        (newbiePhase === "choose_banner" && newbieSelectedRegion !== null)) &&
+        engineRef.current && (
+          <KingdomCreationModal
+            defaultCityName="Thành Trì Vương Quốc"
+            getCastleSprite={(color, emblem) =>
+              engineRef.current?.getCastleSprite(color, emblem)
             }
-          }}
-          onConfirm={async (flagColor, emblem, cityName) => {
-            const regionId = kingdomCreationRegion ?? newbieSelectedRegion;
-            if (!token || regionId === null) {
-              showGameError("Chưa kết nối server, không thể xây thành tân thủ");
-              return;
-            }
-            engineRef.current?.handleAction("setToast", { message: "ĐANG GỬI LỆNH XÂY THÀNH TÂN THỦ LÊN SERVER" });
-            try {
-              await updatePlayerProfile(token, flagColor, emblem, cityName);
-              engineRef.current?.startNewbieOnboarding(flagColor, emblem, cityName);
-              const result = await startClearing(token, engineToServerTerritoryId(regionId));
-              engineRef.current?.handleAction("applyBackendClearing", { clearing: result.clearing });
-              engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            onClose={() => {
+              engineRef.current?.handleAction("setUiOverlayActive", {
+                active: false,
+              });
               setKingdomCreationRegion(null);
-              addSystemLine(`KHỞI CÔNG HOÀNG THÀNH ${cityName.toUpperCase()}`);
-            } catch (err: any) {
-              engineRef.current?.handleAction("setUiOverlayActive", { active: true });
-              engineRef.current?.cancelNewbieOnboarding();
-              showGameError(err.message || "Không thể khởi tạo thành trì tân thủ");
-            }
-          }}
-        />
-      )}
-
+              if (engineRef.current) {
+                engineRef.current.cancelNewbieOnboarding();
+              }
+            }}
+            onConfirm={async (flagColor, emblem, cityName) => {
+              const regionId = kingdomCreationRegion ?? newbieSelectedRegion;
+              if (!token || regionId === null) {
+                showGameError(
+                  "Chưa kết nối server, không thể xây thành tân thủ",
+                );
+                return;
+              }
+              engineRef.current?.handleAction("setToast", {
+                message: "ĐANG GỬI LỆNH XÂY THÀNH TÂN THỦ LÊN SERVER",
+              });
+              try {
+                await updatePlayerProfile(token, flagColor, emblem, cityName);
+                engineRef.current?.startNewbieOnboarding(
+                  flagColor,
+                  emblem,
+                  cityName,
+                );
+                const result = await startClearing(
+                  token,
+                  engineToServerTerritoryId(regionId),
+                );
+                engineRef.current?.handleAction("applyBackendClearing", {
+                  clearing: result.clearing,
+                });
+                engineRef.current?.handleAction("setUiOverlayActive", {
+                  active: false,
+                });
+                setKingdomCreationRegion(null);
+                addSystemLine(
+                  `KHỞI CÔNG HOÀNG THÀNH ${cityName.toUpperCase()}`,
+                );
+              } catch (err: any) {
+                engineRef.current?.handleAction("setUiOverlayActive", {
+                  active: true,
+                });
+                engineRef.current?.cancelNewbieOnboarding();
+                showGameError(
+                  err.message || "Không thể khởi tạo thành trì tân thủ",
+                );
+              }
+            }}
+          />
+        )}
 
       {deployTarget && deploySourceTown && engineRef.current && (
         <TroopDeploymentModal
@@ -2982,15 +4881,36 @@ export function GameApp({
           battleSide={deployTarget.battleSide}
           gameConfig={(engineRef.current as any).getConfig?.()}
           errorMessage={deployError}
-          getTownRegionId={(town) => engineRef.current?.getTownRegionId?.(town) ?? -1}
-          getRegionCenter={(id) => engineRef.current?.getRegionCenter?.(id) ?? null}
-          getRouteStatus={(town, targetRegionId) => engineRef.current?.getMarchRouteStatus?.(town, targetRegionId) ?? { ok: false, message: "Không có bản đồ", requiresShip: false }}
+          getTownRegionId={(town) =>
+            engineRef.current?.getTownRegionId?.(town) ?? -1
+          }
+          getRegionCenter={(id) =>
+            engineRef.current?.getRegionCenter?.(id) ?? null
+          }
+          getRouteStatus={(town, targetRegionId) =>
+            engineRef.current?.getMarchRouteStatus?.(town, targetRegionId) ?? {
+              ok: false,
+              message: "Không có bản đồ",
+              requiresShip: false,
+            }
+          }
           onSelectSourceTown={(townId) => {
-            const option = marchSourceOptions?.find((source) => source.townId === townId);
-            const nextTown = engineRef.current?.getPlayerOwnedTowns?.().find((town: any) => town.id === townId) ||
-              engineRef.current?.getPlayerOwnedTowns?.().find((town: any) =>
-                option && engineToServerTerritoryId(engineRef.current?.getTownRegionId?.(town) ?? -1) === option.territoryId
-              );
+            const option = marchSourceOptions?.find(
+              (source) => source.townId === townId,
+            );
+            const nextTown =
+              engineRef.current
+                ?.getPlayerOwnedTowns?.()
+                .find((town: any) => town.id === townId) ||
+              engineRef.current
+                ?.getPlayerOwnedTowns?.()
+                .find(
+                  (town: any) =>
+                    option &&
+                    engineToServerTerritoryId(
+                      engineRef.current?.getTownRegionId?.(town) ?? -1,
+                    ) === option.territoryId,
+                );
             if (!nextTown) {
               showGameError("Không tìm thấy thành xuất quân thuộc về bạn");
               return;
@@ -3005,13 +4925,21 @@ export function GameApp({
               infantry * (config.infantryTroopsValue || 18) +
               cavalry * (config.cavalryTroopsValue || 34) +
               artillery * (config.artilleryTroopsValue || 58);
-            const route = engineRef.current?.getMarchRouteStatus?.(deploySourceTown, deployTarget.targetRegionId);
+            const route = engineRef.current?.getMarchRouteStatus?.(
+              deploySourceTown,
+              deployTarget.targetRegionId,
+            );
             if (route && !route.ok) {
               showGameError(route.message);
               return;
             }
-            const sourceRegionId = engineRef.current?.getTownRegionId?.(deploySourceTown);
-            if (sourceRegionId === undefined || sourceRegionId === null || sourceRegionId < 0) {
+            const sourceRegionId =
+              engineRef.current?.getTownRegionId?.(deploySourceTown);
+            if (
+              sourceRegionId === undefined ||
+              sourceRegionId === null ||
+              sourceRegionId < 0
+            ) {
               showGameError("Không xác định được lãnh thổ xuất phát");
               return;
             }
@@ -3021,35 +4949,62 @@ export function GameApp({
             }
             if (deploySourceTown) {
               try {
-                const effectiveBattleSide = deployTarget.battleSide || (deployTarget.isAttack ? "attacker" : "defender");
-                const effectiveKind = deployTarget.isAttack ? "attack" : (effectiveBattleSide === "attacker" ? "attack" : "reinforce");
+                const effectiveBattleSide =
+                  deployTarget.battleSide ||
+                  (deployTarget.isAttack ? "attacker" : "defender");
+                const effectiveKind = deployTarget.isAttack
+                  ? "attack"
+                  : effectiveBattleSide === "attacker"
+                    ? "attack"
+                    : "reinforce";
                 const result = await createMarch(token, {
                   requestId: crypto.randomUUID(),
                   fromTerritoryId: engineToServerTerritoryId(sourceRegionId),
-                  toTerritoryId: engineToServerTerritoryId(deployTarget.targetRegionId),
+                  toTerritoryId: engineToServerTerritoryId(
+                    deployTarget.targetRegionId,
+                  ),
                   troops: power,
                   infantry,
                   cavalry,
                   artillery,
-                  battleSide: effectiveKind === "reinforce" ? effectiveBattleSide : undefined,
+                  battleSide:
+                    effectiveKind === "reinforce"
+                      ? effectiveBattleSide
+                      : undefined,
                   kind: effectiveKind,
                 });
                 if (result.town) {
                   const normalized = normalizeTownForClient(result.town);
-                  setServerTowns((prev) => prev.map((t) => t.id === normalized.id ? normalized : t));
-                  engineRef.current?.handleAction("applyBackendTownSnapshots", { towns: [normalized] });
+                  setServerTowns((prev) =>
+                    prev.map((t) => (t.id === normalized.id ? normalized : t)),
+                  );
+                  engineRef.current?.handleAction("applyBackendTownSnapshots", {
+                    towns: [normalized],
+                  });
                 }
                 if (result.newbieShieldUntil !== undefined) {
-                  engineRef.current?.handleAction("updateNewbieShield", { until: result.newbieShieldUntil });
+                  engineRef.current?.handleAction("updateNewbieShield", {
+                    until: result.newbieShieldUntil,
+                  });
                 }
-                const rendered = engineRef.current?.handleAction("applyBackendMarch", {
-                  march: result.march,
-                  unitMix: { infantry, cavalry, artillery, battleSide: effectiveBattleSide },
-                });
+                const rendered = engineRef.current?.handleAction(
+                  "applyBackendMarch",
+                  {
+                    march: result.march,
+                    unitMix: {
+                      infantry,
+                      cavalry,
+                      artillery,
+                      battleSide: effectiveBattleSide,
+                    },
+                  },
+                );
                 setWorldActivity((prev) => ({
                   ...prev,
                   marches: [
-                    ...prev.marches.filter((march: any) => march.id !== result.march.id),
+                    ...prev.marches.filter(
+                      (march: any) => march.id !== result.march.id,
+                    ),
                     result.march,
                   ],
                 }));
@@ -3060,12 +5015,17 @@ export function GameApp({
                 addWarReport({
                   id: `api-march-${result.march.id}`,
                   kind: effectiveKind === "attack" ? "battle" : "march",
-                  title: effectiveKind === "attack" ? "Lệnh tấn công đã xuất phát" : "Lệnh tiếp viện đã xuất phát",
+                  title:
+                    effectiveKind === "attack"
+                      ? "Lệnh tấn công đã xuất phát"
+                      : "Lệnh tiếp viện đã xuất phát",
                   body: `${formatNum(result.march.troops || power || 0)} quân đang hành quân tới ${territoryLabel(deployTarget.targetRegionId)}.`,
                   meta: `${result.march.distanceKm ?? 0}km · đến ${formatTimeLeft(result.march.arrivesAt)}`,
                 });
                 if (rendered === false) {
-                  showGameError("Server đã nhận lệnh nhưng client chưa vẽ được đường hành quân. Dữ liệu sẽ đồng bộ lại từ server.");
+                  showGameError(
+                    "Server đã nhận lệnh nhưng client chưa vẽ được đường hành quân. Dữ liệu sẽ đồng bộ lại từ server.",
+                  );
                   refreshGameStateFromServer();
                   return;
                 }
@@ -3076,28 +5036,47 @@ export function GameApp({
                   .then((world) => {
                     const territories = world.territories.map((territory) => ({
                       id: serverToEngineTerritoryId(territory.id),
-                      ownerCode: territory.ownerId === null ? 0 : territory.ownerId === playerId ? 1 : 2,
+                      ownerCode:
+                        territory.ownerId === null
+                          ? 0
+                          : territory.ownerId === playerId
+                            ? 1
+                            : 2,
                       ownerId: territory.ownerId,
-                      ownerName: territory.ownerId === null ? "" : territory.ownerId === playerId ? "Bạn" : territory.ownerName ?? territory.ownerId,
+                      ownerName:
+                        territory.ownerId === null
+                          ? ""
+                          : territory.ownerId === playerId
+                            ? "Bạn"
+                            : (territory.ownerName ?? territory.ownerId),
                       ownerFlagColor: territory.ownerFlagColor,
                       ownerEmblem: territory.ownerEmblem,
                       ownerAllianceTag: territory.ownerAllianceTag,
                       ownerAllianceEmblem: territory.ownerAllianceEmblem,
                     }));
-                    engineRef.current?.handleAction("applyWorldOwnership", { territories, replace: true });
+                    engineRef.current?.handleAction("applyWorldOwnership", {
+                      territories,
+                      replace: true,
+                    });
                   })
-                  .catch((syncErr) => console.warn("March reject resync failed:", syncErr));
+                  .catch((syncErr) =>
+                    console.warn("March reject resync failed:", syncErr),
+                  );
                 return;
               }
             }
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setDeployTarget(null);
             setDeploySourceTown(null);
             setDeployError(null);
             setMarchSourceOptions(null);
           }}
           onClose={() => {
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setDeployTarget(null);
             setDeploySourceTown(null);
             setDeployError(null);
@@ -3106,26 +5085,47 @@ export function GameApp({
         />
       )}
 
-      {Boolean(selectedTownForModal && (selectedTownForModal.owner === 0 || selectedTownForModal.ownerCode === 1 || (playerId && selectedTownForModal.ownerId === playerId))) && engineRef.current && (
-        <TownManagementModal
-          town={selectedTownForModal}
-          resources={resources}
-          gameConfig={(engineRef.current as any).getConfig?.()}
-          specialResources={(engineRef.current as any).getTerritorySpecialResources?.((engineRef.current as any).getTownRegionId?.(selectedTownForModal)) || []}
-          playerColor={(engineRef.current as any).getState?.().newbieFlagColor || "#2563eb"}
-          onClose={() => {
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
-            setSelectedTown(null);
-            engineRef.current?.handleAction("deselect");
-          }}
-        />
-      )}
+      {Boolean(
+        selectedTownForModal &&
+        (selectedTownForModal.owner === 0 ||
+          selectedTownForModal.ownerCode === 1 ||
+          (playerId && selectedTownForModal.ownerId === playerId)),
+      ) &&
+        engineRef.current && (
+          <TownManagementModal
+            town={selectedTownForModal}
+            resources={resources}
+            gameConfig={(engineRef.current as any).getConfig?.()}
+            specialResources={
+              (engineRef.current as any).getTerritorySpecialResources?.(
+                (engineRef.current as any).getTownRegionId?.(
+                  selectedTownForModal,
+                ),
+              ) || []
+            }
+            playerColor={
+              (engineRef.current as any).getState?.().newbieFlagColor ||
+              "#2563eb"
+            }
+            onClose={() => {
+              engineRef.current?.handleAction("setUiOverlayActive", {
+                active: false,
+              });
+              setSelectedTown(null);
+              engineRef.current?.handleAction("deselect");
+            }}
+          />
+        )}
 
       {activeModal === "army" && engineRef.current && (
         <ArmyModal
           army={armyState}
           onCenterCamera={(town) => {
-            engineRef.current?.handleAction("centerCamera", { townId: town.id, x: town.x, y: town.y });
+            engineRef.current?.handleAction("centerCamera", {
+              townId: town.id,
+              x: town.x,
+              y: town.y,
+            });
           }}
           onClose={closeModal}
         />
@@ -3144,7 +5144,9 @@ export function GameApp({
       {activeModal === "treasure" && engineRef.current && (
         <TreasureModal
           towns={engineRef.current.getTowns()}
-          regionOwnership={(engineRef.current as any).getState().regionOwnership}
+          regionOwnership={
+            (engineRef.current as any).getState().regionOwnership
+          }
           onClose={closeModal}
         />
       )}
@@ -3157,7 +5159,9 @@ export function GameApp({
           inventory={shopInventory}
           onResources={(next) => {
             applyResourceSnapshot({ resources: next });
-            engineRef.current?.handleAction("syncResources", { resources: next });
+            engineRef.current?.handleAction("syncResources", {
+              resources: next,
+            });
           }}
           onInventory={(inventory) => {
             setShopInventory(inventory);
@@ -3165,9 +5169,15 @@ export function GameApp({
           }}
           onNotify={(message) => {
             addSystemLine(message.toUpperCase());
-            pushRealtimeToast({ id: `shop-${Date.now()}`, title: "CỬA HÀNG HOÀNG GIA", body: message });
+            pushRealtimeToast({
+              id: `shop-${Date.now()}`,
+              title: "CỬA HÀNG HOÀNG GIA",
+              body: message,
+            });
           }}
-          getSkinSprite={(skinId) => engineRef.current?.getPremiumCastleSprite(skinId)}
+          getSkinSprite={(skinId) =>
+            engineRef.current?.getPremiumCastleSprite(skinId)
+          }
           onClose={closeModal}
         />
       )}
@@ -3194,57 +5204,115 @@ export function GameApp({
       {(activeModal === "warReport" || activeModal === "war_reports") && (
         <div className="modal-overlay war-report-overlay">
           <div className="war-report-modal">
-            <button type="button" className="war-report-close" onClick={closeModal}>×</button>
-            <div className="war-report-title"><HudIcon name="swords" /> {t("warReportTitle")}</div>
+            <button
+              type="button"
+              className="war-report-close"
+              onClick={closeModal}
+            >
+              ×
+            </button>
+            <div className="war-report-title">
+              <HudIcon name="swords" /> {t("warReportTitle")}
+            </div>
             <div className="war-report-stats">
-              <div><span>{t("reports")}</span><strong>{battleReports.length}</strong></div>
-              <div><span>Chưa đọc</span><strong>{reportUnreadCount}</strong></div>
-              <div><span>{t("battles")}</span><strong>{battleRows.length}</strong></div>
-              <div><span>{t("marching")}</span><strong>{attackRows.length + ownMarchRows.length}</strong></div>
+              <div>
+                <span>{t("reports")}</span>
+                <strong>{battleReports.length}</strong>
+              </div>
+              <div>
+                <span>Chưa đọc</span>
+                <strong>{reportUnreadCount}</strong>
+              </div>
+              <div>
+                <span>{t("battles")}</span>
+                <strong>{battleRows.length}</strong>
+              </div>
+              <div>
+                <span>{t("marching")}</span>
+                <strong>{attackRows.length + ownMarchRows.length}</strong>
+              </div>
             </div>
             <div className="war-report-list">
-              <div className="war-report-section-title">{t("recentReports")}</div>
-              {recentWarReports.length > 0 ? recentWarReports.map((report) => {
-                const isAttacker = report.attackerId === playerId;
-                const won = report.winnerId === playerId;
-                const casualty = isAttacker ? report.attacker?.casualty?.power : report.defender?.casualty?.power;
-                return (
-                <button
-                  type="button"
-                  key={report.id}
-                  className={`war-report-item battle clickable ${report.read ? "" : "unread"}`}
-                  style={{ cursor: "pointer", borderLeft: `3px solid ${won ? "#22c55e" : "#ef4444"}`, width: "100%", textAlign: "left" }}
-                  onClick={async () => {
-                    if (token && !report.read) {
-                      try {
-                        const result = await markBattleReportRead(token, report.id);
-                        setReportUnreadCount(result.unreadCount);
-                        setBattleReports((current) => current.map((item) => item.id === report.id ? { ...item, read: true } : item));
-                      } catch {}
-                    }
-                    closeModal();
-                    setSelectedBattleReport(report);
-                  }}
-                >
-                  <div className="war-report-item-title">
-                    {won ? "CHIẾN THẮNG" : "THẤT BẠI"} · {report.territoryName}
-                    <span className="war-report-time">
-                      {new Date(report.createdAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
-                    </span>
-                  </div>
-                  <div className="war-report-item-body">{report.attackerName} giao chiến với {report.defenderName}</div>
-                  <div className="war-report-item-meta">Tổn thất của bạn: {formatNum(casualty || 0)} · Bấm để xem chi tiết</div>
-                </button>
-              );}) : (
+              <div className="war-report-section-title">
+                {t("recentReports")}
+              </div>
+              {recentWarReports.length > 0 ? (
+                recentWarReports.map((report) => {
+                  const isAttacker = report.attackerId === playerId;
+                  const won = report.winnerId === playerId;
+                  const casualty = isAttacker
+                    ? report.attacker?.casualty?.power
+                    : report.defender?.casualty?.power;
+                  return (
+                    <button
+                      type="button"
+                      key={report.id}
+                      className={`war-report-item battle clickable ${report.read ? "" : "unread"}`}
+                      style={{
+                        cursor: "pointer",
+                        borderLeft: `3px solid ${won ? "#22c55e" : "#ef4444"}`,
+                        width: "100%",
+                        textAlign: "left",
+                      }}
+                      onClick={async () => {
+                        if (token && !report.read) {
+                          try {
+                            const result = await markBattleReportRead(
+                              token,
+                              report.id,
+                            );
+                            setReportUnreadCount(result.unreadCount);
+                            setBattleReports((current) =>
+                              current.map((item) =>
+                                item.id === report.id
+                                  ? { ...item, read: true }
+                                  : item,
+                              ),
+                            );
+                          } catch {}
+                        }
+                        closeModal();
+                        setSelectedBattleReport(report);
+                      }}
+                    >
+                      <div className="war-report-item-title">
+                        {won ? "CHIẾN THẮNG" : "THẤT BẠI"} ·{" "}
+                        {report.territoryName}
+                        <span className="war-report-time">
+                          {new Date(report.createdAt).toLocaleString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="war-report-item-body">
+                        {report.attackerName} giao chiến với{" "}
+                        {report.defenderName}
+                      </div>
+                      <div className="war-report-item-meta">
+                        Tổn thất của bạn: {formatNum(casualty || 0)} · Bấm để
+                        xem chi tiết
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
                 <div className="war-report-empty">{t("noReports")}</div>
               )}
               <div className="war-report-section-title">{t("activeNow")}</div>
-              {warReportRows.length > 0 ? warReportRows.map((row, i) => (
-                <div key={`${row.title}-${i}`} className="war-report-item active">
-                  <div className="war-report-item-title">{row.title}</div>
-                  <div className="war-report-item-meta">{row.meta}</div>
-                </div>
-              )) : (
+              {warReportRows.length > 0 ? (
+                warReportRows.map((row, i) => (
+                  <div
+                    key={`${row.title}-${i}`}
+                    className="war-report-item active"
+                  >
+                    <div className="war-report-item-title">{row.title}</div>
+                    <div className="war-report-item-meta">{row.meta}</div>
+                  </div>
+                ))
+              ) : (
                 <div className="war-report-empty">{t("noActiveWar")}</div>
               )}
             </div>
@@ -3263,68 +5331,127 @@ export function GameApp({
       {activeModal === "mail" && (
         <div className="modal-overlay war-report-overlay">
           <div className="war-report-modal mail-modal">
-            <button type="button" className="war-report-close" onClick={closeModal}>×</button>
-            <div className="war-report-title"><HudIcon name="mail" /> {t("personalMail")}</div>
+            <button
+              type="button"
+              className="war-report-close"
+              onClick={closeModal}
+            >
+              ×
+            </button>
+            <div className="war-report-title">
+              <HudIcon name="mail" /> {t("personalMail")}
+            </div>
             <div className="mail-layout">
               <div className="mail-compose">
                 <div className="mail-panel-title">{t("composeMail")}</div>
                 <input
                   type="text"
                   value={mailDraft.to}
-                  onChange={(event) => setMailDraft((prev) => ({ ...prev, to: event.target.value }))}
+                  onChange={(event) =>
+                    setMailDraft((prev) => ({
+                      ...prev,
+                      to: event.target.value,
+                    }))
+                  }
                   placeholder={t("recipientName")}
                   maxLength={32}
                 />
                 <input
                   type="text"
                   value={mailDraft.title}
-                  onChange={(event) => setMailDraft((prev) => ({ ...prev, title: event.target.value }))}
+                  onChange={(event) =>
+                    setMailDraft((prev) => ({
+                      ...prev,
+                      title: event.target.value,
+                    }))
+                  }
                   placeholder={t("mailTitle")}
                   maxLength={48}
                 />
                 <textarea
                   value={mailDraft.body}
-                  onChange={(event) => setMailDraft((prev) => ({ ...prev, body: event.target.value }))}
+                  onChange={(event) =>
+                    setMailDraft((prev) => ({
+                      ...prev,
+                      body: event.target.value,
+                    }))
+                  }
                   placeholder={t("mailBody")}
                   maxLength={320}
                 />
-                <button type="button" className="mail-send-btn" onClick={sendPrivateMail}>
+                <button
+                  type="button"
+                  className="mail-send-btn"
+                  onClick={sendPrivateMail}
+                >
                   {t("sendMail")}
                 </button>
               </div>
               <div className="mail-inbox">
                 <div className="mail-panel-title mail-tabs">
-                  <button type="button" className={mailTab === "inbox" ? "active" : ""} onClick={() => setMailTab("inbox")}>
-                    {t("inbox")} {mailUnreadCount > 0 ? `(${mailUnreadCount})` : ""}
+                  <button
+                    type="button"
+                    className={mailTab === "inbox" ? "active" : ""}
+                    onClick={() => setMailTab("inbox")}
+                  >
+                    {t("inbox")}{" "}
+                    {mailUnreadCount > 0 ? `(${mailUnreadCount})` : ""}
                   </button>
-                  <button type="button" className={mailTab === "sent" ? "active" : ""} onClick={() => setMailTab("sent")}>
+                  <button
+                    type="button"
+                    className={mailTab === "sent" ? "active" : ""}
+                    onClick={() => setMailTab("sent")}
+                  >
                     ĐÃ GỬI
                   </button>
                 </div>
                 <div className="mail-list">
-                  {(mailTab === "inbox" ? inbox : sentMail).length > 0 ? (mailTab === "inbox" ? inbox : sentMail).map((mail) => (
-                    <button
-                      key={mail.id}
-                      type="button"
-                      className={`mail-item ${mail.readAt || mailTab === "sent" ? "" : "unread"}`}
-                      onClick={async () => {
-                        if (mailTab !== "inbox" || mail.readAt || !token) return;
-                        try {
-                          const result = await markPlayerMailRead(token, mail.id);
-                          setMailUnreadCount(result.unreadCount);
-                          setInbox((current) => current.map((item) => item.id === mail.id ? { ...item, readAt: result.readAt } : item));
-                        } catch {}
-                      }}
-                    >
-                      <div className="mail-meta">
-                        <span>{mail.senderName} → {mail.recipientName}</span>
-                        <span>{new Date(mail.sentAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
-                      </div>
-                      <div className="mail-title">{mail.title}</div>
-                      <div className="mail-body">{mail.body}</div>
-                    </button>
-                  )) : (
-                    <div className="war-report-empty">{t("noPersonalMail")}</div>
+                  {(mailTab === "inbox" ? inbox : sentMail).length > 0 ? (
+                    (mailTab === "inbox" ? inbox : sentMail).map((mail) => (
+                      <button
+                        key={mail.id}
+                        type="button"
+                        className={`mail-item ${mail.readAt || mailTab === "sent" ? "" : "unread"}`}
+                        onClick={async () => {
+                          if (mailTab !== "inbox" || mail.readAt || !token)
+                            return;
+                          try {
+                            const result = await markPlayerMailRead(
+                              token,
+                              mail.id,
+                            );
+                            setMailUnreadCount(result.unreadCount);
+                            setInbox((current) =>
+                              current.map((item) =>
+                                item.id === mail.id
+                                  ? { ...item, readAt: result.readAt }
+                                  : item,
+                              ),
+                            );
+                          } catch {}
+                        }}
+                      >
+                        <div className="mail-meta">
+                          <span>
+                            {mail.senderName} → {mail.recipientName}
+                          </span>
+                          <span>
+                            {new Date(mail.sentAt).toLocaleString("vi-VN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "2-digit",
+                              month: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <div className="mail-title">{mail.title}</div>
+                        <div className="mail-body">{mail.body}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="war-report-empty">
+                      {t("noPersonalMail")}
+                    </div>
                   )}
                 </div>
               </div>
@@ -3343,10 +5470,7 @@ export function GameApp({
       )}
 
       {activeModal === "ranking" && token && (
-        <RankingModal
-          token={token}
-          onClose={closeModal}
-        />
+        <RankingModal token={token} onClose={closeModal} />
       )}
 
       {activeModal === "chat" && engineRef.current && (
@@ -3366,18 +5490,28 @@ export function GameApp({
               className="realtime-toast"
               key={toast.id}
               onClick={async () => {
-                setRealtimeToasts((current) => current.filter((item) => item.id !== toast.id));
+                setRealtimeToasts((current) =>
+                  current.filter((item) => item.id !== toast.id),
+                );
                 if (toast.report) {
                   if (token && !toast.report.read) {
                     try {
-                      const result = await markBattleReportRead(token, toast.report.id);
+                      const result = await markBattleReportRead(
+                        token,
+                        toast.report.id,
+                      );
                       setReportUnreadCount(result.unreadCount);
-                      setBattleReports((current) => current.map((report) => report.id === toast.report?.id ? { ...report, read: true } : report));
+                      setBattleReports((current) =>
+                        current.map((report) =>
+                          report.id === toast.report?.id
+                            ? { ...report, read: true }
+                            : report,
+                        ),
+                      );
                     } catch {}
                   }
                   setSelectedBattleReport(toast.report);
-                }
-                else if (toast.id.startsWith("mail-")) openModal("mail");
+                } else if (toast.id.startsWith("mail-")) openModal("mail");
               }}
             >
               <strong>{toast.title}</strong>
@@ -3392,12 +5526,16 @@ export function GameApp({
         <NewbieOnboardingModal
           onClose={() => {
             localStorage.setItem("island_empire_tutorial_completed", "1");
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setShowTutorial(false);
           }}
           onConfirm={() => {
             localStorage.setItem("island_empire_tutorial_completed", "1");
-            engineRef.current?.handleAction("setUiOverlayActive", { active: false });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: false,
+            });
             setShowTutorial(false);
           }}
         />
@@ -3405,11 +5543,22 @@ export function GameApp({
 
       {/* ===== AVATAR PICKER MODAL ===== */}
       {showAvatarPicker && (
-        <div className="avatar-picker-overlay" onClick={() => setShowAvatarPicker(false)}>
-          <div className="avatar-picker-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="avatar-picker-overlay"
+          onClick={() => setShowAvatarPicker(false)}
+        >
+          <div
+            className="avatar-picker-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="avatar-picker-header">
               <span className="avatar-picker-title">⚔️ Chọn Đại Diện</span>
-              <button className="avatar-picker-close" onClick={() => setShowAvatarPicker(false)}>✕</button>
+              <button
+                className="avatar-picker-close"
+                onClick={() => setShowAvatarPicker(false)}
+              >
+                ✕
+              </button>
             </div>
             <div className="avatar-picker-grid">
               {[
@@ -3438,17 +5587,21 @@ export function GameApp({
                     src={`/assets/avatars/${av.id}.png`}
                     alt={av.label}
                     className="avatar-option-img"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/assets/avatars/emperor.png"; }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "/assets/avatars/emperor.png";
+                    }}
                   />
                   <span className="avatar-option-label">{av.label}</span>
-                  {selectedAvatarId === av.id && <div className="avatar-option-check">✓</div>}
+                  {selectedAvatarId === av.id && (
+                    <div className="avatar-option-check">✓</div>
+                  )}
                 </button>
               ))}
             </div>
           </div>
         </div>
       )}
-
     </main>
   );
 
