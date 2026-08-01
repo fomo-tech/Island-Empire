@@ -14,6 +14,7 @@ import {
   deletePlayerMail,
   getMarchSourceOptions,
   getGameConfig,
+  getChatHistory,
   getPlayerSync,
   getServerStatus,
   getWorldTerritories,
@@ -41,6 +42,7 @@ import { TreasureModal } from "./TreasureModal";
 import { AllyModal } from "./AllyModal";
 import { ShopModal } from "./ShopModal";
 import { ChatInputModal } from "./ChatInputModal";
+import { ChatPanel } from "./ChatPanel";
 import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
@@ -52,6 +54,7 @@ import type {
   PlayerMail,
   PlayerSyncResult,
   ResourceBag,
+  ChatMessage,
 } from "@island/shared";
 
 const CAMERA_KEY = "island_empire_camera_v1";
@@ -1027,32 +1030,6 @@ const formatResourceVal = (num: number) => {
 };
 
 // Parse log lines into formatted chat objects
-function parseChatLine(line: string) {
-  const colonIndex = line.indexOf(":");
-  if (colonIndex === -1) {
-    return { channel: "THẾ GIỚI", name: "Hệ thống", message: line };
-  }
-  const namePart = line.substring(0, colonIndex).trim();
-  const msgPart = line.substring(colonIndex + 1).trim();
-
-  let channel = "THẾ GIỚI";
-  let name = namePart;
-
-  if (namePart.startsWith("[HỆ THỐNG]")) {
-    channel = "HỆ THỐNG";
-    name = namePart.replace("[HỆ THỐNG]", "").trim() || "SYSTEM";
-  } else if (namePart.startsWith("[LIÊN MINH]")) {
-    channel = "HỆ THỐNG";
-    name = namePart.replace("[LIÊN MINH]", "").trim() || "HỆ THỐNG";
-  } else if (namePart.startsWith("[THẾ GIỚI]")) {
-    channel = "THẾ GIỚI";
-    name = namePart.replace("[THẾ GIỚI]", "").trim();
-  }
-
-  return { channel, name, message: msgPart };
-}
-
-type ChatChannel = "HỆ THỐNG" | "THẾ GIỚI";
 type WarReportRecord = {
   id: string;
   kind: "battle" | "march" | "clearing" | "system";
@@ -1448,7 +1425,7 @@ export function GameApp({
     { text: "GỬI 1 ĐẠO QUÂN HÀNH QUÂN", value: 0, goal: 1 },
     { text: "THAM GIA LIÊN MINH", value: 0, goal: 1 },
   ]);
-  const [chatLog, setChatLog] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>(
     () => localStorage.getItem("island_empire_avatar") || "emperor",
   );
@@ -1544,8 +1521,6 @@ export function GameApp({
     number | null
   >(null);
   const [coordinateSearch, setCoordinateSearch] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatChannel, setChatChannel] = useState<ChatChannel>("THẾ GIỚI");
   const [language, setLanguage] = useState<GameLanguage>(() =>
     detectDeviceLanguage(),
   );
@@ -1589,10 +1564,8 @@ export function GameApp({
   );
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
-  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false);
   const [socketOnline, setSocketOnline] = useState(false);
-  const [serverEventLog, setServerEventLog] = useState<string[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const backendClearingStartRef = useRef<Set<number>>(new Set());
 
@@ -1649,11 +1622,15 @@ export function GameApp({
     [],
   );
 
-  const addSystemLine = useCallback((message: string) => {
-    setServerEventLog((prev) => [
-      ...prev.slice(-14),
-      `[HỆ THỐNG] SYSTEM: ${message}`,
-    ]);
+  const addSystemLine = useCallback((message: string, level: "info" | "success" | "warning" | "battle" = "info") => {
+    const next: ChatMessage = {
+      id: crypto.randomUUID(),
+      kind: "system",
+      level,
+      text: message,
+      sentAt: new Date().toISOString(),
+    };
+    setChatMessages((prev) => [...prev, next].slice(-150));
   }, []);
 
   const pushRealtimeToast = useCallback(
@@ -1970,7 +1947,8 @@ export function GameApp({
         const chatSnapshot = `${recentLog.length}|${recentLog[recentLog.length - 1] || ""}`;
         if (chatSnapshot !== snapshots.chat) {
           snapshots.chat = chatSnapshot;
-          setChatLog(recentLog);
+          const latestLine = recentLog[recentLog.length - 1];
+          if (latestLine) addSystemLine(latestLine);
         }
         const metaSnapshot = `${engineState.toast || ""}|${engineState.newbiePhase || "none"}|${engineState.newbieSelectedRegion ?? ""}`;
         if (metaSnapshot !== snapshots.meta) {
@@ -2267,22 +2245,43 @@ export function GameApp({
     };
   }, [isAuthenticated, token, playerId]);
 
+  const refreshChatHistory = useCallback(async () => {
+    if (!token) return;
+    try {
+      const history = await getChatHistory(token);
+      setChatMessages((current) => {
+        const byId = new Map(current.map((message) => [message.id, message]));
+        history.messages.forEach((message) => byId.set(message.id, message));
+        return [...byId.values()]
+          .sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt))
+          .slice(-150);
+      });
+    } catch (error) {
+      console.warn("Không tải được lịch sử chat:", error);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void refreshChatHistory();
+  }, [refreshChatHistory]);
+
   useEffect(() => {
     if (!isAuthenticated || !token || !playerId || !initialSyncReady) return;
     return connectGameSocket(
       token,
       (event) => {
-        if (event.type === "world_chat") {
-          setChatLog((prev) => [
-            ...prev.slice(-24),
-            `[THẾ GIỚI] ${event.playerName}: ${event.message}`,
-          ]);
+        if (event.type === "chat_message") {
+          setChatMessages((prev) => {
+            if (prev.some((message) => message.id === event.message.id)) return prev;
+            return [...prev, event.message].slice(-150);
+          });
           return;
         }
         if (event.type === "hello") {
           setSocketOnline(true);
           socketHelloCountRef.current += 1;
           if (socketHelloCountRef.current > 1) {
+            void refreshChatHistory();
             // Đây là lần kết nối LẠI (sau server reload / mất mạng)
             // → Fetch toàn bộ game state để phục hồi:
             //   quân đang hành quân, xây thành đang chạy, trận đánh v.v.
@@ -2831,7 +2830,7 @@ export function GameApp({
       },
       setSocketOnline,
     );
-  }, [isAuthenticated, token, playerId, initialSyncReady]);
+  }, [isAuthenticated, token, playerId, initialSyncReady, refreshChatHistory]);
 
   const handleLoginSuccess = (newToken: string, newPlayerId: string) => {
     localStorage.setItem(TOKEN_KEY, newToken);
@@ -3257,17 +3256,6 @@ export function GameApp({
     run(1);
   }
 
-  const handleChatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const message = chatInput.trim();
-    if (!message || chatChannel === "HỆ THỐNG") return;
-    if (!sendWorldChat(message)) {
-      showGameError("Chat thế giới đang mất kết nối, vui lòng thử lại");
-      return;
-    }
-    setChatInput("");
-  };
-
   if (!isAuthenticated && !token) {
     return <LoginScreen onSuccess={handleLoginSuccess} />;
   }
@@ -3358,10 +3346,6 @@ export function GameApp({
       goal: 1,
     },
   ];
-  const allChatLines = [...chatLog, ...serverEventLog].slice(-50);
-  const displayChatLog = allChatLines
-    .filter((line) => parseChatLine(line).channel === chatChannel)
-    .slice(-18);
   const unreadMailCount = mailUnreadCount;
   const backendStatusText =
     apiOnline === null
@@ -4365,111 +4349,16 @@ export function GameApp({
 
           {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
           <div className="hud-bottombar-unified">
-            {/* FLOATING CHAT BOX (Bottom Left) */}
-            <div
-              className={`hud-floating-chat hud-interactive ${chatCollapsed ? "collapsed" : ""}`}
-            >
-              <div
-                className="hud-chat-header"
-                onClick={() => setChatCollapsed(!chatCollapsed)}
-              >
-                <span className="hud-chat-header-main">
-                  <img src="/assets/icons/icon_mail.png" alt="" /> {t("chat")}
-                </span>
-                <span
-                  className={`hud-chat-toggle-btn ${chatCollapsed ? "" : "is-open"}`}
-                >
-                  <img src="/assets/icons/icon_collapse_european.png" alt="" />
-                </span>
-              </div>
-              {!chatCollapsed && (
-                <>
-                  <div className="hud-chat-tabs-pills">
-                    {(["THẾ GIỚI", "HỆ THỐNG"] as ChatChannel[]).map(
-                      (channel) => (
-                        <button
-                          key={channel}
-                          type="button"
-                          className={`hud-chat-tab-pill ${
-                            (channel === "HỆ THỐNG" &&
-                              chatChannel === "HỆ THỐNG") ||
-                            (channel === "THẾ GIỚI" &&
-                              chatChannel === "THẾ GIỚI")
-                              ? "active"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            setChatChannel(channel);
-                            setChatInput("");
-                          }}
-                        >
-                          {channel === "HỆ THỐNG" ? "Hệ thống" : "Thế giới"}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                  <div className="hud-chat-lines">
-                    {displayChatLog.length > 0 ? (
-                      displayChatLog.map((line, i) => {
-                        const chat = parseChatLine(line);
-                        let prefix = `[${chat.channel === "HỆ THỐNG" ? "Hệ Thống" : "Thế Giới"}]`;
-                        let isSys = chat.channel === "HỆ THỐNG";
-                        if (line.includes("PLAYER")) {
-                          prefix = "[Thế giới]";
-                          isSys = false;
-                        } else if (
-                          line.includes("Bang HOANGIA") ||
-                          line.includes("SYSTEM")
-                        ) {
-                          prefix = "[Hệ thống]";
-                          isSys = true;
-                        }
-                        return (
-                          <div key={i} className="hud-chat-line">
-                            <span
-                              className={`hud-chat-channel ${isSys ? "system" : "world"}`}
-                            >
-                              {prefix}
-                            </span>
-                            <span className="hud-chat-name">
-                              {" "}
-                              {chat.name}:{" "}
-                            </span>
-                            <span className="hud-chat-msg">{chat.message}</span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="hud-chat-empty">{t("noChat")}</div>
-                    )}
-                  </div>
-                  <form
-                    onSubmit={handleChatSubmit}
-                    className="hud-chat-input-bar"
-                  >
-                    <input
-                      type="text"
-                      className="hud-chat-input"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Nhập tin nhắn..."
-                      maxLength={100}
-                      disabled={chatChannel === "HỆ THỐNG"}
-                    />
-                    <button
-                      type="submit"
-                      className="hud-chat-send"
-                      disabled={chatChannel === "HỆ THỐNG"}
-                    >
-                      <img
-                        src="/assets/icons/icon_collapse_european.png"
-                        alt=""
-                      />
-                    </button>
-                  </form>
-                </>
-              )}
-            </div>
+            <ChatPanel
+              messages={chatMessages}
+              currentUserId={playerId ?? undefined}
+              online={socketOnline}
+              onSend={(message) => {
+                const sent = sendWorldChat(message);
+                if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+                return sent;
+              }}
+            />
           </div>
 
           {/* Connection status pill hidden or styled elegantly */}

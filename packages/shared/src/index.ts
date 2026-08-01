@@ -486,9 +486,32 @@ export type CreateMarchResult = {
   newbieShieldUntil?: string | null;
 };
 
+export type UserChatMessage = {
+  id: string;
+  kind: "user";
+  userId: string;
+  userName: string;
+  text: string;
+  sentAt: string;
+};
+
+export type SystemChatMessage = {
+  id: string;
+  kind: "system";
+  level: "info" | "success" | "warning" | "battle";
+  text: string;
+  sentAt: string;
+};
+
+export type ChatMessage = UserChatMessage | SystemChatMessage;
+
+export type ChatHistoryResult = {
+  messages: UserChatMessage[];
+};
+
 export type RealtimeEvent =
   | { type: "hello"; playerId: string; serverTime: string }
-  | { type: "world_chat"; playerId: string; playerName: string; message: string; sentAt: string }
+  | { type: "chat_message"; message: ChatMessage }
   | {
       type: "player_state_updated";
       playerId: string;

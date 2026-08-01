@@ -4791,6 +4791,22 @@ export function createApp() {
   app.get("/api/realtime/stats", requireAuth, requireAdmin, (_req, res) => {
     res.json(realtimeStats());
   });
+  app.get("/api/chat/history", requireAuth, async (_req, res) => {
+    const { chatMessages } = await collections();
+    const docs = await chatMessages
+      .find({}, { sort: { sentAt: -1 }, limit: 50 })
+      .toArray();
+    res.json({
+      messages: docs.reverse().map((message) => ({
+        id: message._id,
+        kind: "user" as const,
+        userId: message.userId,
+        userName: message.userName,
+        text: message.text,
+        sentAt: message.sentAt.toISOString(),
+      })),
+    });
+  });
   app.get("/api/auth/challenge", (req, res) => {
     res.json(createAntiBotChallenge(req));
   });
@@ -5566,6 +5582,8 @@ export function createApp() {
             error: "product_not_found",
             message: "Sản phẩm không tồn tại",
           });
+      const productResources = "resources" in product ? product.resources : undefined;
+      const productSkinId = "skinId" in product ? product.skinId : undefined;
       const resourceState = await collectPlayerResources(playerId);
       const player = await players.findOne({ _id: playerId });
       const currentResources = normalizeResources(resourceState.resources);
@@ -5578,7 +5596,7 @@ export function createApp() {
           });
       }
       const inventory = normalizeShopInventory(player?.shopInventory);
-      if (product.skinId && inventory.ownedSkins.includes(product.skinId)) {
+      if (productSkinId && inventory.ownedSkins.includes(productSkinId)) {
         return res
           .status(409)
           .json({
@@ -5587,11 +5605,11 @@ export function createApp() {
           });
       }
       const nextResources = { ...currentResources };
-      if (product.resources) {
+      if (productResources) {
         for (const key of RESOURCE_KEYS) {
           const grant = Math.max(
             0,
-            Math.floor(Number(product.resources[key]) || 0),
+            Math.floor(Number(productResources[key]) || 0),
           );
           if (
             grant > 0 &&
@@ -5606,23 +5624,23 @@ export function createApp() {
         RESOURCE_KEYS.forEach((key) => {
           nextResources[key] += Math.max(
             0,
-            Math.floor(Number(product.resources?.[key]) || 0),
+            Math.floor(Number(productResources[key]) || 0),
           );
         });
       }
       nextResources.gems -= product.priceGems;
       const nextInventory: any = normalizeShopInventory({
         ...inventory,
-        ownedSkins: product.skinId
-          ? [...(inventory.ownedSkins as any[]), product.skinId]
+        ownedSkins: productSkinId
+          ? [...(inventory.ownedSkins as any[]), productSkinId]
           : inventory.ownedSkins,
         equippedCapitalSkin:
-          product.skinId && parsed.data.equipTarget === "capital"
-            ? product.skinId
+          productSkinId && parsed.data.equipTarget === "capital"
+            ? productSkinId
             : inventory.equippedCapitalSkin,
         equippedDistrictSkin:
-          product.skinId && parsed.data.equipTarget === "military_district"
-            ? product.skinId
+          productSkinId && parsed.data.equipTarget === "military_district"
+            ? productSkinId
             : inventory.equippedDistrictSkin,
         version: inventory.version + 1,
       } as any);
@@ -5633,8 +5651,8 @@ export function createApp() {
         productId: product.id,
         requestId: parsed.data.requestId,
         priceGems: product.priceGems,
-        grantedResources: product.resources,
-        grantedSkinId: product.skinId,
+        grantedResources: productResources,
+        grantedSkinId: productSkinId,
         createdAt,
       };
       await players.updateOne(
@@ -5657,8 +5675,8 @@ export function createApp() {
         id: purchaseDoc._id,
         productId: product.id,
         priceGems: product.priceGems,
-        grantedResources: product.resources,
-        grantedSkinId: product.skinId,
+        grantedResources: productResources,
+        grantedSkinId: productSkinId,
         createdAt: createdAt.toISOString(),
       };
       const version = createdAt.getTime();

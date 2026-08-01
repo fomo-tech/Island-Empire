@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { RealtimeEnvelope, RealtimeEvent } from "@island/shared";
@@ -18,6 +19,8 @@ type Client = {
   worldChatCount: number;
   worldChatWindowAt: number;
   nextSeq: number;
+  lastChatText: string;
+  lastChatAt: number;
 };
 
 let clients = new Set<Client>();
@@ -161,6 +164,8 @@ export function attachRealtime(server: Server) {
       worldChatCount: 0,
       worldChatWindowAt: Date.now(),
       nextSeq: 1,
+      lastChatText: "",
+      lastChatAt: 0,
     };
     clients.add(client);
 
@@ -188,23 +193,42 @@ export function attachRealtime(server: Server) {
           send(client, [{ type: "world_state_hint", reason: "reconnect" }]);
           return;
         }
-        if (message?.type === "world_chat") {
+        if (message?.type === "user_chat") {
           const text = typeof message.text === "string" ? message.text.trim().replace(/\s+/g, " ") : "";
-          if (!text || text.length > 140 || client.user.role !== "player") return;
+          if (!text || text.length > 200 || client.user.role !== "player") return;
+          if (/https?:\/\/|www\./i.test(text)) return;
+          if (text === client.lastChatText && now - client.lastChatAt < 4_000) return;
           if (now - client.worldChatWindowAt >= WORLD_CHAT_WINDOW_MS) {
             client.worldChatWindowAt = now;
             client.worldChatCount = 0;
           }
           if (client.worldChatCount >= MAX_WORLD_CHAT_MESSAGES_PER_WINDOW) return;
           client.worldChatCount += 1;
-          const { players } = await collections();
+          client.lastChatText = text;
+          client.lastChatAt = now;
+          const { players, chatMessages } = await collections();
           const player = await players.findOne({ _id: client.user.id }, { projection: { name: 1 } });
+          const sentAt = new Date();
+          const chatMessage = {
+            id: randomUUID(),
+            kind: "user" as const,
+            userId: client.user.id,
+            userName: player?.name || "Người chơi",
+            text,
+            sentAt: sentAt.toISOString(),
+          };
+          await chatMessages.insertOne({
+            _id: chatMessage.id,
+            kind: chatMessage.kind,
+            userId: chatMessage.userId,
+            userName: chatMessage.userName,
+            text: chatMessage.text,
+            sentAt,
+            expiresAt: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+          });
           publishRealtime({
-            type: "world_chat",
-            playerId: client.user.id,
-            playerName: player?.name || "Người chơi",
-            message: text,
-            sentAt: new Date().toISOString(),
+            type: "chat_message",
+            message: chatMessage,
           });
         }
       } catch {

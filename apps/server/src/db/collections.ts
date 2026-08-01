@@ -4,6 +4,7 @@ import type {
   TownSnapshot,
   GameConfig,
   StrategicPowerBreakdown,
+  UserChatMessage,
 } from "@island/shared";
 import { getDb } from "./client.js";
 
@@ -218,6 +219,12 @@ export type ShopPurchaseDocument = {
   createdAt: Date;
 };
 
+export type ChatMessageDocument = Omit<UserChatMessage, "id" | "sentAt"> & {
+  _id: string;
+  sentAt: Date;
+  expiresAt: Date;
+};
+
 export async function collections() {
   const db = await getDb();
   return {
@@ -235,6 +242,7 @@ export async function collections() {
     battleReports: db.collection<BattleReportDocument>("battle_reports"),
     playerMails: db.collection<PlayerMailDocument>("player_mails"),
     shopPurchases: db.collection<ShopPurchaseDocument>("shop_purchases"),
+    chatMessages: db.collection<ChatMessageDocument>("chat_messages"),
   };
 }
 
@@ -251,6 +259,7 @@ export async function ensureIndexes() {
     battleReports,
     playerMails,
     shopPurchases,
+    chatMessages,
   } = await collections();
   await Promise.all([
     players.createIndex({ name: 1 }, { unique: true }),
@@ -292,6 +301,8 @@ export async function ensureIndexes() {
     playerMails.createIndex({ senderId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, createdAt: -1 }),
+    chatMessages.createIndex({ sentAt: -1 }),
+    chatMessages.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 }
 

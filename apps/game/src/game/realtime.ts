@@ -14,7 +14,7 @@ let activeSocket: WebSocket | null = null;
 
 export function sendWorldChat(text: string) {
   if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return false;
-  activeSocket.send(JSON.stringify({ type: "world_chat", text }));
+  activeSocket.send(JSON.stringify({ type: "user_chat", text }));
   return true;
 }
 

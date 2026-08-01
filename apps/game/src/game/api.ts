@@ -16,6 +16,7 @@ import type {
   StartClearingResult,
   WorldTerritoriesResult,
   MarchSourceOptionsResult,
+  ChatHistoryResult,
 } from "@island/shared";
 
 function getApiUrl() {
@@ -56,6 +57,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getServerStatus() {
   return request<ServerStatus>("/api/health");
+}
+
+export function getChatHistory(token: string) {
+  return request<ChatHistoryResult>("/api/chat/history", {
+    headers: { authorization: `Bearer ${token}` },
+  });
 }
 
 function toHex(bytes: ArrayBuffer) {

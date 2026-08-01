@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH vite --host 127.0.0.1 --port 5174",
-    "build": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsc -p tsconfig.json && vite build",
-    "preview": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH vite preview --host 127.0.0.1 --port 4174",
-    "typecheck": "PATH=/Users/nguyenthanhloc/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH tsc -p tsconfig.json --noEmit",
+    "dev": "vite --host 127.0.0.1 --port 5174",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run typecheck"
   },
   "dependencies": {
