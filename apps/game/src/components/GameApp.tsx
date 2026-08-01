@@ -1941,6 +1941,8 @@ export function GameApp({
                               "Đối thủ"),
                         ownerFlagColor: result.territory.ownerFlagColor,
                         ownerEmblem: result.territory.ownerEmblem,
+                        ownerArchitectureId:
+                          result.territory.ownerArchitectureId,
                         ownerAllianceTag: result.territory.ownerAllianceTag,
                         ownerAllianceEmblem:
                           result.territory.ownerAllianceEmblem,
@@ -2111,6 +2113,7 @@ export function GameApp({
                   : (territory.ownerName ?? territory.ownerId),
             ownerFlagColor: territory.ownerFlagColor,
             ownerEmblem: territory.ownerEmblem,
+            ownerArchitectureId: territory.ownerArchitectureId,
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
             settlementKind: territory.settlementKind,
@@ -2457,6 +2460,8 @@ export function GameApp({
                     : (event.territory.ownerName ?? "Đối thủ"),
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
+                  ownerArchitectureId:
+                    event.territory.ownerArchitectureId,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                 },
@@ -2532,6 +2537,7 @@ export function GameApp({
                       "Đối thủ"),
                 ownerFlagColor: event.territory.ownerFlagColor,
                 ownerEmblem: event.territory.ownerEmblem,
+                ownerArchitectureId: event.territory.ownerArchitectureId,
                 ownerAllianceTag: event.territory.ownerAllianceTag,
                 ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                 settlementKind: event.territory.settlementKind,
@@ -2775,6 +2781,8 @@ export function GameApp({
                     : (event.territory.ownerName ?? "Đối thủ"),
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
+                  ownerArchitectureId:
+                    event.territory.ownerArchitectureId,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                   settlementKind: event.territory.settlementKind,
@@ -3136,6 +3144,7 @@ export function GameApp({
             : (territory.ownerName ?? territory.ownerId),
       ownerFlagColor: territory.ownerFlagColor,
       ownerEmblem: territory.ownerEmblem,
+      ownerArchitectureId: territory.ownerArchitectureId,
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
       settlementKind: territory.settlementKind,
@@ -4530,9 +4539,6 @@ export function GameApp({
             defaultCityName="Thành Trì Vương Quốc"
             territoryName={`Lãnh địa ${territoryLabel(kingdomCreationRegion ?? newbieSelectedRegion ?? 0)}`}
             checkName={checkKingdomName}
-            getCastleSprite={(color, emblem) =>
-              engineRef.current?.getCastleSprite(color, emblem)
-            }
             onClose={() => {
               engineRef.current?.handleAction("setUiOverlayActive", {
                 active: false,
@@ -4542,7 +4548,7 @@ export function GameApp({
                 engineRef.current.cancelNewbieOnboarding();
               }
             }}
-            onConfirm={async (flagColor, emblem, cityName) => {
+            onConfirm={async (flagColor, emblem, cityName, architectureId) => {
               const regionId = kingdomCreationRegion ?? newbieSelectedRegion;
               if (!token || regionId === null) {
                 showGameError(
@@ -4554,11 +4560,18 @@ export function GameApp({
                 message: "ĐANG GỬI LỆNH XÂY THÀNH TÂN THỦ LÊN SERVER",
               });
               try {
-                await updatePlayerProfile(token, flagColor, emblem, cityName);
+                await updatePlayerProfile(
+                  token,
+                  flagColor,
+                  emblem,
+                  cityName,
+                  architectureId,
+                );
                 engineRef.current?.startNewbieOnboarding(
                   flagColor,
                   emblem,
                   cityName,
+                  architectureId,
                 );
                 const result = await startClearing(
                   token,
@@ -4768,6 +4781,7 @@ export function GameApp({
                             : (territory.ownerName ?? territory.ownerId),
                       ownerFlagColor: territory.ownerFlagColor,
                       ownerEmblem: territory.ownerEmblem,
+                      ownerArchitectureId: territory.ownerArchitectureId,
                       ownerAllianceTag: territory.ownerAllianceTag,
                       ownerAllianceEmblem: territory.ownerAllianceEmblem,
                     }));
@@ -4892,9 +4906,6 @@ export function GameApp({
               body: message,
             });
           }}
-          getSkinSprite={(skinId) =>
-            engineRef.current?.getPremiumCastleSprite(skinId)
-          }
           onClose={closeModal}
         />
       )}

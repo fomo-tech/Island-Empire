@@ -3,6 +3,14 @@ import {
   generateConquestTerritories,
   generateWorldTerritories,
 } from "@island/shared";
+import {
+  kingdomArchitectureFromEmblem,
+  kingdomArchitectureFromSkin,
+  kingdomBuildingAsset,
+  KINGDOM_BUILDING_LAYOUT,
+  normalizeKingdomArchitecture,
+  type KingdomBuildingType,
+} from "./kingdomArchitecture";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export type GameEngineHandle = {
   destroy: () => void;
@@ -32,14 +40,13 @@ export type GameEngineHandle = {
     flagColor: string,
     emblem: string,
     cityName?: string,
+    architectureId?: string,
   ) => void;
   cancelNewbieOnboarding: () => void;
   selectNewbieLand: (regionId: number) => void;
   setHideTerritoryAssets: (hide: boolean) => void;
   isHidingTerritoryAssets: () => boolean;
   toggleHideTerritoryAssets: (forceValue?: boolean) => boolean;
-  getCastleSprite: (flagColor: string, emblem: string) => HTMLCanvasElement;
-  getPremiumCastleSprite: (skinId: string) => HTMLCanvasElement;
 };
 
 export function createIslandEmpireGame(
@@ -78,7 +85,6 @@ export function createIslandEmpireGame(
       handleAction: () => {},
       startNewbieOnboarding: () => {},
       cancelNewbieOnboarding: () => {},
-      getPremiumCastleSprite: () => document.createElement("canvas"),
     };
   ctx.imageSmoothingEnabled = false;
 
@@ -956,6 +962,7 @@ export function createIslandEmpireGame(
     regionOwnerIds: {} as Record<number, string>,
     regionOwnerFlagColors: {} as Record<number, string>,
     regionOwnerEmblems: {} as Record<number, string>,
+    regionOwnerArchitectureIds: {} as Record<number, string>,
     regionOwnerAllianceTags: {} as Record<number, string>,
     regionOwnerAllianceEmblems: {} as Record<number, string>,
     regionSettlementKinds: {} as Record<
@@ -978,6 +985,7 @@ export function createIslandEmpireGame(
     newbieSelectedRegion: null,
     newbieFlagColor: "#f59e0b",
     newbieEmblem: "crown",
+    newbieArchitectureId: "lionheart",
     newbieShieldUntil: (() => {
       const stored = localStorage.getItem("island_empire_newbie_shield_until");
       if (stored) return Number(stored);
@@ -1097,6 +1105,7 @@ export function createIslandEmpireGame(
     state.regionOwnerIds = {};
     state.regionOwnerFlagColors = {};
     state.regionOwnerEmblems = {};
+    state.regionOwnerArchitectureIds = {};
     state.regionOwnerAllianceTags = {};
     state.regionOwnerAllianceEmblems = {};
     state.regionSettlementKinds = {};
@@ -1574,8 +1583,8 @@ export function createIslandEmpireGame(
   };
   const strategicAssetImages = new Map<string, HTMLImageElement>();
   let medievalWorldAtlas: HTMLImageElement | null = null;
-  let medievalCastleAtlas: HTMLImageElement | null = null;
   let medievalDetailAtlas: HTMLImageElement | null = null;
+  const kingdomBuildingImages = new Map<string, HTMLImageElement>();
   const MEDIEVAL_WORLD_SPRITES: Record<string, [number, number]> = {
     forest_oak: [0, 0],
     forest_pine: [1, 0],
@@ -1681,44 +1690,90 @@ export function createIslandEmpireGame(
     return medievalDetailAtlas;
   }
 
-  function drawMedievalCastleSprite(
-    column: number,
-    row: number,
+  function drawKingdomBuildingSprite(
+    architectureId: string,
+    buildingType: KingdomBuildingType,
     x: number,
     y: number,
     size: number,
+    premiumEffect = false,
   ) {
-    const atlas = getMedievalCastleAtlas();
-    if (!atlas.complete || !atlas.naturalWidth)
-      return false;
-    const cellWidth = atlas.naturalWidth / 4;
-    const cellHeight = atlas.naturalHeight / 3;
+    const normalized = normalizeKingdomArchitecture(architectureId);
+    const source = kingdomBuildingAsset(normalized, buildingType);
+    let image = kingdomBuildingImages.get(source);
+    if (!image) {
+      image = new Image();
+      image.decoding = "async";
+      image.src = source;
+      kingdomBuildingImages.set(source, image);
+    }
+    if (!image.complete || !image.naturalWidth) return false;
+
+    if (premiumEffect && state.zoom >= 0.5 && !fastRenderMode && !isFastPanning()) {
+      drawKingdomBuildingEffect(normalized, x, y, size);
+    }
+    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
     ctx.drawImage(
-      atlas,
-      column * cellWidth,
-      row * cellHeight,
-      cellWidth,
-      cellHeight,
-      x - size / 2,
-      y - size * 0.76,
+      image,
+      x - size * layout.pivotX,
+      y - size * layout.pivotY,
       size,
-      size * 0.72,
+      size,
     );
     return true;
   }
 
-  function getMedievalCastleAtlas() {
-    if (!medievalCastleAtlas) {
-      medievalCastleAtlas = new Image();
-      medievalCastleAtlas.decoding = "async";
-      medievalCastleAtlas.src = "/assets/world/medieval_castle_atlas.webp";
+  function territoryBuildingSize(
+    r: any,
+    buildingType: KingdomBuildingType,
+    preferredSize: number,
+  ) {
+    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
+    const safeHalfWidth = Math.max(48, Number(r.rx || 0) * 0.72);
+    const safeTopHeight = Math.max(54, Number(r.ry || 0) * 0.72);
+    const widthLimit = (safeHalfWidth * 2) / layout.safeWidth;
+    const heightLimit = safeTopHeight / (layout.safeHeight * layout.pivotY);
+    return Math.max(86, Math.min(preferredSize, widthLimit, heightLimit));
+  }
+
+  function drawKingdomBuildingEffect(
+    architectureId: string,
+    x: number,
+    y: number,
+    size: number,
+  ) {
+    const pulse = 0.68 + Math.sin(state.tick * 2.4) * 0.12;
+    const colors: Record<string, [string, string]> = {
+      lionheart: ["#60a5fa", "#fef3c7"],
+      ironshield: ["#94a3b8", "#e2e8f0"],
+      firedragon: ["#f97316", "#fde047"],
+      winddragon: ["#22d3ee", "#cffafe"],
+      goldencrown: ["#facc15", "#fff7ae"],
+      blackeagle: ["#a855f7", "#e9d5ff"],
+    };
+    const [accent, highlight] = colors[architectureId] || colors.lionheart;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.23 * pulse;
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.ellipse(x, y - size * 0.12, size * 0.43, size * 0.12, 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 0.72;
+    for (let i = 0; i < 5; i++) {
+      const phase = state.tick * (0.35 + i * 0.025) + i * 1.31;
+      const px = x + Math.cos(phase) * size * (0.24 + (i % 2) * 0.08);
+      const py = y - size * (0.16 + ((phase * 0.11 + i * 0.17) % 0.5));
+      ctx.fillStyle = i % 2 ? highlight : accent;
+      ctx.beginPath();
+      ctx.arc(px, py, Math.max(1.3, size * 0.009), 0, TAU);
+      ctx.fill();
     }
-    return medievalCastleAtlas;
+    ctx.restore();
   }
 
   // Start decoding before the first map frame. Missing atlases never fall back to pixel art.
   getMedievalWorldAtlas();
-  getMedievalCastleAtlas();
   getMedievalDetailAtlas();
 
   function drawMedievalCastleBanner(
@@ -3945,7 +4000,12 @@ export function createIslandEmpireGame(
 
     const baseAngle = hash(clusterX * 311.7 + clusterY * 47.9) * TAU;
     const angle = baseAngle + (hash(seed * 61) - 0.5) * 0.7;
-    const radius = hasTown ? 0.76 : 0.42 + hash(seed * 67) * 0.16;
+    const isHarbor = sprite === "harbor";
+    const radius = isHarbor
+      ? 0.62
+      : hasTown
+        ? 0.3 + hash(seed * 67) * 0.08
+        : 0.18 + hash(seed * 67) * 0.14;
     const x = r.x + Math.cos(angle) * rx * radius;
     const y = r.y + Math.sin(angle) * ry * radius;
     const minDimension = Math.min(rx * 2, ry * 2);
@@ -3953,7 +4013,7 @@ export function createIslandEmpireGame(
       38,
       Math.min(
         hasTown ? 52 : state.zoom >= 0.75 ? 112 : 90,
-        minDimension * (hasTown ? 0.27 : 0.42),
+        minDimension * (hasTown ? 0.2 : 0.32),
       ),
     );
     drawMedievalWorldSprite(sprite, x, y, size, special ? 1 : 0.96);
@@ -3961,7 +4021,7 @@ export function createIslandEmpireGame(
     const detailRoll = hash(seed * 901 + r.id * 37);
     if (!hasTown && !special && state.zoom >= 0.66 && detailRoll < 0.24) {
       const detailAngle = angle + Math.PI;
-      const detailRadius = 0.54 + hash(seed * 919) * 0.1;
+      const detailRadius = 0.24 + hash(seed * 919) * 0.1;
       const detailX = r.x + Math.cos(detailAngle) * rx * detailRadius;
       const detailY = r.y + Math.sin(detailAngle) * ry * detailRadius;
       let detailColumn = 0;
@@ -8269,19 +8329,10 @@ export function createIslandEmpireGame(
 
     const owner = factions[t.owner] || factions[0];
 
-    // Draw relationship ring
     const isUserTown =
       t.owner === 0 ||
       (state.localPlayerId && t.ownerId === state.localPlayerId);
-    let relation: "own" | "ally" | "enemy" = "enemy";
-    if (isUserTown) {
-      relation = "own";
-    } else if (t.owner === 2 || t.owner === 4 || t.owner === 6) {
-      relation = "ally";
-    }
     const castleScale = isUserTown ? 0.48 : 0.38;
-
-    drawRelationRing(drawX, drawY, relation, castleScale);
 
     const sel = t.id === state.selected;
     if (sel) {
@@ -8329,9 +8380,9 @@ export function createIslandEmpireGame(
       serverConfirmedCapital ||
       serverConfirmedCapitalTown ||
       settlementKind === "capital" ||
-      settlementKind === "sub_capital" ||
       fallbackCapital;
-    const isMilitaryDistrict = !isCapitalSettlement;
+    const isSubCapital = settlementKind === "sub_capital";
+    const isMilitaryDistrict = !isCapitalSettlement && !isSubCapital;
 
     let flagColor = owner.color || "#ef4444";
     let ownerName = owner.name || "KẺ ĐỊCH";
@@ -8362,31 +8413,32 @@ export function createIslandEmpireGame(
         : state.regionOwnerDistrictSkins[regionId];
     }
 
-    if (isCapitalSettlement && equippedSkin) {
-      const size = isUserTown ? 204 : 172;
-      if (!drawMedievalCastleSprite(3, 0, drawX, drawY, size)) {
-        drawCastleSilhouette(drawX, drawY, size, flagColor);
-      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
-    } else if (isMilitaryDistrict && equippedSkin) {
-      const size = isUserTown ? 180 : 152;
-      if (!drawMedievalCastleSprite(3, 1, drawX, drawY, size)) {
-        drawCastleSilhouette(drawX, drawY, size, flagColor);
-      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
-    } else if (isMilitaryDistrict) {
-      const level = Math.max(1, Number(t.level || t.lvl || 1));
-      const column = level >= 15 ? 2 : level >= 7 ? 1 : 0;
-      const size = isUserTown ? 174 : 148;
-      if (!drawMedievalCastleSprite(column, 1, drawX, drawY, size)) {
-        drawCastleSilhouette(drawX, drawY, size, flagColor);
-      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
-    } else {
-      const level = Math.max(1, Number(t.level || t.lvl || 1));
-      const column = level >= 20 ? 2 : level >= 10 ? 1 : 0;
-      const size = isUserTown ? 198 : 166;
-      if (!drawMedievalCastleSprite(column, 0, drawX, drawY, size)) {
-        drawCastleSilhouette(drawX, drawY, size, flagColor);
-      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
-    }
+    const architectureId =
+      kingdomArchitectureFromSkin(equippedSkin) ||
+      (isUserTown
+        ? normalizeKingdomArchitecture(state.newbieArchitectureId)
+        : state.regionOwnerArchitectureIds[regionId]
+          ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[regionId])
+          : kingdomArchitectureFromEmblem(emblem));
+    const buildingType: KingdomBuildingType = isCapitalSettlement
+      ? "capital"
+      : isSubCapital
+        ? "fortress"
+        : "district";
+    const size = isUserTown
+      ? isCapitalSettlement
+        ? 198
+        : isSubCapital
+          ? 184
+          : 174
+      : isCapitalSettlement
+        ? 166
+        : isSubCapital
+          ? 158
+          : 148;
+    if (!drawKingdomBuildingSprite(architectureId, buildingType, drawX, drawY, size, Boolean(equippedSkin))) {
+      drawCastleSilhouette(drawX, drawY, size, flagColor);
+    } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
 
     // Skip heavy nameplate & badge measurement when zoomed far out
     if (state.zoom < 0.45 && !isUserTown && !sel) {
@@ -8429,7 +8481,7 @@ export function createIslandEmpireGame(
       drawX,
       by + padY - 1,
       textSz,
-      t.owner === 0 ? "#fef08a" : "#f1f5f9",
+      isUserTown ? "#55e6c1" : "#ff7b72",
       "center",
     );
 
@@ -10783,19 +10835,114 @@ export function createIslandEmpireGame(
     ctx.restore();
   }
 
+  function drawMedievalCastleNameplate(
+    x: number,
+    y: number,
+    ownerName: string,
+    buildingType: string,
+    level: number,
+    ownerCode: number,
+    castleSize: number,
+    inBattle: boolean,
+  ) {
+    const isOwn = ownerCode === 1;
+    const isNeutral = ownerCode <= 0;
+    const name = ownerName.slice(0, state.zoom < 0.58 ? 13 : 18);
+    const showDetails = state.zoom >= 0.62 || isOwn;
+    const fontSize = isOwn ? 16 : 14;
+    const detailSize = 10;
+
+    ctx.save();
+    ctx.font = `700 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
+    const nameWidth = ctx.measureText(name).width;
+    ctx.font = `700 ${detailSize}px 'Outfit', 'Inter', sans-serif`;
+    const details = `${buildingType}  ·  LV.${level}`;
+    const detailWidth = showDetails ? ctx.measureText(details).width : 0;
+    const width = Math.max(92, nameWidth + 28, detailWidth + 24);
+    const height = showDetails ? 40 : 26;
+    const top = y - castleSize * 0.015;
+    const box = {
+      x: x - width / 2,
+      y: top,
+      w: width,
+      h: height,
+    };
+    const overlaps = frameCastleLabelBounds.some(
+      (other) =>
+        box.x < other.x + other.w + 5 &&
+        box.x + box.w + 5 > other.x &&
+        box.y < other.y + other.h + 4 &&
+        box.y + box.h + 4 > other.y,
+    );
+    if (overlaps && !isOwn && !inBattle) {
+      ctx.restore();
+      return;
+    }
+    frameCastleLabelBounds.push(box);
+
+    const accent = inBattle
+      ? "#dc2626"
+      : isOwn
+        ? "#0f766e"
+        : isNeutral
+          ? "#8a6528"
+          : "#991b1b";
+    const nameColor = inBattle
+      ? "#fecaca"
+      : isOwn
+        ? "#55e6c1"
+        : isNeutral
+          ? "#f5d98f"
+          : "#ff7b72";
+
+    ctx.fillStyle = "rgba(2, 10, 15, 0.55)";
+    ctx.beginPath();
+    ctx.roundRect(box.x + 3, box.y + 4, width, height, 3);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(10, 20, 23, 0.96)";
+    ctx.beginPath();
+    ctx.moveTo(box.x + 6, box.y);
+    ctx.lineTo(box.x + width - 6, box.y);
+    ctx.lineTo(box.x + width, box.y + 6);
+    ctx.lineTo(box.x + width, box.y + height - 6);
+    ctx.lineTo(box.x + width - 6, box.y + height);
+    ctx.lineTo(box.x + 6, box.y + height);
+    ctx.lineTo(box.x, box.y + height - 6);
+    ctx.lineTo(box.x, box.y + 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = isOwn || inBattle ? 2 : 1.4;
+    ctx.stroke();
+
+    ctx.fillStyle = "#d6aa4a";
+    for (const rivetX of [box.x + 6, box.x + width - 6]) {
+      ctx.beginPath();
+      ctx.arc(rivetX, box.y + height / 2, 1.5, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
+    ctx.fillStyle = nameColor;
+    ctx.fillText(name, x, box.y + (showDetails ? 13 : height / 2));
+    if (showDetails) {
+      ctx.font = `700 ${detailSize}px 'Outfit', 'Inter', sans-serif`;
+      ctx.fillStyle = "#d9c89c";
+      ctx.fillText(details, x, box.y + 29);
+    }
+    ctx.restore();
+  }
+
   function drawTerritoryCastle(regionId, ownerCode, ownerName) {
     const r = landById(regionId);
     if (!r) return;
 
-    // Center castle inside territory polygon using optimal non-overlapping position
-    const townInRegion = towns.find(
-      (t) => t.id === 9000 + regionId || t.regionId === regionId,
-    );
-    const pt = townInRegion
-      ? { x: townInRegion.x, y: townInRegion.y }
-      : getOptimalTownCenter(regionId);
-    const x = pt.x;
-    const y = pt.y;
+    // Visual placement is centered; authoritative town coordinates stay untouched.
+    const x = r.x;
+    const y = r.y;
 
     // Viewport Culling Optimization: Skip rendering territories completely offscreen!
     const viewport = getWorldViewport();
@@ -10803,20 +10950,7 @@ export function createIslandEmpireGame(
       return;
     }
 
-    const relation = getRegionAllianceRelation(regionId, ownerCode, ownerName);
-    const sc = r.isIslet ? 0.35 : 0.52;
     const color = getRegionFlagColor(regionId);
-
-    const rawTag = state.regionOwnerAllianceTags[regionId];
-    const allianceTag =
-      rawTag &&
-      typeof rawTag === "string" &&
-      /^[A-Za-z0-9]{2,8}$/.test(rawTag) &&
-      !/^\d+$/.test(rawTag)
-        ? rawTag.toUpperCase()
-        : "";
-    const allianceEmblem =
-      state.regionOwnerAllianceEmblems[regionId] || "shield";
 
     const cleanLabel = cleanOwnerName(ownerName, ownerCode, regionId);
 
@@ -10850,10 +10984,9 @@ export function createIslandEmpireGame(
     const isCapital =
       serverConfirmedCapital ||
       settlementKind === "capital" ||
-      settlementKind === "sub_capital" ||
       legacyCapitalFallback;
-    const isMilitaryDistrict = !isCapital;
     const isSubCapital = settlementKind === "sub_capital";
+    const isMilitaryDistrict = !isCapital && !isSubCapital;
 
     const rawEmblem =
       ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
@@ -10873,21 +11006,19 @@ export function createIslandEmpireGame(
       1,
       Number(playerTown?.level || playerTown?.lvl || 1),
     );
-    const atlasColumn = equippedSkin
-      ? 3
-      : isCapital
-        ? level >= 20
-          ? 2
-          : level >= 10
-            ? 1
-            : 0
-        : level >= 15
-          ? 2
-          : level >= 7
-            ? 1
-            : 0;
-    const atlasRow = isCapital ? 0 : 1;
-    const castleSize = r.isIslet
+    const architectureId =
+      kingdomArchitectureFromSkin(equippedSkin) ||
+      (ownerCode === 1
+        ? normalizeKingdomArchitecture(state.newbieArchitectureId)
+        : state.regionOwnerArchitectureIds[regionId]
+          ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[regionId])
+          : kingdomArchitectureFromEmblem(emblem));
+    const buildingType: KingdomBuildingType = isCapital
+      ? "capital"
+      : isSubCapital
+        ? "fortress"
+        : "district";
+    const preferredCastleSize = r.isIslet
       ? isCapital
         ? 142
         : 124
@@ -10898,8 +11029,20 @@ export function createIslandEmpireGame(
         : ownerCode === 1
           ? 174
           : 150;
+    const castleSize = territoryBuildingSize(
+      r,
+      buildingType,
+      preferredCastleSize,
+    );
 
-    if (!drawMedievalCastleSprite(atlasColumn, atlasRow, x, y, castleSize)) {
+    if (!drawKingdomBuildingSprite(
+      architectureId,
+      buildingType,
+      x,
+      y,
+      castleSize,
+      Boolean(equippedSkin),
+    )) {
       drawCastleSilhouette(x, y, castleSize, color);
     } else {
       drawMedievalCastleBanner(x, y, castleSize, color);
@@ -10907,107 +11050,38 @@ export function createIslandEmpireGame(
 
     // Render 3D Peace Shield Energy Dome & Countdown Timer (Disabled)
 
-    // SMART LOD OPTIMIZATION FOR ZOOMED-OUT WORLD MAP VIEW (scale < 0.55):
-    // Skip heavy black nameplates, crown banners, and alliance badges for 10x faster rendering!
-    if (state.zoom < 0.55 && ownerCode !== 1) {
-      text(cleanLabel.slice(0, 14), x, y + 16, 12, "#ffffff", "center");
-      return;
-    }
-
-    const label = cleanLabel.slice(0, 18);
-
-    // Proportional scaling for nameplate
-    const baseW = Math.max(116, label.length * 16 + 26);
-    const w = baseW * (sc / 0.7);
-    const h = 60 * sc;
-    const ratio = sc / 0.7;
-
     const conflict = getRegionBattleState(regionId);
+    const buildingLabel = isCapital
+      ? "HOÀNG THÀNH"
+      : isSubCapital
+        ? "PHÁO ĐÀI"
+        : "QUÂN KHU";
+    drawMedievalCastleNameplate(
+      x,
+      y,
+      cleanLabel,
+      buildingLabel,
+      level,
+      ownerCode,
+      castleSize,
+      Boolean(conflict),
+    );
 
     if (conflict) {
-      // Red Danger Warning Banner above castle
-      pxRect(x - 76 * ratio, y + 44 * sc, 152 * ratio, 22 * sc, "#450a0a");
+      const warningY = y - castleSize * 0.72;
+      ctx.save();
+      ctx.font = "700 12px 'Outfit', 'Inter', sans-serif";
+      const warningWidth = Math.max(108, ctx.measureText(conflict.label).width + 22);
+      ctx.fillStyle = "rgba(48, 7, 7, 0.94)";
+      ctx.fillRect(x - warningWidth / 2, warningY, warningWidth, 21);
       ctx.strokeStyle = "#ef4444";
-      ctx.lineWidth = 2.5 * ratio;
-      ctx.strokeRect(
-        Math.round(x - 76 * ratio),
-        Math.round(y + 44 * sc),
-        Math.round(152 * ratio),
-        Math.round(22 * sc),
-      );
-      text(conflict.label, x, y + 49 * sc, 23 * sc, "#fca5a5", "center");
-    } else if (ownerCode === 1) {
-      const bannerText = isSubCapital
-        ? "🏛️ TRUNG TÂM THÀNH TRÌ"
-        : isMilitaryDistrict
-          ? "⚔️ QUÂN KHU"
-          : "👑 THỦ ĐÔ";
-      pxRect(x - 72 * ratio, y + 44 * sc, 144 * ratio, 22 * sc, "#0f172a");
-      ctx.strokeStyle = isSubCapital
-        ? "#f59e0b"
-        : isMilitaryDistrict
-          ? "#38bdf8"
-          : "#00f0ff";
-      ctx.lineWidth = 2 * ratio;
-      ctx.strokeRect(
-        Math.round(x - 72 * ratio),
-        Math.round(y + 44 * sc),
-        Math.round(144 * ratio),
-        Math.round(22 * sc),
-      );
-      text(
-        bannerText,
-        x,
-        y + 49 * sc,
-        23 * sc,
-        isSubCapital ? "#fef08a" : isMilitaryDistrict ? "#bae6fd" : "#7dd3fc",
-        "center",
-      );
-    }
-
-    pxRect(
-      x - w / 2 + 4 * ratio,
-      y + 70 * sc + 5 * ratio,
-      w,
-      h,
-      "rgba(0,0,0,0.5)",
-    );
-    pxRect(x - w / 2, y + 70 * sc, w, h, "rgba(15, 23, 42, 0.94)");
-    pxRect(
-      x - w / 2 + 7 * ratio,
-      y + 70 * sc + 6 * ratio,
-      w - 14 * ratio,
-      5 * ratio,
-      "rgba(255,255,255,0.18)",
-    );
-    ctx.strokeStyle = conflict
-      ? "#ef4444"
-      : ownerCode === 1
-        ? "#00f0ff"
-        : color;
-    ctx.lineWidth = conflict || ownerCode === 1 ? 3 * ratio : 2 * ratio;
-    ctx.strokeRect(
-      Math.round(x - w / 2),
-      Math.round(y + 70 * sc),
-      Math.round(w),
-      h,
-    );
-    text(
-      label,
-      x,
-      y + 83 * sc,
-      38 * sc,
-      ownerCode === 1 ? "#e0f2fe" : "#ffffff",
-      "center",
-    );
-    if (allianceTag) {
-      drawAllianceBadge(
-        x - w / 2 - 38 * ratio,
-        y + 74 * sc,
-        allianceTag,
-        allianceEmblem,
-        Math.max(0.42, sc * 0.86),
-      );
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x - warningWidth / 2, warningY, warningWidth, 21);
+      ctx.fillStyle = "#fecaca";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(conflict.label, x, warningY + 10.5);
+      ctx.restore();
     }
 
     const activeBattle = state.activeBattles?.find(
@@ -12128,6 +12202,7 @@ export function createIslandEmpireGame(
   }
 
   let frameTownRegionIds = new Set<number>();
+  let frameCastleLabelBounds: { x: number; y: number; w: number; h: number }[] = [];
 
   function refreshFrameTownRegionIds() {
     frameTownRegionIds.clear();
@@ -12144,6 +12219,7 @@ export function createIslandEmpireGame(
 
   function drawFrame() {
     refreshFrameTownRegionIds();
+    frameCastleLabelBounds = [];
     ctx.save();
     ctx.scale(dpr, dpr);
     drawWorld();
@@ -14792,6 +14868,7 @@ export function createIslandEmpireGame(
         state.regionOwnerNames = {};
         state.regionOwnerFlagColors = {};
         state.regionOwnerEmblems = {};
+        state.regionOwnerArchitectureIds = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
         state.regionSettlementKinds = {};
@@ -14838,6 +14915,10 @@ export function createIslandEmpireGame(
         if (payload?.playerProfile) {
           state.newbieFlagColor = payload.playerProfile.flagColor;
           state.newbieEmblem = payload.playerProfile.emblem;
+          state.newbieArchitectureId = normalizeKingdomArchitecture(
+            payload.playerProfile.kingdomArchitectureId ||
+              kingdomArchitectureFromEmblem(payload.playerProfile.emblem),
+          );
         }
         const touchedRegionIds = [];
         state.hasAuthoritativeOwnership = true;
@@ -14845,6 +14926,7 @@ export function createIslandEmpireGame(
         state.regionOwnerNames = {};
         state.regionOwnerFlagColors = {};
         state.regionOwnerEmblems = {};
+        state.regionOwnerArchitectureIds = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
         state.regionSettlementKinds = {};
@@ -14884,6 +14966,9 @@ export function createIslandEmpireGame(
               territory.ownerFlagColor;
           if (territory.ownerEmblem)
             state.regionOwnerEmblems[territory.id] = territory.ownerEmblem;
+          if (territory.ownerArchitectureId)
+            state.regionOwnerArchitectureIds[territory.id] =
+              territory.ownerArchitectureId;
           if (territory.ownerAllianceTag)
             state.regionOwnerAllianceTags[territory.id] =
               territory.ownerAllianceTag;
@@ -14997,6 +15082,7 @@ export function createIslandEmpireGame(
           state.regionOwnerIds = {};
           state.regionOwnerFlagColors = {};
           state.regionOwnerEmblems = {};
+          state.regionOwnerArchitectureIds = {};
           state.regionOwnerAllianceTags = {};
           state.regionOwnerAllianceEmblems = {};
           state.regionSettlementKinds = {};
@@ -15035,6 +15121,10 @@ export function createIslandEmpireGame(
           if (territory.ownerEmblem)
             state.regionOwnerEmblems[territory.id] = territory.ownerEmblem;
           else delete state.regionOwnerEmblems[territory.id];
+          if (territory.ownerArchitectureId)
+            state.regionOwnerArchitectureIds[territory.id] =
+              territory.ownerArchitectureId;
+          else delete state.regionOwnerArchitectureIds[territory.id];
           if (territory.ownerAllianceTag)
             state.regionOwnerAllianceTags[territory.id] =
               territory.ownerAllianceTag;
@@ -15283,14 +15373,19 @@ export function createIslandEmpireGame(
       flagColor: string,
       emblem: string,
       cityName?: string,
+      architectureId?: string,
     ) => {
       state.newbieFlagColor = flagColor;
       state.newbieEmblem = emblem;
+      state.newbieArchitectureId = normalizeKingdomArchitecture(
+        architectureId || kingdomArchitectureFromEmblem(emblem),
+      );
       const region = state.newbieSelectedRegion ?? NEWBIE_DEFAULT_REGION;
       state.newbieSelectedRegion = region;
       if (region >= 0) {
         state.regionOwnerFlagColors[region] = flagColor;
         state.regionOwnerEmblems[region] = emblem;
+        state.regionOwnerArchitectureIds[region] = state.newbieArchitectureId;
         if (cityName) {
           state.regionOwnerNames[region] = cityName;
         }
@@ -15320,10 +15415,5 @@ export function createIslandEmpireGame(
     territoryYield,
     clearingDuration,
     territoryBuildCost,
-    getCastleSprite: (flagColor: string, emblem: string) => {
-      return getCachedGrandCastleSprite(flagColor, emblem);
-    },
-    getPremiumCastleSprite: (skinId: string) =>
-      getCachedPremiumCastleSprite(skinId),
   };
 }

@@ -4,182 +4,32 @@ import type { ActiveBattle, ActiveClearing, TerritoryInfo, TownSnapshot } from "
 import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
 import { SPECIAL_RESOURCE_META, SpecialResourceIcon, getSpecialResourceMeta } from "./SpecialResourceDisplay";
 
-// --- 100% PREMIUM HIGH DEFINITION VECTOR SVGS (NO RAW EMOJIS) ---
-function SwordsIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="22" height="22" style={{ marginRight: 8, verticalAlign: "middle", filter: "drop-shadow(0 0 4px rgba(255,255,255,0.6))" }}>
-      <defs>
-        <linearGradient id="swordBlade" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="50%" stopColor="#cbd5e1" />
-          <stop offset="100%" stopColor="#475569" />
-        </linearGradient>
-        <linearGradient id="swordGold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffe082" />
-          <stop offset="100%" stopColor="#ffb300" />
-        </linearGradient>
-      </defs>
-      {/* Sword 1 */}
-      <g transform="rotate(45 32 32)">
-        <path d="M30 6h4v42h-4z" fill="url(#swordBlade)" stroke="#0f172a" strokeWidth="2" />
-        <path d="M22 42h20v4H22z" fill="url(#swordGold)" stroke="#0f172a" strokeWidth="2" />
-        <path d="M30 46h4v10h-4z" fill="#78350f" stroke="#0f172a" strokeWidth="1.5" />
-        <circle cx="32" cy="58" r="3" fill="url(#swordGold)" stroke="#0f172a" strokeWidth="1.5" />
-      </g>
-      {/* Sword 2 */}
-      <g transform="rotate(-45 32 32)">
-        <path d="M30 6h4v42h-4z" fill="url(#swordBlade)" stroke="#0f172a" strokeWidth="2" />
-        <path d="M22 42h20v4H22z" fill="url(#swordGold)" stroke="#0f172a" strokeWidth="2" />
-        <path d="M30 46h4v10h-4z" fill="#78350f" stroke="#0f172a" strokeWidth="1.5" />
-        <circle cx="32" cy="58" r="3" fill="url(#swordGold)" stroke="#0f172a" strokeWidth="1.5" />
-      </g>
-      {/* Central Gem */}
-      <circle cx="32" cy="32" r="5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
-    </svg>
-  );
+// --- PREMIUM MEDIEVAL SPRITE ICON HELPER ---
+interface SpriteIconProps {
+  src: string;
+  size?: number;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-function PickaxeIcon() {
+const SpriteIcon = ({ src, size = 16, className = "", style = {} }: SpriteIconProps) => {
   return (
-    <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, verticalAlign: "middle" }}>
-      <defs>
-        <linearGradient id="pickSteel" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#cbd5e1" />
-          <stop offset="100%" stopColor="#475569" />
-        </linearGradient>
-      </defs>
-      <g stroke="#0f172a" strokeWidth="2" strokeLinejoin="round">
-        <path d="M12 52l32-32 8 8-32 32z" fill="#b45309" />
-        <path d="M40 12c4 6 12 12 16 10s4-12-2-16-12-2-14 6z" fill="url(#pickSteel)" />
-      </g>
-    </svg>
+    <img
+      src={src}
+      alt=""
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        objectFit: "contain",
+        verticalAlign: "middle",
+        flexShrink: 0,
+        filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))",
+        ...style
+      }}
+      className={className}
+    />
   );
-}
-
-function ShieldIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 6, verticalAlign: "middle" }}>
-      <defs>
-        <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#1d4ed8" />
-        </linearGradient>
-      </defs>
-      <path d="M32 6 C18 10 12 18 12 32 C12 46 22 54 32 58 C42 54 52 46 52 32 C52 18 46 10 32 6 Z" fill="url(#shieldGrad)" stroke="#fef08a" strokeWidth="2.5" strokeLinejoin="round" />
-      <path d="M32 10v42c6-3 14-9 14-20 0-10-4-16-14-22z" fill="#60a5fa" opacity="0.8" />
-    </svg>
-  );
-}
-
-function CancelIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="18" height="18" style={{ marginRight: 8, verticalAlign: "middle" }}>
-      <circle cx="32" cy="32" r="26" fill="#ef4444" stroke="#7f1d1d" strokeWidth="3" />
-      <path d="M20 20l24 24M44 20l-24 24" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function HammerIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 6, verticalAlign: "middle" }}>
-      <path d="M14 50l26-26 8 8-26 26z" fill="#b45309" stroke="#451a03" strokeWidth="1.5" />
-      <path d="M36 14l14-14 8 8-14 14z" fill="#cbd5e1" stroke="#1e293b" strokeWidth="2" />
-      <path d="M44 8l6 6" stroke="#475569" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function ShieldAlertIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 6, verticalAlign: "middle" }}>
-      <path d="M32 6 C18 10 12 18 12 32 C12 46 22 54 32 58 C42 54 52 46 52 32 C52 18 46 10 32 6 Z" fill="#ef4444" stroke="#7f1d1d" strokeWidth="2" />
-      <path d="M32 16v18M32 44h.02" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function HourglassMiniIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 4, verticalAlign: "middle" }}>
-      <path d="M16 12h32v4L36 32l12 16v4H16v-4l12-16L16 16z" fill="none" stroke="#fbbf24" strokeWidth="3" />
-      <path d="M22 16h20v2L32 30 22 18z" fill="#fef08a" />
-      <path d="M22 48h20v-2L32 34 22 46z" fill="#fbbf24" />
-    </svg>
-  );
-}
-
-function WoodIcon() {
-  return (
-    <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-      <path d="M12 24c0-4 4-8 10-8h28c4 0 8 4 8 8v16c0 4-4 8-8 8H22c-6 0-10-4-10-8V24z" fill="#b45309" stroke="#451a03" strokeWidth="2" />
-      <ellipse cx="16" cy="32" rx="4" ry="8" fill="#f59e0b" stroke="#451a03" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-const StoneIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <polygon points="16,44 24,18 48,22 52,44" fill="#94a3b8" stroke="#334155" strokeWidth="2" />
-    <line x1="24" y1="18" x2="32" y2="44" stroke="#cbd5e1" strokeWidth="1.5" />
-  </svg>
-);
-
-const FoodIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <path d="M32 6v52M20 18c12-8 24 0 24 0M12 32c12-8 24 0 24 0M32 32c12-8 24 0 24 0" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" fill="none" />
-  </svg>
-);
-
-const IronIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <path d="M8 26l16-14h24l10 14-14 26H8z" fill="#64748b" stroke="#1e293b" strokeWidth="2" />
-    <path d="M8 26h50v6H8z" fill="#cbd5e1" />
-  </svg>
-);
-
-const CoalIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <path d="M16 16l20-8 16 12-4 24-24 8-16-16z" fill="#1e293b" stroke="#0f172a" strokeWidth="2.5" />
-    <circle cx="28" cy="24" r="3" fill="#64748b" />
-  </svg>
-);
-
-const CoinIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <circle cx="32" cy="32" r="26" fill="#f59e0b" stroke="#78350f" strokeWidth="2.5" />
-    <circle cx="32" cy="32" r="16" fill="#fbbf24" stroke="#78350f" strokeWidth="1" />
-    <path d="M32 20v24M26 26h12M26 38h12" stroke="#78350f" strokeWidth="3" strokeLinecap="round" />
-  </svg>
-);
-
-const SulfurIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <path d="M32 6C20 20 12 32 12 44a20 20 0 0 0 40 0C52 32 44 20 32 6z" fill="#eab308" stroke="#854d0e" strokeWidth="2" />
-    <circle cx="28" cy="38" r="4" fill="#fef08a" />
-  </svg>
-);
-
-const GemIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ flexShrink: 0 }}>
-    <path d="M32 6L8 24l24 36 24-36z" fill="#0284c7" stroke="#0369a1" strokeWidth="2" />
-    <path d="M32 6L18 24h28z" fill="#38bdf8" />
-  </svg>
-);
-
-const MapPinIcon = () => (
-  <svg viewBox="0 0 64 64" width="15" height="15" style={{ marginRight: 6, verticalAlign: "middle" }}>
-    <path d="M32 6C20 6 12 14 12 26c0 14 20 32 20 32s20-18 20-32c0-12-8-20-20-20z" fill="#ef4444" stroke="#b91c1c" strokeWidth="2" />
-    <circle cx="32" cy="24" r="7" fill="#ffffff" />
-  </svg>
-);
-
-const HourglassIcon = () => (
-  <svg viewBox="0 0 64 64" width="15" height="15" style={{ marginRight: 6, verticalAlign: "middle" }}>
-    <path d="M14 10h36v6c0 10-10 14-16 16 6 2 16 6 16 16v6H14v-6c0-10 10-14 16-16-6-2-16-6-16-16z" fill="#e2e8f0" stroke="#475569" strokeWidth="2" />
-    <path d="M20 14h24M20 50h24" stroke="#475569" strokeWidth="3" />
-  </svg>
-);
+};
 
 const BannerFlagIcon = ({ color }: { color?: string }) => {
   const flagColor = color || "#8c2a1e";
@@ -192,111 +42,66 @@ const BannerFlagIcon = ({ color }: { color?: string }) => {
   );
 };
 
-const BookIcon = () => (
-  <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 5, verticalAlign: "middle" }}>
-    <path d="M8 12c12-4 24 0 24 0s12-4 24 0v40c-12-4-24 0-24 0S16 48 8 52V12z" fill="#fef08a" stroke="#ca8a04" strokeWidth="2" />
-    <line x1="32" y1="12" x2="32" y2="52" stroke="#ca8a04" strokeWidth="2" />
-  </svg>
+const CSSDiamond = ({ color = "#e5bd5a", size = 6, style = {} }: { color?: string; size?: number; style?: React.CSSProperties }) => (
+  <span 
+    style={{ 
+      display: "inline-block", 
+      width: `${size}px`, 
+      height: `${size}px`, 
+      border: `1.5px solid ${color}`, 
+      backgroundColor: "transparent",
+      transform: "rotate(45deg)", 
+      margin: "0 6px",
+      verticalAlign: "middle",
+      boxSizing: "border-box",
+      ...style
+    }} 
+  />
 );
 
-const CastleIcon = () => (
-  <svg viewBox="0 0 64 64" width="18" height="18" style={{ marginRight: 8, verticalAlign: "middle" }}>
-    <path d="M12 20h8v8h8v-8h8v8h8v-8h8v36H12z" fill="#cbd5e1" stroke="#334155" strokeWidth="2" />
-    <path d="M26 40h12v16H26z" fill="#1e293b" stroke="#ffd34d" strokeWidth="1.5" />
-  </svg>
-);
+const BIOME_CRESTS = [
+  "/assets/ui/hud_lion_crest.png",      // Green grass
+  "/assets/ui/hud_globe_emblem.png",     // Desert
+  "/assets/ui/hud_profile_crest.png",    // Snow
+  "/assets/ui/hud_capital_emblem.png",   // Volcano
+  "/assets/ui/hud_globe_emblem.png",     // Blue-green
+  "/assets/ui/hud_lion_crest.png",      // Orange-gold
+  "/assets/ui/hud_profile_crest.png",    // Pine forest
+  "/assets/ui/hud_capital_emblem.png"    // Swamp
+];
 
-const HorseIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <path d="M16 48c0-16 12-28 28-28l8-12h-8c-12 0-20 8-24 16l-4 24z" fill="#f59e0b" stroke="#78350f" strokeWidth="2" />
-    <circle cx="38" cy="20" r="2.5" fill="#fff" />
-  </svg>
-);
-
-const GoldVeinIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <polygon points="12,48 24,16 40,24 52,12 44,48" fill="#ffd34d" stroke="#78350f" strokeWidth="2" />
-    <circle cx="28" cy="28" r="3" fill="#fff" />
-  </svg>
-);
-
-const IronMineIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <rect x="12" y="24" width="40" height="24" rx="4" fill="#64748b" stroke="#1e293b" strokeWidth="2.5" />
-    <path d="M16 28h32v6H16z" fill="#cbd5e1" />
-  </svg>
-);
-
-const StoneQuarryIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <polygon points="16,48 28,16 48,24 52,48" fill="#94a3b8" stroke="#334155" strokeWidth="2.5" />
-    <path d="M28 16l10 8-4 24" stroke="#cbd5e1" strokeWidth="2" fill="none" />
-  </svg>
-);
-
-const CoalSeamIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <polygon points="16,16 44,12 52,36 32,52 12,36" fill="#334155" stroke="#0f172a" strokeWidth="2.5" />
-    <polygon points="24,20 38,18 44,32 30,42" fill="#1e293b" />
-  </svg>
-);
-
-const SpecialStarIcon = () => (
-  <svg viewBox="0 0 64 64" width="20" height="20" style={{ marginRight: 8, flexShrink: 0 }}>
-    <polygon points="32,4 40,22 60,22 44,34 50,54 32,42 14,54 20,34 4,22 24,22" fill="#ffd34d" stroke="#78350f" strokeWidth="2" />
-  </svg>
-);
-
-const BiomeIconTree = () => (
-  <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 6, verticalAlign: "middle" }}>
-    <polygon points="32,8 14,32 24,32 10,48 54,48 40,32 50,32" fill="#10b981" stroke="#047857" strokeWidth="2" />
-    <rect x="28" y="48" width="8" height="10" fill="#78350f" />
-  </svg>
-);
-
-const EarthLandIcon = () => (
-  <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 6, verticalAlign: "middle" }}>
-    <circle cx="32" cy="32" r="26" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
-    <path d="M12 28c8-4 14 0 18 6s12-2 16-10" stroke="#10b981" strokeWidth="4" strokeLinecap="round" fill="none" />
-  </svg>
-);
-
-const StatusShieldIcon = () => (
-  <svg viewBox="0 0 64 64" width="14" height="14" style={{ marginRight: 6, verticalAlign: "middle" }}>
-    <path d="M32 6C18 10 12 18 12 32c0 14 12 22 20 26 8-4 20-12 20-26 0-14-6-22-20-26z" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-  </svg>
-);
-
-// Isometric 3D Hex Biome Terrain Preview Card
-const BiomeIsometricCard = ({ biome }: { biome: number }) => {
+const BiomeMedievalCard = ({ biome, color }: { biome: number; color: string }) => {
+  const crestSrc = BIOME_CRESTS[biome] || "/assets/ui/hud_lion_crest.png";
   return (
-    <div className="rt-biome-3d-card">
-      <svg viewBox="0 0 120 100" width="105" height="90">
-        <defs>
-          <linearGradient id="hexTop" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={biome === 2 ? "#e2e8f0" : biome === 1 ? "#d8ad36" : biome === 3 ? "#cf6337" : "#4a7c36"} />
-            <stop offset="100%" stopColor={biome === 2 ? "#cbd5e1" : biome === 1 ? "#a88020" : biome === 3 ? "#993315" : "#2a4c20"} />
-          </linearGradient>
-          <linearGradient id="hexSide" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3d2a1a" />
-            <stop offset="100%" stopColor="#1a110a" />
-          </linearGradient>
-        </defs>
-        <polygon points="60,35 105,52 105,72 60,90 15,72 15,52" fill="url(#hexSide)" stroke="#ca8a04" strokeWidth="1.5" />
-        <polygon points="60,20 105,37 60,54 15,37" fill="url(#hexTop)" stroke="#ca8a04" strokeWidth="1.5" />
-
-        {biome === 2 ? (
-          <>
-            <polygon points="38,25 30,40 46,40" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-            <polygon points="65,22 55,42 75,42" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1" />
-            <circle cx="85" cy="30" r="5" fill="#ffffff" />
-          </>
-        ) : (
-          <>
-            <circle cx="60" cy="35" r="10" fill="#fbbf24" opacity="0.6" />
-          </>
-        )}
-      </svg>
+    <div 
+      className="rt-biome-medieval-card"
+      style={{
+        width: "90px",
+        height: "90px",
+        borderRadius: "12px",
+        border: "2px solid #b38f4f",
+        background: `radial-gradient(circle, ${color}30 0%, #0a1118 100%)`,
+        boxShadow: "inset 0 0 15px rgba(0,0,0,0.8), 0 4px 8px rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        overflow: "hidden",
+        flexShrink: 0
+      }}
+    >
+      <div style={{ position: "absolute", inset: "3px", border: "1px solid rgba(229, 189, 90, 0.25)", borderRadius: "9px", pointerEvents: "none" }} />
+      <img 
+        src={crestSrc} 
+        alt="" 
+        style={{ 
+          width: "56px", 
+          height: "56px", 
+          objectFit: "contain", 
+          filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.8))",
+          mixBlendMode: "screen"
+        }} 
+      />
     </div>
   );
 };
@@ -595,17 +400,17 @@ export function TerritoryTooltip({
           {isPlayerOwned ? (
             <>
               <button type="button" className="rt-main-action-btn defender" onClick={() => runAndClose(() => onReinforce(id, "defender"))}>
-                <ShieldIcon /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
+                <SpriteIcon src="/assets/icons/icon_defender_dragon_shield.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">VIỆN TRỢ THỦ THÀNH</span>
               </button>
               <button type="button" className="rt-main-action-btn build" onClick={() => engine.handleAction("selectTown", { regionId: id })}>
-                <CastleIcon /> <span className="text-gold-serif">QUẢN LÝ VÀ XUẤT QUÂN</span>
+                <SpriteIcon src="/assets/icons/icon_tower.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">QUẢN LÝ VÀ XUẤT QUÂN</span>
               </button>
               <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe phòng thủ của thành trì</div>
             </>
           ) : (
             <>
               <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
-                <SwordsIcon /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
+                <SpriteIcon src="/assets/icons/icon_battle_vs.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
               </button>
               <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
             </>
@@ -617,7 +422,7 @@ export function TerritoryTooltip({
       return (
         <>
           <button type="button" className="rt-main-action-btn build" onClick={() => engine.handleAction("selectTown", { regionId: id })}>
-            <CastleIcon /> <span className="text-gold-serif">QUẢN LÝ THÀNH PHỐ</span>
+            <SpriteIcon src="/assets/icons/icon_tower.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">QUẢN LÝ THÀNH PHỐ</span>
           </button>
           <div className="rt-warning-note">Quản lý quân đội, tài nguyên và nâng cấp công trình của thành phố</div>
         </>
@@ -654,9 +459,9 @@ export function TerritoryTooltip({
               <div className="rt-clearing-header">
                 <span className="rt-clearing-title-text">
                   {isLocal ? (
-                    inTravel ? <><HammerIcon /> ĐANG DI CHUYỂN THỢ XÂY</> : <><HammerIcon /> ĐANG XÂY THÀNH CỦA BẠN</>
+                    inTravel ? <><SpriteIcon src="/assets/icons/icon_tech.png" size={16} style={{ marginRight: 6 }} /> ĐANG DI CHUYỂN THỢ XÂY</> : <><SpriteIcon src="/assets/icons/icon_tech.png" size={16} style={{ marginRight: 6 }} /> ĐANG XÂY THÀNH CỦA BẠN</>
                   ) : (
-                    inTravel ? <><ShieldAlertIcon /> ĐỊCH ĐANG DI CHUYỂN THỢ XÂY</> : <><ShieldAlertIcon /> ĐỊCH ĐANG XÂY THÀNH</>
+                    inTravel ? <><SpriteIcon src="/assets/icons/icon_attacker_lion_shield.png" size={16} style={{ marginRight: 6 }} /> ĐỊCH ĐANG DI CHUYỂN THỢ XÂY</> : <><SpriteIcon src="/assets/icons/icon_attacker_lion_shield.png" size={16} style={{ marginRight: 6 }} /> ĐỊCH ĐANG XÂY THÀNH</>
                   )}
                 </span>
                 <span className="rt-clearing-pct-text">{pctVal}%</span>
@@ -666,14 +471,14 @@ export function TerritoryTooltip({
               </div>
               {remSecs > 0 && (
                 <div className="rt-clearing-timer">
-                  <HourglassMiniIcon /> {inTravel ? "Đến nơi sau:" : "Thời gian còn lại:"} <span className="time-val">{formatTime(remSecs)}</span>
+                  <SpriteIcon src="/assets/icons/icon_scroll.png" size={14} style={{ marginRight: 4 }} /> {inTravel ? "Đến nơi sau:" : "Thời gian còn lại:"} <span className="time-val">{formatTime(remSecs)}</span>
                 </div>
               )}
             </div>
 
             {isLocal && (
               <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onHuyKhaiHoang(id))}>
-                <CancelIcon /> <span className="text-gold-serif">HỦY XÂY THÀNH</span>
+                <SpriteIcon src="/assets/icons/icon_collapse_european.png" size={16} style={{ marginRight: 6 }} /> <span className="text-gold-serif">HỦY XÂY THÀNH</span>
               </button>
             )}
           </>
@@ -684,16 +489,16 @@ export function TerritoryTooltip({
         return (
           <>
             <button type="button" className="rt-main-action-btn build pulse" onClick={() => onKhaiHoang(id)}>
-            <PickaxeIcon /> <span className="text-gold-serif">DỰNG HOÀNG THÀNH</span>
+              <SpriteIcon src="/assets/icons/icon_tech.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">DỰNG HOÀNG THÀNH</span>
             </button>
-            <div className="rt-note-info" style={{ color: "#4ade80", fontWeight: 700 }}><span className="info-icon">ⓘ</span> Xây dựng miễn phí dành cho tân thủ!</div>
+            <div className="rt-note-info" style={{ color: "#4ade80", fontWeight: 700 }}><SpriteIcon src="/assets/icons/icon_settings_info.png" size={14} style={{ marginRight: 4, filter: "brightness(120%) saturate(150%)" }} /> Xây dựng miễn phí dành cho tân thủ!</div>
           </>
         );
       }
       if (!canBuildStronghold) {
         return (
           <div className="rt-busy-builder-notice disconnected" style={{ background: "rgba(30, 15, 15, 0.9)", borderColor: "#ef4444", border: "1px solid #ef4444", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="icon" style={{ fontSize: 18 }}>🚫</span>
+            <SpriteIcon src="/assets/icons/icon_settings_info.png" size={18} style={{ marginRight: 6, filter: "drop-shadow(0 0 2px #ef4444) hue-rotate(140deg) saturate(300%)" }} />
             <span className="text" style={{ color: "#fca5a5", fontSize: 12, fontWeight: 600 }}>
               CHƯA THỂ MỞ RỘNG: CẦN XÂY LIỀN KỀ, HOẶC DÙNG BẾN TÀU ĐỂ DỰNG ĐIỂM ĐỔ BỘ Ở VEN BIỂN
             </span>
@@ -703,25 +508,25 @@ export function TerritoryTooltip({
       return (
         <>
           <button type="button" className="rt-main-action-btn build" onClick={() => runAndClose(() => onKhaiHoang(id))}>
-            <PickaxeIcon /> <span className="text-gold-serif">DỰNG PHÁO ĐÀI</span>
+            <SpriteIcon src="/assets/icons/icon_tech.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">DỰNG PHÁO ĐÀI</span>
           </button>
           <div className="rt-cost-card">
             <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ DỰNG PHÁO ĐÀI</span><span className="line" /></div>
             <div className="rt-cost-chips-grid">
-              <div className="rt-cost-chip-item"><CoinIcon /> <b>{buildCost.gold}</b></div>
-              <div className="rt-cost-chip-item"><WoodIcon /> <b>{buildCost.wood}</b></div>
-              <div className="rt-cost-chip-item"><StoneIcon /> <b>{buildCost.stone}</b></div>
-              <div className="rt-cost-chip-item"><FoodIcon /> <b>{buildCost.food}</b></div>
+              <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_gold_european.png" size={18} /> <b>{buildCost.gold}</b></div>
+              <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_wood_european.png" size={18} /> <b>{buildCost.wood}</b></div>
+              <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_stone_european.png" size={18} /> <b>{buildCost.stone}</b></div>
+              <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_food_european.png" size={18} /> <b>{buildCost.food}</b></div>
             </div>
           </div>
-          <div className="rt-note-info"><span className="info-icon">ⓘ</span> Pháo đài nối bằng đường bộ hoặc Hải Lộ từ một Bến tàu của bạn.</div>
+          <div className="rt-note-info"><SpriteIcon src="/assets/icons/icon_settings_info.png" size={12} style={{ marginRight: 4, opacity: 0.8 }} /> Pháo đài nối bằng đường bộ hoặc Hải Lộ từ một Bến tàu của bạn.</div>
         </>
       );
     }
     if (effectiveOwnership > 1) {
       return (
         <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onAttack(id))}>
-          <SwordsIcon /> <span className="text-gold-serif">PHÁT ĐỘNG TẤN CÔNG</span>
+          <SpriteIcon src="/assets/icons/icon_battle_vs.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">PHÁT ĐỘNG TẤN CÔNG</span>
         </button>
       );
     }
@@ -769,27 +574,34 @@ export function TerritoryTooltip({
             <div className="rt-header-info">
               <div className="rt-header-title-bar">
                 <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id + 1}` : `LÃNH THỔ #${id + 1}`}</div>
-                {onClose && <button type="button" onClick={onClose} className="rt-close-btn">✕</button>}
+                {onClose && (
+                  <button type="button" onClick={onClose} className="rt-close-btn">
+                    <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" strokeWidth="3.5" fill="none" strokeLinecap="round" style={{ display: "block" }}>
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                )}
               </div>
               <div className="rt-badges-group">
                 <div className="rt-biome-pill" style={{ color: bColor, borderColor: `${bColor}60` }}>
-                  <BiomeIconTree /> {bName}
+                  <SpriteIcon src="/assets/icons/icon_map.png" size={14} style={{ marginRight: 6 }} /> {bName}
                 </div>
                 <button type="button" className="rt-guide-pill-btn" onClick={() => setShowGuide(!showGuide)}>
-                  <BookIcon /> {showGuide ? "Đóng" : "HƯỚNG DẪN"}
+                  <SpriteIcon src="/assets/icons/icon_scroll.png" size={14} style={{ marginRight: 5 }} /> {showGuide ? "Đóng" : "HƯỚNG DẪN"}
                 </button>
               </div>
             </div>
           </div>
           <div className="rt-header-body-row">
             <div className="rt-biome-desc-text">{bDesc}</div>
-            <BiomeIsometricCard biome={biome} />
+            <BiomeMedievalCard biome={biome} color={bColor} />
           </div>
         </div>
 
         {/* Section Divider */}
         <div className="rt-section-divider">
-          <span className="diamond">◇</span><span className="line" /><span className="title">{showGuide ? "HƯỚNG DẪN & BIỂU TƯỢNG" : "THÔNG TIN LÃNH THỔ"}</span><span className="line" /><span className="diamond">◇</span>
+          <CSSDiamond /><span className="line" /><span className="title">{showGuide ? "HƯỚNG DẪN & BIỂU TƯỢNG" : "THÔNG TIN LÃNH THỔ"}</span><span className="line" /><CSSDiamond />
         </div>
 
         {showGuide ? (
@@ -819,23 +631,23 @@ export function TerritoryTooltip({
             {/* Territory General Info Grid */}
             <div className="rt-stats-container">
               <div className="rt-stat-item">
-                <span className="label"><EarthLandIcon /> Loại đất:</span>
+                <span className="label"><SpriteIcon src="/assets/icons/icon_map.png" size={14} style={{ marginRight: 6 }} /> Loại đất:</span>
                 <span className="val">{isIslet ? "Đảo nhỏ" : "Lục địa lớn"}</span>
               </div>
               <div className="rt-stat-item">
-                <span className="label"><StatusShieldIcon /> Chủ quyền:</span>
+                <span className="label"><SpriteIcon src="/assets/icons/icon_gold_crown.png" size={14} style={{ marginRight: 6 }} /> Chủ quyền:</span>
                 <span className="val">{ownerName}</span>
               </div>
               {effectiveOwnership === 0 && (
                 <>
                   {distanceKm !== null && (
                     <div className="rt-stat-item">
-                      <span className="label"><MapPinIcon /> Từ thành gần nhất:</span>
+                      <span className="label"><SpriteIcon src="/assets/icons/icon_map.png" size={15} style={{ marginRight: 6 }} /> Từ thành gần nhất:</span>
                       <span className="val">{distanceKm} km</span>
                     </div>
                   )}
                   <div className="rt-stat-item">
-                    <span className="label"><HourglassIcon /> Thời gian xây:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_tech.png" size={15} style={{ marginRight: 6 }} /> Thời gian xây:</span>
                     <span className="val highlighted">{formatTime(dur)}</span>
                   </div>
                 </>
@@ -843,40 +655,40 @@ export function TerritoryTooltip({
               {town && (
                 <>
                   <div className="rt-stat-item">
-                    <span className="label"><CastleIcon /> Công trình:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_tower.png" size={16} style={{ marginRight: 6 }} /> Công trình:</span>
                     <span className="val">{settlementKindLabel} cấp {town.level ?? 1}</span>
                   </div>
                   <div className="rt-stat-item">
-                    <span className="label"><SwordsIcon /> Quân đồn trú:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_troop_total_helmet.png" size={16} style={{ marginRight: 6 }} /> Quân đồn trú:</span>
                     <span className="val">{Math.floor((town.troops || 0) + (town.reservedTroops || 0)).toLocaleString("vi-VN")} / {Math.floor(town.troopCapacity || town.maxTroops || 0).toLocaleString("vi-VN")}</span>
                   </div>
                   <div className="rt-stat-item">
-                    <span className="label"><ShieldIcon /> Bổ sung quân:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_defender_dragon_shield.png" size={16} style={{ marginRight: 6 }} /> Bổ sung quân:</span>
                     <span className="val highlighted">{town.trainingSpecialty === "cavalry" ? "Kị binh" : town.trainingSpecialty === "artillery" ? "Pháo binh" : "Bộ binh"}{town.troopRecoveryBlockedReason ? ` · ${town.troopRecoveryBlockedReason === "full" ? "đã đầy" : town.troopRecoveryBlockedReason === "resources" ? "thiếu tài nguyên" : town.troopRecoveryBlockedReason === "battle" ? "đang giao tranh" : "bị cô lập"}` : ""}</span>
                   </div>
                   <div className="rt-stat-item">
-                    <span className="label"><StatusShieldIcon /> Dân số:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_military.png" size={14} style={{ marginRight: 6 }} /> Dân số:</span>
                     <span className="val">{Math.floor(town.population || 0).toLocaleString("vi-VN")} / {Math.floor(town.populationCapacity || 0).toLocaleString("vi-VN")}</span>
                   </div>
                   <div className="rt-stat-item">
-                    <span className="label"><CoinIcon /> Kho lãnh thổ:</span>
+                    <span className="label"><SpriteIcon src="/assets/icons/icon_chest.png" size={14} style={{ marginRight: 6 }} /> Kho lãnh thổ:</span>
                     <span className="val">{Math.floor(storage).toLocaleString("vi-VN")} / {Math.floor(storageCapacity).toLocaleString("vi-VN")}</span>
                   </div>
                 </>
               )}
               <div className="rt-stat-item">
-                <span className="label"><StatusShieldIcon /> Trạng thái:</span>
+                <span className="label"><SpriteIcon src="/assets/icons/icon_settings_european.png" size={14} style={{ marginRight: 6 }} /> Trạng thái:</span>
                 <span className={`val ${statusClass}`}>{statusText}</span>
               </div>
               <div className="rt-stat-item">
-                <span className="label"><CoinIcon /> Chất lượng đất:</span>
+                <span className="label"><SpriteIcon src="/assets/icons/icon_tech.png" size={14} style={{ marginRight: 6 }} /> Chất lượng đất:</span>
                 <span className="val">{Math.round(Number(territory?.resourceQuality || 100))}%</span>
               </div>
             </div>
 
             {/* Compact server-authoritative yield ledger */}
             <div className="rt-section-divider margin-top">
-              <span className="diamond">◇</span><span className="line" /><span className="title">SẢN LƯỢNG LÃNH THỔ</span><span className="line" /><span className="diamond">◇</span>
+              <CSSDiamond /><span className="line" /><span className="title">SẢN LƯỢNG LÃNH THỔ</span><span className="line" /><CSSDiamond />
             </div>
 
             {/* Server-authoritative territory yields */}
@@ -899,7 +711,7 @@ export function TerritoryTooltip({
             {specialResources.length > 0 && (
               <>
                 <div className="rt-section-divider margin-top">
-                  <span className="diamond">◇</span><span className="line" /><span className="title">ĐẶC ĐIỂM CHIẾN LƯỢC</span><span className="line" /><span className="diamond">◇</span>
+                  <CSSDiamond /><span className="line" /><span className="title">ĐẶC ĐIỂM CHIẾN LƯỢC</span><span className="line" /><CSSDiamond />
                 </div>
                 <div className="rt-special-list-container">
                   {specialResources.map((item: string, idx: number) => {

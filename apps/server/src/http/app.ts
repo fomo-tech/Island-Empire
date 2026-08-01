@@ -1960,6 +1960,12 @@ async function buildWorldTerritoriesPayload() {
   const emblemByOwner = new Map(
     ownerDocs.map((player: any) => [player._id, player.emblem]) as any,
   );
+  const architectureByOwner = new Map(
+    ownerDocs.map((player: any) => [
+      player._id,
+      player.kingdomArchitectureId,
+    ]) as any,
+  );
   const capitalSkinByOwner = new Map(
     ownerDocs.map((player: any) => [
       player._id,
@@ -2003,6 +2009,9 @@ async function buildWorldTerritoriesPayload() {
         : undefined,
       ownerEmblem: ownerId
         ? (emblemByOwner.get(ownerId) ?? "shield")
+        : undefined,
+      ownerArchitectureId: ownerId
+        ? (architectureByOwner.get(ownerId) ?? "lionheart")
         : undefined,
       ownerAllianceTag: ownerId ? allianceByOwner.get(ownerId)?.tag : undefined,
       ownerAllianceEmblem: ownerId
@@ -2337,6 +2346,8 @@ async function buildGameStatePayload(playerId) {
         ? {
             flagColor: player.flagColor ?? "#2f70d7",
             emblem: player.emblem ?? "shield",
+            kingdomArchitectureId:
+              player.kingdomArchitectureId ?? "lionheart",
           }
         : null,
     };
@@ -3522,6 +3533,9 @@ async function processActiveBattles(now = new Date()) {
           ? (player?.flagColor ?? "#2f70d7")
           : undefined,
         ownerEmblem: claim?.playerId ? (player?.emblem ?? "shield") : undefined,
+        ownerArchitectureId: claim?.playerId
+          ? (player?.kingdomArchitectureId ?? "lionheart")
+          : undefined,
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
         settlementKind: claim?.settlementKind ?? "military",
@@ -3715,6 +3729,8 @@ async function processCompletedClearings(now = new Date()) {
         ownerName: player?.name ?? clearing.playerId,
         ownerFlagColor: player?.flagColor ?? "#2f70d7",
         ownerEmblem: player?.emblem ?? "shield",
+        ownerArchitectureId:
+          player?.kingdomArchitectureId ?? "lionheart",
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
         settlementKind: clearing.isStarterClaim ? "capital" : "military",
@@ -5206,6 +5222,16 @@ export function createApp() {
           .optional(),
         cityName: CityNameSchema.optional(),
         avatarId: z.string().max(40).optional(),
+        kingdomArchitectureId: z
+          .enum([
+            "lionheart",
+            "ironshield",
+            "firedragon",
+            "winddragon",
+            "goldencrown",
+            "blackeagle",
+          ])
+          .optional(),
       })
       .strict()
       .safeParse(req.body);
@@ -5217,7 +5243,7 @@ export function createApp() {
           message: "Thông tin cập nhật không hợp lệ",
         });
     }
-    const { flagColor, emblem, cityName, avatarId } = parsed.data;
+    const { flagColor, emblem, cityName, avatarId, kingdomArchitectureId } = parsed.data;
     const { players } = await collections();
     const updateData: any = {};
     if (flagColor) updateData.flagColor = flagColor;
@@ -5229,6 +5255,8 @@ export function createApp() {
       if (existing) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
     }
     if (avatarId) updateData.avatarId = avatarId;
+    if (kingdomArchitectureId)
+      updateData.kingdomArchitectureId = kingdomArchitectureId;
     if (Object.keys(updateData).length > 0 && req.user?.id) {
       try {
         await players.updateOne({ _id: req.user!.id }, { $set: updateData });
@@ -6445,6 +6473,8 @@ export function createApp() {
           ownerName: player?.name ?? req.user!.id,
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
+          ownerArchitectureId:
+            player?.kingdomArchitectureId ?? "lionheart",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: computedSettlementKind,
@@ -7235,6 +7265,8 @@ export function createApp() {
           ownerName: player?.name ?? req.user!.id,
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
+          ownerArchitectureId:
+            player?.kingdomArchitectureId ?? "lionheart",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: "capital",
