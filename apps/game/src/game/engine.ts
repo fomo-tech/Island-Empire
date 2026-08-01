@@ -917,6 +917,7 @@ export function createIslandEmpireGame(
       number,
       "capital" | "sub_capital" | "military"
     >,
+    regionSpecialResources: {} as Record<number, string[]>,
     regionOwnerCapitalSkins: {} as Record<number, string | null>,
     regionOwnerDistrictSkins: {} as Record<number, string | null>,
     expansionSourceRegionId: null as number | null,
@@ -1054,6 +1055,7 @@ export function createIslandEmpireGame(
     state.regionOwnerAllianceTags = {};
     state.regionOwnerAllianceEmblems = {};
     state.regionSettlementKinds = {};
+    state.regionSpecialResources = {};
     state.regionOwnerCapitalSkins = {};
     state.regionOwnerDistrictSkins = {};
     state.hasAuthoritativeOwnership = false;
@@ -1500,6 +1502,8 @@ export function createIslandEmpireGame(
   }
 
   function territorySpecialResources(regionId: number) {
+    const authoritative = state.regionSpecialResources?.[regionId];
+    if (Array.isArray(authoritative)) return authoritative;
     const r = landById(regionId);
     if (!r) return [];
     const specials: string[] = [];
@@ -1515,6 +1519,27 @@ export function createIslandEmpireGame(
     if (hash((regionId + 1) * 691.13) < 0.007) specials.push("Mỏ Ngọc");
 
     return Array.from(new Set(specials));
+  }
+
+  const STRATEGIC_ASSET_PATHS: Record<string, string> = {
+    "Bãi ngựa": "/assets/special/special_horse_pasture_icon.png",
+    "Xưởng rèn": "/assets/special/special_forge_icon.png",
+    "Bến tàu tự nhiên": "/assets/special/special_harbor_icon.png",
+    "Mỏ Ngọc": "/assets/special/special_gem_mine_icon.png",
+  };
+  const strategicAssetImages = new Map<string, HTMLImageElement>();
+
+  function strategicAssetImage(name: string) {
+    const path = STRATEGIC_ASSET_PATHS[name];
+    if (!path) return null;
+    let image = strategicAssetImages.get(path);
+    if (!image) {
+      image = new Image();
+      image.decoding = "async";
+      image.src = path;
+      strategicAssetImages.set(path, image);
+    }
+    return image;
   }
 
   function townHasSpecial(town: any, special: string) {
@@ -3356,6 +3381,8 @@ export function createIslandEmpireGame(
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
 
+    drawMedievalTerritoryDetails(r, seed, rx, ry, terrainBiome);
+
     // Calculate territory resource richness based on seed (2-3 items for 60FPS smooth performance)
     const richness = hash(seed * 43 + r.id * 19); // 0.0 -> 1.0
     const count = 2 + Math.floor(richness * 1.5);
@@ -3369,16 +3396,7 @@ export function createIslandEmpireGame(
       resType?: string;
     }> = [];
 
-    const availableRes = [
-      "gold",
-      "wood",
-      "stone",
-      "food",
-      "iron",
-      "gems",
-      "coal",
-      "sulfur",
-    ];
+    const availableRes = ["gold", "wood", "stone", "food"];
 
     for (let i = 0; i < count; i++) {
       const a = hash(seed * 61 + i * 17) * TAU;
@@ -3395,13 +3413,13 @@ export function createIslandEmpireGame(
         } else if (originalBiome === 1) {
           resType = pick < 0.1 ? "gold" : "stone";
         } else if (originalBiome === 3) {
-          resType = pick < 0.1 ? "sulfur" : "coal";
+          resType = pick < 0.1 ? "stone" : "gold";
         } else if (originalBiome === 4) {
-          resType = pick < 0.1 ? "gems" : "wood";
+          resType = pick < 0.1 ? "food" : "wood";
         } else if (originalBiome === 5) {
-          resType = pick < 0.1 ? "iron" : "stone";
+          resType = pick < 0.1 ? "gold" : "stone";
         } else if (originalBiome === 2) {
-          resType = pick < 0.1 ? "stone" : "gems";
+          resType = pick < 0.1 ? "stone" : "food";
         }
         items.push({ type: "resource", x, y, pick, pick2, resType });
       } else {
@@ -3519,6 +3537,28 @@ export function createIslandEmpireGame(
       }
     });
 
+    if (!fastRenderMode && state.zoom >= 0.42) {
+      const specials = territorySpecialResources(r.id).filter(
+        (name) => STRATEGIC_ASSET_PATHS[name],
+      );
+      specials.slice(0, 2).forEach((name, index) => {
+        const image = strategicAssetImage(name);
+        if (!image?.complete || !image.naturalWidth) return;
+        const harbor = name === "Bến tàu tự nhiên";
+        const angle = hash(seed * 307 + index * 83) * TAU;
+        const radius = harbor ? 0.68 : 0.46 + index * 0.08;
+        const x = r.x + Math.cos(angle) * rx * radius;
+        const y = r.y + Math.sin(angle) * ry * radius;
+        const size = state.zoom >= 0.82 ? 62 : 46;
+        ctx.save();
+        ctx.globalAlpha = 0.94;
+        ctx.shadowColor = "rgba(20, 12, 5, 0.65)";
+        ctx.shadowBlur = 5;
+        ctx.drawImage(image, x - size / 2, y - size * 0.68, size, size);
+        ctx.restore();
+      });
+    }
+
     if (
       !isFastPanning() &&
       (terrainBiome === 0 || terrainBiome === 5 || terrainBiome === 6)
@@ -3540,6 +3580,55 @@ export function createIslandEmpireGame(
           drawFlower(fx, fy, 0.75, "#ff6090", "#ffffff"); // Thảm hoa thảo nguyên
         }
       }
+    }
+  }
+
+  function drawMedievalTerritoryDetails(
+    r: any,
+    seed: number,
+    rx: number,
+    ry: number,
+    biome: number,
+  ) {
+    if (fastRenderMode || isFastPanning() || state.zoom < 0.52) return;
+
+    const detailRoll = hash(seed * 199 + r.id * 11);
+    if (detailRoll > 0.34) return;
+
+    const angle = hash(seed * 211) * TAU;
+    const radius = 0.48 + hash(seed * 223) * 0.13;
+    const x = Math.round((r.x + Math.cos(angle) * rx * radius) / 4) * 4;
+    const y = Math.round((r.y + Math.sin(angle) * ry * radius) / 4) * 4;
+    const scale = state.zoom > 0.82 ? 0.95 : 0.72;
+
+    if (biome === 0 || biome === 6 || biome === 7) {
+      if (detailRoll < 0.18) {
+        drawFarmPatch(x, y, scale);
+        return;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = 0.76;
+      ctx.strokeStyle = "#4a311d";
+      ctx.lineWidth = 2.2 * scale;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x - 17 * scale, y + 7 * scale);
+      ctx.lineTo(x + 18 * scale, y - 5 * scale);
+      ctx.stroke();
+      for (let i = -2; i <= 2; i++) {
+        const px = x + i * 8 * scale;
+        const py = y + (1 - i) * 2.4 * scale;
+        ctx.beginPath();
+        ctx.moveTo(px, py - 5 * scale);
+        ctx.lineTo(px, py + 5 * scale);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (biome === 1 || biome === 2 || biome === 5) {
+      drawRockPile(x, y, scale * 0.78);
+    } else if (detailRoll < 0.16) {
+      drawRuins(x, y, scale * 0.72);
     }
   }
 
@@ -4114,14 +4203,14 @@ export function createIslandEmpireGame(
       ctx.restore();
     }
 
-    // Draw dashed white grid line ONLY for wild / unclaimed land
+    // Wild borders read like inked medieval map divisions.
     if (!fastRenderMode && ownerCode === 0 && !isClearing && !conflict) {
-      const borderAlpha = 0.32;
-      const borderWidth = 0.9;
-      const borderColor = "rgba(255, 255, 255, 0.32)";
+      const borderAlpha = 0.58;
+      const borderWidth = 1.15;
+      const borderColor = "rgba(58, 47, 29, 0.72)";
       ctx.save();
       ctx.globalAlpha = borderAlpha;
-      ctx.setLineDash([5, 3]);
+      ctx.setLineDash([8, 5]);
       strokeSmoothPath(displayLand, borderColor, borderWidth);
       ctx.setLineDash([]);
       ctx.restore();
@@ -4179,7 +4268,7 @@ export function createIslandEmpireGame(
       ctx.save();
       if (shadowColor) {
         ctx.shadowColor = shadowColor;
-        ctx.shadowBlur = fastRenderMode ? 0 : 20;
+        ctx.shadowBlur = fastRenderMode ? 0 : 5;
       }
       ctx.globalAlpha *= 0.85;
       ctx.strokeStyle = strokeColor;
@@ -4246,15 +4335,14 @@ export function createIslandEmpireGame(
       ctx.restore();
     } else if (ownerCode > 0) {
       const territoryFlagColor = getRegionFlagColor(idx);
-      const outerGlowColor = territoryFlagColor;
-      const innerAccentColor = getLighterColor(territoryFlagColor, 1.35);
+      const outerGlowColor = getDarkerColor(territoryFlagColor, 0.42);
+      const innerAccentColor = getLighterColor(territoryFlagColor, 1.15);
 
       drawOuterBoundaryLines(
         outerGlowColor,
-        fastRenderMode ? 1.5 : 4.5,
-        fastRenderMode ? undefined : outerGlowColor,
+        fastRenderMode ? 1.4 : 4,
       );
-      drawOuterBoundaryLines(innerAccentColor, fastRenderMode ? 0.8 : 2.0);
+      drawOuterBoundaryLines(innerAccentColor, fastRenderMode ? 0.8 : 1.8);
     }
 
     if (state.selectedRegion === idx) {
@@ -14276,6 +14364,7 @@ export function createIslandEmpireGame(
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
         state.regionSettlementKinds = {};
+        state.regionSpecialResources = {};
         state.regionClearing = [];
         state.activeClearingTimings = {};
         state.regionInProgress = -1;
@@ -14328,6 +14417,7 @@ export function createIslandEmpireGame(
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
         state.regionSettlementKinds = {};
+        state.regionSpecialResources = {};
         state.regionOwnerCapitalSkins = {};
         state.regionOwnerDistrictSkins = {};
         state.activeClearingTimings = {};
@@ -14372,6 +14462,9 @@ export function createIslandEmpireGame(
           if (territory.settlementKind)
             state.regionSettlementKinds[territory.id] =
               territory.settlementKind;
+          if (Array.isArray(territory.specialResources))
+            state.regionSpecialResources[territory.id] =
+              territory.specialResources;
           if (territory.equippedCapitalSkin)
             state.regionOwnerCapitalSkins[territory.id] =
               territory.equippedCapitalSkin;
@@ -14476,6 +14569,7 @@ export function createIslandEmpireGame(
           state.regionOwnerAllianceTags = {};
           state.regionOwnerAllianceEmblems = {};
           state.regionSettlementKinds = {};
+          state.regionSpecialResources = {};
           state.regionOwnerCapitalSkins = {};
           state.regionOwnerDistrictSkins = {};
         }
@@ -14522,6 +14616,10 @@ export function createIslandEmpireGame(
             state.regionSettlementKinds[territory.id] =
               territory.settlementKind;
           else delete state.regionSettlementKinds[territory.id];
+          if (Array.isArray(territory.specialResources))
+            state.regionSpecialResources[territory.id] =
+              territory.specialResources;
+          else delete state.regionSpecialResources[territory.id];
 
           if (territory.equippedCapitalSkin)
             state.regionOwnerCapitalSkins[territory.id] =
