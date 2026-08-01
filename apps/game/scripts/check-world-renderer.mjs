@@ -27,6 +27,7 @@ for (const asset of [
   "../public/assets/units/medieval/medieval_artillery_8dir.webp",
   "../public/assets/units/medieval/medieval_builder_8dir.webp",
   "../public/assets/units/medieval/medieval_ship_8dir.webp",
+  "../public/assets/world/territory_vegetation_atlas.webp",
 ]) {
   if (!existsSync(new URL(asset, import.meta.url))) {
     throw new Error(`Thiếu sprite atlas: ${asset}`);
@@ -68,8 +69,12 @@ const settlers = section(
   "function getNewbieShieldRemainingMs(",
 );
 
-if (!terrain.includes("drawMedievalWorldSprite(")) {
-  throw new Error("Bản đồ môi trường chưa dùng atlas trung cổ");
+if (!source.includes("TERRITORY_VEGETATION_SPRITES")
+  || !terrain.includes("drawNaturalTerritoryVegetation(")) {
+  throw new Error("Bản đồ lãnh thổ chưa dùng atlas cây và bụi riêng");
+}
+if (source.includes("drawTerritoryResources(visibleRegions, visibleIslets)")) {
+  throw new Error("Bản đồ vẫn còn pass icon tài nguyên rải trên lãnh thổ");
 }
 
 rejectCalls("Bản đồ thành trì", castles, [
@@ -146,6 +151,11 @@ if (source.includes("medievalArmySheet")) {
 }
 if (!source.includes("displayProgress") || !source.includes("targetProgress")) {
   throw new Error("Hành quân chưa nội suy tiến trình server");
+}
+if (!source.includes("drawActiveBattleConnections")
+  || !source.includes("battle.fromTerritoryId")
+  || !source.includes('type: "battle_source"')) {
+  throw new Error("Reload giao tranh chưa giữ đường quân và hai vùng đang giao chiến");
 }
 if (!source.includes("easedRouteProgress")
   || !source.includes("routeMovementState")

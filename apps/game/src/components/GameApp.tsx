@@ -999,6 +999,14 @@ function mapServerBattlesForClient(battles: any[] = []) {
   return battles.map((battle) => ({
     ...battle,
     regionId: serverToEngineTerritoryId(battle.regionId),
+    fromTerritoryId:
+      battle.fromTerritoryId === undefined
+        ? undefined
+        : serverToEngineTerritoryId(battle.fromTerritoryId),
+    toTerritoryId:
+      battle.toTerritoryId === undefined
+        ? undefined
+        : serverToEngineTerritoryId(battle.toTerritoryId),
     attPower: battle.attackerPower ?? battle.attPower ?? 0,
     defPower: battle.defenderPower ?? battle.defPower ?? 0,
     duration: battle.durationSeconds ?? battle.duration ?? 1,
@@ -2715,10 +2723,7 @@ export function GameApp({
                 )
               : prev.marches,
             battles: (() => {
-              const incoming = {
-                ...event.battle,
-                regionId: serverToEngineTerritoryId(event.battle.regionId),
-              };
+              const incoming = mapServerBattlesForClient([event.battle])[0];
               const current = prev.battles.find(
                 (battle) => battle.id === event.battle.id,
               );
