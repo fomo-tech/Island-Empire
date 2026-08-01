@@ -1825,26 +1825,45 @@ export function createIslandEmpireGame(
   };
 
   const GAME_ENV_V2_SPRITES: Record<string, [number, number]> = {
-    v2_oak: [0, 0],
-    v2_autumn: [1, 0],
-    v2_pine: [2, 0],
-    v2_cherry: [3, 0],
-    v2_dead_tree: [4, 0],
-    v2_bush_round: [0, 1],
-    v2_bush_leafy: [1, 1],
-    v2_bush_berry: [2, 1],
-    v2_fern: [3, 1],
-    v2_bush_flower: [4, 1],
-    v2_rock_big: [0, 2],
-    v2_rock_cluster: [1, 2],
-    v2_log: [2, 2],
-    v2_stump: [3, 2],
-    v2_roots: [4, 2],
-    v2_bamboo: [0, 3],
-    v2_reeds: [1, 3],
-    v2_flowers: [2, 3],
+    // Semantic 4x4 Atlas Names
+    v2_waterfall: [0, 0],
+    v2_swamp: [1, 0],
+    v2_lava: [2, 0],
+    v2_mushrooms: [3, 0],
+    v2_church: [0, 1],
+    v2_market: [1, 1],
+    v2_watchtower: [2, 1],
+    v2_camp: [3, 1],
+    v2_bridge: [0, 2],
+    v2_graveyard: [1, 2],
+    v2_fountain: [2, 2],
+    v2_orchard: [3, 2],
+    v2_shipwreck: [0, 3],
+    v2_wizard_tower: [1, 3],
+    v2_arena: [2, 3],
+    v2_dragon_bone: [3, 3],
+
+    // Backward-compatible sprite alias keys
+    v2_oak: [3, 2],
+    v2_autumn: [3, 2],
+    v2_pine: [2, 1],
+    v2_cherry: [3, 2],
+    v2_dead_tree: [1, 0],
+    v2_bush_round: [3, 2],
+    v2_bush_leafy: [3, 2],
+    v2_bush_berry: [3, 2],
+    v2_fern: [1, 0],
+    v2_bush_flower: [2, 2],
+    v2_rock_big: [2, 0],
+    v2_rock_cluster: [2, 0],
+    v2_log: [1, 0],
+    v2_stump: [1, 0],
+    v2_roots: [1, 0],
+    v2_bamboo: [1, 0],
+    v2_reeds: [1, 0],
+    v2_flowers: [2, 2],
     v2_ruin_wall: [3, 3],
-    v2_grass_patch: [4, 3],
+    v2_grass_patch: [3, 2],
   };
 
   function strategicAssetImage(name: string) {
@@ -1917,7 +1936,7 @@ export function createIslandEmpireGame(
     const image = getGameEnvAssetsV2();
     const cell = GAME_ENV_V2_SPRITES[sprite];
     if (!cell || !image.complete || !image.naturalWidth) return false;
-    const cellWidth = image.naturalWidth / 5; // 5 columns
+    const cellWidth = image.naturalWidth / 4; // 4 columns
     const cellHeight = image.naturalHeight / 4; // 4 rows
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -4098,8 +4117,10 @@ export function createIslandEmpireGame(
             minDimension * (hasTown ? 0.22 : 0.34),
           ),
         );
-        let posX = r.x + dx * 0.4;
-        let posY = r.y + dy * 0.4;
+        // Keep the settlement core clear; wild territories can carry their
+        // vegetation cluster closer to the visual center.
+        let posX = r.x + dx * (hasTown ? 1 : 0.4);
+        let posY = r.y + dy * (hasTown ? 1 : 0.4);
         if (primarySprite === "harbor") {
           const continent = megaContinents.find((c) => {
             const nx = (r.x - c.x) / c.rx;
@@ -12102,9 +12123,8 @@ export function createIslandEmpireGame(
       drawRoKConquestPassesAndMountains(vp);
     }
 
-    if (!isConquestLayout) {
-      drawTerritoryResources(visibleRegions, visibleIslets);
-    }
+    // Resource production is communicated by the territory tooltip. The old
+    // icon pass duplicated dioramas with mines and obscured borders/towns.
     if (!fastRenderMode && !isConquestLayout) drawDecoration(vp);
     drawVoyages(vp);
     drawClaimedTerritoryMarkers(vp);
