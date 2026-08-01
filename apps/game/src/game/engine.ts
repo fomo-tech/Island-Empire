@@ -1528,6 +1528,26 @@ export function createIslandEmpireGame(
     "Mỏ Ngọc": "/assets/special/special_gem_mine_icon.png",
   };
   const strategicAssetImages = new Map<string, HTMLImageElement>();
+  let medievalWorldAtlas: HTMLImageElement | null = null;
+  let medievalCastleAtlas: HTMLImageElement | null = null;
+  const MEDIEVAL_WORLD_SPRITES: Record<string, [number, number]> = {
+    forest_oak: [0, 0],
+    forest_pine: [1, 0],
+    forest_snow: [2, 0],
+    forest_autumn: [3, 0],
+    food: [0, 1],
+    stone: [1, 1],
+    gold: [2, 1],
+    wood: [3, 1],
+    desert: [0, 2],
+    mountain: [1, 2],
+    ruins: [2, 2],
+    cottage: [3, 2],
+    horse: [0, 3],
+    forge: [1, 3],
+    harbor: [2, 3],
+    gems: [3, 3],
+  };
 
   function strategicAssetImage(name: string) {
     const path = STRATEGIC_ASSET_PATHS[name];
@@ -1540,6 +1560,102 @@ export function createIslandEmpireGame(
       strategicAssetImages.set(path, image);
     }
     return image;
+  }
+
+  function getMedievalWorldAtlas() {
+    if (!medievalWorldAtlas) {
+      medievalWorldAtlas = new Image();
+      medievalWorldAtlas.decoding = "async";
+      medievalWorldAtlas.src = "/assets/world/medieval_world_atlas.webp";
+    }
+    return medievalWorldAtlas;
+  }
+
+  function drawMedievalWorldSprite(
+    sprite: string,
+    x: number,
+    y: number,
+    size: number,
+    alpha = 1,
+  ) {
+    const image = getMedievalWorldAtlas();
+    const cell = MEDIEVAL_WORLD_SPRITES[sprite];
+    if (!cell || !image.complete || !image.naturalWidth) return false;
+    const cellWidth = image.naturalWidth / 4;
+    const cellHeight = image.naturalHeight / 4;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(
+      image,
+      cell[0] * cellWidth,
+      cell[1] * cellHeight,
+      cellWidth,
+      cellHeight,
+      x - size / 2,
+      y - size * 0.76,
+      size,
+      size,
+    );
+    ctx.restore();
+    return true;
+  }
+
+  function drawMedievalCastleSprite(
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+    size: number,
+  ) {
+    if (!medievalCastleAtlas) {
+      medievalCastleAtlas = new Image();
+      medievalCastleAtlas.decoding = "async";
+      medievalCastleAtlas.src = "/assets/world/medieval_castle_atlas.webp";
+    }
+    if (!medievalCastleAtlas.complete || !medievalCastleAtlas.naturalWidth)
+      return false;
+    const cellWidth = medievalCastleAtlas.naturalWidth / 4;
+    const cellHeight = medievalCastleAtlas.naturalHeight / 3;
+    ctx.drawImage(
+      medievalCastleAtlas,
+      column * cellWidth,
+      row * cellHeight,
+      cellWidth,
+      cellHeight,
+      x - size / 2,
+      y - size * 0.76,
+      size,
+      size * 0.72,
+    );
+    return true;
+  }
+
+  function drawMedievalCastleBanner(
+    x: number,
+    y: number,
+    size: number,
+    color: string,
+  ) {
+    const poleTop = y - size * 0.7;
+    const poleHeight = Math.max(18, size * 0.19);
+    ctx.save();
+    ctx.strokeStyle = "#4a2f18";
+    ctx.lineWidth = Math.max(1.2, size * 0.009);
+    ctx.beginPath();
+    ctx.moveTo(x, poleTop);
+    ctx.lineTo(x, poleTop + poleHeight);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + 1, poleTop + 2);
+    ctx.lineTo(x + size * 0.12, poleTop + size * 0.035);
+    ctx.lineTo(x + 1, poleTop + size * 0.085);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 220, 120, 0.8)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
   }
 
   function townHasSpecial(town: any, special: string) {
@@ -3381,11 +3497,16 @@ export function createIslandEmpireGame(
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
 
-    drawMedievalTerritoryDetails(r, seed, rx, ry, terrainBiome);
-
-    // Calculate territory resource richness based on seed (2-3 items for 60FPS smooth performance)
+    const paintedForest = drawPaintedForestCluster(
+      r,
+      seed,
+      rx,
+      ry,
+      terrainBiome,
+    );
+    // One readable landmark is cheaper and clearer than several tiny props.
     const richness = hash(seed * 43 + r.id * 19); // 0.0 -> 1.0
-    const count = 2 + Math.floor(richness * 1.5);
+    const count = richness < (state.zoom >= 0.8 ? 0.82 : 0.68) ? 1 : 0;
 
     const items: Array<{
       type: "resource" | "sprite";
@@ -3400,7 +3521,7 @@ export function createIslandEmpireGame(
 
     for (let i = 0; i < count; i++) {
       const a = hash(seed * 61 + i * 17) * TAU;
-      const rr = Math.sqrt(hash(seed * 67 + i * 23)) * 0.76;
+      const rr = 0.5 + hash(seed * 67 + i * 23) * 0.16;
       const x = Math.round((r.x + Math.cos(a) * rx * rr) / 4) * 4;
       const y = Math.round((r.y + Math.sin(a) * ry * rr) / 4) * 4;
       const pick = hash(seed * 73 + i * 31);
@@ -3432,9 +3553,45 @@ export function createIslandEmpireGame(
     items.forEach((item) => {
       const { x, y, pick, pick2, type, resType } = item;
       if (type === "resource" && resType) {
+        const atlasSize = state.zoom >= 0.78 ? 68 : 52;
+        if (drawMedievalWorldSprite(resType, x, y, atlasSize, 0.96)) return;
         drawResourceIcon(resType, x, y);
         return;
       }
+
+      if (
+        paintedForest &&
+        (terrainBiome === 0 || terrainBiome === 5 || terrainBiome === 6) &&
+        pick > 0.4
+      )
+        return;
+
+      const biomeSprite =
+        terrainBiome === 1
+          ? "desert"
+          : terrainBiome === 2
+            ? "forest_snow"
+            : terrainBiome === 3
+              ? "mountain"
+              : terrainBiome === 4
+                ? "ruins"
+                : terrainBiome === 5
+                  ? "forest_autumn"
+                  : terrainBiome === 6
+                    ? "forest_pine"
+                    : terrainBiome === 7
+                      ? "cottage"
+                      : "forest_oak";
+      if (
+        drawMedievalWorldSprite(
+          biomeSprite,
+          x,
+          y,
+          state.zoom >= 0.78 ? 72 : 54,
+          0.94,
+        )
+      )
+        return;
 
       // --- RICH AOE NATURE & ANIMAL REFUGE DECORATIONS ---
       // 1. Desert Biome (Sa Mạc - Flowering cacti, oasis palms, elephants, ruins, caves)
@@ -3542,24 +3699,30 @@ export function createIslandEmpireGame(
         (name) => STRATEGIC_ASSET_PATHS[name],
       );
       specials.slice(0, 2).forEach((name, index) => {
-        const image = strategicAssetImage(name);
-        if (!image?.complete || !image.naturalWidth) return;
         const harbor = name === "Bến tàu tự nhiên";
-        const angle = hash(seed * 307 + index * 83) * TAU;
+        const angle =
+          hash(seed * 61) * TAU + Math.PI / 2 + index * Math.PI;
         const radius = harbor ? 0.68 : 0.46 + index * 0.08;
         const x = r.x + Math.cos(angle) * rx * radius;
         const y = r.y + Math.sin(angle) * ry * radius;
-        const size = state.zoom >= 0.82 ? 62 : 46;
-        ctx.save();
-        ctx.globalAlpha = 0.94;
-        ctx.shadowColor = "rgba(20, 12, 5, 0.65)";
-        ctx.shadowBlur = 5;
+        const sprite =
+          name === "Bãi ngựa"
+            ? "horse"
+            : name === "Xưởng rèn"
+              ? "forge"
+              : harbor
+                ? "harbor"
+                : "gems";
+        const size = state.zoom >= 0.82 ? 78 : 58;
+        if (drawMedievalWorldSprite(sprite, x, y, size, 0.98)) return;
+        const image = strategicAssetImage(name);
+        if (!image?.complete || !image.naturalWidth) return;
         ctx.drawImage(image, x - size / 2, y - size * 0.68, size, size);
-        ctx.restore();
       });
     }
 
     if (
+      !getMedievalWorldAtlas().complete &&
       !isFastPanning() &&
       (terrainBiome === 0 || terrainBiome === 5 || terrainBiome === 6)
     ) {
@@ -3583,6 +3746,32 @@ export function createIslandEmpireGame(
     }
   }
 
+  function drawPaintedForestCluster(
+    r: any,
+    seed: number,
+    rx: number,
+    ry: number,
+    biome: number,
+  ) {
+    if (
+      fastRenderMode ||
+      isFastPanning() ||
+      state.zoom < 0.36 ||
+      (biome !== 0 && biome !== 5 && biome !== 6) ||
+      hash(seed * 389 + r.id * 17) > 0.18
+    )
+      return false;
+
+    const angle = hash(seed * 61) * TAU + Math.PI;
+    const radius = 0.34 + hash(seed * 409) * 0.13;
+    const x = r.x + Math.cos(angle) * rx * radius;
+    const y = r.y + Math.sin(angle) * ry * radius;
+    const size = state.zoom >= 0.78 ? 112 : 88;
+
+    const sprite = biome === 5 ? "forest_autumn" : biome === 6 ? "forest_pine" : "forest_oak";
+    return drawMedievalWorldSprite(sprite, x, y, size, 0.97);
+  }
+
   function drawMedievalTerritoryDetails(
     r: any,
     seed: number,
@@ -3593,7 +3782,7 @@ export function createIslandEmpireGame(
     if (fastRenderMode || isFastPanning() || state.zoom < 0.52) return;
 
     const detailRoll = hash(seed * 199 + r.id * 11);
-    if (detailRoll > 0.34) return;
+    if (detailRoll > 0.2) return;
 
     const angle = hash(seed * 211) * TAU;
     const radius = 0.48 + hash(seed * 223) * 0.13;
@@ -3603,6 +3792,7 @@ export function createIslandEmpireGame(
 
     if (biome === 0 || biome === 6 || biome === 7) {
       if (detailRoll < 0.18) {
+        if (drawMedievalWorldSprite("food", x, y, 66 * scale, 0.9)) return;
         drawFarmPatch(x, y, scale);
         return;
       }
@@ -3626,8 +3816,10 @@ export function createIslandEmpireGame(
       }
       ctx.restore();
     } else if (biome === 1 || biome === 2 || biome === 5) {
+      if (drawMedievalWorldSprite("stone", x, y, 62 * scale, 0.88)) return;
       drawRockPile(x, y, scale * 0.78);
     } else if (detailRoll < 0.16) {
+      if (drawMedievalWorldSprite("ruins", x, y, 64 * scale, 0.9)) return;
       drawRuins(x, y, scale * 0.72);
     }
   }
@@ -7953,23 +8145,33 @@ export function createIslandEmpireGame(
         size,
       );
     } else if (isMilitaryDistrict) {
-      drawMilitaryDistrictSprite(
-        drawX,
-        drawY,
-        flagColor,
-        emblem,
-        castleScale,
-        relation,
-      );
+      const level = Math.max(1, Number(t.level || t.lvl || 1));
+      const column = level >= 15 ? 2 : level >= 7 ? 1 : 0;
+      const size = isUserTown ? 174 : 148;
+      if (!drawMedievalCastleSprite(column, 1, drawX, drawY, size)) {
+        drawMilitaryDistrictSprite(
+          drawX,
+          drawY,
+          flagColor,
+          emblem,
+          castleScale,
+          relation,
+        );
+      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
     } else {
-      drawEmpireCastleSprite(
-        drawX,
-        drawY,
-        flagColor,
-        emblem,
-        castleScale,
-        relation,
-      );
+      const level = Math.max(1, Number(t.level || t.lvl || 1));
+      const column = level >= 20 ? 2 : level >= 10 ? 1 : 0;
+      const size = isUserTown ? 198 : 166;
+      if (!drawMedievalCastleSprite(column, 0, drawX, drawY, size)) {
+        drawEmpireCastleSprite(
+          drawX,
+          drawY,
+          flagColor,
+          emblem,
+          castleScale,
+          relation,
+        );
+      } else drawMedievalCastleBanner(drawX, drawY, size, flagColor);
     }
 
     // Skip heavy nameplate & badge measurement when zoomed far out
