@@ -26,7 +26,6 @@ export function AllyModal({ token, playerId, onClose, onNotify }: AllyModalProps
     wood: 0,
     stone: 0,
     food: 0,
-    iron: 0,
     troops: 0,
   });
 
@@ -98,7 +97,7 @@ export function AllyModal({ token, playerId, onClose, onNotify }: AllyModalProps
   };
 
   const resourceText = (resources: Record<string, number | undefined>) => {
-    const labels: Record<string, string> = { gold: "Vàng", wood: "Gỗ", stone: "Đá", food: "Lúa", iron: "Sắt", coal: "Than", sulfur: "Lưu huỳnh", gems: "Đá quý" };
+    const labels: Record<string, string> = { gold: "Vàng", wood: "Gỗ", stone: "Đá", food: "Lương thực", gems: "Ngọc" };
     const parts = Object.entries(resources)
       .filter(([, value]) => (value || 0) > 0)
       .map(([key, value]) => `${labels[key] ?? key} +${Math.floor(value || 0)}`);
@@ -170,9 +169,9 @@ export function AllyModal({ token, playerId, onClose, onNotify }: AllyModalProps
                 ))}
               </select>
               <div className="alliance-aid-grid">
-                {(["gold", "wood", "stone", "food", "iron", "troops"] as const).map((key) => (
+                {(["gold", "wood", "stone", "food", "troops"] as const).map((key) => (
                   <label key={key}>
-                    <span>{key === "gold" ? "Vàng" : key === "wood" ? "Gỗ" : key === "stone" ? "Đá" : key === "food" ? "Lúa" : key === "iron" ? "Sắt" : "Lính"}</span>
+                    <span>{key === "gold" ? "Vàng" : key === "wood" ? "Gỗ" : key === "stone" ? "Đá" : key === "food" ? "Lương" : "Lính"}</span>
                     <input
                       type="number"
                       min={0}
@@ -195,7 +194,6 @@ export function AllyModal({ token, playerId, onClose, onNotify }: AllyModalProps
                       wood: aidDraft.wood,
                       stone: aidDraft.stone,
                       food: aidDraft.food,
-                      iron: aidDraft.iron,
                     },
                     troops: aidDraft.troops,
                   }),

@@ -368,7 +368,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       description: "Bổ sung đồng đều lương thực và vật liệu vào kho quốc gia.",
       priceGems: 199,
       testPrice: true,
-      resources: { food: 1500, wood: 1500, stone: 1500, iron: 1500, gold: 1200 },
+      resources: { food: 1500, wood: 1500, stone: 1500, gold: 1200 },
     },
     {
       id: "pack_royal_all",
@@ -377,7 +377,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       description: "Kho quân nhu lớn dành cho chiến dịch dài ngày.",
       priceGems: 499,
       testPrice: true,
-      resources: { food: 3000, wood: 3000, stone: 3000, iron: 3000, gold: 2400 },
+      resources: { food: 3000, wood: 3000, stone: 3000, gold: 2400 },
     },
   ];
 
@@ -387,14 +387,12 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     food: <img src="/assets/icons/resource_food_european.png" alt="Lúa mì" style={{ width: 20, height: 20, objectFit: "contain" }} />,
     wood: <img src="/assets/icons/resource_wood_european.png" alt="Gỗ sồi" style={{ width: 20, height: 20, objectFit: "contain" }} />,
     stone: <img src="/assets/icons/resource_stone_european.png" alt="Đá tảng" style={{ width: 20, height: 20, objectFit: "contain" }} />,
-    iron: <img src="/assets/icons/resource_iron_european.png" alt="Sắt đúc" style={{ width: 20, height: 20, objectFit: "contain" }} />,
     gold: <img src="/assets/icons/resource_gold_european.png" alt="Vàng ròng" style={{ width: 20, height: 20, objectFit: "contain" }} />,
   };
   const resourceNames: Partial<Record<keyof ResourceBag, string>> = {
     food: "Lúa mì",
     wood: "Gỗ sồi",
     stone: "Đá tảng",
-    iron: "Sắt đúc",
     gold: "Vàng ròng",
   };
   const resourcePacks = effectiveCatalog
