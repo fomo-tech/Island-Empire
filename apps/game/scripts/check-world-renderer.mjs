@@ -15,7 +15,12 @@ const architecture = readFileSync(
 );
 
 for (const asset of [
-  "../public/assets/kingdoms/kingdom_base.webp",
+  "../public/assets/kingdoms/nations/japan.webp",
+  "../public/assets/kingdoms/nations/china.webp",
+  "../public/assets/kingdoms/nations/vietnam.webp",
+  "../public/assets/kingdoms/nations/rome.webp",
+  "../public/assets/kingdoms/nations/persia.webp",
+  "../public/assets/kingdoms/nations/gothic.webp",
   "../public/assets/kingdoms/kingdom_premium.webp",
   "../public/assets/units/medieval/medieval_army.webp",
 ]) {
@@ -88,7 +93,7 @@ if (onboarding.includes("getCastleSprite") || onboarding.includes("<canvas")) {
 if (shop.includes("<CastleSkinArt")) {
   throw new Error("Cửa hàng còn dùng preview SVG 3D cũ");
 }
-if (!architecture.includes("kingdom_base.webp") || !architecture.includes("kingdom_premium.webp")) {
+if (!architecture.includes("/kingdoms/nations/") || !architecture.includes("kingdom_premium.webp")) {
   throw new Error("Kiến trúc chưa dùng sprite atlas chuẩn");
 }
 rejectCalls("Quân hành quân", troops, [

@@ -477,6 +477,8 @@ export type GameStateResult = {
     flagColor: string;
     emblem: string;
     kingdomArchitectureId?: string;
+    cityName?: string;
+    onboardingState?: "profile_required" | "needs_claim" | "claiming" | "settled";
   } | null;
   nationStatus?: NationStatusSnapshot;
 };

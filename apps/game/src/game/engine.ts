@@ -1741,6 +1741,9 @@ export function createIslandEmpireGame(
       drawKingdomBuildingEffect(normalized, x, y, size);
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(
       image,
       frame.sx,
@@ -1752,6 +1755,7 @@ export function createIslandEmpireGame(
       size,
       size,
     );
+    ctx.restore();
     return true;
   }
 
@@ -8459,12 +8463,12 @@ export function createIslandEmpireGame(
         : "district";
     const size = isUserTown
       ? isCapitalSettlement
-        ? 198
+        ? 232
         : isSubCapital
           ? 184
           : 174
       : isCapitalSettlement
-        ? 166
+        ? 194
         : isSubCapital
           ? 158
           : 148;
@@ -10480,6 +10484,24 @@ export function createIslandEmpireGame(
       drawTree(origin.x + 6, origin.y - 4, 0.65);
     }
 
+    if (!inTravelPhase) {
+      const constructionArchitecture = isMine
+        ? normalizeKingdomArchitecture(state.newbieArchitectureId)
+        : state.regionOwnerArchitectureIds[regionId]
+          ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[regionId])
+          : "lionheart";
+      ctx.save();
+      ctx.globalAlpha = 0.72 + buildP * 0.28;
+      drawKingdomBuildingSprite(
+        constructionArchitecture,
+        "construction",
+        r.x,
+        r.y,
+        178 + buildP * 20,
+      );
+      ctx.restore();
+    }
+
     let x = r.x;
     let y = r.y;
     let onShip = false;
@@ -11069,12 +11091,12 @@ export function createIslandEmpireGame(
         : "district";
     const preferredCastleSize = r.isIslet
       ? isCapital
-        ? 142
+        ? 164
         : 124
       : isCapital
         ? ownerCode === 1
-          ? 198
-          : 170
+          ? 232
+          : 194
         : ownerCode === 1
           ? 174
           : 150;

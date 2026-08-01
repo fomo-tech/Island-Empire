@@ -395,7 +395,7 @@ export function updatePlayerProfile(
   emblem: string,
   cityName?: string,
   kingdomArchitectureId?: string,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; onboardingState?: "needs_claim" }> {
   return request<{ ok: boolean }>("/api/player/profile", {
     method: "POST",
     headers: {
