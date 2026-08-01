@@ -57,7 +57,7 @@ export function createIslandEmpireGame(
   onBattleFinished?: (report: any) => void,
   options?: { layout?: "world" | "conquest" },
 ): GameEngineHandle {
-  const ctx = canvas.getContext("2d");
+  let ctx = canvas.getContext("2d");
   if (!ctx)
     return {
       destroy: () => {},
@@ -86,33 +86,132 @@ export function createIslandEmpireGame(
       startNewbieOnboarding: () => {},
       cancelNewbieOnboarding: () => {},
     };
+
+  interface CachedRegion {
+    canvas: HTMLCanvasElement;
+    assetsCanvas?: HTMLCanvasElement | null;
+    minX: number;
+    minY: number;
+    width: number;
+    height: number;
+    hasTown: boolean;
+    hasOwner: boolean;
+    zoomTier: number;
+  }
+  const regionPass2Cache = new Map<number, CachedRegion>();
+  const isletPass1Cache = new Map<number, CachedRegion>();
+
+  function getZoomTier(zoom: number) {
+    if (zoom < 0.28) return 0;
+    if (zoom < 0.5) return 1;
+    if (zoom < 0.66) return 2;
+    if (zoom < 0.75) return 3;
+    return 4;
+  }
+
+  function invalidateRegionCache(regionId: number) {
+    regionPass2Cache.delete(regionId);
+    isletPass1Cache.delete(regionId);
+  }
+  function clearAllRegionCache() {
+    regionPass2Cache.clear();
+    isletPass1Cache.clear();
+  }
   ctx.imageSmoothingEnabled = false;
 
-  const medievalUnitImages: Record<string, HTMLImageElement> = {};
-  const medievalUnitSources = {
-    builder_idle: "/assets/units/medieval/builder_idle.png",
-    builder_walk_left: "/assets/units/medieval/builder_walk_left.png",
-    builder_walk_right: "/assets/units/medieval/builder_walk_right.png",
-    builder_carry: "/assets/units/medieval/builder_carry.png",
-    builder_hammer_up: "/assets/units/medieval/builder_hammer_up.png",
-    builder_hammer_down: "/assets/units/medieval/builder_hammer_down.png",
-    builder_complete: "/assets/units/medieval/builder_complete.png",
-  };
-  Object.entries(medievalUnitSources).forEach(([kind, src]) => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = src;
-    medievalUnitImages[kind] = image;
-  });
-  const medievalArmySheet = new Image();
-  medievalArmySheet.decoding = "async";
-  medievalArmySheet.src = "/assets/units/medieval/medieval_army.webp";
-  const medievalArmyColumns = {
-    infantry: 0,
-    cavalry: 1,
-    artillery: 2,
-    ship: 3,
+  const medievalInfantrySheet = new Image();
+  medievalInfantrySheet.decoding = "async";
+  medievalInfantrySheet.src = "/assets/units/medieval/medieval_infantry.webp";
+  const medievalCavalrySheet = new Image();
+  medievalCavalrySheet.decoding = "async";
+  medievalCavalrySheet.src = "/assets/units/medieval/medieval_cavalry.webp";
+  const medievalArtillerySheet = new Image();
+  medievalArtillerySheet.decoding = "async";
+  medievalArtillerySheet.src = "/assets/units/medieval/medieval_artillery.webp";
+  const medievalShipSheet = new Image();
+  medievalShipSheet.decoding = "async";
+  medievalShipSheet.src = "/assets/units/medieval/medieval_ship.webp";
+  const medievalInfantry8DirSheet = new Image();
+  medievalInfantry8DirSheet.decoding = "async";
+  medievalInfantry8DirSheet.src = "/assets/units/medieval/medieval_infantry_8dir.webp";
+  const medievalCavalry8DirSheet = new Image();
+  medievalCavalry8DirSheet.decoding = "async";
+  medievalCavalry8DirSheet.src = "/assets/units/medieval/medieval_cavalry_8dir.webp";
+  const medievalArtillery8DirSheet = new Image();
+  medievalArtillery8DirSheet.decoding = "async";
+  medievalArtillery8DirSheet.src = "/assets/units/medieval/medieval_artillery_8dir.webp";
+  const medievalBuilder8DirSheet = new Image();
+  medievalBuilder8DirSheet.decoding = "async";
+  medievalBuilder8DirSheet.src = "/assets/units/medieval/medieval_builder_8dir.webp";
+  const medievalShip8DirSheet = new Image();
+  medievalShip8DirSheet.decoding = "async";
+  medievalShip8DirSheet.src = "/assets/units/medieval/medieval_ship_8dir.webp";
+  const medievalBuilderSheet = new Image();
+  medievalBuilderSheet.decoding = "async";
+  medievalBuilderSheet.src = "/assets/units/medieval/medieval_builder.webp";
+  const medievalBuilderColumns = {
+    idle: 0,
+    walk_left: 1,
+    walk_right: 2,
+    carry: 3,
+    hammer_up: 4,
+    hammer_down: 5,
+    complete: 6,
   } as const;
+
+  type MarchDirection = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+  const marchDirectionCells: Record<MarchDirection, { row: number; pair: number }> = {
+    S: { row: 0, pair: 0 },
+    SW: { row: 0, pair: 1 },
+    W: { row: 1, pair: 0 },
+    NW: { row: 1, pair: 1 },
+    N: { row: 2, pair: 0 },
+    NE: { row: 2, pair: 1 },
+    E: { row: 3, pair: 0 },
+    SE: { row: 3, pair: 1 },
+  };
+
+  function marchDirectionFromDelta(dx: number, dy: number): MarchDirection {
+    if (Math.abs(dx) + Math.abs(dy) < 0.001) return "S";
+    const directions: MarchDirection[] = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+    const octant = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    return directions[(octant + 8) % 8];
+  }
+
+  function stableMarchDirection(owner: any, dx: number, dy: number): MarchDirection {
+    const next = marchDirectionFromDelta(dx, dy);
+    const previous = owner?.lastDirection as MarchDirection | undefined;
+    if (!previous) {
+      if (owner) owner.lastDirection = next;
+      return next;
+    }
+    const directionAngles: Record<MarchDirection, number> = {
+      E: 0,
+      SE: Math.PI / 4,
+      S: Math.PI / 2,
+      SW: Math.PI * 3 / 4,
+      W: Math.PI,
+      NW: -Math.PI * 3 / 4,
+      N: -Math.PI / 2,
+      NE: -Math.PI / 4,
+    };
+    const angle = Math.atan2(dy, dx);
+    const delta = Math.abs(Math.atan2(
+      Math.sin(angle - directionAngles[previous]),
+      Math.cos(angle - directionAngles[previous]),
+    ));
+    const resolved = delta <= Math.PI / 8 + 0.14 ? previous : next;
+    if (owner) owner.lastDirection = resolved;
+    return resolved;
+  }
+
+  function directionSpriteCell(direction: MarchDirection, motionPhase = 0) {
+    const cell = marchDirectionCells[direction];
+    return {
+      sx: (cell.pair * 2 + (Math.floor(Math.abs(motionPhase)) % 2)) * 256,
+      sy: cell.row * 256,
+    };
+  }
 
   function drawMedievalUnitSprite(
     kind: "builder" | "infantry" | "cavalry" | "artillery",
@@ -121,42 +220,127 @@ export function createIslandEmpireGame(
     size: number,
     factionColor?: string,
     frame = "idle",
+    motionPhase?: number,
+    direction?: MarchDirection,
   ) {
     if (kind !== "builder") {
-      if (!medievalArmySheet.complete || medievalArmySheet.naturalWidth <= 0)
+      const directionalSheet = kind === "infantry"
+        ? medievalInfantry8DirSheet
+        : kind === "cavalry"
+          ? medievalCavalry8DirSheet
+          : medievalArtillery8DirSheet;
+      const useDirectionalSheet = frame.includes("walk") && Boolean(direction)
+        && directionalSheet.complete && directionalSheet.naturalWidth > 0;
+      const unitSheet = kind === "infantry"
+        ? medievalInfantrySheet
+        : kind === "cavalry"
+          ? medievalCavalrySheet
+          : medievalArtillerySheet;
+      const activeSheet = useDirectionalSheet ? directionalSheet : unitSheet;
+      if (!activeSheet.complete || activeSheet.naturalWidth <= 0)
         return false;
       const facingLeft = frame.includes("left");
-      const sourceX = medievalArmyColumns[kind] * 256;
+      const rawMotionPhase = Math.abs(
+        motionPhase ?? state.tick * (kind === "cavalry" ? 9 : 7),
+      );
+      const gait = Math.floor(rawMotionPhase) % 4;
+      const infantryColumn = frame.includes("walk")
+        ? 1 + (gait % 2)
+        : frame.includes("attack_up")
+          ? 4
+          : frame.includes("attack_down")
+            ? 5
+            : frame.includes("back")
+              ? 6
+              : frame.includes("guard")
+                ? 3
+                : 0;
+      const cavalryWalkColumns = [1, 2, 5, 2];
+      const cavalryColumn = frame.includes("walk")
+        ? cavalryWalkColumns[gait]
+        : frame.includes("attack_up")
+          ? 3
+          : frame.includes("attack_down")
+            ? 4
+            : frame.includes("back")
+              ? 6
+              : 0;
+      const artilleryWalkColumns = [1, 2, 3, 4];
+      const artilleryColumn = frame.includes("walk")
+        ? artilleryWalkColumns[gait]
+        : frame.includes("back")
+          ? 5
+          : frame.includes("stopped")
+            ? 6
+            : 0;
+      const sourceCell = kind === "cavalry"
+        ? 384
+        : kind === "infantry"
+          ? 320
+          : 384;
+      const sourceColumn = kind === "infantry"
+        ? infantryColumn
+        : kind === "cavalry"
+          ? cavalryColumn
+          : artilleryColumn;
+      const directionalCell = directionSpriteCell(direction || "S", rawMotionPhase);
+      const activeSourceCell = useDirectionalSheet ? 256 : sourceCell;
+      const sourceX = useDirectionalSheet ? directionalCell.sx : sourceColumn * sourceCell;
+      const sourceY = useDirectionalSheet ? directionalCell.sy : 0;
+      const stride = Math.sin(rawMotionPhase * Math.PI / 2) * 0.8;
+      const bobAmount = kind === "artillery" ? 0.35 : kind === "cavalry" ? 1.1 : 0.75;
       ctx.save();
       drawTroopFootRing(x, y, factionColor || "#d6aa4a");
-      const bob = Math.sin(state.tick * (kind === "cavalry" ? 7 : 8)) * 0.8;
+      const bob = Math.sin(rawMotionPhase * Math.PI / 2) * bobAmount;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.translate(x, 0);
-      ctx.scale(facingLeft ? -1 : 1, 1);
+      ctx.translate(x + stride, y + 15 + bob);
+      ctx.rotate(kind === "artillery" ? stride * 0.002 : stride * 0.008);
+      ctx.scale(useDirectionalSheet ? 1 : facingLeft ? -1 : 1, 1 + Math.abs(stride) * 0.006);
       ctx.drawImage(
-        medievalArmySheet,
+        activeSheet,
         sourceX,
-        0,
-        256,
-        256,
+        sourceY,
+        activeSourceCell,
+        activeSourceCell,
         -size / 2,
-        y - size + 15 + bob,
+        -size,
         size,
         size,
       );
       ctx.restore();
       return true;
     }
-    const image = medievalUnitImages[`${kind}_${frame}`] || medievalUnitImages[`${kind}_idle`];
-    if (!image?.complete || image.naturalWidth <= 0) return false;
+    const useDirectionalBuilder = frame.includes("walk") && Boolean(direction)
+      && medievalBuilder8DirSheet.complete && medievalBuilder8DirSheet.naturalWidth > 0;
+    if ((!useDirectionalBuilder && (!medievalBuilderSheet.complete || medievalBuilderSheet.naturalWidth <= 0)))
+      return false;
+    const builderFrame = frame in medievalBuilderColumns
+      ? frame as keyof typeof medievalBuilderColumns
+      : "idle";
+    const directionalCell = directionSpriteCell(direction || "S", motionPhase || 0);
+    const sourceX = useDirectionalBuilder
+      ? directionalCell.sx
+      : medievalBuilderColumns[builderFrame] * 384;
+    const sourceY = useDirectionalBuilder ? directionalCell.sy : 0;
+    const sourceCell = useDirectionalBuilder ? 256 : 384;
     ctx.save();
-    const bobSpeed = kind === "cavalry" ? 7 : 8;
-    const bobAmount = kind === "builder" ? 0.45 : 0.8;
-    const bob = Math.sin(state.tick * bobSpeed) * bobAmount;
+    const isWalking = builderFrame === "walk_left" || builderFrame === "walk_right";
+    const builderPhase = motionPhase ?? state.tick * 9;
+    const bob = isWalking ? Math.sin(builderPhase * Math.PI / 2) * 0.65 : 0;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(image, x - size / 2, y - size + 15 + bob, size, size);
+    ctx.drawImage(
+      useDirectionalBuilder ? medievalBuilder8DirSheet : medievalBuilderSheet,
+      sourceX,
+      sourceY,
+      sourceCell,
+      sourceCell,
+      x - size / 2,
+      y - size + 15 + bob,
+      size,
+      size,
+    );
     ctx.restore();
     return true;
   }
@@ -219,6 +403,7 @@ export function createIslandEmpireGame(
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
     ctx.imageSmoothingEnabled = false;
+    clearAllRegionCache();
   }
   function flushCameraOnPageHide() {
     saveCamera(true);
@@ -1612,6 +1797,7 @@ export function createIslandEmpireGame(
   const strategicAssetImages = new Map<string, HTMLImageElement>();
   let medievalWorldAtlas: HTMLImageElement | null = null;
   let medievalDetailAtlas: HTMLImageElement | null = null;
+  let gameEnvAssetsV2: HTMLImageElement | null = null;
   const kingdomBuildingImages = new Map<string, HTMLImageElement>();
   const MEDIEVAL_WORLD_SPRITES: Record<string, [number, number]> = {
     forest_oak: [0, 0],
@@ -1661,7 +1847,51 @@ export function createIslandEmpireGame(
     size: number,
     alpha = 1,
   ) {
+    const roll = hash(x * 31 + y * 17);
+    if (roll > 0.45) {
+      const drawn = drawGameEnvV2Sprite(sprite, x, y, size, alpha);
+      if (drawn) return true;
+    }
+
     const image = getMedievalWorldAtlas();
+    const cell = MEDIEVAL_WORLD_SPRITES[sprite];
+    if (!cell || !image.complete || !image.naturalWidth) return false;
+    const cellWidth = image.naturalWidth / 4;
+    const cellHeight = image.naturalHeight / 4;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(
+      image,
+      cell[0] * cellWidth,
+      cell[1] * cellHeight,
+      cellWidth,
+      cellHeight,
+      x - size / 2,
+      y - size * 0.76,
+      size,
+      size,
+    );
+    ctx.restore();
+    return true;
+  }
+
+  function getGameEnvAssetsV2() {
+    if (!gameEnvAssetsV2) {
+      gameEnvAssetsV2 = new Image();
+      gameEnvAssetsV2.decoding = "async";
+      gameEnvAssetsV2.src = "/assets/world/game-environment-assets-v2.webp";
+    }
+    return gameEnvAssetsV2;
+  }
+
+  function drawGameEnvV2Sprite(
+    sprite: string,
+    x: number,
+    y: number,
+    size: number,
+    alpha = 1,
+  ) {
+    const image = getGameEnvAssetsV2();
     const cell = MEDIEVAL_WORLD_SPRITES[sprite];
     if (!cell || !image.complete || !image.naturalWidth) return false;
     const cellWidth = image.naturalWidth / 4;
@@ -3361,331 +3591,59 @@ export function createIslandEmpireGame(
     drawBush(x, y, (scale || 1) * 0.9);
   }
 
-  function drawBush(x, y, scale) {
-    scale = scale || 1;
-    pxRect(
-      x - 11 * scale,
-      y + 8 * scale,
-      22 * scale,
-      5 * scale,
-      "rgba(0,0,0,0.22)",
-    );
-    pxRect(x - 11 * scale, y, 9 * scale, 9 * scale, "#1d3d20"); // Deep shadow green
-    pxRect(x - 3 * scale, y - 6 * scale, 12 * scale, 12 * scale, "#27592a"); // Mid green
-    pxRect(x + 7 * scale, y - 1 * scale, 8 * scale, 8 * scale, "#1d3d20");
-    // highlights
-    pxRect(x - 2 * scale, y - 4 * scale, 5 * scale, 3 * scale, "#5db346"); // Bright green
-    pxRect(x - 8 * scale, y + 1 * scale, 4 * scale, 3 * scale, "#418030");
-    // small red berries (rich details)
-    pxRect(x + 2 * scale, y - 3 * scale, 2 * scale, 2 * scale, "#ef3030");
-    pxRect(x - 6 * scale, y + 3 * scale, 2 * scale, 2 * scale, "#ef3030");
-    pxRect(x + 5 * scale, y + 1 * scale, 2 * scale, 2 * scale, "#ef3030");
+  function drawBush(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
   }
 
   function drawPalmTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    // Base Drop Shadow
-    pxRect(x - 12 * sc, y + 14 * sc, 24 * sc, 5 * sc, "rgba(0,0,0,0.30)");
-
-    // Curved Slender Timber Trunk
-    pxRect(x - 3 * sc, y + 4 * sc, 6 * sc, 12 * sc, "#54311d");
-    pxRect(x - 2 * sc, y - 4 * sc, 5 * sc, 10 * sc, "#78350f");
-    pxRect(x, y - 14 * sc, 5 * sc, 11 * sc, "#92400e");
-    pxRect(x + 2 * sc, y - 20 * sc, 4 * sc, 8 * sc, "#b45309");
-
-    const trunkTopX = x + 4 * sc;
-    const trunkTopY = y - 20 * sc;
-
-    // Coconuts at center
-    pxRect(trunkTopX - 4 * sc, trunkTopY + 2 * sc, 5 * sc, 5 * sc, "#451a03");
-    pxRect(trunkTopX + 1 * sc, trunkTopY + 4 * sc, 4 * sc, 4 * sc, "#78350f");
-
-    // Radiating Palm Fronds / Leaves (6 distinct starburst rays as in reference)
-    const fronds = [
-      { dx: -26, dy: 6, c1: "#14532d", c2: "#16a34a", c3: "#4ade80" },
-      { dx: 26, dy: 8, c1: "#14532d", c2: "#16a34a", c3: "#4ade80" },
-      { dx: -20, dy: -14, c1: "#15803d", c2: "#22c55e", c3: "#86efac" },
-      { dx: 20, dy: -12, c1: "#15803d", c2: "#22c55e", c3: "#86efac" },
-      { dx: -30, dy: -4, c1: "#14532d", c2: "#16a34a", c3: "#4ade80" },
-      { dx: 30, dy: -4, c1: "#14532d", c2: "#16a34a", c3: "#4ade80" },
-      { dx: 0, dy: -24, c1: "#15803d", c2: "#4ade80", c3: "#bbf7d0" },
-    ];
-
-    fronds.forEach(({ dx, dy, c1, c2, c3 }) => {
-      ctx.save();
-      ctx.translate(trunkTopX, trunkTopY);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(
-        dx * 0.5 * sc,
-        dy * 0.4 * sc - 8 * sc,
-        dx * sc,
-        dy * sc,
-      );
-      ctx.strokeStyle = c1;
-      ctx.lineWidth = 5 * sc;
-      ctx.stroke();
-
-      ctx.strokeStyle = c2;
-      ctx.lineWidth = 3.2 * sc;
-      ctx.stroke();
-
-      ctx.strokeStyle = c3;
-      ctx.lineWidth = 1.6 * sc;
-      ctx.stroke();
-      ctx.restore();
-    });
+    drawMedievalWorldSprite("desert", x, y, 78 * sc, 0.95);
   }
 
   function drawChest(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    pxRect(x - 8 * sc, y + 4 * sc, 16 * sc, 4 * sc, "rgba(0,0,0,0.28)");
-    pxRect(x - 7 * sc, y - 5 * sc, 14 * sc, 9 * sc, "#78350f");
-    pxRect(x - 6 * sc, y - 4 * sc, 12 * sc, 7 * sc, "#92400e");
-    pxRect(x - 8 * sc, y - 8 * sc, 16 * sc, 4 * sc, "#b45309");
-    pxRect(x - 7 * sc, y - 7 * sc, 14 * sc, 2 * sc, "#d97706");
-    pxRect(x - 6 * sc, y - 8 * sc, 2 * sc, 12 * sc, "#fbbf24");
-    pxRect(x + 4 * sc, y - 8 * sc, 2 * sc, 12 * sc, "#fbbf24");
-    pxRect(x - 2 * sc, y - 5 * sc, 4 * sc, 4 * sc, "#fef08a");
-    pxRect(x - 1 * sc, y - 4 * sc, 2 * sc, 2 * sc, "#451a03");
+    drawMedievalWorldSprite("gold", x, y, 54 * sc, 0.95);
   }
 
-  function drawFlower(x, y, scale, color1?, color2?) {
-    scale = scale || 1;
-    color1 = color1 || "#f855a5";
-    color2 = color2 || "#ffffa0";
-    // stem
-    pxRect(x - 1 * scale, y, 2 * scale, 8 * scale, "#2d7528");
-    // petals in 4 directions
-    pxRect(x - 6 * scale, y - 3 * scale, 5 * scale, 5 * scale, color1);
-    pxRect(x + 2 * scale, y - 3 * scale, 5 * scale, 5 * scale, color1);
-    pxRect(x - 2 * scale, y - 7 * scale, 5 * scale, 5 * scale, color1);
-    pxRect(x - 2 * scale, y + 1 * scale, 5 * scale, 5 * scale, color1);
-    // center
-    pxRect(x - 2 * scale, y - 3 * scale, 5 * scale, 5 * scale, color2);
+  function drawFlower(x: number, y: number, scale?: number, _color1?: string, _color2?: string) {
+    const sc = scale || 1;
+    drawMedievalDetailSprite(1, 0, x, y, 40 * sc);
   }
 
-  function drawBerryBush(
-    x: number,
-    y: number,
-    scale = 1.0,
-    berryColor = "#ef4444",
-  ) {
-    const sc = scale;
-    pxRect(x - 9 * sc, y + 4 * sc, 18 * sc, 4 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 10 * sc, y - 6 * sc, 20 * sc, 10 * sc, "#14532d");
-    pxRect(x - 8 * sc, y - 10 * sc, 16 * sc, 10 * sc, "#16a34a");
-    pxRect(x - 5 * sc, y - 12 * sc, 10 * sc, 6 * sc, "#4ade80");
-    pxRect(x - 6 * sc, y - 8 * sc, 3 * sc, 3 * sc, berryColor);
-    pxRect(x + 3 * sc, y - 7 * sc, 3 * sc, 3 * sc, berryColor);
-    pxRect(x - 1 * sc, y - 11 * sc, 3 * sc, 3 * sc, berryColor);
-    pxRect(x + 5 * sc, y - 3 * sc, 3 * sc, 3 * sc, berryColor);
+  function drawBerryBush(x: number, y: number, scale?: number, _berryColor?: string) {
+    const sc = scale || 1;
+    drawMedievalDetailSprite(0, 0, x, y, 44 * sc);
   }
 
-  function drawMushrooms(x: number, y: number, scale = 1.0) {
-    const sc = scale;
-    pxRect(x - 7 * sc, y + 2 * sc, 14 * sc, 3 * sc, "rgba(0,0,0,0.20)");
-    pxRect(x - 5 * sc, y - 4 * sc, 3 * sc, 6 * sc, "#fef3c7");
-    pxRect(x - 7 * sc, y - 8 * sc, 7 * sc, 5 * sc, "#ef4444");
-    pxRect(x - 5 * sc, y - 7 * sc, 2 * sc, 2 * sc, "#ffffff");
-    pxRect(x + 2 * sc, y - 3 * sc, 2 * sc, 5 * sc, "#fef3c7");
-    pxRect(x, y - 6 * sc, 6 * sc, 4 * sc, "#dc2626");
-    pxRect(x + 2 * sc, y - 5 * sc, 2 * sc, 1 * sc, "#ffffff");
+  function drawMushrooms(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalDetailSprite(1, 1, x, y, 36 * sc);
   }
 
-  function drawSnowTree(x, y, scale) {
-    scale = scale || 1;
-    pxRect(
-      x - 8 * scale,
-      y + 12 * scale,
-      16 * scale,
-      5 * scale,
-      "rgba(0,0,0,0.22)",
-    );
-    // trunk
-    pxRect(x - 3 * scale, y - 18 * scale, 6 * scale, 7 * scale, "#2e6632");
-    // snow caps
-    pxRect(
-      x - 6 * scale,
-      y - 6 * scale,
-      12 * scale,
-      3 * scale,
-      "rgba(225,242,255,0.92)",
-    );
-    pxRect(
-      x - 4 * scale,
-      y - 13 * scale,
-      8 * scale,
-      3 * scale,
-      "rgba(235,248,255,0.95)",
-    );
-    pxRect(
-      x - 2 * scale,
-      y - 19 * scale,
-      5 * scale,
-      3 * scale,
-      "rgba(255,255,255,0.98)",
-    );
+  function drawSnowTree(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalWorldSprite("forest_snow", x, y, 72 * sc, 0.95);
   }
 
-  function drawSwampTree(x, y, scale) {
-    scale = scale || 1;
-    // shadow/water reflection
-    pxRect(
-      x - 10 * scale,
-      y + 14 * scale,
-      24 * scale,
-      4 * scale,
-      "rgba(10,40,25,0.34)",
-    );
-    // gnarled trunk (wider base)
-    pxRect(x - 5 * scale, y - 2 * scale, 10 * scale, 18 * scale, "#2c2007");
-    pxRect(x - 3 * scale, y, 6 * scale, 14 * scale, "#422e11");
-    // mossy foliage (dark, irregular)
-    pxRect(x - 14 * scale, y - 10 * scale, 28 * scale, 12 * scale, "#1c4220");
-    pxRect(x - 10 * scale, y - 16 * scale, 20 * scale, 10 * scale, "#123016");
-    pxRect(x - 5 * scale, y - 20 * scale, 12 * scale, 8 * scale, "#275228");
-    // hanging moss
-    pxRect(x - 12 * scale, y - 2 * scale, 3 * scale, 10 * scale, "#2e522e");
-    pxRect(x + 8 * scale, y - 4 * scale, 3 * scale, 12 * scale, "#274c20");
-    // bioluminescent patches (magical glowing green)
-    pxRect(
-      x - 2 * scale,
-      y - 8 * scale,
-      4 * scale,
-      3 * scale,
-      "rgba(80,255,80,0.8)",
-    );
+  // Swamp tree maps to pine tree sprite
+  function drawSwampTree(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalWorldSprite("forest_pine", x, y, 74 * sc, 0.95);
   }
 
   function drawCrystal(x: number, y: number, scale?: number, _color?: string) {
     drawRockPile(x, y, (scale || 1) * 1.05);
   }
 
-  function drawVolcano(x, y, scale) {
-    scale = scale || 1;
-    // base shadow
-    pxRect(
-      x - 28 * scale,
-      y + 18 * scale,
-      56 * scale,
-      8 * scale,
-      "rgba(0,0,0,0.32)",
-    );
-    // dark rocky body
-    ctx.fillStyle = "#2c190f";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 30 * scale);
-    ctx.lineTo(x - 26 * scale, y + 20 * scale);
-    ctx.lineTo(x + 26 * scale, y + 20 * scale);
-    ctx.closePath();
-    ctx.fill();
-    // lighter face
-    ctx.fillStyle = "#4a2a19";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 30 * scale);
-    ctx.lineTo(x, y + 20 * scale);
-    ctx.lineTo(x + 26 * scale, y + 20 * scale);
-    ctx.closePath();
-    ctx.fill();
-    // lava crater rim
-    pxRect(x - 8 * scale, y - 32 * scale, 16 * scale, 6 * scale, "#73330b");
-    // glowing lava inside crater
-    ctx.fillStyle = "#ff6a00";
-    ctx.beginPath();
-    ctx.ellipse(x, y - 28 * scale, 6 * scale, 3 * scale, 0, 0, TAU);
-    ctx.fill();
-    ctx.save();
-    ctx.shadowColor = "#ff8c00";
-    ctx.shadowBlur = 14 * scale;
-    ctx.fillStyle = "#ffca28";
-    ctx.beginPath();
-    ctx.ellipse(x, y - 29 * scale, 4 * scale, 2 * scale, 0, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-    // lava streaks down the side
-    ctx.strokeStyle = "#b53d00";
-    ctx.lineWidth = 2.5 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x - 4 * scale, y - 26 * scale);
-    ctx.lineTo(x - 10 * scale, y + 10 * scale);
-    ctx.stroke();
-    ctx.strokeStyle = "#ff7c28";
-    ctx.lineWidth = 1.5 * scale;
-    ctx.stroke();
-  }
+
 
   function drawLakeInRegion(r, seed, rx, ry) {
-    if (hash(seed * 43) < 0.92) return;
-    const lx = r.x + (hash(seed * 47) - 0.5) * rx * 0.72;
-    const ly = r.y + (hash(seed * 53) - 0.5) * ry * 0.58;
-    const lrx = Math.max(16, rx * (0.12 + hash(seed * 59) * 0.07));
-    const lry = Math.max(10, ry * (0.08 + hash(seed * 61) * 0.05));
-    const lake = organicPath(lx, ly, lrx, lry, seed * 2.1);
-
-    fillPath(
-      organicPath(lx + 2, ly + 3, lrx + 5, lry + 4, seed * 2.1 + 1),
-      "rgba(24,38,30,0.48)",
-    );
-    fillPath(lake, "#1d6c8f");
-    const innerLake = organicPath(
-      lx,
-      ly,
-      lrx * 0.72,
-      lry * 0.72,
-      seed * 2.1 + 0.3,
-    );
-    fillPath(innerLake, "#2d8ab5");
-
-    ctx.strokeStyle = "#0e394f";
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(180, 240, 255, 0.4)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    const padX = lx + lrx * 0.3;
-    const padY = ly + lry * 0.15;
-    pxRect(padX - 2, padY - 2, 5, 4, "#245e2a");
-    pxRect(padX + 1, padY - 1, 2, 2, "#1d6c8f");
-    pxRect(padX - 1, padY - 3, 3, 3, "#f855a5");
-    pxRect(padX, padY - 2, 1, 1, "#ffff80");
+    return; // Đã vô hiệu hóa sông hồ vẽ tay trên lãnh thổ
   }
 
   function drawRiverInRegion(r, seed, rx, ry) {
-    if (hash(seed * 19) < 0.88) return;
-    ctx.save();
-    ctx.globalAlpha = 0.72;
-    ctx.setLineDash([]);
-    ctx.lineCap = "round";
-    const sx = r.x - rx * 0.44;
-    const ex = r.x + rx * 0.44;
-    const cy = r.y + (hash(seed * 23) - 0.5) * ry * 0.45;
-
-    ctx.strokeStyle = "#0e2947";
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(sx, cy);
-    ctx.bezierCurveTo(
-      r.x - rx * 0.25,
-      cy - ry * 0.35,
-      r.x + rx * 0.22,
-      cy + ry * 0.3,
-      ex,
-      cy + (hash(seed * 29) - 0.5) * ry * 0.25,
-    );
-    ctx.stroke();
-
-    ctx.strokeStyle = "#1d6c9f";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
-    ctx.strokeStyle = "#7ad4ef";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    ctx.restore();
+    return; // Đã vô hiệu hóa sông hồ vẽ tay trên lãnh thổ
   }
 
   function drawRegionTerrainLegacy(
@@ -3982,8 +3940,10 @@ export function createIslandEmpireGame(
         name,
       ),
     );
+
+    // Increase asset density: 90% of regions will display assets instead of only 50%
     const density = hash(seed * 43 + r.id * 19);
-    if (!special && !hasTown && density > 0.5) return;
+    if (!special && !hasTown && density > 0.9) return;
     if (!special && hasTown && state.zoom < 0.5) return;
 
     const yields = territoryYield(r.id);
@@ -3994,13 +3954,17 @@ export function createIslandEmpireGame(
     const clusterX = Math.floor(r.x / 760);
     const clusterY = Math.floor(r.y / 620);
     const clusterRoll = hash(clusterX * 97.31 + clusterY * 173.17);
-    let sprite: string = dominantResource;
-    if (special === "Bãi ngựa") sprite = "horse";
-    else if (special === "Xưởng rèn") sprite = "forge";
-    else if (special === "Bến tàu tự nhiên") sprite = "harbor";
-    else if (special === "Mỏ Ngọc") sprite = "gems";
+    const baseAngle = hash(clusterX * 311.7 + clusterY * 47.9) * TAU;
+    const angle = baseAngle + (hash(seed * 61) - 0.5) * 0.7;
+
+    // Determine primary sprite
+    let primarySprite: string = dominantResource;
+    if (special === "Bãi ngựa") primarySprite = "horse";
+    else if (special === "Xưởng rèn") primarySprite = "forge";
+    else if (special === "Bến tàu tự nhiên") primarySprite = "harbor";
+    else if (special === "Mỏ Ngọc") primarySprite = "gems";
     else if (dominantResource === "wood") {
-      sprite =
+      primarySprite =
         clusterRoll < 0.34
           ? terrainBiome === 5
             ? "forest_autumn"
@@ -4011,44 +3975,307 @@ export function createIslandEmpireGame(
               : "forest_pine"
             : "wood";
     } else if (dominantResource === "food") {
-      sprite =
+      primarySprite =
         clusterRoll < 0.55
           ? "food"
           : clusterRoll < 0.78
             ? "cottage"
             : "forest_oak";
     } else if (dominantResource === "stone") {
-      sprite = clusterRoll < 0.66 ? "stone" : clusterRoll < 0.88 ? "mountain" : "ruins";
+      primarySprite = clusterRoll < 0.66 ? "stone" : clusterRoll < 0.88 ? "mountain" : "ruins";
     } else if (dominantResource === "gold") {
-      sprite = clusterRoll < 0.78 ? "gold" : "ruins";
+      primarySprite = clusterRoll < 0.78 ? "gold" : "ruins";
     }
 
     if (!special && !hasTown && clusterRoll < 0.16) {
-      if (terrainBiome === 1) sprite = "desert";
-      else if (terrainBiome === 2) sprite = "forest_snow";
-      else if (terrainBiome === 3) sprite = "mountain";
-      else if (terrainBiome === 5) sprite = "forest_autumn";
+      if (terrainBiome === 1) primarySprite = "desert";
+      else if (terrainBiome === 2) primarySprite = "forest_snow";
+      else if (terrainBiome === 3) primarySprite = "mountain";
+      else if (terrainBiome === 5) primarySprite = "forest_autumn";
     }
 
-    const baseAngle = hash(clusterX * 311.7 + clusterY * 47.9) * TAU;
-    const angle = baseAngle + (hash(seed * 61) - 0.5) * 0.7;
-    const isHarbor = sprite === "harbor";
-    const radius = isHarbor
-      ? 0.62
-      : hasTown
-        ? 0.3 + hash(seed * 67) * 0.08
-        : 0.18 + hash(seed * 67) * 0.14;
-    const x = r.x + Math.cos(angle) * rx * radius;
-    const y = r.y + Math.sin(angle) * ry * radius;
+    // Now we generate a beautiful diorama cluster
+    interface DioramaItem {
+      type: "sprite" | "oak" | "autumn" | "pine" | "palm" | "grass" | "bush" | "flower" | "berry" | "mushroom" | "rock" | "ruins" | "chest" | "cave" | "deer" | "boar" | "elephant" | "resource";
+      spriteName?: string;
+      x: number;
+      y: number;
+      size: number;
+      scale: number;
+    }
+    const items: DioramaItem[] = [];
+
+    // Let's decide how many items to place
+    // Special regions and wood/forest regions have more items, others have 3-5
+    let itemCount = 3 + Math.floor(hash(seed * 113) * 3); // 3 to 5 items
+    if (special) itemCount = 5 + Math.floor(hash(seed * 73) * 3); // 5 to 7 items
+    else if (dominantResource === "wood" || primarySprite.startsWith("forest_")) {
+      itemCount = 5 + Math.floor(hash(seed * 97) * 4); // 5 to 8 items
+    }
+
+    const minRadius = hasTown ? 0.38 : 0.12;
+    const maxRadius = hasTown ? 0.72 : 0.54;
     const minDimension = Math.min(rx * 2, ry * 2);
-    const size = Math.max(
-      38,
-      Math.min(
-        hasTown ? 52 : state.zoom >= 0.75 ? 112 : 90,
-        minDimension * (hasTown ? 0.2 : 0.32),
-      ),
-    );
-    drawMedievalWorldSprite(sprite, x, y, size, special ? 1 : 0.96);
+
+    for (let i = 0; i < itemCount; i++) {
+      const itemSeed = seed * 37 + i * 19;
+      const angle = hash(itemSeed * 29) * TAU;
+      const radiusMult = minRadius + hash(itemSeed * 43) * (maxRadius - minRadius);
+      
+      const dx = Math.cos(angle) * rx * radiusMult;
+      const dy = Math.sin(angle) * ry * radiusMult * 0.78; // Isometric compression
+      
+      let x = r.x + dx;
+      let y = r.y + dy;
+
+      if (special === "Bến tàu tự nhiên" && i > 0) {
+        const continent = megaContinents.find((c) => {
+          const nx = (r.x - c.x) / c.rx;
+          const ny = (r.y - c.y) / c.ry;
+          return nx * nx + ny * ny <= 2.2;
+        });
+        const cx = continent ? continent.x : 1200;
+        const cy = continent ? continent.y : 800;
+        const cdx = r.x - cx;
+        const cdy = r.y - cy;
+        const clen = Math.hypot(cdx, cdy) || 1;
+        const harborX = r.x + (cdx / clen) * rx * 0.82;
+        const harborY = r.y + (cdy / clen) * ry * 0.82;
+
+        const angleInward = Math.atan2(r.y - harborY, r.x - harborX);
+        const scatterRoll = hash(itemSeed * 53);
+        const dist = 12 + scatterRoll * 26;
+        const angleOffset = angleInward + (hash(itemSeed * 59) - 0.5) * 1.8;
+        x = harborX + Math.cos(angleOffset) * dist;
+        y = harborY + Math.sin(angleOffset) * dist;
+      }
+
+      // First item is always the primary resource/landmark at the core
+      if (i === 0) {
+        const size = Math.max(
+          38,
+          Math.min(
+            hasTown ? 50 : state.zoom >= 0.75 ? 112 : 90,
+            minDimension * (hasTown ? 0.22 : 0.34),
+          ),
+        );
+        let posX = r.x + dx * 0.4;
+        let posY = r.y + dy * 0.4;
+        if (primarySprite === "harbor") {
+          const continent = megaContinents.find((c) => {
+            const nx = (r.x - c.x) / c.rx;
+            const ny = (r.y - c.y) / c.ry;
+            return nx * nx + ny * ny <= 2.2;
+          });
+          const cx = continent ? continent.x : 1200;
+          const cy = continent ? continent.y : 800;
+          const cdx = r.x - cx;
+          const cdy = r.y - cy;
+          const clen = Math.hypot(cdx, cdy) || 1;
+          posX = r.x + (cdx / clen) * rx * 0.82;
+          posY = r.y + (cdy / clen) * ry * 0.82;
+        }
+        items.push({
+          type: "sprite",
+          spriteName: primarySprite,
+          x: posX,
+          y: posY,
+          size,
+          scale: 1.0,
+        });
+        continue;
+      }
+
+      // Other items are surrounding props depending on the theme
+      const roll = hash(itemSeed * 61);
+      const scale = 0.8 + hash(itemSeed * 83) * 0.4;
+      const size = Math.max(34, Math.min(64, minDimension * (0.16 + roll * 0.12)));
+
+      if (special === "Bãi ngựa") {
+        if (roll < 0.35) {
+          items.push({ type: "sprite", spriteName: "horse", x, y, size: size * 0.9, scale });
+        } else if (roll < 0.7) {
+          items.push({ type: "grass", x, y, size, scale });
+        } else {
+          items.push({ type: "flower", x, y, size, scale });
+        }
+      } else if (special === "Xưởng rèn") {
+        if (roll < 0.4) {
+          items.push({ type: "rock", x, y, size, scale });
+        } else if (roll < 0.75) {
+          items.push({ type: "resource", spriteName: "stone", x, y, size, scale });
+        } else {
+          items.push({ type: "bush", x, y, size, scale });
+        }
+      } else if (special === "Bến tàu tự nhiên") {
+        if (roll < 0.4) {
+          items.push({ type: "sprite", spriteName: "harbor", x, y, size: size * 0.8, scale });
+        } else if (roll < 0.75) {
+          items.push({ type: "grass", x, y, size, scale });
+        } else {
+          items.push({ type: "bush", x, y, size, scale });
+        }
+      } else if (special === "Mỏ Ngọc") {
+        if (roll < 0.4) {
+          items.push({ type: "sprite", spriteName: "gems", x, y, size: size * 0.9, scale });
+        } else if (roll < 0.7) {
+          items.push({ type: "cave", x, y, size, scale });
+        } else {
+          items.push({ type: "rock", x, y, size, scale });
+        }
+      } else if (dominantResource === "wood" || primarySprite.startsWith("forest_")) {
+        // Forest / Wood theme
+        if (roll < 0.45) {
+          // Additional trees
+          let treeType: "oak" | "pine" | "autumn" | "snow_tree" | "palm" | "sprite" = "oak";
+          let spriteName = "forest_oak";
+          if (terrainBiome === 2) {
+            treeType = "snow_tree";
+            spriteName = "forest_snow";
+          } else if (terrainBiome === 6) {
+            treeType = "pine";
+            spriteName = "forest_pine";
+          } else if (terrainBiome === 5) {
+            treeType = "autumn";
+            spriteName = "forest_autumn";
+          } else if (terrainBiome === 1) {
+            treeType = "palm";
+          }
+          
+          if (roll < 0.22 && treeType !== "palm") {
+            items.push({ type: treeType, x, y, size, scale });
+          } else {
+            items.push({ type: "sprite", spriteName, x, y, size, scale });
+          }
+        } else if (roll < 0.65) {
+          items.push({ type: "berry", x, y, size, scale });
+        } else if (roll < 0.8) {
+          items.push({ type: "mushroom", x, y, size, scale });
+        } else {
+          items.push({ type: "deer", x, y, size, scale });
+        }
+      } else if (dominantResource === "food") {
+        // Crop / Farm theme
+        if (roll < 0.35) {
+          items.push({ type: "sprite", spriteName: "food", x, y, size, scale });
+        } else if (roll < 0.65) {
+          items.push({ type: "berry", x, y, size, scale });
+        } else if (roll < 0.85) {
+          items.push({ type: "flower", x, y, size, scale });
+        } else {
+          items.push({ type: "boar", x, y, size, scale });
+        }
+      } else if (dominantResource === "stone") {
+        // Stone / Mountain theme
+        if (roll < 0.35) {
+          items.push({ type: "sprite", spriteName: "stone", x, y, size, scale });
+        } else if (roll < 0.6) {
+          items.push({ type: "rock", x, y, size, scale });
+        } else if (roll < 0.8) {
+          items.push({ type: "cave", x, y, size, scale });
+        } else {
+          items.push({ type: "ruins", x, y, size, scale });
+        }
+      } else if (dominantResource === "gold") {
+        // Gold / Ruins theme
+        if (roll < 0.35) {
+          items.push({ type: "sprite", spriteName: "gold", x, y, size, scale });
+        } else if (roll < 0.65) {
+          items.push({ type: "ruins", x, y, size, scale });
+        } else if (roll < 0.85) {
+          items.push({ type: "chest", x, y, size, scale });
+        } else {
+          items.push({ type: "rock", x, y, size, scale });
+        }
+      } else {
+        // Fallback for plain/empty regions
+        if (terrainBiome === 1) {
+          // Desert / Savanna: Cacti (desert sprite), dry grass, small rocks
+          if (roll < 0.42) {
+            items.push({ type: "sprite", spriteName: "desert", x, y, size: size * 0.85, scale });
+          } else if (roll < 0.75) {
+            items.push({ type: "bush", x, y, size: size * 0.9, scale });
+          } else {
+            items.push({ type: "rock", x, y, size: size * 0.8, scale });
+          }
+        } else {
+          // Grasslands / Forest realms: Scatter trees, grasses, flowers, bushes
+          if (roll < 0.32) {
+            let treeType: "oak" | "pine" | "autumn" | "snow_tree" | "palm" | "sprite" = "oak";
+            let spriteName = "forest_oak";
+            if (terrainBiome === 2) {
+              treeType = "snow_tree";
+              spriteName = "forest_snow";
+            } else if (terrainBiome === 6) {
+              treeType = "pine";
+              spriteName = "forest_pine";
+            } else if (terrainBiome === 5) {
+              treeType = "autumn";
+              spriteName = "forest_autumn";
+            } else if (terrainBiome === 1) {
+              treeType = "palm";
+            }
+            
+            if (roll < 0.15 && treeType !== "palm") {
+              items.push({ type: treeType, x, y, size, scale });
+            } else {
+              items.push({ type: "sprite", spriteName, x, y, size, scale });
+            }
+          } else if (roll < 0.65) {
+            items.push({ type: "grass", x, y, size, scale });
+          } else if (roll < 0.85) {
+            items.push({ type: "flower", x, y, size, scale });
+          } else {
+            items.push({ type: "bush", x, y, size, scale });
+          }
+        }
+      }
+    }
+
+    // Sort items by Y for correct overlapping
+    items.sort((a, b) => a.y - b.y);
+
+    // Draw all items in the diorama
+    items.forEach((item) => {
+      const { type, spriteName, x, y, size, scale } = item;
+      if (type === "sprite" && spriteName) {
+        drawMedievalWorldSprite(spriteName, x, y, size, special ? 1.0 : 0.96);
+      } else if (type === "oak") {
+        drawOakTree(x, y, scale * 1.25);
+      } else if (type === "autumn") {
+        drawAutumnTree(x, y, scale * 1.25);
+      } else if (type === "pine") {
+        drawPineTree(x, y, scale * 1.25);
+      } else if (type === "palm") {
+        drawPalmTree(x, y, scale * 1.25);
+      } else if (type === "grass") {
+        drawGrassPatch(x, y, scale * 1.2);
+      } else if (type === "bush") {
+        drawBush(x, y, scale * 1.2);
+      } else if (type === "flower") {
+        drawFlower(x, y, scale * 1.2);
+      } else if (type === "berry") {
+        drawBerryBush(x, y, scale * 1.25);
+      } else if (type === "mushroom") {
+        drawMushrooms(x, y, scale * 1.2);
+      } else if (type === "rock") {
+        drawRockPile(x, y, scale * 1.25);
+      } else if (type === "ruins") {
+        drawRuins(x, y, scale * 1.2);
+      } else if (type === "chest") {
+        drawChest(x, y, scale * 1.1);
+      } else if (type === "cave") {
+        drawCave(x, y, scale * 1.2);
+      } else if (type === "deer") {
+        drawDeer(x, y, scale * 1.15);
+      } else if (type === "boar") {
+        drawBoar(x, y, scale * 1.15);
+      } else if (type === "elephant") {
+        drawElephant(x, y, scale * 1.2);
+      } else if (type === "resource" && spriteName) {
+        drawResourceIcon(spriteName, x, y);
+      }
+    });
 
     const detailRoll = hash(seed * 901 + r.id * 37);
     if (!hasTown && !special && state.zoom >= 0.66 && detailRoll < 0.24) {
@@ -4325,6 +4552,27 @@ export function createIslandEmpireGame(
   }
 
   function drawRegion(r, idx, pass, isIslet) {
+    if (pass === 3) {
+      if (isConquestLayout) return;
+      if (fastRenderMode || isFastPanning()) return;
+      const cache = regionPass2Cache.get(idx);
+      if (cache && cache.assetsCanvas) {
+        const isSelected = state.selectedRegion === idx;
+        ctx.drawImage(
+          cache.assetsCanvas,
+          0,
+          0,
+          cache.width,
+          cache.height,
+          cache.minX,
+          cache.minY - (isSelected ? 8 : 0),
+          cache.width / 1.5,
+          cache.height / 1.5
+        );
+      }
+      return;
+    }
+
     const biomeId = visualBiomeIndex(r, idx, isIslet);
     const biome = BIOMES[biomeId] || BIOMES[0];
     const seed = r.seed || idx + 1;
@@ -4398,14 +4646,170 @@ export function createIslandEmpireGame(
 
     if (pass === 1) {
       if (!isCoastal) return;
-      // Pass 1: Multi-layer 3D Terraced Sloped Rock Cliff Face & Sunlit Golden Beach Rim
-      if (isCoastal) {
+      if (isIslet) {
+        const cache = isletPass1Cache.get(idx);
+        if (cache) {
+          ctx.drawImage(
+            cache.canvas,
+            0,
+            0,
+            cache.width,
+            cache.height,
+            cache.minX,
+            cache.minY,
+            cache.width / 1.5,
+            cache.height / 1.5
+          );
+          return;
+        } else {
+          const xs = displayLand.map(([px]) => px);
+          const ys = displayLand.map(([, py]) => py);
+          const minX = Math.min(...xs) - 85;
+          const maxX = Math.max(...xs) + 85;
+          const minY = Math.min(...ys) - 85;
+          const maxY = Math.max(...ys) + 85;
+          const width = maxX - minX;
+          const height = maxY - minY;
+          
+          const cacheScale = 1.5;
+          const cacheCanvas = document.createElement("canvas");
+          cacheCanvas.width = Math.ceil(width * cacheScale);
+          cacheCanvas.height = Math.ceil(height * cacheScale);
+          const cacheCtx = cacheCanvas.getContext("2d")!;
+          
+          const tempCtx = ctx;
+          ctx = cacheCtx;
+          
+          ctx.save();
+          ctx.scale(cacheScale, cacheScale);
+          ctx.translate(-minX, -minY);
+          
+          const cDeep = biome.cliffDeep || "#080503";
+          const cMid = biome.cliffMid || "#1a1007";
+          const cUpper = biome.cliffUpper || "#483214";
+          const cHi = biome.hi || "#8c6b32";
+          const bColor = biome.beach || "#f0a317";
+          
+          if (fastRenderMode) {
+            fillPath(
+              getOffsetPolygon(18).map(
+                ([px, py]) => [px + 5, py + 11] as [number, number],
+              ),
+              cMid,
+            );
+            fillPath(getOffsetPolygon(8), bColor);
+          } else {
+            const shadowBase = getOffsetPolygon(38).map(
+              ([px, py]) => [px + 12, py + 28] as [number, number],
+            );
+            fillPath(shadowBase, "rgba(0, 0, 0, 0.96)");
+            strokePath(shadowBase, "rgba(0, 0, 0, 1.0)", 3.6);
+
+            const cliffDeep = getOffsetPolygon(30).map(
+              ([px, py]) => [px + 9, py + 20] as [number, number],
+            );
+            fillPath(cliffDeep, cDeep);
+            strokePath(cliffDeep, "rgba(0, 0, 0, 0.85)", 2.4);
+
+            const cliffBase = getOffsetPolygon(22).map(
+              ([px, py]) => [px + 6, py + 13] as [number, number],
+            );
+            const baseGrad = ctx.createLinearGradient(
+              r.x - rx * 0.5,
+              r.y - ry * 0.6,
+              r.x + rx * 0.4,
+              r.y + ry + 22,
+            );
+            baseGrad.addColorStop(0, cUpper);
+            baseGrad.addColorStop(0.5, cMid);
+            baseGrad.addColorStop(1, cDeep);
+            fillPath(cliffBase, baseGrad);
+            strokePath(cliffBase, "rgba(0, 0, 0, 0.65)", 2.0);
+
+            const coast = getOffsetPolygon(15).map(
+              ([px, py]) => [px + 3, py + 7] as [number, number],
+            );
+            const coastGrad = ctx.createLinearGradient(
+              r.x - rx * 0.4,
+              r.y - ry * 0.6,
+              r.x + rx * 0.3,
+              r.y + ry + 12,
+            );
+            coastGrad.addColorStop(0, cHi);
+            coastGrad.addColorStop(0.45, cUpper);
+            coastGrad.addColorStop(1, cMid);
+            fillPath(coast, coastGrad);
+            strokePath(coast, "rgba(0, 0, 0, 0.45)", 1.5);
+
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.68)";
+            ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            for (let i = 0; i < coast.length; i += 2) {
+              ctx.moveTo(coast[i][0], coast[i][1]);
+              ctx.lineTo(
+                cliffDeep[i % cliffDeep.length][0],
+                cliffDeep[i % cliffDeep.length][1],
+              );
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = "rgba(255, 230, 140, 0.35)";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            for (let i = 1; i < coast.length; i += 2) {
+              ctx.moveTo(coast[i][0], coast[i][1]);
+              ctx.lineTo(
+                shadowBase[i % shadowBase.length][0],
+                shadowBase[i % shadowBase.length][1],
+              );
+            }
+            ctx.stroke();
+
+            const sandRim = getOffsetPolygon(9);
+            fillPath(sandRim, bColor);
+            strokePath(sandRim, "#c47d08", 1.6);
+
+            const sandHighlight = getOffsetPolygon(4);
+            fillPath(sandHighlight, "rgba(255, 236, 120, 0.42)");
+
+            const foamEdge = getOffsetPolygon(34).map(
+              ([px, py]) => [px + 7, py + 16] as [number, number],
+            );
+            strokePath(foamEdge, "rgba(255, 255, 255, 0.65)", 2.0);
+          }
+          
+          ctx.restore();
+          ctx = tempCtx;
+          
+          isletPass1Cache.set(idx, {
+            canvas: cacheCanvas,
+            minX,
+            minY,
+            width: cacheCanvas.width,
+            height: cacheCanvas.height,
+            hasTown: false,
+            hasOwner: false
+          });
+          
+          ctx.drawImage(
+            cacheCanvas,
+            0,
+            0,
+            cacheCanvas.width,
+            cacheCanvas.height,
+            minX,
+            minY,
+            width,
+            height
+          );
+        }
+      } else {
         const cDeep = biome.cliffDeep || "#080503";
         const cMid = biome.cliffMid || "#1a1007";
         const cUpper = biome.cliffUpper || "#483214";
         const cHi = biome.hi || "#8c6b32";
         const bColor = biome.beach || "#f0a317";
-
+        
         if (fastRenderMode) {
           fillPath(
             getOffsetPolygon(18).map(
@@ -4414,95 +4818,85 @@ export function createIslandEmpireGame(
             cMid,
           );
           fillPath(getOffsetPolygon(8), bColor);
-          return;
-        }
-
-        // 1. Extreme 3D Drop Shadow Base - Sụt dốc lài chân núi (+28px y-drop, +38px offset)
-        const shadowBase = getOffsetPolygon(38).map(
-          ([px, py]) => [px + 12, py + 28] as [number, number],
-        );
-        fillPath(shadowBase, "rgba(0, 0, 0, 0.96)");
-        strokePath(shadowBase, "rgba(0, 0, 0, 1.0)", 3.6);
-
-        // 2. Lower Terraced Cliff Base - Tầng nấc chân đá dốc dẹt (+20px y-drop, +30px offset)
-        const cliffDeep = getOffsetPolygon(30).map(
-          ([px, py]) => [px + 9, py + 20] as [number, number],
-        );
-        fillPath(cliffDeep, cDeep);
-        strokePath(cliffDeep, "rgba(0, 0, 0, 0.85)", 2.4);
-
-        // 3. Mid Terraced Cliff Face - Tầng nấc sườn dốc thoải (+13px y-drop, +22px offset)
-        const cliffBase = getOffsetPolygon(22).map(
-          ([px, py]) => [px + 6, py + 13] as [number, number],
-        );
-        const baseGrad = ctx.createLinearGradient(
-          r.x - rx * 0.5,
-          r.y - ry * 0.6,
-          r.x + rx * 0.4,
-          r.y + ry + 22,
-        );
-        baseGrad.addColorStop(0, cUpper);
-        baseGrad.addColorStop(0.5, cMid);
-        baseGrad.addColorStop(1, cDeep);
-        fillPath(cliffBase, baseGrad);
-        strokePath(cliffBase, "rgba(0, 0, 0, 0.65)", 2.0);
-
-        // 4. Upper Cliff Rim Terrace - Tầng nấc vai núi đón nắng (+7px y-drop, +15px offset)
-        const coast = getOffsetPolygon(15).map(
-          ([px, py]) => [px + 3, py + 7] as [number, number],
-        );
-        const coastGrad = ctx.createLinearGradient(
-          r.x - rx * 0.4,
-          r.y - ry * 0.6,
-          r.x + rx * 0.3,
-          r.y + ry + 12,
-        );
-        coastGrad.addColorStop(0, cHi);
-        coastGrad.addColorStop(0.45, cUpper);
-        coastGrad.addColorStop(1, cMid);
-        fillPath(coast, coastGrad);
-        strokePath(coast, "rgba(0, 0, 0, 0.45)", 1.5);
-
-        // 5. Vân vách đá 3D dọc khe nứt sắc nét (Vertical Rock Striation Crevices)
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.68)";
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        for (let i = 0; i < coast.length; i += 2) {
-          ctx.moveTo(coast[i][0], coast[i][1]);
-          ctx.lineTo(
-            cliffDeep[i % cliffDeep.length][0],
-            cliffDeep[i % cliffDeep.length][1],
+        } else {
+          const shadowBase = getOffsetPolygon(38).map(
+            ([px, py]) => [px + 12, py + 28] as [number, number],
           );
-        }
-        ctx.stroke();
+          fillPath(shadowBase, "rgba(0, 0, 0, 0.96)");
+          strokePath(shadowBase, "rgba(0, 0, 0, 1.0)", 3.6);
 
-        // 6. Sunlight highlights on top-facing rocky ridges
-        ctx.strokeStyle = "rgba(255, 230, 140, 0.35)";
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        for (let i = 1; i < coast.length; i += 2) {
-          ctx.moveTo(coast[i][0], coast[i][1]);
-          ctx.lineTo(
-            shadowBase[i % shadowBase.length][0],
-            shadowBase[i % shadowBase.length][1],
+          const cliffDeep = getOffsetPolygon(30).map(
+            ([px, py]) => [px + 9, py + 20] as [number, number],
           );
+          fillPath(cliffDeep, cDeep);
+          strokePath(cliffDeep, "rgba(0, 0, 0, 0.85)", 2.4);
+
+          const cliffBase = getOffsetPolygon(22).map(
+            ([px, py]) => [px + 6, py + 13] as [number, number],
+          );
+          const baseGrad = ctx.createLinearGradient(
+            r.x - rx * 0.5,
+            r.y - ry * 0.6,
+            r.x + rx * 0.4,
+            r.y + ry + 22,
+          );
+          baseGrad.addColorStop(0, cUpper);
+          baseGrad.addColorStop(0.5, cMid);
+          baseGrad.addColorStop(1, cDeep);
+          fillPath(cliffBase, baseGrad);
+          strokePath(cliffBase, "rgba(0, 0, 0, 0.65)", 2.0);
+
+          const coast = getOffsetPolygon(15).map(
+            ([px, py]) => [px + 3, py + 7] as [number, number],
+          );
+          const coastGrad = ctx.createLinearGradient(
+            r.x - rx * 0.4,
+            r.y - ry * 0.6,
+            r.x + rx * 0.3,
+            r.y + ry + 12,
+          );
+          coastGrad.addColorStop(0, cHi);
+          coastGrad.addColorStop(0.45, cUpper);
+          coastGrad.addColorStop(1, cMid);
+          fillPath(coast, coastGrad);
+          strokePath(coast, "rgba(0, 0, 0, 0.45)", 1.5);
+
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.68)";
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          for (let i = 0; i < coast.length; i += 2) {
+            ctx.moveTo(coast[i][0], coast[i][1]);
+            ctx.lineTo(
+              cliffDeep[i % cliffDeep.length][0],
+              cliffDeep[i % cliffDeep.length][1],
+            );
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = "rgba(255, 230, 140, 0.35)";
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          for (let i = 1; i < coast.length; i += 2) {
+            ctx.moveTo(coast[i][0], coast[i][1]);
+            ctx.lineTo(
+              shadowBase[i % shadowBase.length][0],
+              shadowBase[i % shadowBase.length][1],
+            );
+          }
+          ctx.stroke();
+
+          const sandRim = getOffsetPolygon(9);
+          fillPath(sandRim, bColor);
+          strokePath(sandRim, "#c47d08", 1.6);
+
+          const sandHighlight = getOffsetPolygon(4);
+          fillPath(sandHighlight, "rgba(255, 236, 120, 0.42)");
+
+          const foamEdge = getOffsetPolygon(34).map(
+            ([px, py]) => [px + 7, py + 16] as [number, number],
+          );
+          strokePath(foamEdge, "rgba(255, 255, 255, 0.65)", 2.0);
         }
-        ctx.stroke();
-
-        // 7. Sandy beach rim (vivid golden with outline)
-        const sandRim = getOffsetPolygon(9);
-        fillPath(sandRim, bColor);
-        strokePath(sandRim, "#c47d08", 1.6);
-
-        // 8. Inner sunlit sand highlight
-        const sandHighlight = getOffsetPolygon(4);
-        fillPath(sandHighlight, "rgba(255, 236, 120, 0.42)");
-
-        // 9. Water foam right at the cliff foot
-        const foamEdge = getOffsetPolygon(34).map(
-          ([px, py]) => [px + 7, py + 16] as [number, number],
-        );
-        strokePath(foamEdge, "rgba(255, 255, 255, 0.65)", 2.0);
       }
       return;
     }
@@ -4566,43 +4960,121 @@ export function createIslandEmpireGame(
       ctx.restore();
     }
 
-    // Draw province as a thin terrain overlay on top of the mainland foundation.
-    // Inflate land +2px to cover subpixel gaps between adjacent polygons.
-    ctx.save();
-    ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
-    const landInflated = inflatePolygon(
-      targetPoly,
-      3,
-      r.x,
-      r.y - (isSelected ? 8 : 0),
-    );
+    const hasTown = frameTownRegionIds.has(Number(r.id));
+    const hasOwner = ownerCode > 0;
+    const zoomTier = getZoomTier(state.zoom);
+    const cache = regionPass2Cache.get(idx);
 
-    // 3D Topographic Terrain Relief Radial Gradient
-    if (!fastRenderMode) {
-      const gradRadius = Math.max(rx, ry) * 1.35;
-      const centerY = r.y - (isSelected ? 8 : 0);
-      const topoGrad = ctx.createRadialGradient(
-        r.x,
-        centerY,
-        4,
-        r.x,
-        centerY,
-        gradRadius,
+    if (cache && cache.hasTown === hasTown && cache.hasOwner === hasOwner && cache.zoomTier === zoomTier) {
+      ctx.drawImage(
+        cache.canvas,
+        0,
+        0,
+        cache.width,
+        cache.height,
+        cache.minX,
+        cache.minY - (isSelected ? 8 : 0),
+        cache.width / 1.5,
+        cache.height / 1.5
       );
-      topoGrad.addColorStop(0, getLighterColor(territoryColor, 1.22));
-      topoGrad.addColorStop(0.55, territoryColor);
-      topoGrad.addColorStop(1, getDarkerColor(territoryColor, 0.72));
-      fillSmoothPath(landInflated, topoGrad);
     } else {
-      fillSmoothPath(landInflated, territoryColor);
+      // If panning or in fast mode, and no cache exists, draw simplified directly to screen without caching
+      if (fastRenderMode || isFastPanning()) {
+        ctx.save();
+        ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
+        const landInflated = inflatePolygon(
+          targetPoly,
+          3,
+          r.x,
+          r.y - (isSelected ? 8 : 0),
+        );
+        fillSmoothPath(landInflated, territoryColor);
+        strokeSmoothPath(landInflated, territoryColor, 4.2);
+        ctx.restore();
+      } else {
+        // Build cache canvas at 1.5x resolution
+        const xs = displayLand.map(([px]) => px);
+        const ys = displayLand.map(([, py]) => py);
+        const minX = Math.min(...xs) - 85;
+        const maxX = Math.max(...xs) + 85;
+        const minY = Math.min(...ys) - 85;
+        const maxY = Math.max(...ys) + 85;
+        const width = maxX - minX;
+        const height = maxY - minY;
+        
+        const cacheScale = 1.5;
+        const landCanvas = document.createElement("canvas");
+        landCanvas.width = Math.ceil(width * cacheScale);
+        landCanvas.height = Math.ceil(height * cacheScale);
+        const landCtx = landCanvas.getContext("2d")!;
+        
+        // Swap ctx temporarily to render on land canvas
+        let tempCtx = ctx;
+        ctx = landCtx;
+        
+        ctx.save();
+        ctx.scale(cacheScale, cacheScale);
+        ctx.translate(-minX, -minY);
+        
+        ctx.save();
+        ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
+        const landInflated = inflatePolygon(displayLand, 3, r.x, r.y);
+        const gradRadius = Math.max(rx, ry) * 1.35;
+        const topoGrad = ctx.createRadialGradient(r.x, r.y, 4, r.x, r.y, gradRadius);
+        topoGrad.addColorStop(0, getLighterColor(territoryColor, 1.22));
+        topoGrad.addColorStop(0.55, territoryColor);
+        topoGrad.addColorStop(1, getDarkerColor(territoryColor, 0.72));
+        fillSmoothPath(landInflated, topoGrad);
+        strokeSmoothPath(landInflated, territoryColor, 4.2);
+        ctx.restore();
+        
+        ctx.restore();
+        ctx = tempCtx;
+        
+        // Build assets canvas
+        let assetsCanvas: HTMLCanvasElement | null = null;
+        if (!isConquestLayout) {
+          assetsCanvas = document.createElement("canvas");
+          assetsCanvas.width = Math.ceil(width * cacheScale);
+          assetsCanvas.height = Math.ceil(height * cacheScale);
+          const assetsCtx = assetsCanvas.getContext("2d")!;
+          
+          tempCtx = ctx;
+          ctx = assetsCtx;
+          
+          ctx.save();
+          ctx.scale(cacheScale, cacheScale);
+          ctx.translate(-minX, -minY);
+          drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
+          ctx.restore();
+          ctx = tempCtx;
+        }
+        
+        regionPass2Cache.set(idx, {
+          canvas: landCanvas,
+          assetsCanvas,
+          minX,
+          minY,
+          width: landCanvas.width,
+          height: landCanvas.height,
+          hasTown,
+          hasOwner,
+          zoomTier
+        });
+        
+        ctx.drawImage(
+          landCanvas,
+          0,
+          0,
+          landCanvas.width,
+          landCanvas.height,
+          minX,
+          minY - (isSelected ? 8 : 0),
+          width,
+          height
+        );
+      }
     }
-    strokeSmoothPath(landInflated, territoryColor, 4.2); // Wide seam-filler stroke to close all gaps between organic edges
-
-    if (!fastRenderMode && !isConquestLayout)
-      drawRegionTerrain(r, seed, rx, ry, r.biome, biomeId);
-
-    // Restore clip context early so highlights and borders can draw outwards without clipping
-    ctx.restore();
 
     const conflict = isConquestLayout ? null : getRegionBattleState(idx);
     const isClearing = isConquestLayout
@@ -5042,28 +5514,7 @@ export function createIslandEmpireGame(
     "sulfur",
   ];
 
-  function resourceTypeForTerrainPick(
-    originalBiome: number,
-    pick: number,
-    pick2: number,
-  ) {
-    let resType =
-      availableResourceTypes[Math.floor(pick2 * availableResourceTypes.length)];
-    if (originalBiome === 0 || originalBiome === 6 || originalBiome === 7) {
-      resType = pick < 0.12 ? "wood" : pick < 0.2 ? "food" : "gold";
-    } else if (originalBiome === 1) {
-      resType = pick < 0.14 ? "gold" : "stone";
-    } else if (originalBiome === 3) {
-      resType = pick < 0.14 ? "sulfur" : "coal";
-    } else if (originalBiome === 4) {
-      resType = pick < 0.14 ? "gems" : "wood";
-    } else if (originalBiome === 5) {
-      resType = pick < 0.14 ? "iron" : "stone";
-    } else if (originalBiome === 2) {
-      resType = pick < 0.14 ? "stone" : "gems";
-    }
-    return resType;
-  }
+
 
   function resourceIconsForRegion(
     r: any,
@@ -5075,23 +5526,35 @@ export function createIslandEmpireGame(
     const cacheKey = Number(r.id ?? seed);
     const cached = territoryResourceIconCache.get(cacheKey);
     if (cached) return cached;
-    const richness = hash(seed * 43 + r.id * 19);
-    const count = richness > 0.65 ? 1 : 0; // Chỉ vùng rất giàu mới hiển thị 1 icon 3D
+
     const icons: TerritoryResourceIcon[] = [];
-    for (let i = 0; i < count; i++) {
-      const pick = hash(seed * 73 + i * 31);
-      if (pick >= 0.25) continue;
-      const a = hash(seed * 61 + i * 17) * TAU;
-      const rr = Math.sqrt(hash(seed * 67 + i * 23)) * 0.76;
+    const specials = territorySpecialResources(r.id);
+    const special = specials.find((name) =>
+      ["Bãi ngựa", "Xưởng rèn", "Bến tàu tự nhiên", "Mỏ Ngọc"].includes(name)
+    );
+
+    let resType = "";
+    if (special) {
+      if (special === "Bãi ngựa") resType = "horse";
+      else if (special === "Xưởng rèn") resType = "forge";
+      else if (special === "Bến tàu tự nhiên") resType = "harbor";
+      else if (special === "Mỏ Ngọc") resType = "gems";
+    } else {
+      const yields = territoryYield(r.id);
+      const sorted = (["food", "wood", "stone", "gold"] as const)
+        .map((key) => [key, Number(yields[key] || 0)] as const)
+        .sort((a, b) => b[1] - a[1]);
+      resType = sorted[0][0];
+    }
+
+    if (resType) {
+      const a = hash(seed * 61) * TAU;
+      const rr = 0.42 + hash(seed * 67) * 0.28;
       const x = Math.round((r.x + Math.cos(a) * rx * rr) / 4) * 4;
       const y = Math.round((r.y + Math.sin(a) * ry * rr) / 4) * 4;
-      const pick2 = hash(seed * 101 + i * 43);
-      icons.push({
-        x,
-        y,
-        resType: resourceTypeForTerrainPick(originalBiome, pick, pick2),
-      });
+      icons.push({ x, y, resType });
     }
+
     icons.sort((a, b) => a.y - b.y);
     territoryResourceIconCache.set(cacheKey, icons);
     return icons;
@@ -5144,240 +5607,108 @@ export function createIslandEmpireGame(
 
   function drawOakTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    // Base shadow
-    pxRect(x - 12 * sc, y + 8 * sc, 24 * sc, 5 * sc, "rgba(0,0,0,0.28)");
-    // Trunk
-    pxRect(x - 3 * sc, y - 4 * sc, 6 * sc, 14 * sc, "#78350f");
-    pxRect(x - 2 * sc, y - 2 * sc, 4 * sc, 10 * sc, "#92400e");
-    // 3D Cubic/Round Foliage Cluster as in reference image
-    pxRect(x - 14 * sc, y - 12 * sc, 28 * sc, 12 * sc, "#14532d");
-    pxRect(x - 12 * sc, y - 20 * sc, 24 * sc, 14 * sc, "#16a34a");
-    pxRect(x - 8 * sc, y - 26 * sc, 16 * sc, 10 * sc, "#22c55e");
-    pxRect(x - 5 * sc, y - 24 * sc, 6 * sc, 6 * sc, "#86efac");
+    drawMedievalWorldSprite("forest_oak", x, y, 84 * sc, 0.95);
   }
 
   function drawAutumnTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    pxRect(x - 12 * sc, y + 8 * sc, 24 * sc, 5 * sc, "rgba(0,0,0,0.28)");
-    pxRect(x - 3 * sc, y - 4 * sc, 6 * sc, 14 * sc, "#78350f");
-    pxRect(x - 2 * sc, y - 2 * sc, 4 * sc, 10 * sc, "#92400e");
-    pxRect(x - 14 * sc, y - 12 * sc, 28 * sc, 12 * sc, "#9a3412");
-    pxRect(x - 12 * sc, y - 20 * sc, 24 * sc, 14 * sc, "#ea580c");
-    pxRect(x - 8 * sc, y - 26 * sc, 16 * sc, 10 * sc, "#f97316");
-    pxRect(x - 5 * sc, y - 24 * sc, 6 * sc, 6 * sc, "#fde047");
+    drawMedievalWorldSprite("forest_autumn", x, y, 82 * sc, 0.95);
   }
 
   function drawPineTree(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    // 3D Tiered Conifer Pine as in reference image
-    pxRect(x - 11 * sc, y + 10 * sc, 22 * sc, 5 * sc, "rgba(0,0,0,0.30)");
-    pxRect(x - 3 * sc, y - 6 * sc, 6 * sc, 18 * sc, "#451a03");
-    pxRect(x - 2 * sc, y - 4 * sc, 4 * sc, 14 * sc, "#78350f");
-
-    // Tier 1 (Bottom Cone)
-    pxRect(x - 14 * sc, y - 4 * sc, 28 * sc, 8 * sc, "#064e3b");
-    pxRect(x - 12 * sc, y - 7 * sc, 24 * sc, 4 * sc, "#047857");
-
-    // Tier 2 (Mid Cone)
-    pxRect(x - 11 * sc, y - 14 * sc, 22 * sc, 8 * sc, "#047857");
-    pxRect(x - 9 * sc, y - 17 * sc, 18 * sc, 4 * sc, "#059669");
-
-    // Tier 3 (Top Peak Cone)
-    pxRect(x - 8 * sc, y - 23 * sc, 16 * sc, 8 * sc, "#059669");
-    pxRect(x - 5 * sc, y - 28 * sc, 10 * sc, 6 * sc, "#10b981");
-    pxRect(x - 2 * sc, y - 31 * sc, 4 * sc, 4 * sc, "#6ee7b7");
+    drawMedievalWorldSprite("forest_pine", x, y, 86 * sc, 0.95);
   }
 
-  function drawGrassPatch(x: number, y: number, scale = 1.0) {
-    const sc = scale;
-    pxRect(x - 8 * sc, y + 4 * sc, 16 * sc, 3 * sc, "rgba(0,0,0,0.20)");
-    pxRect(x - 6 * sc, y - 6 * sc, 3 * sc, 8 * sc, "#4ade80");
-    pxRect(x - 2 * sc, y - 9 * sc, 3 * sc, 11 * sc, "#22c55e");
-    pxRect(x + 2 * sc, y - 7 * sc, 3 * sc, 9 * sc, "#16a34a");
-    pxRect(x + 5 * sc, y - 4 * sc, 2 * sc, 6 * sc, "#86efac");
+  function drawGrassPatch(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
   }
 
   function drawRockPile(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    pxRect(x - 10 * sc, y + 6 * sc, 20 * sc, 4 * sc, "rgba(0,0,0,0.25)");
-    pxRect(x - 8 * sc, y - 2 * sc, 10 * sc, 8 * sc, "#4b5563");
-    pxRect(x - 6 * sc, y - 5 * sc, 7 * sc, 5 * sc, "#6b7280");
-    pxRect(x + 1 * sc, y + 1 * sc, 8 * sc, 6 * sc, "#374151");
-    pxRect(x + 2 * sc, y - 2 * sc, 5 * sc, 4 * sc, "#9ca3af");
-  }
-
-  function drawCave(x: number, y: number, scale = 1.0) {
-    const sc = scale;
-    pxRect(x - 14 * sc, y + 10 * sc, 28 * sc, 5 * sc, "rgba(0,0,0,0.32)");
-    pxRect(x - 16 * sc, y - 10 * sc, 32 * sc, 20 * sc, "#374151");
-    pxRect(x - 13 * sc, y - 16 * sc, 26 * sc, 16 * sc, "#4b5563");
-    pxRect(x - 9 * sc, y - 20 * sc, 18 * sc, 10 * sc, "#6b7280");
-    pxRect(x - 12 * sc, y - 14 * sc, 5 * sc, 4 * sc, "#9ca3af");
-    pxRect(x + 6 * sc, y - 12 * sc, 5 * sc, 4 * sc, "#9ca3af");
-    pxRect(x - 8 * sc, y - 4 * sc, 16 * sc, 14 * sc, "#0f172a");
-    pxRect(x - 6 * sc, y - 8 * sc, 12 * sc, 12 * sc, "#020617");
-    pxRect(x - 4 * sc, y - 10 * sc, 8 * sc, 8 * sc, "#000000");
-    pxRect(x - 7 * sc, y - 8 * sc, 3 * sc, 3 * sc, "#4b5563");
-    pxRect(x + 4 * sc, y - 8 * sc, 3 * sc, 3 * sc, "#4b5563");
-    pxRect(x - 1 * sc, y - 10 * sc, 3 * sc, 2 * sc, "#6b7280");
-  }
-
-  function drawDeer(x: number, y: number, scale = 1.0) {
-    const sc = scale;
-    pxRect(x - 8 * sc, y + 4 * sc, 16 * sc, 3 * sc, "rgba(0,0,0,0.24)");
-    pxRect(x - 6 * sc, y - 6 * sc, 12 * sc, 7 * sc, "#9a3412");
-    pxRect(x - 4 * sc, y - 4 * sc, 8 * sc, 5 * sc, "#c2410c");
-    pxRect(x - 5 * sc, y + 1 * sc, 2 * sc, 4 * sc, "#78350f");
-    pxRect(x + 3 * sc, y + 1 * sc, 2 * sc, 4 * sc, "#78350f");
-    pxRect(x + 3 * sc, y - 11 * sc, 4 * sc, 7 * sc, "#9a3412");
-    pxRect(x + 4 * sc, y - 14 * sc, 6 * sc, 4 * sc, "#c2410c");
-    pxRect(x + 6 * sc, y - 18 * sc, 2 * sc, 5 * sc, "#fef3c7");
-    pxRect(x + 8 * sc, y - 17 * sc, 3 * sc, 2 * sc, "#fef3c7");
-  }
-
-  function drawBoar(x: number, y: number, scale = 1.0) {
-    const sc = scale;
-    pxRect(x - 9 * sc, y + 3 * sc, 18 * sc, 4 * sc, "rgba(0,0,0,0.26)");
-    pxRect(x - 8 * sc, y - 6 * sc, 14 * sc, 8 * sc, "#3f2314");
-    pxRect(x - 6 * sc, y - 8 * sc, 10 * sc, 8 * sc, "#54311d");
-    pxRect(x - 6 * sc, y + 2 * sc, 3 * sc, 2 * sc, "#26140a");
-    pxRect(x + 2 * sc, y + 2 * sc, 3 * sc, 2 * sc, "#26140a");
-    pxRect(x + 5 * sc, y - 3 * sc, 5 * sc, 4 * sc, "#3f2314");
-    pxRect(x + 8 * sc, y - 5 * sc, 2 * sc, 3 * sc, "#f8fafc");
+    drawMedievalWorldSprite("stone", x, y, 64 * sc, 0.95);
   }
 
   function drawElephant(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 14 * sc, y + 8 * sc, 28 * sc, 5 * sc, "rgba(0,0,0,0.28)");
-    pxRect(x - 12 * sc, y - 12 * sc, 22 * sc, 16 * sc, "#475569");
-    pxRect(x - 10 * sc, y - 14 * sc, 18 * sc, 16 * sc, "#64748b");
-    pxRect(x - 10 * sc, y + 2 * sc, 4 * sc, 7 * sc, "#334155");
-    pxRect(x + 4 * sc, y + 2 * sc, 4 * sc, 7 * sc, "#334155");
-    pxRect(x + 7 * sc, y - 16 * sc, 9 * sc, 12 * sc, "#64748b");
-    pxRect(x + 13 * sc, y - 8 * sc, 4 * sc, 14 * sc, "#475569");
-    pxRect(x + 10 * sc, y - 6 * sc, 6 * sc, 3 * sc, "#f8fafc");
+    drawMedievalWorldSprite("horse", x, y, 82 * sc, 0.95);
   }
 
+  function drawDeer(x: number, y: number, scale = 1.0) {
+    const sc = scale;
+    drawMedievalWorldSprite("horse", x, y, 68 * sc, 0.95);
+  }
+
+  function drawBoar(x: number, y: number, scale = 1.0) {
+    const sc = scale;
+    drawMedievalWorldSprite("horse", x, y, 68 * sc, 0.95);
+  }
+
+  // Draw cactus using desert sprite from atlas
   function drawCactus(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 6 * sc, y + 6 * sc, 12 * sc, 4 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 3 * sc, y - 16 * sc, 6 * sc, 22 * sc, "#15803d");
-    pxRect(x - 2 * sc, y - 14 * sc, 3 * sc, 19 * sc, "#22c55e");
-    pxRect(x - 9 * sc, y - 8 * sc, 7 * sc, 4 * sc, "#15803d");
-    pxRect(x - 9 * sc, y - 14 * sc, 4 * sc, 7 * sc, "#15803d");
-    pxRect(x + 2 * sc, y - 5 * sc, 7 * sc, 4 * sc, "#15803d");
-    pxRect(x + 5 * sc, y - 11 * sc, 4 * sc, 7 * sc, "#15803d");
+    drawMedievalWorldSprite("desert", x, y, 64 * sc, 0.95);
+  }
+
+  function drawCave(x: number, y: number, scale = 1.0) {
+    const sc = scale;
+    drawMedievalWorldSprite("ruins", x, y, 78 * sc, 0.95);
   }
 
   function drawBananaTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 10 * sc, y + 8 * sc, 20 * sc, 4 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 2 * sc, y - 6 * sc, 5 * sc, 14 * sc, "#854d0e");
-    pxRect(x - 14 * sc, y - 16 * sc, 14 * sc, 8 * sc, "#15803d");
-    pxRect(x, y - 18 * sc, 15 * sc, 9 * sc, "#22c55e");
-    pxRect(x - 8 * sc, y - 22 * sc, 16 * sc, 8 * sc, "#4ade80");
-    pxRect(x - 2 * sc, y - 8 * sc, 5 * sc, 6 * sc, "#eab308");
+    drawMedievalWorldSprite("forest_oak", x, y, 76 * sc, 0.95);
   }
 
   function drawBaobabTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 16 * sc, y + 10 * sc, 32 * sc, 6 * sc, "rgba(0,0,0,0.28)");
-    pxRect(x - 10 * sc, y - 12 * sc, 20 * sc, 22 * sc, "#78350f");
-    pxRect(x - 7 * sc, y - 10 * sc, 14 * sc, 18 * sc, "#92400e");
-    pxRect(x - 18 * sc, y - 24 * sc, 36 * sc, 14 * sc, "#166534");
-    pxRect(x - 14 * sc, y - 28 * sc, 28 * sc, 8 * sc, "#15803d");
+    drawMedievalWorldSprite("forest_oak", x, y, 86 * sc, 0.95);
   }
 
   function drawFarmPatch(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 16 * sc, y - 10 * sc, 32 * sc, 20 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 15 * sc, y - 9 * sc, 30 * sc, 18 * sc, "#78350f");
-    pxRect(x - 13 * sc, y - 7 * sc, 26 * sc, 3 * sc, "#eab308");
-    pxRect(x - 13 * sc, y - 2 * sc, 26 * sc, 3 * sc, "#facc15");
-    pxRect(x - 13 * sc, y + 3 * sc, 26 * sc, 3 * sc, "#eab308");
-    pxRect(x - 15 * sc, y - 10 * sc, 2 * sc, 20 * sc, "#451a03");
-    pxRect(x + 13 * sc, y - 10 * sc, 2 * sc, 20 * sc, "#451a03");
+    drawMedievalWorldSprite("food", x, y, 64 * sc, 0.95);
   }
 
   function drawWillowTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 12 * sc, y + 8 * sc, 24 * sc, 4 * sc, "rgba(0,0,0,0.24)");
-    pxRect(x - 3 * sc, y - 6 * sc, 6 * sc, 14 * sc, "#54311d");
-    pxRect(x - 2 * sc, y - 4 * sc, 4 * sc, 10 * sc, "#6e4027");
-    pxRect(x - 14 * sc, y - 18 * sc, 28 * sc, 14 * sc, "#2d6a4f");
-    pxRect(x - 11 * sc, y - 22 * sc, 22 * sc, 12 * sc, "#40916c");
-    pxRect(x - 12 * sc, y - 6 * sc, 3 * sc, 9 * sc, "#52b788");
-    pxRect(x - 6 * sc, y - 4 * sc, 3 * sc, 11 * sc, "#74c69d");
-    pxRect(x + 3 * sc, y - 5 * sc, 3 * sc, 10 * sc, "#52b788");
-    pxRect(x + 9 * sc, y - 6 * sc, 3 * sc, 8 * sc, "#74c69d");
+    drawMedievalWorldSprite("forest_oak", x, y, 82 * sc, 0.95);
   }
 
   function drawRedwoodTree(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 11 * sc, y + 12 * sc, 22 * sc, 5 * sc, "rgba(0,0,0,0.26)");
-    pxRect(x - 4 * sc, y - 12 * sc, 8 * sc, 24 * sc, "#7f1d1d");
-    pxRect(x - 2 * sc, y - 10 * sc, 4 * sc, 20 * sc, "#991b1b");
-    pxRect(x - 14 * sc, y - 8 * sc, 28 * sc, 7 * sc, "#14532d");
-    pxRect(x - 12 * sc, y - 17 * sc, 24 * sc, 8 * sc, "#166534");
-    pxRect(x - 9 * sc, y - 25 * sc, 18 * sc, 7 * sc, "#15803d");
-    pxRect(x - 5 * sc, y - 32 * sc, 10 * sc, 6 * sc, "#22c55e");
+    drawMedievalWorldSprite("forest_pine", x, y, 88 * sc, 0.95);
   }
 
   function drawFernPalm(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 10 * sc, y + 6 * sc, 20 * sc, 4 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 2 * sc, y - 8 * sc, 4 * sc, 14 * sc, "#451a03");
-    pxRect(x - 15 * sc, y - 16 * sc, 12 * sc, 6 * sc, "#15803d");
-    pxRect(x + 3 * sc, y - 16 * sc, 12 * sc, 6 * sc, "#15803d");
-    pxRect(x - 8 * sc, y - 22 * sc, 16 * sc, 7 * sc, "#22c55e");
+    drawMedievalWorldSprite("forest_oak", x, y, 74 * sc, 0.95);
   }
 
   function drawDenseFerns(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 10 * sc, y + 3 * sc, 20 * sc, 3 * sc, "rgba(0,0,0,0.18)");
-    pxRect(x - 8 * sc, y - 6 * sc, 6 * sc, 8 * sc, "#16a34a");
-    pxRect(x - 3 * sc, y - 9 * sc, 6 * sc, 11 * sc, "#22c55e");
-    pxRect(x + 3 * sc, y - 7 * sc, 5 * sc, 9 * sc, "#4ade80");
+    drawMedievalDetailSprite(0, 0, x, y, 40 * sc);
   }
 
   function drawVineBush(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 9 * sc, y + 4 * sc, 18 * sc, 4 * sc, "rgba(0,0,0,0.22)");
-    pxRect(x - 10 * sc, y - 6 * sc, 20 * sc, 10 * sc, "#14532d");
-    pxRect(x - 8 * sc, y - 10 * sc, 16 * sc, 10 * sc, "#16a34a");
-    pxRect(x - 6 * sc, y - 7 * sc, 4 * sc, 4 * sc, "#8b5cf6");
-    pxRect(x + 3 * sc, y - 6 * sc, 4 * sc, 4 * sc, "#7c3aed");
-    pxRect(x - 1 * sc, y - 10 * sc, 4 * sc, 4 * sc, "#6d28d9");
+    drawMedievalDetailSprite(0, 0, x, y, 42 * sc);
   }
 
   function drawFloweringCactus(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    drawCactus(x, y, sc);
-    pxRect(x - 9 * sc, y - 17 * sc, 4 * sc, 4 * sc, "#f43f5e");
-    pxRect(x + 5 * sc, y - 14 * sc, 4 * sc, 4 * sc, "#fb7185");
-    pxRect(x - 2 * sc, y - 18 * sc, 4 * sc, 4 * sc, "#f43f5e");
+    drawMedievalWorldSprite("desert", x, y, 72 * sc, 0.95);
   }
 
   function drawRunestone(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 9 * sc, y + 8 * sc, 18 * sc, 4 * sc, "rgba(0,0,0,0.30)");
-    pxRect(x - 7 * sc, y - 14 * sc, 14 * sc, 22 * sc, "#334155");
-    pxRect(x - 5 * sc, y - 18 * sc, 10 * sc, 24 * sc, "#475569");
-    pxRect(x - 3 * sc, y - 16 * sc, 6 * sc, 20 * sc, "#64748b");
-    pxRect(x - 2 * sc, y - 12 * sc, 4 * sc, 3 * sc, "#38bdf8");
-    pxRect(x - 1 * sc, y - 6 * sc, 2 * sc, 4 * sc, "#0ea5e9");
-    pxRect(x - 2 * sc, y - 1 * sc, 4 * sc, 3 * sc, "#38bdf8");
+    drawMedievalWorldSprite("ruins", x, y, 74 * sc, 0.95);
   }
 
   function drawRuins(x: number, y: number, scale = 1.0) {
     const sc = scale;
-    pxRect(x - 18 * sc, y + 8 * sc, 36 * sc, 5 * sc, "rgba(0,0,0,0.28)");
-    pxRect(x - 16 * sc, y + 3 * sc, 32 * sc, 5 * sc, "#475569");
-    pxRect(x - 12 * sc, y - 1 * sc, 24 * sc, 4 * sc, "#64748b");
-    pxRect(x - 14 * sc, y - 16 * sc, 6 * sc, 17 * sc, "#64748b");
-    pxRect(x - 15 * sc, y - 18 * sc, 8 * sc, 3 * sc, "#94a3b8");
-    pxRect(x + 8 * sc, y - 8 * sc, 6 * sc, 9 * sc, "#64748b");
-    pxRect(x - 3 * sc, y + 1 * sc, 10 * sc, 4 * sc, "#94a3b8");
+    drawMedievalWorldSprite("ruins", x, y, 76 * sc, 0.95);
   }
 
   function drawTree(x: number, y: number, scale?: number, biomeId = 0) {
@@ -5395,51 +5726,9 @@ export function createIslandEmpireGame(
     }
   }
 
-  function drawMountain(x, y, scale) {
+  function drawMountain(x: number, y: number, scale?: number) {
     const sc = scale || 1;
-    // 3D Sharp Snow Mountain Peak matching reference image
-    pxRect(x - 24 * sc, y + 14 * sc, 48 * sc, 7 * sc, "rgba(0,0,0,0.36)");
-
-    // Left Shadow Facet
-    ctx.fillStyle = "#1e293b";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 32 * sc);
-    ctx.lineTo(x - 22 * sc, y + 15 * sc);
-    ctx.lineTo(x, y + 15 * sc);
-    ctx.closePath();
-    ctx.fill();
-
-    // Right Light Facet
-    ctx.fillStyle = "#475569";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 32 * sc);
-    ctx.lineTo(x, y + 15 * sc);
-    ctx.lineTo(x + 22 * sc, y + 15 * sc);
-    ctx.closePath();
-    ctx.fill();
-
-    // Center Ridge Stroke
-    ctx.strokeStyle = "#0f172a";
-    ctx.lineWidth = 1.4 * sc;
-    ctx.stroke();
-
-    // Snow Cap Left
-    ctx.fillStyle = "#cbd5e1";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 32 * sc);
-    ctx.lineTo(x - 9 * sc, y - 10 * sc);
-    ctx.lineTo(x, y - 13 * sc);
-    ctx.closePath();
-    ctx.fill();
-
-    // Snow Cap Right (Bright White Peak)
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 32 * sc);
-    ctx.lineTo(x, y - 13 * sc);
-    ctx.lineTo(x + 9 * sc, y - 10 * sc);
-    ctx.closePath();
-    ctx.fill();
+    drawMedievalWorldSprite("mountain", x, y, 96 * sc, 0.95);
   }
 
   function drawHill(x, y, scale, _color?: string) {
@@ -5450,58 +5739,14 @@ export function createIslandEmpireGame(
     drawRockPile(x, y, (scale || 1) * 1.1);
   }
 
-  function drawDune(x, y, scale) {
-    scale = scale || 1;
-    pxRect(
-      x - 24 * scale,
-      y + 9 * scale,
-      48 * scale,
-      7 * scale,
-      "rgba(80,48,16,0.16)",
-    );
-    ctx.strokeStyle = "#f0c760";
-    ctx.lineWidth = 4 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x - 25 * scale, y + 7 * scale);
-    ctx.quadraticCurveTo(
-      x - 5 * scale,
-      y - 10 * scale,
-      x + 24 * scale,
-      y + 4 * scale,
-    );
-    ctx.stroke();
-    ctx.strokeStyle = "#9a6b28";
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x - 18 * scale, y + 11 * scale);
-    ctx.quadraticCurveTo(
-      x + 2 * scale,
-      y + 2 * scale,
-      x + 20 * scale,
-      y + 10 * scale,
-    );
-    ctx.stroke();
+  function drawDune(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalWorldSprite("desert", x, y, 76 * sc, 0.95);
   }
 
-  function drawVolcano(x, y, scale) {
-    scale = scale || 1;
-    pxRect(
-      x - 28 * scale,
-      y + 18 * scale,
-      56 * scale,
-      8 * scale,
-      "rgba(0,0,0,0.32)",
-    );
-    ctx.fillStyle = "#5a3024";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 30 * scale);
-    ctx.lineTo(x - 26 * scale, y + 20 * scale);
-    ctx.lineTo(x + 26 * scale, y + 20 * scale);
-    ctx.closePath();
-    ctx.fill();
-    pxRect(x - 8 * scale, y - 20 * scale, 16 * scale, 7 * scale, "#201514");
-    pxRect(x - 4 * scale, y - 17 * scale, 8 * scale, 28 * scale, "#ff5a2a");
-    pxRect(x - 2 * scale, y - 14 * scale, 4 * scale, 26 * scale, "#ffd34d");
+  function drawVolcano(x: number, y: number, scale?: number) {
+    const sc = scale || 1;
+    drawMedievalWorldSprite("mountain", x, y, 92 * sc, 0.95);
   }
 
   function drawTerrainPatch(c, px, py, rx, ry, color, seed) {
@@ -5810,8 +6055,7 @@ export function createIslandEmpireGame(
       } else if (type === "mountain") {
         drawMountain(x, y, scale);
       } else if (type === "stone") {
-        pxRect(x - 6, y - 4, 12, 8, i % 2 ? "#5b6056" : "#94907a");
-        pxRect(x - 2, y - 7, 8, 4, "#c7be9e");
+        drawMedievalWorldSprite("stone", x, y, 22, 0.95);
       }
     });
   }
@@ -8547,15 +8791,10 @@ export function createIslandEmpireGame(
       pxRect(hX + 1, hY + hH - 3, 2, 2, "#ffd700");
       pxRect(hX + hW - 3, hY + hH - 3, 2, 2, "#ffd700");
 
-      // Crisp Pixel Hammer Icon
-      pxRect(drawX - 60, hY + 15, 12, 4, "#92400e");
-      pxRect(drawX - 66, hY + 7, 8, 12, "#cbd5e1");
-      pxRect(drawX - 66, hY + 7, 8, 3, "#ffffff");
-
-      // Text Label
+      // Text Label with emoji
       text(
-        "THỢ XÂY TẠI ĐÂY",
-        drawX + 6,
+        "🔨 THỢ XÂY TẠI ĐÂY",
+        drawX,
         hY + 6 + pulse * 0.2,
         11,
         "#ffd34d",
@@ -8826,26 +9065,25 @@ export function createIslandEmpireGame(
 
   function drawTroopFootRing(x: number, y: number, color: string) {
     ctx.save();
-    const pulse = 1 + Math.sin(state.tick * 4) * 0.025;
     const ringColor = color || "#2563eb";
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
     ctx.beginPath();
-    ctx.ellipse(x, y + 11, 19 * pulse, 6.5 * pulse, 0, 0, TAU);
+    ctx.ellipse(x, y + 10, 16, 5.5, 0, 0, TAU);
     ctx.fill();
 
     ctx.globalAlpha = 0.78;
     ctx.strokeStyle = ringColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(x, y + 10, 20 * pulse, 7 * pulse, 0, 0, TAU);
+    ctx.ellipse(x, y + 9, 17, 6, 0, 0, TAU);
     ctx.stroke();
 
     ctx.globalAlpha = 0.58;
     ctx.strokeStyle = "#e9c66b";
     ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.ellipse(x, y + 10, 17.5 * pulse, 5.2 * pulse, 0, 0, TAU);
+    ctx.ellipse(x, y + 9, 14.5, 4.5, 0, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
@@ -9765,25 +10003,45 @@ export function createIslandEmpireGame(
     ctx.restore();
   }
 
-  function drawVoyageShip(x, y, color, facingLeft = false) {
-    if (!medievalArmySheet.complete || medievalArmySheet.naturalWidth <= 0)
+  function drawVoyageShip(
+    x,
+    y,
+    color,
+    direction: MarchDirection = "E",
+    motionPhase = 0,
+    opacity = 1,
+  ) {
+    const useDirectionalShip = medievalShip8DirSheet.complete
+      && medievalShip8DirSheet.naturalWidth > 0;
+    if (!useDirectionalShip && (!medievalShipSheet.complete || medievalShipSheet.naturalWidth <= 0))
       return false;
+    const shipCell = directionSpriteCell(direction, motionPhase);
+    const shipWalkColumns = [1, 2, 3, 4, 5];
+    const sourceColumn = shipWalkColumns[Math.abs(Math.floor(motionPhase)) % shipWalkColumns.length];
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(facingLeft ? -1 : 1, 1);
-    ctx.globalAlpha = 0.28;
+    ctx.globalAlpha = 0.28 * opacity;
     ctx.fillStyle = "#9adcf3";
     ctx.beginPath();
-    ctx.ellipse(0, 20, 36, 8, 0, 0, TAU);
+    ctx.ellipse(0, 17, 31, 7, 0, 0, TAU);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = opacity;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(medievalArmySheet, 768, 0, 256, 256, -42, -58, 84, 84);
-    ctx.scale(facingLeft ? -1 : 1, 1);
+    ctx.drawImage(
+      useDirectionalShip ? medievalShip8DirSheet : medievalShipSheet,
+      useDirectionalShip ? shipCell.sx : sourceColumn * 384,
+      useDirectionalShip ? shipCell.sy : 0,
+      useDirectionalShip ? 256 : 384,
+      useDirectionalShip ? 256 : 384,
+      -36,
+      -50,
+      72,
+      72,
+    );
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(0, 26, 3, 0, TAU);
+    ctx.arc(0, 22, 2.6, 0, TAU);
     ctx.fill();
     ctx.restore();
     return true;
@@ -9852,6 +10110,8 @@ export function createIslandEmpireGame(
     v: any,
     factionColor: string,
     suppliedViewport?: any,
+    distanceTravelled = 0,
+    suppliedDirection?: MarchDirection,
   ) {
     const viewport = suppliedViewport || getWorldViewport();
     if (viewport && !isPointInViewport(x, y, viewport, 150)) return;
@@ -9876,11 +10136,22 @@ export function createIslandEmpireGame(
     );
     const troopColor =
       v.owner === 0 ? state.newbieFlagColor || "#00f0ff" : factionColor;
+    const isLocalMarch = v.ownerId === state.localPlayerId || v.owner === 0;
     const highMarchLoad = state.voyages.length > 28;
-    const useLowDetail = fastRenderMode || state.zoom < 0.42 || highMarchLoad;
-    const marchFrame = (v.to?.x ?? x) < (v.from?.x ?? x)
-      ? "walk_left"
-      : "walk_right";
+    // Keep the player's active army readable. LOD is reserved for distant/foreign
+    // marches and extremely low zoom, otherwise it hides the directional atlas.
+    const useLowDetail = state.zoom < 0.3 || (
+      !isLocalMarch
+      && (fastRenderMode || state.zoom < 0.48 || highMarchLoad)
+    );
+    const detailScale = state.zoom < 0.72 ? 0.88 : 1;
+    const direction = suppliedDirection || marchDirectionFromDelta(
+      (v.to?.x ?? x) - (v.from?.x ?? x),
+      (v.to?.y ?? y) - (v.from?.y ?? y),
+    );
+    const marchFrame = "walk";
+    const strideLength = hasArtillery && !hasInfantry && !hasCavalry ? 5.5 : 4.25;
+    const motionPhase = distanceTravelled / strideLength;
 
     ctx.save();
     const visibleKinds =
@@ -9888,10 +10159,8 @@ export function createIslandEmpireGame(
       Number(Boolean(hasCavalry)) +
       Number(Boolean(hasArtillery));
     const formationScale =
-      visibleKinds >= 3 ? 1.28 : visibleKinds === 2 ? 1.48 : 1.78;
-    const pulse =
-      (useLowDetail ? 1.22 : formationScale) *
-      (1 + Math.sin(state.tick * 8) * 0.02);
+      visibleKinds >= 3 ? 0.9 : visibleKinds === 2 ? 0.98 : 1.06;
+    const pulse = useLowDetail ? 0.92 : formationScale * detailScale;
     ctx.translate(x, y);
     ctx.scale(pulse, pulse);
 
@@ -9903,26 +10172,26 @@ export function createIslandEmpireGame(
         troopColor,
       );
     } else if (hasInfantry && hasCavalry && hasArtillery) {
-      drawMedievalUnitSprite("cavalry", -16, -4, 48, troopColor, marchFrame);
-      drawMedievalUnitSprite("infantry", 14, -2, 42, troopColor, marchFrame);
-      drawMedievalUnitSprite("artillery", 0, 14, 54, troopColor, marchFrame);
+      drawMedievalUnitSprite("cavalry", -11, -3, 37, troopColor, marchFrame, motionPhase, direction);
+      drawMedievalUnitSprite("infantry", 10, -1, 30, troopColor, marchFrame, motionPhase, direction);
+      drawMedievalUnitSprite("artillery", 0, 9, 40, troopColor, marchFrame, motionPhase, direction);
     } else if (hasInfantry && hasCavalry) {
-      drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor, marchFrame);
-      drawMedievalUnitSprite("infantry", 12, 0, 44, troopColor, marchFrame);
+      drawMedievalUnitSprite("cavalry", -9, -3, 38, troopColor, marchFrame, motionPhase, direction);
+      drawMedievalUnitSprite("infantry", 9, 0, 31, troopColor, marchFrame, motionPhase, direction);
     } else if (hasInfantry && hasArtillery) {
-      drawMedievalUnitSprite("infantry", -12, -2, 44, troopColor, marchFrame);
-      drawMedievalUnitSprite("artillery", 12, 10, 54, troopColor, marchFrame);
+      drawMedievalUnitSprite("infantry", -9, -1, 31, troopColor, marchFrame, motionPhase, direction);
+      drawMedievalUnitSprite("artillery", 9, 7, 40, troopColor, marchFrame, motionPhase, direction);
     } else if (hasCavalry && hasArtillery) {
-      drawMedievalUnitSprite("cavalry", -12, -4, 50, troopColor, marchFrame);
-      drawMedievalUnitSprite("artillery", 12, 10, 54, troopColor, marchFrame);
+      drawMedievalUnitSprite("cavalry", -9, -3, 38, troopColor, marchFrame, motionPhase, direction);
+      drawMedievalUnitSprite("artillery", 9, 7, 40, troopColor, marchFrame, motionPhase, direction);
     } else if (hasInfantry) {
-      drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor, marchFrame);
+      drawMedievalUnitSprite("infantry", 0, 0, 32, troopColor, marchFrame, motionPhase, direction);
     } else if (hasCavalry) {
-      drawMedievalUnitSprite("cavalry", 0, 0, 58, troopColor, marchFrame);
+      drawMedievalUnitSprite("cavalry", 0, 0, 39, troopColor, marchFrame, motionPhase, direction);
     } else if (hasArtillery) {
-      drawMedievalUnitSprite("artillery", 0, 0, 60, troopColor, marchFrame);
+      drawMedievalUnitSprite("artillery", 0, 0, 42, troopColor, marchFrame, motionPhase, direction);
     } else {
-      drawMedievalUnitSprite("infantry", 0, 0, 48, troopColor, marchFrame);
+      drawMedievalUnitSprite("infantry", 0, 0, 32, troopColor, marchFrame, motionPhase, direction);
     }
 
     // March Status & Owner Text above Army (NO Red Box, NO Emojis)
@@ -9963,8 +10232,7 @@ export function createIslandEmpireGame(
     const titleColor = "#ffffff";
     const statusColor = isAttack ? "#f87171" : "#60a5fa";
 
-    const isLocalMarch = v.ownerId === state.localPlayerId || v.owner === 0;
-    if (!useLowDetail || (isLocalMarch && state.zoom >= 0.42)) {
+    if (!useLowDetail || (isLocalMarch && state.zoom >= 0.56)) {
       text(
         displayOwnerName,
         0,
@@ -10107,13 +10375,35 @@ export function createIslandEmpireGame(
     );
   }
 
+  function easedRouteProgress(progress: number) {
+    const p = Math.max(0, Math.min(1, progress));
+    const edge = 0.06;
+    const distanceScale = 1 - edge;
+    if (p < edge) return (p * p) / (2 * edge * distanceScale);
+    if (p > 1 - edge) {
+      const remaining = 1 - p;
+      return 1 - (remaining * remaining) / (2 * edge * distanceScale);
+    }
+    return (p - edge / 2) / distanceScale;
+  }
+
+  function routeMovementState(progress: number) {
+    if (progress <= 0.001) return "idle";
+    if (progress < 0.06) return "accelerating";
+    if (progress > 0.94 && progress < 0.999) return "decelerating";
+    if (progress >= 0.999) return "arrived";
+    return "marching";
+  }
+
   function drawVoyages(vp?: any) {
     if (isConquestLayout) return;
     state.voyages.forEach((v) => {
       // A route can cross the current view while both endpoints are off-screen.
       // Endpoint-only culling made those persisted marches disappear after reload.
       if (!voyageIntersectsViewport(v, vp)) return;
-      const t = Math.min(1, v.t / v.duration);
+      const serverProgress = Math.min(1, v.displayProgress ?? v.t / v.duration);
+      const t = easedRouteProgress(serverProgress);
+      v.movementState = routeMovementState(serverProgress);
       if (t >= 1) return;
       const factionColor = factions[v.owner ?? 0]?.color || factions[0].color;
 
@@ -10166,20 +10456,26 @@ export function createIslandEmpireGame(
           const p = sourceLandLength > 0 ? travelled / sourceLandLength : 1;
           const xLand = lerp(v.from.x, sPort.x, p);
           const yLand = lerp(v.from.y, sPort.y, p);
-          renderTroopSprites(xLand, yLand, v, factionColor, vp);
+          const direction = stableMarchDirection(v, sPort.x - v.from.x, sPort.y - v.from.y);
+          renderTroopSprites(xLand, yLand, v, factionColor, vp, travelled, direction);
         } else if (travelled <= sourceLandLength + seaLength) {
           const seaP = (travelled - sourceLandLength) / seaLength;
           const shipPoint = pointAlongPolyline(seaPath, seaP);
+          const nextShipPoint = pointAlongPolyline(seaPath, Math.min(1, seaP + 0.01));
+          const direction = stableMarchDirection(
+            v,
+            nextShipPoint.x - shipPoint.x,
+            nextShipPoint.y - shipPoint.y,
+          );
           drawVoyageShip(
             shipPoint.x,
             shipPoint.y,
             factionColor,
-            v.to.x < v.from.x,
+            direction,
+            travelled / 9,
           );
         } else {
           // The ship remains in water while the army disembarks onto the target territory.
-          drawVoyageShip(tPort.x, tPort.y, factionColor, v.to.x < v.from.x);
-
           const landP =
             targetLandLength > 0
               ? Math.min(
@@ -10187,9 +10483,25 @@ export function createIslandEmpireGame(
                   (travelled - sourceLandLength - seaLength) / targetLandLength,
                 )
               : 1;
+          drawVoyageShip(
+            tPort.x,
+            tPort.y,
+            factionColor,
+            stableMarchDirection(v, v.to.x - tPort.x, v.to.y - tPort.y),
+            travelled / 9,
+            Math.max(0, 1 - landP * 2.5),
+          );
           const xLand = lerp(tPort.x, v.to.x, landP);
           const yLand = lerp(tPort.y, v.to.y, landP);
-          renderTroopSprites(xLand, yLand, v, factionColor, vp);
+          renderTroopSprites(
+            xLand,
+            yLand,
+            v,
+            factionColor,
+            vp,
+            travelled,
+            stableMarchDirection(v, v.to.x - tPort.x, v.to.y - tPort.y),
+          );
         }
       } else {
         // Straight line land march
@@ -10202,7 +10514,15 @@ export function createIslandEmpireGame(
           ctx.lineTo(v.to.x, v.to.y);
         });
 
-        renderTroopSprites(x, y, v, factionColor, vp);
+        renderTroopSprites(
+          x,
+          y,
+          v,
+          factionColor,
+          vp,
+          t * Math.hypot(v.to.x - v.from.x, v.to.y - v.from.y),
+          stableMarchDirection(v, v.to.x - v.from.x, v.to.y - v.from.y),
+        );
       }
     });
   }
@@ -10444,8 +10764,6 @@ export function createIslandEmpireGame(
       buildP = Math.max(0, Math.min(1, (now - arrivesMs) / totalBuildMs));
     }
 
-    const p = inTravelPhase ? travelP : buildP;
-
     if (route.requiresShip) {
       strokeVoyagePath({ owner: 0, relation: "ally" }, () => {
         ctx.beginPath();
@@ -10483,10 +10801,18 @@ export function createIslandEmpireGame(
     let x = r.x;
     let y = r.y;
     let onShip = false;
+    let builderDirection = marchDirectionFromDelta(
+      travel?.returning ? origin.x - r.x : r.x - origin.x,
+      travel?.returning ? origin.y - r.y : r.y - origin.y,
+    );
+
+    const renderedTravelP = inTravelPhase ? easedRouteProgress(travelP) : travelP;
+    const directRouteDistance = Math.hypot(r.x - origin.x, r.y - origin.y);
+    const builderMotionPhase = renderedTravelP * directRouteDistance / 4;
 
     if (inTravelPhase) {
-      x = lerp(origin.x, r.x, travelP);
-      y = lerp(origin.y, r.y, travelP);
+      x = lerp(origin.x, r.x, renderedTravelP);
+      y = lerp(origin.y, r.y, renderedTravelP);
       if (
         route.requiresShip &&
         route.sourcePort &&
@@ -10495,13 +10821,13 @@ export function createIslandEmpireGame(
       ) {
         const sourceLand = route.sourceLand || route.sourcePort;
         const targetLand = route.targetLand || route.targetPort;
-        if (travelP <= 0.22) {
-          const landP = travelP / 0.22;
+        if (renderedTravelP <= 0.22) {
+          const landP = renderedTravelP / 0.22;
           x = lerp(origin.x, sourceLand.x, landP);
           y = lerp(origin.y, sourceLand.y, landP);
           onShip = false;
-        } else if (travelP <= 0.78) {
-          const seaP = (travelP - 0.22) / 0.56;
+        } else if (renderedTravelP <= 0.78) {
+          const seaP = (renderedTravelP - 0.22) / 0.56;
           x =
             (1 - seaP) * (1 - seaP) * route.sourcePort.x +
             2 * (1 - seaP) * seaP * route.control.x +
@@ -10510,34 +10836,73 @@ export function createIslandEmpireGame(
             (1 - seaP) * (1 - seaP) * route.sourcePort.y +
             2 * (1 - seaP) * seaP * route.control.y +
             seaP * seaP * route.targetPort.y;
+          const tangentX = 2 * (1 - seaP) * (route.control.x - route.sourcePort.x)
+            + 2 * seaP * (route.targetPort.x - route.control.x);
+          const tangentY = 2 * (1 - seaP) * (route.control.y - route.sourcePort.y)
+            + 2 * seaP * (route.targetPort.y - route.control.y);
+          builderDirection = marchDirectionFromDelta(tangentX, tangentY);
           onShip = true;
         } else {
-          const landP = (travelP - 0.78) / 0.22;
+          const landP = (renderedTravelP - 0.78) / 0.22;
           x = lerp(targetLand.x, r.x, landP);
           y = lerp(targetLand.y, r.y, landP);
           onShip = false;
         }
       }
     } else {
-      // Work/construction animation at target land
+      // Construction starts only after the server arrival time and remains
+      // anchored to the territory center for the whole build phase.
       onShip = false;
-      x = r.x - 18 + buildP * 36 + Math.sin(state.tick * 6) * 3;
-      y = r.y + Math.sin(state.tick * 9) * 2;
+      x = r.x;
+      y = r.y;
     }
 
     const walk = Math.round(Math.sin(state.tick * 10) * 2);
-    const bob = Math.round(Math.sin(state.tick * 8) * 1.5);
+    const bob = inTravelPhase
+      ? Math.round(Math.sin(state.tick * 8) * 1.5)
+      : 0;
     const flagColor = state.newbieFlagColor || "#2563eb";
 
     if (onShip) {
-      drawVoyageShip(x, y, flagColor);
+      drawVoyageShip(x, y, flagColor, builderDirection, builderMotionPhase);
       text("ĐỘI CÔNG BINH ĐI THUYỀN", x, y - 72, 14, "#dbeafe", "center");
       return;
     }
 
+    if (!inTravelPhase && buildP > 0) {
+      const constructionType: KingdomBuildingType = towns.some(
+        (town: any) => town.owner === 0,
+      )
+        ? "fortress"
+        : "capital";
+      const previewSize = 86;
+      const layout = KINGDOM_BUILDING_LAYOUT[constructionType];
+      const top = y - previewSize * layout.pivotY;
+      const reveal = 0.16 + buildP * 0.84;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(
+        x - previewSize / 2,
+        top + previewSize * (1 - reveal),
+        previewSize,
+        previewSize * reveal,
+      );
+      ctx.clip();
+      ctx.globalAlpha = 0.22 + buildP * 0.34;
+      drawKingdomBuildingSprite(
+        normalizeKingdomArchitecture(state.newbieArchitectureId),
+        constructionType,
+        x,
+        y,
+        previewSize,
+      );
+      ctx.restore();
+    }
+
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(1.62, 1.62);
+    const builderMapScale = 1.05;
+    ctx.scale(builderMapScale, builderMapScale);
 
     ctx.fillStyle = "rgba(0,0,0,0.34)";
     ctx.beginPath();
@@ -10552,10 +10917,27 @@ export function createIslandEmpireGame(
     pxRect(15, -21 + bob, 30, 2, "#f1cd6e");
     drawFlagEmblem(28, -28 + bob, state.newbieEmblem || "crown", 0.5);
 
-    const hasBuilderSprite = drawMedievalUnitSprite("builder", 0, 4, 53);
+    const builderFrame = inTravelPhase
+      ? "walk"
+      : buildP >= 0.985
+        ? "complete"
+        : Math.floor(state.tick * 5) % 2 === 0
+          ? "hammer_up"
+          : "hammer_down";
+    const hasBuilderSprite = drawMedievalUnitSprite(
+      "builder",
+      0,
+      4,
+      44,
+      flagColor,
+      builderFrame,
+      builderMotionPhase,
+      builderDirection,
+    );
+    const allowLegacyBuilderFallback = false;
 
     // Timber cart and rolled plans make the role readable at map scale.
-    if (!hasBuilderSprite && !inTravelPhase) {
+    if (allowLegacyBuilderFallback && !hasBuilderSprite && !inTravelPhase) {
       pxRect(-26, 8, 17, 8, "#72431e");
       pxRect(-24, 5, 13, 5, "#a96c32");
       pxRect(-23, 2, 4, 7, "#d2a05c");
@@ -10565,14 +10947,14 @@ export function createIslandEmpireGame(
       pxRect(-13, 15, 5, 5, "#1b1714");
       pxRect(-24, 16, 3, 3, "#8d969d");
       pxRect(-12, 16, 3, 3, "#8d969d");
-    } else if (!hasBuilderSprite) {
+    } else if (allowLegacyBuilderFallback && !hasBuilderSprite) {
       pxRect(-15, -5 + bob, 6, 21, "#e7d8ae");
       pxRect(-16, -7 + bob, 8, 4, "#6e512d");
       pxRect(-16, 13 + bob, 8, 4, "#6e512d");
       pxRect(-14, -2 + bob, 4, 2, "#b88b4c");
     }
 
-    if (!hasBuilderSprite) {
+    if (allowLegacyBuilderFallback && !hasBuilderSprite) {
     // Heavy boots, split doublet and leather engineer apron.
     pxRect(-8 + walk, 6, 6, 11, "#37271d");
     pxRect(2 - walk, 6, 6, 11, "#37271d");
@@ -10652,7 +11034,14 @@ export function createIslandEmpireGame(
       fillColor = "#f59e0b";
     } else {
       remainingSec = Math.max(0, Math.ceil((completesMs - now) / 1000));
-      badgeTitle = `CÔNG BINH ${Math.round(buildP * 100)}%`;
+      const constructionStage = buildP < 0.25
+        ? "ĐẶT NỀN"
+        : buildP < 0.55
+          ? "DỰNG KHUNG"
+          : buildP < 0.85
+            ? "XÂY THÁP"
+            : "HOÀN THIỆN";
+      badgeTitle = `${constructionStage} ${Math.round(buildP * 100)}%`;
       fillPct = buildP;
       fillColor = "#10b981";
     }
@@ -11644,6 +12033,18 @@ export function createIslandEmpireGame(
       }
     }
 
+    // Pass 3: Draw diorama assets (forests, resources, harbors) on top of all land borders.
+    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 3, true));
+    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 3, false));
+
+    if (state.selectedRegion !== null && state.selectedRegion !== undefined) {
+      const activeId = state.selectedRegion;
+      const activeRegion = landById(activeId);
+      if (activeRegion && isRegionInViewport(activeRegion, vp)) {
+        drawRegion(activeRegion, activeId, 3, Boolean(activeRegion.isIslet));
+      }
+    }
+
     if (isConquestLayout) {
       drawRoKConquestPassesAndMountains(vp);
     }
@@ -11688,141 +12089,22 @@ export function createIslandEmpireGame(
       return;
     }
 
-    // World Map Premium 3D Resource Sprites (Scaled ~1.35x for maximum clarity)
-    ctx.save();
-    ctx.scale(1.35, 1.35);
-    const sx = x / 1.35;
-    const sy = y / 1.35;
+    // World Map Premium 3D Resource Sprites from Atlas
+    let spriteName = "stone";
+    if (type === "gold") spriteName = "gold";
+    else if (type === "wood") spriteName = "wood";
+    else if (type === "stone") spriteName = "stone";
+    else if (type === "gems") spriteName = "gems";
+    else if (type === "iron") spriteName = "stone";
+    else if (type === "food") spriteName = "food";
+    else if (type === "coal") spriteName = "stone";
+    else if (type === "sulfur") spriteName = "gold";
+    else if (type === "horse" || type === "horses" || type === "pasture") spriteName = "horse";
+    else if (type === "silver") spriteName = "stone";
+    else if (type === "ruby") spriteName = "gems";
+    else if (type === "amber") spriteName = "gems";
 
-    if (type === "gold") {
-      // 3D Gold Ore Nuggets with sparkles
-      pxRect(sx - 12, sy + 2, 24, 6, "rgba(0,0,0,0.22)");
-      pxRect(sx - 10, sy - 6, 12, 10, "#92400e");
-      pxRect(sx - 8, sy - 8, 8, 10, "#d97706");
-      pxRect(sx - 6, sy - 7, 4, 6, "#fbbf24");
-      pxRect(sx + 1, sy - 8, 10, 12, "#78350f");
-      pxRect(sx + 2, sy - 10, 8, 10, "#f59e0b");
-      pxRect(sx + 3, sy - 9, 5, 6, "#fef08a");
-      pxRect(sx - 4, sy - 3, 10, 8, "#92400e");
-      pxRect(sx - 3, sy - 4, 8, 8, "#fbbf24");
-      pxRect(sx - 1, sy - 3, 4, 4, "#ffffff");
-      pxRect(sx - 14, sy - 12, 2, 2, "#fef08a");
-      pxRect(sx + 14, sy - 5, 2, 2, "#ffffff");
-    }
-    if (type === "wood") {
-      // 3D Pile of logs tied with rope
-      pxRect(sx - 14, sy + 2, 28, 5, "rgba(0,0,0,0.22)");
-      pxRect(sx - 12, sy - 5, 12, 8, "#78350f");
-      pxRect(sx - 12, sy - 5, 3, 8, "#fde68a");
-      pxRect(sx - 11, sy - 3, 1, 4, "#92400e");
-      pxRect(sx + 1, sy - 5, 12, 8, "#78350f");
-      pxRect(sx + 10, sy - 5, 3, 8, "#fde68a");
-      pxRect(sx + 11, sy - 3, 1, 4, "#92400e");
-      pxRect(sx - 5, sy - 11, 11, 8, "#92400e");
-      pxRect(sx - 5, sy - 11, 3, 8, "#fef3c7");
-      pxRect(sx - 4, sy - 9, 1, 4, "#78350f");
-      pxRect(sx - 4, sy - 6, 2, 9, "#fbbf24");
-      pxRect(sx + 3, sy - 6, 2, 9, "#fbbf24");
-    }
-    if (type === "stone") {
-      // Layered Granite & Slate Stone Boulders
-      pxRect(sx - 13, sy + 2, 26, 6, "rgba(0,0,0,0.22)");
-      pxRect(sx - 11, sy - 8, 12, 11, "#374151");
-      pxRect(sx - 9, sy - 10, 8, 10, "#6b7280");
-      pxRect(sx - 7, sy - 9, 4, 6, "#9ca3af");
-      pxRect(sx + 1, sy - 10, 11, 13, "#1f2937");
-      pxRect(sx + 2, sy - 12, 9, 11, "#4b5563");
-      pxRect(sx + 4, sy - 11, 5, 8, "#9ca3af");
-      pxRect(sx - 3, sy - 6, 8, 2, "#e5e7eb");
-      pxRect(sx + 5, sy - 8, 4, 2, "#ffffff");
-    }
-    if (type === "gems") {
-      // 3D Emerald Crystal Cluster
-      pxRect(sx - 10, sy + 2, 20, 5, "rgba(0,0,0,0.25)");
-      pxRect(sx - 8, sy - 4, 16, 7, "#111827");
-      pxRect(sx - 7, sy - 11, 6, 9, "#047857");
-      pxRect(sx - 6, sy - 13, 4, 10, "#10b981");
-      pxRect(sx - 5, sy - 12, 2, 6, "#a7f3d0");
-      pxRect(sx - 2, sy - 15, 6, 13, "#065f46");
-      pxRect(sx - 1, sy - 18, 4, 15, "#10b981");
-      pxRect(sx, sy - 17, 2, 10, "#ffffff");
-      pxRect(sx + 3, sy - 9, 5, 8, "#047857");
-      pxRect(sx + 4, sy - 11, 3, 9, "#34d399");
-      pxRect(sx - 11, sy - 16, 2, 2, "#a7f3d0");
-      pxRect(sx + 10, sy - 12, 2, 2, "#ffffff");
-    }
-    if (type === "iron") {
-      // 3D Iron Ore & Anvil Stack
-      pxRect(sx - 12, sy + 2, 24, 5, "rgba(0,0,0,0.22)");
-      pxRect(sx - 10, sy - 8, 12, 11, "#334155");
-      pxRect(sx - 8, sy - 10, 8, 10, "#64748b");
-      pxRect(sx - 6, sy - 9, 4, 6, "#cbd5e1");
-      pxRect(sx + 1, sy - 6, 9, 9, "#475569");
-      pxRect(sx + 3, sy - 8, 5, 6, "#94a3b8");
-      pxRect(sx - 1, sy - 3, 2, 2, "#ffffff");
-    }
-    if (type === "food") {
-      // 3D Golden Wheat Sheaves
-      pxRect(sx - 10, sy + 2, 20, 4, "rgba(0,0,0,0.20)");
-      pxRect(sx - 8, sy - 12, 3, 14, "#eab308");
-      pxRect(sx - 3, sy - 14, 3, 16, "#facc15");
-      pxRect(sx + 2, sy - 13, 3, 15, "#eab308");
-      pxRect(sx + 6, sy - 10, 3, 12, "#fde047");
-      pxRect(sx - 9, sy - 4, 18, 3, "#a16207");
-    }
-    if (type === "coal") {
-      // 3D Charcoal / Coal Heap
-      pxRect(sx - 11, sy + 2, 22, 5, "rgba(0,0,0,0.25)");
-      pxRect(sx - 9, sy - 7, 10, 9, "#0f172a");
-      pxRect(sx - 7, sy - 9, 6, 8, "#1e293b");
-      pxRect(sx + 1, sy - 8, 9, 10, "#020617");
-      pxRect(sx + 3, sy - 10, 5, 8, "#334155");
-      pxRect(sx + 4, sy - 8, 2, 2, "#94a3b8");
-    }
-    if (type === "sulfur") {
-      // 3D Yellow Sulfur Crystals
-      pxRect(sx - 10, sy + 2, 20, 5, "rgba(0,0,0,0.22)");
-      pxRect(sx - 8, sy - 12, 5, 13, "#ca8a04");
-      pxRect(sx - 7, sy - 14, 3, 14, "#facc15");
-      pxRect(sx - 1, sy - 16, 6, 17, "#eab308");
-      pxRect(sx, sy - 18, 4, 18, "#fef08a");
-      pxRect(sx + 4, sy - 10, 5, 11, "#ca8a04");
-    }
-    if (type === "horses" || type === "horse" || type === "pasture") {
-      // 3D Stallion Horse Pasture
-      pxRect(sx - 10, sy + 4, 20, 4, "rgba(0,0,0,0.24)");
-      pxRect(sx - 7, sy - 5, 12, 7, "#78350f");
-      pxRect(sx - 5, sy - 3, 8, 5, "#92400e");
-      pxRect(sx - 6, sy + 2, 2, 4, "#451a03");
-      pxRect(sx + 3, sy + 2, 2, 4, "#451a03");
-      pxRect(sx + 2, sy - 10, 4, 6, "#78350f");
-      pxRect(sx + 3, sy - 12, 5, 4, "#92400e");
-    }
-    if (type === "silver") {
-      // 3D Silver Ore Ingot Heap
-      pxRect(sx - 11, sy + 2, 22, 5, "rgba(0,0,0,0.22)");
-      pxRect(sx - 9, sy - 7, 18, 8, "#64748b");
-      pxRect(sx - 7, sy - 9, 14, 8, "#94a3b8");
-      pxRect(sx - 5, sy - 8, 10, 4, "#e2e8f0");
-      pxRect(sx - 3, sy - 7, 6, 2, "#ffffff");
-    }
-    if (type === "ruby") {
-      // 3D Crimson Ruby Crystal
-      pxRect(sx - 10, sy + 2, 20, 5, "rgba(0,0,0,0.25)");
-      pxRect(sx - 7, sy - 14, 14, 16, "#881337");
-      pxRect(sx - 5, sy - 16, 10, 16, "#be123c");
-      pxRect(sx - 3, sy - 15, 6, 14, "#f43f5e");
-      pxRect(sx - 1, sy - 13, 2, 10, "#ffe4e6");
-    }
-    if (type === "amber") {
-      // 3D Golden Amber Crystal
-      pxRect(sx - 10, sy + 2, 20, 5, "rgba(0,0,0,0.25)");
-      pxRect(sx - 7, sy - 13, 14, 15, "#78350f");
-      pxRect(sx - 5, sy - 15, 10, 15, "#d97706");
-      pxRect(sx - 3, sy - 14, 6, 13, "#fbbf24");
-      pxRect(sx - 1, sy - 12, 2, 9, "#fef08a");
-    }
-    ctx.restore();
+    drawMedievalWorldSprite(spriteName, x, y, 42);
   }
 
   function getDynamicButtons() {
@@ -12232,6 +12514,10 @@ export function createIslandEmpireGame(
     // Pass 2: Draw main land bodies, terrain details and borders
     islets.forEach((r) => drawRegion(r, r.id, 2, true));
     regions.forEach((r) => drawRegion(r, r.id, 2, false));
+
+    // Pass 3: Draw diorama assets (forests, resources, harbors) on top of all land borders.
+    islets.forEach((r) => drawRegion(r, r.id, 3, true));
+    regions.forEach((r) => drawRegion(r, r.id, 3, false));
 
     drawDecoration();
     drawVoyages();
@@ -13822,6 +14108,8 @@ export function createIslandEmpireGame(
       targetId: target.id,
       t: Math.min(duration, elapsed),
       duration: duration,
+      displayProgress: Math.min(1, elapsed / Math.max(0.001, duration)),
+      targetProgress: Math.min(1, elapsed / Math.max(0.001, duration)),
       startedAt: backendTiming?.startedAt || null,
       arrivesAt: backendTiming?.arrivesAt || null,
       backendMarchId: backendTiming?.marchId || null,
@@ -13921,7 +14209,18 @@ export function createIslandEmpireGame(
   function applyBackendMarch(march: any, unitMix: any = {}) {
     const marchId = march?._id || march?.id || march?.marchId;
     if (!marchId) return false;
-    if (state.voyages.some((v) => v.backendMarchId === marchId)) return true;
+    const existingVoyage = state.voyages.find((v) => v.backendMarchId === marchId);
+    if (existingVoyage) {
+      const timing = timingElapsedSeconds(march.startedAt, march.arrivesAt);
+      existingVoyage.startedAt = march.startedAt;
+      existingVoyage.arrivesAt = march.arrivesAt;
+      existingVoyage.duration = timing.duration;
+      existingVoyage.targetProgress = Math.min(1, timing.elapsed / timing.duration);
+      existingVoyage.infantry = unitMix.infantry ?? march.infantry ?? existingVoyage.infantry;
+      existingVoyage.cavalry = unitMix.cavalry ?? march.cavalry ?? existingVoyage.cavalry;
+      existingVoyage.artillery = unitMix.artillery ?? march.artillery ?? existingVoyage.artillery;
+      return true;
+    }
     // Legacy bot orders stored town IDs (9000 + territoryId) here. Convert
     // them before looking up map geometry, otherwise the march is invisible.
     const normalizeWorldTerritoryId = (value: any) => {
@@ -14578,9 +14877,18 @@ export function createIslandEmpireGame(
       if (v.startedAt && v.arrivesAt) {
         const timing = timingElapsedSeconds(v.startedAt, v.arrivesAt);
         v.duration = timing.duration;
-        v.t = Math.min(v.duration, timing.elapsed);
+        v.targetProgress = Math.min(1, timing.elapsed / timing.duration);
+        const current = Number.isFinite(v.displayProgress)
+          ? v.displayProgress
+          : v.targetProgress;
+        const drift = v.targetProgress - current;
+        v.displayProgress = Math.abs(drift) > 0.2
+          ? v.targetProgress
+          : current + drift * (1 - Math.exp(-dt * 10));
+        v.t = v.displayProgress * v.duration;
       } else {
         v.t += dt;
+        v.displayProgress = Math.min(1, v.t / v.duration);
       }
       if (v.t >= v.duration) {
         state.voyages.splice(i, 1);
@@ -14765,6 +15073,7 @@ export function createIslandEmpireGame(
     destroy: () => {
       destroyed = true;
       saveCamera(true);
+      clearAllRegionCache();
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("pagehide", flushCameraOnPageHide);
       window.removeEventListener("mousemove", onMinimapMouseMove);

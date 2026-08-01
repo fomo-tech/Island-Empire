@@ -17,7 +17,16 @@ const architecture = readFileSync(
 for (const asset of [
   "../public/assets/kingdoms/kingdom_base.webp",
   "../public/assets/kingdoms/kingdom_premium.webp",
-  "../public/assets/units/medieval/medieval_army.webp",
+  "../public/assets/units/medieval/medieval_builder.webp",
+  "../public/assets/units/medieval/medieval_infantry.webp",
+  "../public/assets/units/medieval/medieval_cavalry.webp",
+  "../public/assets/units/medieval/medieval_artillery.webp",
+  "../public/assets/units/medieval/medieval_ship.webp",
+  "../public/assets/units/medieval/medieval_infantry_8dir.webp",
+  "../public/assets/units/medieval/medieval_cavalry_8dir.webp",
+  "../public/assets/units/medieval/medieval_artillery_8dir.webp",
+  "../public/assets/units/medieval/medieval_builder_8dir.webp",
+  "../public/assets/units/medieval/medieval_ship_8dir.webp",
 ]) {
   if (!existsSync(new URL(asset, import.meta.url))) {
     throw new Error(`Thiếu sprite atlas: ${asset}`);
@@ -54,17 +63,14 @@ const voyageShip = section(
   "function drawVoyageShip(",
   "function renderTroopSprites",
 );
+const settlers = section(
+  "function drawSettlerForRegion(",
+  "function getNewbieShieldRemainingMs(",
+);
 
-rejectCalls("Bản đồ môi trường", terrain, [
-  "drawResourceIcon(",
-  "drawTree(",
-  "drawOakTree(",
-  "drawRockPile(",
-  "drawMountain(",
-  "drawFarmPatch(",
-  "drawRuins(",
-  "drawBerryBush(",
-]);
+if (!terrain.includes("drawMedievalWorldSprite(")) {
+  throw new Error("Bản đồ môi trường chưa dùng atlas trung cổ");
+}
 
 rejectCalls("Bản đồ thành trì", castles, [
   "drawEmpireCastleSprite(",
@@ -91,6 +97,9 @@ if (shop.includes("<CastleSkinArt")) {
 if (!architecture.includes("kingdom_base.webp") || !architecture.includes("kingdom_premium.webp")) {
   throw new Error("Kiến trúc chưa dùng sprite atlas chuẩn");
 }
+if (!architecture.includes("KINGDOM_PREMIUM_CELL = 512")) {
+  throw new Error("Skin premium chưa dùng đúng grid 512px");
+}
 rejectCalls("Quân hành quân", troops, [
   "drawLegacyPixelCavalry(",
   "drawLegacyPixelArtillery(",
@@ -101,8 +110,73 @@ if (!troops.includes('drawMedievalUnitSprite("infantry"')
   || !troops.includes('drawMedievalUnitSprite("artillery"')) {
   throw new Error("Quân hành quân chưa dùng đủ atlas bộ binh, kỵ binh và pháo binh");
 }
-if (!voyageShip.includes("medievalArmySheet") || voyageShip.includes("fillRect(")) {
+if (!source.includes("medievalInfantrySheet")
+  || !source.includes("? infantryColumn")) {
+  throw new Error("Bộ binh chưa dùng atlas animation riêng");
+}
+if (!source.includes("medievalCavalrySheet")
+  || !source.includes("cavalryWalkColumns[gait]")) {
+  throw new Error("Kỵ binh chưa dùng atlas animation riêng");
+}
+if (!source.includes("medievalArtillerySheet")
+  || !source.includes("artilleryWalkColumns[gait]")) {
+  throw new Error("Pháo binh chưa dùng atlas animation riêng");
+}
+for (const directionalSheet of [
+  "medievalInfantry8DirSheet",
+  "medievalCavalry8DirSheet",
+  "medievalArtillery8DirSheet",
+  "medievalBuilder8DirSheet",
+  "medievalShip8DirSheet",
+]) {
+  if (!source.includes(directionalSheet)) {
+    throw new Error(`Thiếu atlas đa hướng: ${directionalSheet}`);
+  }
+}
+if (!source.includes("stableMarchDirection")
+  || !source.includes("directionSpriteCell")
+  || !source.includes("Math.PI / 8 + 0.14")) {
+  throw new Error("Renderer chưa chọn 8 hướng theo tiếp tuyến có hysteresis");
+}
+if (!voyageShip.includes("medievalShipSheet") || voyageShip.includes("fillRect(")) {
   throw new Error("Thuyền hành quân chưa dùng sprite atlas sạch");
+}
+if (source.includes("medievalArmySheet")) {
+  throw new Error("Renderer vẫn còn phụ thuộc atlas quân đội cũ");
+}
+if (!source.includes("displayProgress") || !source.includes("targetProgress")) {
+  throw new Error("Hành quân chưa nội suy tiến trình server");
+}
+if (!source.includes("easedRouteProgress")
+  || !source.includes("routeMovementState")
+  || !source.includes("distanceTravelled / strideLength")) {
+  throw new Error("Hành quân chưa dùng state và animation theo quãng đường");
+}
+if (!source.includes("medievalBuilderSheet") || source.includes("builder_idle.png")) {
+  throw new Error("Công binh chưa dùng WebP sprite atlas");
+}
+if (!settlers.includes("allowLegacyBuilderFallback = false")) {
+  throw new Error("Công binh vẫn có thể rơi về renderer pixel cũ");
+}
+if (!settlers.includes("now < arrivesMs")
+  || !settlers.includes("x = r.x;")
+  || !settlers.includes("y = r.y;")) {
+  throw new Error("Công binh chưa đứng đúng tâm lãnh thổ sau thời điểm đến nơi");
+}
+if (!settlers.includes("builderMotionPhase")
+  || !settlers.includes("constructionStage")
+  || !settlers.includes("drawKingdomBuildingSprite(")) {
+  throw new Error("Công binh chưa có nhịp theo quãng đường và tiến độ xây nhiều giai đoạn");
+}
+for (const frame of [
+  '"walk"',
+  '"hammer_up"',
+  '"hammer_down"',
+  '"complete"',
+]) {
+  if (!settlers.includes(frame)) {
+    throw new Error(`Công binh chưa tích hợp trạng thái ${frame}`);
+  }
 }
 
 console.log("World renderer atlas-only: OK");

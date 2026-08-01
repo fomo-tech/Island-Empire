@@ -11,6 +11,7 @@ export type KingdomBuildingType = "capital" | "fortress" | "district";
 export const KINGDOM_BASE_SHEET = "/assets/kingdoms/kingdom_base.webp";
 export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/kingdom_premium.webp";
 export const KINGDOM_SPRITE_CELL = 320;
+export const KINGDOM_PREMIUM_CELL = 512;
 
 const ARCHITECTURE_COLUMNS: Record<KingdomArchitectureId, number> = {
   lionheart: 0,
@@ -93,10 +94,10 @@ export function kingdomBuildingSprite(
   if (premiumColumn !== undefined) {
     return {
       src: KINGDOM_PREMIUM_SHEET,
-      sx: premiumColumn * KINGDOM_SPRITE_CELL,
+      sx: premiumColumn * KINGDOM_PREMIUM_CELL,
       sy: 0,
-      sw: KINGDOM_SPRITE_CELL,
-      sh: KINGDOM_SPRITE_CELL,
+      sw: KINGDOM_PREMIUM_CELL,
+      sh: KINGDOM_PREMIUM_CELL,
       columns: 3,
       rows: 1,
       premium: true,
@@ -122,8 +123,8 @@ export function kingdomBuildingSpriteStyle(
   skinId?: string | null,
 ) {
   const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
-  const column = frame.sx / KINGDOM_SPRITE_CELL;
-  const row = frame.sy / KINGDOM_SPRITE_CELL;
+  const column = frame.sx / frame.sw;
+  const row = frame.sy / frame.sh;
   return {
     backgroundImage: `url(${frame.src})`,
     backgroundSize: `${frame.columns * 100}% ${frame.rows * 100}%`,
