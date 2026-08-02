@@ -293,20 +293,26 @@ export function TerritoryTooltip({
 
   const isUnderBattle = Boolean(battle) || engineState.activeBattles?.some((b: any) => b.regionId === id);
   const settlementKind = territory?.settlementKind ?? engineState.regionSettlementKinds?.[id];
-  const isMilitaryDistrict = settlementKind === "military" || (settlementKind as string) === "military_district";
+  const territoryConnectionType = territory?.connectionType ?? engineState.regionConnectionTypes?.[id];
+  const isMilitaryDistrict = settlementKind === "military_district" ||
+    (settlementKind === "military" && territoryConnectionType === "sea");
+  const isTerritoryFlag = settlementKind === "flag" ||
+    (settlementKind === "military" && territoryConnectionType !== "sea");
   const isSubCapital = settlementKind === "sub_capital";
   const settlementKindLabel = isSubCapital
     ? "Trung Tâm Thành Trì"
     : isMilitaryDistrict
     ? "Quân Khu"
-    : "Thủ Đô";
+    : isTerritoryFlag
+      ? "Trụ Cờ"
+      : "Thủ Đô";
 
   const statusText = isUnderBattle
     ? "Đang Giao Tranh"
     : isOwnClearing
-    ? "Bạn đang dựng Pháo Đài"
+    ? `Bạn đang ${timing?.connectionType === "sea" ? "lập Quân Khu" : "dựng Trụ Cờ"}`
     : isRemoteClearing
-    ? "Đối thủ đang dựng Pháo Đài"
+    ? `Đối thủ đang ${timing?.connectionType === "sea" ? "lập Quân Khu" : "dựng Trụ Cờ"}`
     : effectiveOwnership === 1
     ? `Đã Chiếm (${settlementKindLabel})`
     : effectiveOwnership > 1
@@ -507,11 +513,15 @@ export function TerritoryTooltip({
       }
       return (
         <>
-          <button type="button" className="rt-main-action-btn build" onClick={() => runAndClose(() => onKhaiHoang(id))}>
-            <SpriteIcon src="/assets/icons/icon_tech.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">DỰNG PHÁO ĐÀI</span>
-          </button>
+          {(() => {
+            const overseas = engine.getExpansionConnectionType?.(id) === "sea";
+            const label = overseas ? "LẬP QUÂN KHU" : "DỰNG TRỤ CỜ";
+            return <button type="button" className="rt-main-action-btn build" onClick={() => runAndClose(() => onKhaiHoang(id))}>
+              <SpriteIcon src="/assets/icons/icon_tech.png" size={18} style={{ marginRight: 6 }} /> <span className="text-gold-serif">{label}</span>
+            </button>;
+          })()}
           <div className="rt-cost-card">
-            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ DỰNG PHÁO ĐÀI</span><span className="line" /></div>
+            <div className="rt-cost-title-header"><span className="line" /><span className="title">CHI PHÍ MỞ RỘNG LÃNH THỔ</span><span className="line" /></div>
             <div className="rt-cost-chips-grid">
               <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_gold_european.png" size={18} /> <b>{buildCost.gold}</b></div>
               <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_wood_european.png" size={18} /> <b>{buildCost.wood}</b></div>
@@ -519,7 +529,7 @@ export function TerritoryTooltip({
               <div className="rt-cost-chip-item"><SpriteIcon src="/assets/icons/resource_food_european.png" size={18} /> <b>{buildCost.food}</b></div>
             </div>
           </div>
-          <div className="rt-note-info"><SpriteIcon src="/assets/icons/icon_settings_info.png" size={12} style={{ marginRight: 4, opacity: 0.8 }} /> Pháo đài nối bằng đường bộ hoặc Hải Lộ từ một Bến tàu của bạn.</div>
+          <div className="rt-note-info"><SpriteIcon src="/assets/icons/icon_settings_info.png" size={12} style={{ marginRight: 4, opacity: 0.8 }} /> Đường bộ dựng Trụ Cờ; vượt biển lập Quân Khu làm gốc cho nhánh mới.</div>
         </>
       );
     }

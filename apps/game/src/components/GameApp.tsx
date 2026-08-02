@@ -2128,6 +2128,13 @@ export function GameApp({
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
             settlementKind: territory.settlementKind,
+            parentTerritoryId: territory.parentTerritoryId === undefined
+              ? undefined
+              : serverToEngineTerritoryId(territory.parentTerritoryId),
+            rootTerritoryId: territory.rootTerritoryId === undefined
+              ? undefined
+              : serverToEngineTerritoryId(territory.rootTerritoryId),
+            connectionType: territory.connectionType,
           }));
           engineRef.current?.handleAction("applyGameState", {
             territories: conquestMode ? [] : territories,
@@ -2575,6 +2582,9 @@ export function GameApp({
                 ownerAllianceTag: event.territory.ownerAllianceTag,
                 ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                 settlementKind: event.territory.settlementKind,
+                parentTerritoryId: event.territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.parentTerritoryId),
+                rootTerritoryId: event.territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.rootTerritoryId),
+                connectionType: event.territory.connectionType,
                 equippedCapitalSkin: event.territory.equippedCapitalSkin,
                 equippedDistrictSkin: event.territory.equippedDistrictSkin,
               },
@@ -2817,6 +2827,9 @@ export function GameApp({
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                   settlementKind: event.territory.settlementKind,
+                  parentTerritoryId: event.territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.parentTerritoryId),
+                  rootTerritoryId: event.territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.rootTerritoryId),
+                  connectionType: event.territory.connectionType,
                   equippedCapitalSkin: event.territory.equippedCapitalSkin,
                   equippedDistrictSkin: event.territory.equippedDistrictSkin,
                 },
@@ -3178,6 +3191,9 @@ export function GameApp({
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
       settlementKind: territory.settlementKind,
+      parentTerritoryId: territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(territory.parentTerritoryId),
+      rootTerritoryId: territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(territory.rootTerritoryId),
+      connectionType: territory.connectionType,
     }));
     engineRef.current?.handleAction("applyGameState", {
       territories,
@@ -4238,146 +4254,144 @@ export function GameApp({
           )}
 
           {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
-          <div className="hud-bottombar-unified">
-            <ChatPanel
-              messages={chatMessages}
-              currentUserId={playerId ?? undefined}
-              online={socketOnline}
-              onSend={(message) => {
-                const sent = sendWorldChat(message);
-                if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
-                return sent;
-              }}
-            />
+          <ChatPanel
+            messages={chatMessages}
+            currentUserId={playerId ?? undefined}
+            online={socketOnline}
+            onSend={(message) => {
+              const sent = sendWorldChat(message);
+              if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+              return sent;
+            }}
+          />
 
-            {/* Bottom-Right Navigation Menu Dock */}
-            <div className="rok-event-badges-row hud-interactive">
-              {/* 1. Sự kiện (Events) */}
-              <div
-                className="rok-badge-item rok-badge-item-event"
-                onClick={() => openModal("treasure")}
-                title="Sự kiện đặc biệt"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-event">
-                  <img
-                    src="/assets/icons/icon_event.png"
-                    alt="Sự kiện"
-                    className="rok-badge-img"
-                  />
-                </div>
-                <span className="rok-badge-subtext">Sự kiện</span>
+          {/* Bottom-Right Navigation Menu Dock */}
+          <div className="rok-event-badges-row hud-interactive">
+            {/* 1. Sự kiện (Events) */}
+            <div
+              className="rok-badge-item rok-badge-item-event"
+              onClick={() => openModal("treasure")}
+              title="Sự kiện đặc biệt"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-event">
+                <img
+                  src="/assets/icons/icon_event.png"
+                  alt="Sự kiện"
+                  className="rok-badge-img"
+                />
               </div>
+              <span className="rok-badge-subtext">Sự kiện</span>
+            </div>
 
-              {/* 2. Quân đội (Army / Military) */}
-              <div
-                className="rok-badge-item rok-badge-item-army"
-                onClick={() => openModal("army")}
-                title="Quản lý quân đội"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-army">
-                  <img
-                    src="/assets/icons/icon_military.png"
-                    alt="Quân đội"
-                    className="rok-badge-img"
-                  />
-                </div>
-                <span className="rok-badge-subtext">Quân đội</span>
+            {/* 2. Quân đội (Army / Military) */}
+            <div
+              className="rok-badge-item rok-badge-item-army"
+              onClick={() => openModal("army")}
+              title="Quản lý quân đội"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-army">
+                <img
+                  src="/assets/icons/icon_military.png"
+                  alt="Quân đội"
+                  className="rok-badge-img"
+                />
               </div>
+              <span className="rok-badge-subtext">Quân đội</span>
+            </div>
 
-              {/* 3. Chiến báo (Battle Reports) */}
-              <div
-                className="rok-badge-item rok-badge-item-war"
-                onClick={() => openModal("warReport")}
-                title="Chiến báo & Quân sự"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-war">
-                  <img
-                    src="/assets/icons/icon_report.png"
-                    alt="Chiến báo"
-                    className="rok-badge-img"
-                  />
-                  {reportUnreadCount > 0 ? (
-                    <b className="rok-badge-notif">
-                      {Math.min(99, reportUnreadCount)}
-                    </b>
-                  ) : (
-                    <b className="rok-badge-notif">7</b>
-                  )}
-                </div>
-                <span className="rok-badge-subtext">Chiến báo</span>
+            {/* 3. Chiến báo (Battle Reports) */}
+            <div
+              className="rok-badge-item rok-badge-item-war"
+              onClick={() => openModal("warReport")}
+              title="Chiến báo & Quân sự"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-war">
+                <img
+                  src="/assets/icons/icon_report.png"
+                  alt="Chiến báo"
+                  className="rok-badge-img"
+                />
+                {reportUnreadCount > 0 ? (
+                  <b className="rok-badge-notif">
+                    {Math.min(99, reportUnreadCount)}
+                  </b>
+                ) : (
+                  <b className="rok-badge-notif">7</b>
+                )}
               </div>
+              <span className="rok-badge-subtext">Chiến báo</span>
+            </div>
 
-              {/* 4. Thư tín (Mail) */}
-              <div
-                className="rok-badge-item rok-badge-item-mail"
-                onClick={() => openModal("mail")}
-                title="Thư tín"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-mail">
-                  <img
-                    src="/assets/icons/icon_mail.png"
-                    alt="Mail"
-                    className="rok-badge-img"
-                  />
-                  {unreadMailCount > 0 ? (
-                    <b className="rok-badge-notif">
-                      {Math.min(99, unreadMailCount)}
-                    </b>
-                  ) : (
-                    <b className="rok-badge-notif">5</b>
-                  )}
-                </div>
-                <span className="rok-badge-subtext">Thư tín</span>
+            {/* 4. Thư tín (Mail) */}
+            <div
+              className="rok-badge-item rok-badge-item-mail"
+              onClick={() => openModal("mail")}
+              title="Thư tín"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-mail">
+                <img
+                  src="/assets/icons/icon_mail.png"
+                  alt="Mail"
+                  className="rok-badge-img"
+                />
+                {unreadMailCount > 0 ? (
+                  <b className="rok-badge-notif">
+                    {Math.min(99, unreadMailCount)}
+                  </b>
+                ) : (
+                  <b className="rok-badge-notif">5</b>
+                )}
               </div>
+              <span className="rok-badge-subtext">Thư tín</span>
+            </div>
 
-              {/* 5. Cửa hàng (Shop / Offers) */}
-              <div
-                className="rok-badge-item rok-badge-item-shop"
-                onClick={() => openModal("shop")}
-                title="Cửa hàng & Gói ưu đãi"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-shop">
-                  <img
-                    src="/assets/icons/icon_shop.png"
-                    alt="Cửa hàng"
-                    className="rok-badge-img"
-                  />
-                  <b className="rok-badge-notif">3</b>
-                </div>
-                <span className="rok-badge-subtext">Cửa hàng</span>
+            {/* 5. Cửa hàng (Shop / Offers) */}
+            <div
+              className="rok-badge-item rok-badge-item-shop"
+              onClick={() => openModal("shop")}
+              title="Cửa hàng & Gói ưu đãi"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-shop">
+                <img
+                  src="/assets/icons/icon_shop.png"
+                  alt="Cửa hàng"
+                  className="rok-badge-img"
+                />
+                <b className="rok-badge-notif">3</b>
               </div>
+              <span className="rok-badge-subtext">Cửa hàng</span>
+            </div>
 
-              {/* 6. Bảng xếp hạng (Ranking) */}
-              <div
-                className="rok-badge-item rok-badge-item-ranking"
-                onClick={() => openModal("ranking")}
-                title="Bảng xếp hạng vương quốc"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-ranking">
-                  <img
-                    src="/assets/icons/icon_gold_crown.png"
-                    alt="Bảng xếp hạng"
-                    className="rok-badge-img"
-                  />
-                </div>
-                <span className="rok-badge-subtext">BXH</span>
+            {/* 6. Bảng xếp hạng (Ranking) */}
+            <div
+              className="rok-badge-item rok-badge-item-ranking"
+              onClick={() => openModal("ranking")}
+              title="Bảng xếp hạng vương quốc"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-ranking">
+                <img
+                  src="/assets/icons/icon_gold_crown.png"
+                  alt="Bảng xếp hạng"
+                  className="rok-badge-img"
+                />
               </div>
+              <span className="rok-badge-subtext">BXH</span>
+            </div>
 
-              {/* 7. Cài đặt (Settings) */}
-              <div
-                className="rok-badge-item rok-badge-item-settings"
-                onClick={() => openModal("settings")}
-                title="Cài đặt hệ thống"
-              >
-                <div className="rok-badge-icon-wrap rok-badge-settings">
-                  <img
-                    src="/assets/icons/icon_settings_european.png"
-                    alt="Settings"
-                    className="rok-badge-img"
-                  />
-                </div>
-                <span className="rok-badge-subtext">Cài đặt</span>
+            {/* 7. Cài đặt (Settings) */}
+            <div
+              className="rok-badge-item rok-badge-item-settings"
+              onClick={() => openModal("settings")}
+              title="Cài đặt hệ thống"
+            >
+              <div className="rok-badge-icon-wrap rok-badge-settings">
+                <img
+                  src="/assets/icons/icon_settings_european.png"
+                  alt="Settings"
+                  className="rok-badge-img"
+                />
               </div>
+              <span className="rok-badge-subtext">Cài đặt</span>
             </div>
           </div>
 

@@ -63,8 +63,9 @@ export type TerritoryClaimDocument = {
   territoryId: number;
   playerId: string;
   claimedAt: Date;
-  settlementKind?: "capital" | "sub_capital" | "military";
+  settlementKind?: "capital" | "sub_capital" | "military" | "military_district" | "flag";
   parentTerritoryId?: number;
+  rootTerritoryId?: number;
   connectionType?: "land" | "sea";
   isolated?: boolean;
 };

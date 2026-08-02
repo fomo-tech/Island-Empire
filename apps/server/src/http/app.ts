@@ -720,15 +720,31 @@ function nearestExpansionSource(claims, target) {
         a.territory.id - b.territory.id,
     )[0];
 }
+function isTerritoryRootClaim(claim: any) {
+  return claim?.settlementKind === "capital" ||
+    claim?.settlementKind === "sub_capital" ||
+    claim?.settlementKind === "military_district" ||
+    (claim?.settlementKind === "military" && claim?.connectionType === "sea");
+}
+function normalizedClaimKind(claim: any) {
+  if (!claim) return undefined;
+  if (claim.settlementKind === "capital" || claim.settlementKind === "sub_capital")
+    return claim.settlementKind;
+  if (claim.settlementKind === "military_district" || claim.settlementKind === "flag")
+    return claim.settlementKind;
+  return claim.connectionType === "sea" ? "military_district" : "flag";
+}
+function rootTerritoryForNewClaim(claims: any[], sourceTerritoryId: number | undefined, connectionType: "land" | "sea" | undefined, targetTerritoryId: number) {
+  if (connectionType === "sea" || sourceTerritoryId === undefined) return targetTerritoryId;
+  const source = claims.find((claim) => claim.territoryId === sourceTerritoryId);
+  if (!source) return sourceTerritoryId;
+  return Number(source.rootTerritoryId ?? (isTerritoryRootClaim(source) ? source.territoryId : sourceTerritoryId));
+}
 function isClaimConnectedToCapital(claims, territoryId) {
   const byId = new Map(
     claims.map((claim: any) => [claim.territoryId, claim]) as any,
   );
-  const capitals = claims.filter(
-    (claim) =>
-      claim.settlementKind === "capital" ||
-      claim.settlementKind === "sub_capital",
-  );
+  const capitals = claims.filter(isTerritoryRootClaim);
   if (capitals.length === 0) {
     const oldest = [...(claims as any[])].sort(
       (a, b) => (a.claimedAt?.getTime() || 0) - (b.claimedAt?.getTime() || 0),
@@ -747,15 +763,13 @@ function isClaimConnectedToCapital(claims, territoryId) {
   }
   return false;
 }
-/** Land chains collapse when cut; overseas chains remain owned but isolated until their sea route is restored. */
+/** Every capital or overseas military district is a root; dependent flag chains collapse when cut. */
 async function pruneDisconnectedClaims(playerId) {
   if (!playerId) return [];
   const { territoryClaims, territoryClearings, saves } = await collections();
   const claims = await territoryClaims.find({ playerId }).toArray();
   if (claims.length <= 1) return [];
-  const capitals = claims.filter(
-    (c) => c.settlementKind === "capital" || c.settlementKind === "sub_capital",
-  );
+  const capitals = claims.filter(isTerritoryRootClaim);
   if (capitals.length === 0) {
     const oldest = [...(claims as any[])].sort(
       (a, b) => (a.claimedAt?.getTime() || 0) - (b.claimedAt?.getTime() || 0),
@@ -787,49 +801,11 @@ async function pruneDisconnectedClaims(playerId) {
     );
     return [];
   }
-  const byId = new Map(
-    claims.map((claim: any) => [claim.territoryId, claim]) as any,
+  const disconnectedIds = disconnectedClaims.map((claim) => claim.territoryId);
+  await territoryClaims.updateMany(
+    { playerId, territoryId: { $in: [...connectedIds] as number[] } },
+    { $set: { isolated: false } },
   );
-  const hasSeaLineage = (claim: any) => {
-    const visited = new Set();
-    let current = claim;
-    while (current && !visited.has((current as any).territoryId)) {
-      if (current.connectionType === "sea") return true;
-      visited.add((current as any).territoryId);
-      current =
-        current.parentTerritoryId === undefined
-          ? undefined
-          : byId.get(current.parentTerritoryId);
-    }
-    return false;
-  };
-  const isolatedClaims = disconnectedClaims.filter(hasSeaLineage) as any[];
-  const destroyedClaims = disconnectedClaims.filter(
-    (claim: any) => !hasSeaLineage(claim),
-  ) as any[];
-  const isolatedIds = isolatedClaims.map((claim) => claim.territoryId);
-  const disconnectedIds = destroyedClaims.map((claim) => claim.territoryId);
-  await Promise.all([
-    isolatedIds.length > 0
-      ? territoryClaims.updateMany(
-          { playerId, territoryId: { $in: isolatedIds } },
-          { $set: { isolated: true } },
-        )
-      : Promise.resolve(),
-    territoryClaims.updateMany(
-      { playerId, territoryId: { $in: [...connectedIds] as number[] } },
-      { $set: { isolated: false } },
-    ),
-  ]);
-  if (disconnectedIds.length === 0) {
-    await bumpWorldCacheVersion();
-    publishRealtime(
-      { type: "world_state_hint", reason: "server_resync" },
-      `player:${playerId}`,
-    );
-    await publishPlayerState(playerId, "overseas_route_isolated");
-    return [];
-  }
   await Promise.all([
     territoryClaims.deleteMany({
       playerId,
@@ -1246,6 +1222,7 @@ function toPublicClearing(clearing) {
     sourceX: clearing.sourceX,
     sourceY: clearing.sourceY,
     connectionType: clearing.connectionType,
+    isStarterClaim: Boolean(clearing.isStarterClaim),
     startedAt: clearing.startedAt.toISOString(),
     arrivesAt: clearing.arrivesAt
       ? clearing.arrivesAt.toISOString()
@@ -1999,9 +1976,7 @@ async function buildWorldTerritoriesPayload() {
         computedKind = "capital";
       } else if (subCapitalTerritoryByOwner.get(ownerId) === territory.id) {
         computedKind = "sub_capital";
-      } else {
-        computedKind = "military";
-      }
+      } else computedKind = normalizedClaimKind(claim);
     }
     return {
       ...territory,
@@ -2023,6 +1998,7 @@ async function buildWorldTerritoriesPayload() {
       settlementKind: computedKind,
       trainingSpecialty: trainingSpecialtyForTerritory(territory, computedKind),
       parentTerritoryId: claim?.parentTerritoryId,
+      rootTerritoryId: claim?.rootTerritoryId,
       connectionType: claim?.connectionType,
       isolated: claim?.isolated || false,
       equippedCapitalSkin: ownerId
@@ -2683,6 +2659,14 @@ async function processArrivedMarches(now = new Date()) {
           territory,
         );
         attackerTowns.push(newTown);
+        const connectionType = march.usesShip
+          ? "sea"
+          : territoryConnectionType(
+              getStaticTerritory(march.fromTerritoryId),
+              territory,
+            ) || "land";
+        const attackerClaims = await territoryClaims.find({ playerId: march.ownerId }).toArray();
+        const settlementKind = connectionType === "sea" ? "military_district" : "flag";
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -2690,14 +2674,15 @@ async function processArrivedMarches(now = new Date()) {
               $set: {
                 playerId: march.ownerId,
                 claimedAt: now,
-                settlementKind: "military",
+                settlementKind,
                 parentTerritoryId: march.fromTerritoryId,
-                connectionType: march.usesShip
-                  ? "sea"
-                  : territoryConnectionType(
-                      getStaticTerritory(march.fromTerritoryId),
-                      territory,
-                    ) || "land",
+                rootTerritoryId: rootTerritoryForNewClaim(
+                  attackerClaims,
+                  march.fromTerritoryId,
+                  connectionType,
+                  territory.id,
+                ),
+                connectionType,
                 isolated: false,
               },
               $setOnInsert: {
@@ -2727,7 +2712,15 @@ async function processArrivedMarches(now = new Date()) {
           ownerName: attackerPlayer?.name || "Bạn",
           ownerFlagColor: attackerPlayer?.flagColor || "#2f70d7",
           ownerEmblem: attackerPlayer?.emblem || "shield",
-          settlementKind: "military",
+          settlementKind,
+          parentTerritoryId: march.fromTerritoryId,
+          rootTerritoryId: rootTerritoryForNewClaim(
+            attackerClaims,
+            march.fromTerritoryId,
+            connectionType,
+            territory.id,
+          ),
+          connectionType,
           equippedCapitalSkin:
             attackerPlayer?.shopInventory?.equippedCapitalSkin ?? null,
           equippedDistrictSkin:
@@ -3222,6 +3215,17 @@ async function processActiveBattles(now = new Date()) {
             attackerResources[key] + lootedResources[key],
           );
         });
+        const connectionType = battle.usesShip
+          ? "sea"
+          : territoryConnectionType(
+              getStaticTerritory(battle.fromTerritoryId),
+              territory,
+            ) || "land";
+        const attackerClaims = await territoryClaims
+          .find({ playerId: battle.attackerId })
+          .toArray();
+        const capturedSettlementKind =
+          connectionType === "sea" ? "military_district" : "flag";
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -3229,14 +3233,15 @@ async function processActiveBattles(now = new Date()) {
               $set: {
                 playerId: battle.attackerId,
                 claimedAt: now,
-                settlementKind: "military",
+                settlementKind: capturedSettlementKind,
                 parentTerritoryId: battle.fromTerritoryId,
-                connectionType: battle.usesShip
-                  ? "sea"
-                  : territoryConnectionType(
-                      getStaticTerritory(battle.fromTerritoryId),
-                      territory,
-                    ) || "land",
+                rootTerritoryId: rootTerritoryForNewClaim(
+                  attackerClaims,
+                  battle.fromTerritoryId,
+                  connectionType,
+                  territory.id,
+                ),
+                connectionType,
                 isolated: false,
               },
               $setOnInsert: {
@@ -3582,7 +3587,10 @@ async function processActiveBattles(now = new Date()) {
           : undefined,
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
-        settlementKind: claim?.settlementKind ?? "military",
+        settlementKind: normalizedClaimKind(claim) ?? "flag",
+        parentTerritoryId: claim?.parentTerritoryId,
+        rootTerritoryId: claim?.rootTerritoryId,
+        connectionType: claim?.connectionType,
         equippedCapitalSkin: player?.shopInventory?.equippedCapitalSkin ?? null,
         equippedDistrictSkin:
           player?.shopInventory?.equippedDistrictSkin ?? null,
@@ -3724,10 +3732,22 @@ async function processCompletedClearings(now = new Date()) {
           territoryId: territory.id,
           playerId: clearing.playerId,
           claimedAt: now,
-          settlementKind: clearing.isStarterClaim ? "capital" : "military",
+          settlementKind: clearing.isStarterClaim
+            ? "capital"
+            : clearing.connectionType === "sea"
+              ? "military_district"
+              : "flag",
           parentTerritoryId: clearing.isStarterClaim
             ? undefined
             : clearing.sourceTerritoryId,
+          rootTerritoryId: clearing.isStarterClaim
+            ? territory.id
+            : rootTerritoryForNewClaim(
+                await territoryClaims.find({ playerId: clearing.playerId }).toArray(),
+                clearing.sourceTerritoryId,
+                clearing.connectionType,
+                territory.id,
+              ),
           connectionType: clearing.connectionType,
         },
       },
@@ -3777,7 +3797,21 @@ async function processCompletedClearings(now = new Date()) {
           player?.kingdomArchitectureId ?? "lionheart",
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
-        settlementKind: clearing.isStarterClaim ? "capital" : "military",
+        settlementKind: clearing.isStarterClaim
+          ? "capital"
+          : clearing.connectionType === "sea"
+            ? "military_district"
+            : "flag",
+        parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+        rootTerritoryId: clearing.isStarterClaim
+          ? territory.id
+          : rootTerritoryForNewClaim(
+              await territoryClaims.find({ playerId: clearing.playerId }).toArray(),
+              clearing.sourceTerritoryId,
+              clearing.connectionType,
+              territory.id,
+            ),
+        connectionType: clearing.connectionType,
         equippedCapitalSkin: player?.shopInventory?.equippedCapitalSkin ?? null,
         equippedDistrictSkin:
           player?.shopInventory?.equippedDistrictSkin ?? null,
@@ -6449,16 +6483,11 @@ export function createApp() {
       const userClaims = await territoryClaims
         .find({ playerId: req.user!.id })
         .toArray();
-      const hasSubCapital = userClaims.some(
-        (c) => c.settlementKind === "sub_capital",
-      );
-      const isSubCapital =
-        !clearing.isStarterClaim && userClaims.length >= 19 && !hasSubCapital;
       const computedSettlementKind = clearing.isStarterClaim
         ? "capital"
-        : isSubCapital
-          ? "sub_capital"
-          : "military";
+        : clearing.connectionType === "sea"
+          ? "military_district"
+          : "flag";
       await territoryClaims.updateOne(
         { territoryId: territory.id },
         {
@@ -6471,6 +6500,14 @@ export function createApp() {
             parentTerritoryId: clearing.isStarterClaim
               ? undefined
               : clearing.sourceTerritoryId,
+            rootTerritoryId: clearing.isStarterClaim
+              ? territory.id
+              : rootTerritoryForNewClaim(
+                  userClaims,
+                  clearing.sourceTerritoryId,
+                  clearing.connectionType,
+                  territory.id,
+                ),
             connectionType: clearing.connectionType,
           },
         },
@@ -6525,6 +6562,16 @@ export function createApp() {
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: computedSettlementKind,
+          parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+          rootTerritoryId: clearing.isStarterClaim
+            ? territory.id
+            : rootTerritoryForNewClaim(
+                userClaims,
+                clearing.sourceTerritoryId,
+                clearing.connectionType,
+                territory.id,
+              ),
+          connectionType: clearing.connectionType,
           equippedCapitalSkin:
             player?.shopInventory?.equippedCapitalSkin ?? null,
           equippedDistrictSkin:

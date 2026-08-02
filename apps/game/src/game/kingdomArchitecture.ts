@@ -6,16 +6,20 @@ export type KingdomArchitectureId =
   | "goldencrown"
   | "blackeagle";
 
-export type KingdomBuildingType = "capital" | "fortress" | "district" | "construction";
+export type KingdomBuildingType = "capital" | "fortress" | "district" | "flag" | "construction";
 
 export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/kingdom_premium.webp";
+export const NATION_FLAG_SHEET = "/assets/kingdoms/nation_flags_atlas.webp?v=flags-v1";
 export const KINGDOM_SPRITE_CELL = 1024;
-const KINGDOM_PREMIUM_SPRITE_CELL = 320;
+export const NATION_FLAG_CELL_WIDTH = 418;
+export const NATION_FLAG_CELL_HEIGHT = 627;
+const KINGDOM_PREMIUM_SPRITE_CELL = 512;
 
 const BUILDING_CELLS: Record<KingdomBuildingType, { column: number; row: number }> = {
   capital: { column: 0, row: 0 },
   fortress: { column: 1, row: 0 },
   district: { column: 0, row: 1 },
+  flag: { column: 0, row: 0 },
   construction: { column: 1, row: 1 },
 };
 
@@ -34,6 +38,7 @@ export const KINGDOM_BUILDING_LAYOUT: Record<KingdomBuildingType, {
   capital: { pivotX: 0.5, pivotY: 0.965, safeWidth: 0.91, safeHeight: 0.91 },
   fortress: { pivotX: 0.5, pivotY: 0.95, safeWidth: 0.88, safeHeight: 0.82 },
   district: { pivotX: 0.5, pivotY: 0.95, safeWidth: 0.88, safeHeight: 0.72 },
+  flag: { pivotX: 0.5, pivotY: 0.96, safeWidth: 0.72, safeHeight: 0.9 },
   construction: { pivotX: 0.5, pivotY: 0.95, safeWidth: 0.88, safeHeight: 0.68 },
 };
 
@@ -103,6 +108,20 @@ export function kingdomBuildingSprite(
   buildingType: KingdomBuildingType,
   skinId?: string | null,
 ) {
+  if (buildingType === "flag") {
+    const normalized = normalizeKingdomArchitecture(architectureId);
+    const nationIndex = KINGDOM_ARCHITECTURES.findIndex((item) => item.id === normalized);
+    return {
+      src: NATION_FLAG_SHEET,
+      sx: (nationIndex % 3) * NATION_FLAG_CELL_WIDTH,
+      sy: Math.floor(nationIndex / 3) * NATION_FLAG_CELL_HEIGHT,
+      sw: NATION_FLAG_CELL_WIDTH,
+      sh: NATION_FLAG_CELL_HEIGHT,
+      columns: 3,
+      rows: 2,
+      premium: false,
+    };
+  }
   const premiumColumn = buildingType === "capital" && skinId
     ? PREMIUM_COLUMNS[skinId]
     : undefined;

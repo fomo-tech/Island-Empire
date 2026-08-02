@@ -8,7 +8,7 @@
 .strategy-chat {
   position: fixed;
   z-index: 1180;
-  left: 92px;
+  left: 112px;
   bottom: 12px;
   width: 382px;
   height: 278px;
@@ -13848,17 +13848,6 @@ canvas {
 }
 
 /* 6. BOTTOM BAR (FLOATING CHAT & ACTION QUEUES) */
-.hud-bottombar-unified {
-  position: absolute;
-  bottom: 12px;
-  left: 14px;
-  right: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  pointer-events: none;
-  z-index: 95;
-}
 
 /* Floating Chat Panel (Left) */
 .hud-floating-chat {

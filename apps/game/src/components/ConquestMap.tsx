@@ -411,9 +411,9 @@ export function ConquestMap({ onClose }: { onClose: () => void }) {
 
       // ── STEP 3. TOP CONTINENT GREEN PLATEAU SURFACE MATCHING SAMPLE ──
       const continentGrad = ctx.createLinearGradient(0, 0, MAP_WIDTH, MAP_HEIGHT);
-      continentGrad.addColorStop(0, "#498242");
-      continentGrad.addColorStop(0.5, "#3d6e35");
-      continentGrad.addColorStop(1, "#31592b");
+      continentGrad.addColorStop(0, "#52994a");
+      continentGrad.addColorStop(0.5, "#427a3a");
+      continentGrad.addColorStop(1, "#34612e");
       ctx.fillStyle = continentGrad;
       ctx.strokeStyle = "#274822";
       ctx.lineWidth = 6;
@@ -441,18 +441,18 @@ export function ConquestMap({ onClose }: { onClose: () => void }) {
         }
         ctx.closePath();
         if (tile.biome === 7) {
-          ctx.fillStyle = "rgba(255, 215, 0, 0.12)";
+          ctx.fillStyle = "rgba(255, 200, 0, 0.28)";
           ctx.fill();
         } else if (tile.biome === 3) {
-          ctx.fillStyle = "rgba(6, 182, 212, 0.08)";
+          ctx.fillStyle = "rgba(6, 182, 212, 0.24)";
           ctx.fill();
         }
         ctx.stroke();
       });
 
       // ── STEP 5. LIGHT SAGE-GREEN REGION BOUNDARY LINES MATCHING SAMPLE IMAGE ──
-      ctx.strokeStyle = "#7eb875";
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = "#4f8a47";
+      ctx.lineWidth = 7;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
@@ -489,7 +489,8 @@ export function ConquestMap({ onClose }: { onClose: () => void }) {
 
       // Central Pass 7 Ring
       ctx.beginPath();
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#4f8a47";
       ctx.ellipse(1400, 1050, 240, 190, 0, 0, Math.PI * 2);
       ctx.stroke();
 

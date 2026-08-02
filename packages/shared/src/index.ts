@@ -95,7 +95,7 @@ export type AdminPlayer = {
 export type TownSnapshot = {
   id: number;
   territoryId?: number;
-  kind?: "capital" | "sub_capital" | "military_district";
+  kind?: "capital" | "sub_capital" | "military_district" | "flag";
   level: number;
   ownerId: string;
   troops: number;
@@ -134,7 +134,7 @@ export type TownSnapshot = {
 export type NationTownStatus = {
   townId: number;
   territoryId: number;
-  kind: "capital" | "sub_capital" | "military_district";
+  kind: "capital" | "sub_capital" | "military_district" | "flag";
   level: number;
   x: number;
   y: number;
@@ -205,7 +205,7 @@ export type ArmyStateSnapshot = {
   towns: Array<{
     townId: number;
     territoryId: number;
-    kind: "capital" | "sub_capital" | "military_district";
+    kind: "capital" | "sub_capital" | "military_district" | "flag";
     level: number;
     x: number;
     y: number;
@@ -338,8 +338,9 @@ export type TerritoryInfo = {
   ownerArchitectureId?: string;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
-  settlementKind?: "capital" | "sub_capital" | "military";
+  settlementKind?: "capital" | "sub_capital" | "military" | "military_district" | "flag";
   parentTerritoryId?: number;
+  rootTerritoryId?: number;
   equippedCapitalSkin?: string | null;
   equippedDistrictSkin?: string | null;
   coastal?: boolean;
@@ -385,6 +386,7 @@ export type ActiveClearing = {
   sourceX?: number;
   sourceY?: number;
   connectionType?: "land" | "sea";
+  isStarterClaim?: boolean;
   startedAt: string;
   arrivesAt?: string;
   completesAt: string;

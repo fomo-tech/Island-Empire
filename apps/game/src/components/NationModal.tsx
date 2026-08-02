@@ -27,12 +27,14 @@ function NationIcon({ name }: { name: "crown" | "land" | "people" | "store" | "b
 function townName(town: NationTownStatus) {
   if (town.kind === "capital") return "Hoàng Thành";
   if (town.kind === "sub_capital") return "Phó Đô";
+  if (town.kind === "flag") return `Trụ Cờ #${town.territoryId}`;
   return `Quân Khu #${town.territoryId}`;
 }
 
 function townKind(town: NationTownStatus) {
   if (town.kind === "capital") return "Kinh đô";
   if (town.kind === "sub_capital") return "Phó đô";
+  if (town.kind === "flag") return "Trụ cờ";
   return "Quân khu";
 }
 
@@ -47,7 +49,7 @@ export function NationModal({ nation, townsById, onCenterCamera, onManageTown, o
   const [query, setQuery] = useState("");
   const towns = useMemo(() => {
     let result = nation?.towns || [];
-    if (filter === "capital") result = result.filter((town) => town.kind !== "military_district");
+    if (filter === "capital") result = result.filter((town) => town.kind === "capital" || town.kind === "sub_capital");
     if (filter === "alert") result = result.filter((town) => town.status !== "normal" || town.storageUsagePercent >= 90);
     const normalized = query.trim().toLocaleLowerCase("vi");
     if (normalized) result = result.filter((town) => townName(town).toLocaleLowerCase("vi").includes(normalized) || String(town.territoryId).includes(normalized));

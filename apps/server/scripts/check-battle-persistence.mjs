@@ -20,6 +20,10 @@ const requiredAppFragments = [
   "if (joinedBattle.modifiedCount !== 1)",
   "battle: toPublicBattle(persistedBattle)",
   "battles: battles.map(toPublicBattle)",
+  'connectionType === "sea" ? "military_district" : "flag"',
+  "function isTerritoryRootClaim",
+  "const disconnectedIds = disconnectedClaims.map",
+  "rootTerritoryForNewClaim(",
 ];
 
 for (const fragment of requiredAppFragments) {

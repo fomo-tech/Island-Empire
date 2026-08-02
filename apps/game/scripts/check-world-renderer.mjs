@@ -33,6 +33,7 @@ for (const asset of [
   "../public/assets/units/medieval/medieval_builder_8dir.webp",
   "../public/assets/units/medieval/medieval_ship_8dir.webp",
   "../public/assets/world/territory_vegetation_atlas.webp",
+  "../public/assets/kingdoms/nation_flags_atlas.webp",
 ]) {
   if (!existsSync(new URL(asset, import.meta.url))) {
     throw new Error(`Thiếu sprite atlas: ${asset}`);
@@ -85,6 +86,8 @@ if (source.includes("drawTerritoryResources(visibleRegions, visibleIslets)")) {
 rejectCalls("Bản đồ thành trì", castles, [
   "drawEmpireCastleSprite(",
   "drawMilitaryDistrictSprite(",
+  "drawCastleSilhouette(",
+  "drawMedievalCastleBanner(",
   "getCachedPremiumCastleSprite(",
   "getCachedMiniCastleSprite(",
   "drawMedievalCastleSprite(",
@@ -94,6 +97,9 @@ rejectCalls("Bản đồ thành trì", castles, [
 
 if (!castles.includes("drawKingdomBuildingSprite(")) {
   throw new Error("Thành trì chưa dùng asset vuông có pivot");
+}
+if (!castles.includes("? 270") || !castles.includes("? 170") || !castles.includes(": 105")) {
+  throw new Error("Kích thước Hoàng Thành, Quân Khu và trụ cờ chưa được chuẩn hóa");
 }
 if (!castles.includes("const x = r.x;") || !castles.includes("const y = r.y;")) {
   throw new Error("Thành trì chưa được căn giữa lãnh thổ");
@@ -107,7 +113,7 @@ if (shop.includes("<CastleSkinArt")) {
 if (!architecture.includes("/kingdoms/nations/") || !architecture.includes("kingdom_premium.webp")) {
   throw new Error("Kiến trúc chưa dùng sprite atlas chuẩn");
 }
-if (!architecture.includes("KINGDOM_PREMIUM_CELL = 512")) {
+if (!architecture.includes("KINGDOM_PREMIUM_SPRITE_CELL = 512")) {
   throw new Error("Skin premium chưa dùng đúng grid 512px");
 }
 rejectCalls("Quân hành quân", troops, [
@@ -161,6 +167,20 @@ if (!source.includes("drawActiveBattleConnections")
   || !source.includes("battle.fromTerritoryId")
   || !source.includes('type: "battle_source"')) {
   throw new Error("Reload giao tranh chưa giữ đường quân và hai vùng đang giao chiến");
+}
+if (!architecture.includes("NATION_FLAG_SHEET")
+  || !architecture.includes('buildingType === "flag"')
+  || !source.includes('? "district"\n          : "flag"')) {
+  throw new Error("Vùng mở rộng chưa dùng atlas trụ cờ Nation riêng");
+}
+if (!source.includes('drawVoyageShip(\n            shipPoint.x')
+  || !source.includes("travelled <= sourceLandLength + seaLength")) {
+  throw new Error("Đoạn hành quân trên biển chưa khóa renderer về sprite thuyền");
+}
+if (!source.includes("function voyageUsesShip")
+  || !source.includes("if (voyageUsesShip(v))")
+  || !source.includes("usesShip: crossingSea")) {
+  throw new Error("Hành quân chưa chuẩn hóa cờ usesShip từ server");
 }
 if (!source.includes("easedRouteProgress")
   || !source.includes("routeMovementState")
