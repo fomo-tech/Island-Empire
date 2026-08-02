@@ -13,6 +13,19 @@ import {
   EuroInfoIcon,
 } from "./EuroIcons";
 
+const SettingsSwitch = ({ active, onChange }: { active: boolean; onChange: () => void }) => {
+  return (
+    <button
+      type="button"
+      className={`settings-switch ${active ? "active" : ""}`}
+      onClick={onChange}
+      aria-pressed={active}
+    >
+      <span className="settings-switch-thumb" />
+    </button>
+  );
+};
+
 interface SettingsModalProps {
   language: "vi" | "en";
   onSetLanguage: (lang: "vi" | "en") => void;
@@ -145,6 +158,9 @@ export function SettingsModal({
                     </span>
                   </div>
                   <div className="settings-input-group">
+                    <span style={{ display: "inline-flex", opacity: bgmMuted ? 0.35 : 0.85 }}>
+                      <EuroMusicIcon size={18} />
+                    </span>
                     <input
                       type="range"
                       min="0"
@@ -159,13 +175,7 @@ export function SettingsModal({
                     <span className="settings-val-text">
                       {bgmMuted ? "Mute" : `${bgmVolume}%`}
                     </span>
-                    <button
-                      type="button"
-                      className={`settings-toggle-btn ${bgmMuted ? "muted" : "active"}`}
-                      onClick={() => setBgmMuted(!bgmMuted)}
-                    >
-                      {bgmMuted ? "Tắt" : "Bật"}
-                    </button>
+                    <SettingsSwitch active={!bgmMuted} onChange={() => setBgmMuted(!bgmMuted)} />
                   </div>
                 </div>
 
@@ -180,6 +190,9 @@ export function SettingsModal({
                     </span>
                   </div>
                   <div className="settings-input-group">
+                    <span style={{ display: "inline-flex", opacity: sfxMuted ? 0.35 : 0.85 }}>
+                      <EuroAudioIcon size={18} />
+                    </span>
                     <input
                       type="range"
                       min="0"
@@ -194,13 +207,7 @@ export function SettingsModal({
                     <span className="settings-val-text">
                       {sfxMuted ? "Mute" : `${sfxVolume}%`}
                     </span>
-                    <button
-                      type="button"
-                      className={`settings-toggle-btn ${sfxMuted ? "muted" : "active"}`}
-                      onClick={() => setSfxMuted(!sfxMuted)}
-                    >
-                      {sfxMuted ? "Tắt" : "Bật"}
-                    </button>
+                    <SettingsSwitch active={!sfxMuted} onChange={() => setSfxMuted(!sfxMuted)} />
                   </div>
                 </div>
               </div>
@@ -324,13 +331,7 @@ export function SettingsModal({
                       Ẩn các vùng đất chưa do thám
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className={`settings-toggle-btn ${fogOfWarEffect ? "active" : "muted"}`}
-                    onClick={() => setFogOfWarEffect(!fogOfWarEffect)}
-                  >
-                    {fogOfWarEffect ? "Đang Bật" : "Đã Tắt"}
-                  </button>
+                  <SettingsSwitch active={fogOfWarEffect} onChange={() => setFogOfWarEffect(!fogOfWarEffect)} />
                 </div>
 
                 {/* Hide Territory Assets / Performance mode toggle */}
@@ -343,21 +344,15 @@ export function SettingsModal({
                       Ẩn cây cối, quặng & thú để tăng FPS
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className={`settings-toggle-btn ${localStorage.getItem("island_empire_hide_assets") === "true" ? "active" : "muted"}`}
-                    onClick={() => {
+                  <SettingsSwitch
+                    active={localStorage.getItem("island_empire_hide_assets") === "true"}
+                    onChange={() => {
                       if ((window as any).toggleHideTerritoryAssets) {
                         (window as any).toggleHideTerritoryAssets();
                         setFogOfWarEffect((prev) => prev);
                       }
                     }}
-                  >
-                    {localStorage.getItem("island_empire_hide_assets") ===
-                    "true"
-                      ? "Đang Ẩn (Tối Ưu)"
-                      : "Hiển Thị"}
-                  </button>
+                  />
                 </div>
 
                 {/* Screen War Alerts */}
@@ -370,13 +365,7 @@ export function SettingsModal({
                       Tự động báo hiệu khi kẻ địch tới gần
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className={`settings-toggle-btn ${screenWarAlerts ? "active" : "muted"}`}
-                    onClick={() => setScreenWarAlerts(!screenWarAlerts)}
-                  >
-                    {screenWarAlerts ? "Bật Cảnh Báo" : "Tắt Cảnh Báo"}
-                  </button>
+                  <SettingsSwitch active={screenWarAlerts} onChange={() => setScreenWarAlerts(!screenWarAlerts)} />
                 </div>
               </div>
             </div>
@@ -398,7 +387,19 @@ export function SettingsModal({
                 <div className="settings-info-box">
                   <div className="settings-info-line">
                     <span>Mã ID Người Chơi:</span>
-                    <strong className="text-gold">{playerId}</strong>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <strong className="text-gold">{playerId}</strong>
+                      <button
+                        type="button"
+                        className="settings-copy-btn"
+                        onClick={() => {
+                          navigator.clipboard.writeText(playerId);
+                          alert("Đã sao chép ID người chơi vào bộ nhớ tạm!");
+                        }}
+                      >
+                        Sao chép
+                      </button>
+                    </span>
                   </div>
                   <div className="settings-info-line">
                     <span>Máy Chủ Đang Kết Nối:</span>

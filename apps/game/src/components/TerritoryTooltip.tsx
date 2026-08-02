@@ -294,11 +294,11 @@ export function TerritoryTooltip({
   const isUnderBattle = Boolean(battle) || engineState.activeBattles?.some((b: any) => b.regionId === id);
   const settlementKind = territory?.settlementKind ?? engineState.regionSettlementKinds?.[id];
   const territoryConnectionType = territory?.connectionType ?? engineState.regionConnectionTypes?.[id];
-  const isMilitaryDistrict = settlementKind === "military_district" ||
-    (settlementKind === "military" && territoryConnectionType === "sea");
-  const isTerritoryFlag = settlementKind === "flag" ||
-    (settlementKind === "military" && territoryConnectionType !== "sea");
+  const isCapital = id >= 0 && (engineState.capitalTerritoryIds?.has(id) || settlementKind === "capital");
   const isSubCapital = settlementKind === "sub_capital";
+  const isHarbor = Boolean(territory?.isIslet || territory?.specialResources?.includes("Bến tàu tự nhiên") || territoryConnectionType === "sea");
+  const isMilitaryDistrict = !isCapital && !isSubCapital && isHarbor;
+  const isTerritoryFlag = !isCapital && !isSubCapital && !isMilitaryDistrict;
   const settlementKindLabel = isSubCapital
     ? "Trung Tâm Thành Trì"
     : isMilitaryDistrict
@@ -307,12 +307,33 @@ export function TerritoryTooltip({
       ? "Trụ Cờ"
       : "Thủ Đô";
 
+  const trainingSpecialty = town?.trainingSpecialty || "infantry";
+  const specialtyMeta = {
+    infantry: {
+      name: "Bộ binh",
+      icon: "/assets/icons/icon_troop_infantry_shield.png",
+      count: town?.infantryCount ?? town?.troops ?? 0,
+    },
+    cavalry: {
+      name: "Kỵ binh",
+      icon: "/assets/icons/icon_troop_cavalry_horse.png",
+      count: town?.cavalryCount ?? 0,
+    },
+    artillery: {
+      name: "Pháo binh",
+      icon: "/assets/icons/icon_troop_artillery_cannon.png",
+      count: town?.artilleryCount ?? 0,
+    },
+  }[trainingSpecialty];
+
+  const isHarborBuilding = isHarbor || timing?.connectionType === "sea";
+
   const statusText = isUnderBattle
     ? "Đang Giao Tranh"
     : isOwnClearing
-    ? `Bạn đang ${timing?.connectionType === "sea" ? "lập Quân Khu" : "dựng Trụ Cờ"}`
+    ? `Bạn đang ${isHarborBuilding ? "lập Quân Khu" : "dựng Trụ Cờ"}`
     : isRemoteClearing
-    ? `Đối thủ đang ${timing?.connectionType === "sea" ? "lập Quân Khu" : "dựng Trụ Cờ"}`
+    ? `Đối thủ đang ${isHarborBuilding ? "lập Quân Khu" : "dựng Trụ Cờ"}`
     : effectiveOwnership === 1
     ? `Đã Chiếm (${settlementKindLabel})`
     : effectiveOwnership > 1
@@ -672,9 +693,9 @@ export function TerritoryTooltip({
                     <span className="label"><SpriteIcon src="/assets/icons/icon_troop_total_helmet.png" size={16} style={{ marginRight: 6 }} /> Quân đồn trú:</span>
                     <span className="val">{Math.floor((town.troops || 0) + (town.reservedTroops || 0)).toLocaleString("vi-VN")} / {Math.floor(town.troopCapacity || town.maxTroops || 0).toLocaleString("vi-VN")}</span>
                   </div>
-                  <div className="rt-stat-item">
-                    <span className="label"><SpriteIcon src="/assets/icons/icon_defender_dragon_shield.png" size={16} style={{ marginRight: 6 }} /> Bổ sung quân:</span>
-                    <span className="val highlighted">{town.trainingSpecialty === "cavalry" ? "Kị binh" : town.trainingSpecialty === "artillery" ? "Pháo binh" : "Bộ binh"}{town.troopRecoveryBlockedReason ? ` · ${town.troopRecoveryBlockedReason === "full" ? "đã đầy" : town.troopRecoveryBlockedReason === "resources" ? "thiếu tài nguyên" : town.troopRecoveryBlockedReason === "battle" ? "đang giao tranh" : "bị cô lập"}` : ""}</span>
+                  <div className="rt-stat-item rt-specialty-stat">
+                    <span className="label"><SpriteIcon src={specialtyMeta.icon} size={22} /> {specialtyMeta.name}:</span>
+                    <span className="val highlighted">{Math.floor(specialtyMeta.count).toLocaleString("vi-VN")}</span>
                   </div>
                   <div className="rt-stat-item">
                     <span className="label"><SpriteIcon src="/assets/icons/icon_military.png" size={14} style={{ marginRight: 6 }} /> Dân số:</span>

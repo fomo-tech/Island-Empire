@@ -681,8 +681,16 @@ function territoryConnectionType(source, target) {
   // Mainland expansion is always one connected land tile at a time.
   const sumRx = (source.rx || 100) + (target.rx || 100);
   const sumRy = (source.ry || 100) + (target.ry || 100);
-  const normDistSq = (dx / sumRx) ** 2 + (dy / sumRy) ** 2;
-  if (!source.isIslet && !target.isIslet && normDistSq <= 0.85) return "land";
+  const closeEnough =
+    dx <= sumRx * 1.28 &&
+    dy <= sumRy * 1.42;
+  const centerDistance = Math.hypot(source.x - target.x, source.y - target.y);
+  const bridgeDistance = centerDistance - sumRx * 0.72;
+  if (
+    !source.isIslet &&
+    !target.isIslet &&
+    (closeEnough || bridgeDistance <= 130)
+  ) return "land";
   const targetIsCoastal = Boolean(
     target.isIslet ||
     target.coastal ||
@@ -720,19 +728,60 @@ function nearestExpansionSource(claims, target) {
         a.territory.id - b.territory.id,
     )[0];
 }
+function nearestLandFrontierClaim(claims, target) {
+  return claims
+    .map((claim) => {
+      const territory = getStaticTerritory(claim.territoryId);
+      if (!territory || territoryConnectionType(territory, target) !== "land")
+        return null;
+      return {
+        claim,
+        territory,
+        distance: Math.hypot(territory.x - target.x, territory.y - target.y),
+      };
+    })
+    .filter((candidate) => candidate !== null)
+    .sort((a, b) => a.distance - b.distance || a.territory.id - b.territory.id)[0];
+}
+function resolvePlayerAttackRoute(claims, source, target) {
+  const frontier = nearestLandFrontierClaim(claims, target);
+  if (frontier) {
+    return {
+      valid: true,
+      routeType: "land",
+      frontierTerritoryId: frontier.territory.id,
+      reason: undefined,
+    };
+  }
+  return {
+    ...resolveAttackRoute(source, target),
+    frontierTerritoryId: source.id,
+  };
+}
 function isTerritoryRootClaim(claim: any) {
-  return claim?.settlementKind === "capital" ||
-    claim?.settlementKind === "sub_capital" ||
-    claim?.settlementKind === "military_district" ||
-    (claim?.settlementKind === "military" && claim?.connectionType === "sea");
+  const kind = normalizedClaimKind(claim);
+  return kind === "capital" || kind === "sub_capital" || kind === "military_district";
+}
+function settlementKindForClaim(
+  territory: any,
+  connectionType?: "land" | "sea",
+  isStarterClaim = false,
+) {
+  if (isStarterClaim) return "capital";
+  const hasNaturalHarbor = Boolean(
+    territory?.isIslet ||
+    territory?.specialResources?.includes("Bến tàu tự nhiên"),
+  );
+  return connectionType === "sea" || hasNaturalHarbor
+    ? "military_district"
+    : "flag";
 }
 function normalizedClaimKind(claim: any) {
   if (!claim) return undefined;
-  if (claim.settlementKind === "capital" || claim.settlementKind === "sub_capital")
+  if (claim.settlementKind === "capital")
     return claim.settlementKind;
-  if (claim.settlementKind === "military_district" || claim.settlementKind === "flag")
-    return claim.settlementKind;
-  return claim.connectionType === "sea" ? "military_district" : "flag";
+  const territory = getStaticTerritory(claim.territoryId);
+  return settlementKindForClaim(territory, claim.connectionType, false);
 }
 function rootTerritoryForNewClaim(claims: any[], sourceTerritoryId: number | undefined, connectionType: "land" | "sea" | undefined, targetTerritoryId: number) {
   if (connectionType === "sea" || sourceTerritoryId === undefined) return targetTerritoryId;
@@ -1050,7 +1099,9 @@ function normalizeTownSnapshotForState(
   const territoryProduction = territory
     ? productionForClaims([{ territoryId: territory.id }])
     : emptyResources();
-  const kind = territory?.settlementKind ?? town?.kind ?? "military_district";
+  const resolvedKind = territory?.settlementKind ?? town?.kind;
+  const isHarbor = territory && (territory.isIslet || territory.specialResources?.includes("Bến tàu tự nhiên"));
+  const kind = resolvedKind ?? (isHarbor ? "military_district" : "flag");
   const infantryCount = Math.max(
     0,
     Math.floor(Number(town?.infantryCount ?? town?.troops ?? 0) || 0),
@@ -1891,6 +1942,23 @@ function removeTownForTerritory(towns, territory) {
 async function buildWorldTerritoriesPayload() {
   const { players, territoryClaims, alliances } = await collections();
   const claims = await territoryClaims.find({}).toArray();
+  const claimKindRepairs = claims.flatMap((claim: any) => {
+    if (claim.settlementKind === "capital") {
+      return [];
+    }
+    const expectedKind = normalizedClaimKind(claim);
+    if (!expectedKind || expectedKind === claim.settlementKind) return [];
+    claim.settlementKind = expectedKind;
+    return [{
+      updateOne: {
+        filter: { _id: claim._id },
+        update: { $set: { settlementKind: expectedKind } },
+      },
+    }];
+  });
+  if (claimKindRepairs.length > 0) {
+    await territoryClaims.bulkWrite(claimKindRepairs, { ordered: false });
+  }
   const claimByTerritory = new Map(
     claims.map((claim) => [claim.territoryId, claim]),
   );
@@ -1900,27 +1968,14 @@ async function buildWorldTerritoriesPayload() {
     claimsByPlayer.get(c.playerId).push(c);
   });
   const capitalTerritoryByOwner = new Map();
-  const subCapitalTerritoryByOwner = new Map();
   claimsByPlayer.forEach((playerClaims, playerId) => {
     playerClaims.sort((a, b) => a.claimedAt.getTime() - b.claimedAt.getTime());
     const explicitCapital = playerClaims.find(
       (c) => c.settlementKind === "capital",
     );
-    const capitalId = explicitCapital
-      ? explicitCapital.territoryId
-      : playerClaims[0]?.territoryId;
+    const capitalId = explicitCapital?.territoryId;
     if (capitalId !== undefined)
       capitalTerritoryByOwner.set(playerId, capitalId);
-    const explicitSubCapital = playerClaims.find(
-      (c) => c.settlementKind === "sub_capital",
-    );
-    const subCapitalId = explicitSubCapital
-      ? explicitSubCapital.territoryId
-      : playerClaims.length >= 20
-        ? playerClaims[19]?.territoryId
-        : undefined;
-    if (subCapitalId !== undefined)
-      subCapitalTerritoryByOwner.set(playerId, subCapitalId);
   });
   const ownerIds = [...new Set(claims.map((claim) => claim.playerId))];
   const [ownerDocs, allianceDocs] = await Promise.all([
@@ -1974,8 +2029,6 @@ async function buildWorldTerritoriesPayload() {
     if (ownerId) {
       if (capitalTerritoryByOwner.get(ownerId) === territory.id) {
         computedKind = "capital";
-      } else if (subCapitalTerritoryByOwner.get(ownerId) === territory.id) {
-        computedKind = "sub_capital";
       } else computedKind = normalizedClaimKind(claim);
     }
     return {
@@ -1989,7 +2042,7 @@ async function buildWorldTerritoriesPayload() {
         ? (emblemByOwner.get(ownerId) ?? "shield")
         : undefined,
       ownerArchitectureId: ownerId
-        ? (architectureByOwner.get(ownerId) ?? "lionheart")
+        ? (architectureByOwner.get(ownerId) ?? "vietnam")
         : undefined,
       ownerAllianceTag: ownerId ? allianceByOwner.get(ownerId)?.tag : undefined,
       ownerAllianceEmblem: ownerId
@@ -2326,7 +2379,7 @@ async function buildGameStatePayload(playerId) {
             flagColor: player.flagColor ?? "#2f70d7",
             emblem: player.emblem ?? "shield",
             kingdomArchitectureId:
-              player.kingdomArchitectureId ?? "lionheart",
+              player.kingdomArchitectureId ?? "vietnam",
             cityName: player.cityName,
             onboardingState:
               player.onboardingState ?? (player.cityName ? "needs_claim" : "profile_required"),
@@ -2666,7 +2719,7 @@ async function processArrivedMarches(now = new Date()) {
               territory,
             ) || "land";
         const attackerClaims = await territoryClaims.find({ playerId: march.ownerId }).toArray();
-        const settlementKind = connectionType === "sea" ? "military_district" : "flag";
+        const settlementKind = settlementKindForClaim(territory, connectionType);
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -3101,6 +3154,14 @@ async function processActiveBattles(now = new Date()) {
       const defenderPlayer = battle.defenderId
         ? await players.findOne({ _id: battle.defenderId })
         : null;
+      const defenderClaim = battle.defenderId
+        ? await territoryClaims.findOne({
+            territoryId: territory.id,
+            playerId: battle.defenderId,
+          })
+        : null;
+      const capturedDefenderCapital =
+        normalizedClaimKind(defenderClaim) === "capital";
       let attackerSurvivors = {
         infantry: 0,
         cavalry: 0,
@@ -3224,8 +3285,12 @@ async function processActiveBattles(now = new Date()) {
         const attackerClaims = await territoryClaims
           .find({ playerId: battle.attackerId })
           .toArray();
-        const capturedSettlementKind =
-          connectionType === "sea" ? "military_district" : "flag";
+        const frontierClaim = connectionType === "land"
+          ? nearestLandFrontierClaim(attackerClaims, territory)
+          : null;
+        const captureParentTerritoryId =
+          frontierClaim?.territory.id ?? battle.fromTerritoryId;
+        const capturedSettlementKind = settlementKindForClaim(territory, connectionType);
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -3234,10 +3299,10 @@ async function processActiveBattles(now = new Date()) {
                 playerId: battle.attackerId,
                 claimedAt: now,
                 settlementKind: capturedSettlementKind,
-                parentTerritoryId: battle.fromTerritoryId,
+                parentTerritoryId: captureParentTerritoryId,
                 rootTerritoryId: rootTerritoryForNewClaim(
                   attackerClaims,
-                  battle.fromTerritoryId,
+                  captureParentTerritoryId,
                   connectionType,
                   territory.id,
                 ),
@@ -3267,8 +3332,16 @@ async function processActiveBattles(now = new Date()) {
           battle.defenderId
             ? saves.updateOne(
                 { playerId: battle.defenderId },
-                { $set: { towns: defenderTowns, updatedAt: now } },
+                {
+                  $set: {
+                    towns: capturedDefenderCapital ? [] : defenderTowns,
+                    updatedAt: now,
+                  },
+                },
               )
+            : Promise.resolve(),
+          battle.defenderId && capturedDefenderCapital
+            ? territoryClaims.deleteMany({ playerId: battle.defenderId })
             : Promise.resolve(),
           players.updateOne(
             { _id: battle.attackerId },
@@ -3304,11 +3377,12 @@ async function processActiveBattles(now = new Date()) {
             battle.defenderId,
             "battle_resolved",
             defenderResources,
-            defenderTowns,
+            capturedDefenderCapital ? [] : defenderTowns,
           );
-          await cancelBrokenRouteClearings(battle.defenderId, now);
-          // Automatically prune & destroy any disconnected territories for defender
-          await pruneDisconnectedClaims(battle.defenderId);
+          if (!capturedDefenderCapital) {
+            await cancelBrokenRouteClearings(battle.defenderId, now);
+            await pruneDisconnectedClaims(battle.defenderId);
+          }
         }
         if (battle.defenderId) {
           const defenderRemainingClaims = await territoryClaims.countDocuments({
@@ -3355,7 +3429,9 @@ async function processActiveBattles(now = new Date()) {
             publishRealtime({
               type: "player_eliminated",
               playerId: battle.defenderId,
-              reason: "all_towns_captured",
+              reason: capturedDefenderCapital
+                ? "capital_captured"
+                : "all_towns_captured",
             });
             await publishPlayerState(
               battle.defenderId,
@@ -3583,7 +3659,7 @@ async function processActiveBattles(now = new Date()) {
           : undefined,
         ownerEmblem: claim?.playerId ? (player?.emblem ?? "shield") : undefined,
         ownerArchitectureId: claim?.playerId
-          ? (player?.kingdomArchitectureId ?? "lionheart")
+          ? (player?.kingdomArchitectureId ?? "vietnam")
           : undefined,
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
@@ -3732,11 +3808,11 @@ async function processCompletedClearings(now = new Date()) {
           territoryId: territory.id,
           playerId: clearing.playerId,
           claimedAt: now,
-          settlementKind: clearing.isStarterClaim
-            ? "capital"
-            : clearing.connectionType === "sea"
-              ? "military_district"
-              : "flag",
+          settlementKind: settlementKindForClaim(
+            territory,
+            clearing.connectionType,
+            clearing.isStarterClaim,
+          ),
           parentTerritoryId: clearing.isStarterClaim
             ? undefined
             : clearing.sourceTerritoryId,
@@ -3794,14 +3870,14 @@ async function processCompletedClearings(now = new Date()) {
         ownerFlagColor: player?.flagColor ?? "#2f70d7",
         ownerEmblem: player?.emblem ?? "shield",
         ownerArchitectureId:
-          player?.kingdomArchitectureId ?? "lionheart",
+          player?.kingdomArchitectureId ?? "vietnam",
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
-        settlementKind: clearing.isStarterClaim
-          ? "capital"
-          : clearing.connectionType === "sea"
-            ? "military_district"
-            : "flag",
+        settlementKind: settlementKindForClaim(
+          territory,
+          clearing.connectionType,
+          clearing.isStarterClaim,
+        ),
         parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
         rootTerritoryId: clearing.isStarterClaim
           ? territory.id
@@ -5302,6 +5378,14 @@ export function createApp() {
         avatarId: z.string().max(40).optional(),
         kingdomArchitectureId: z
           .enum([
+            "vietnam",
+            "china",
+            "japan",
+            "england",
+            "viking",
+            "ottoman",
+            "france",
+            "rome",
             "lionheart",
             "ironshield",
             "firedragon",
@@ -5394,7 +5478,7 @@ export function createApp() {
     async (req, res) => {
       const playerId = req.user!.id;
       const gameState = await buildGameStatePayload(playerId);
-      const { battleReports, playerMails, players } = await collections();
+      const { battleReports, playerMails, players, shopPurchases } = await collections();
       const [
         reports,
         inbox,
@@ -5403,6 +5487,7 @@ export function createApp() {
         mailUnreadCount,
         player,
         gameConfig,
+        purchases,
       ] = await Promise.all([
         battleReports
           .find({ $or: [{ attackerId: playerId }, { defenderId: playerId }] })
@@ -5426,6 +5511,7 @@ export function createApp() {
         playerMails.countDocuments({ recipientId: playerId, readAt: null }),
         players.findOne({ _id: playerId }),
         loadGameConfig(),
+        shopPurchases.find({ playerId }).toArray(),
       ]);
       const version = Date.now();
       const payload = {
@@ -5440,6 +5526,7 @@ export function createApp() {
         sent: sent.map(toPublicMail),
         shopCatalog: shopCatalog(gameConfig, player ?? undefined),
         shopInventory: normalizeShopInventory(player?.shopInventory, player ?? undefined),
+        purchasedProductIds: purchases.map((p) => p.productId),
         version,
         serverTime: new Date(version).toISOString(),
       };
@@ -6483,11 +6570,11 @@ export function createApp() {
       const userClaims = await territoryClaims
         .find({ playerId: req.user!.id })
         .toArray();
-      const computedSettlementKind = clearing.isStarterClaim
-        ? "capital"
-        : clearing.connectionType === "sea"
-          ? "military_district"
-          : "flag";
+      const computedSettlementKind = settlementKindForClaim(
+        territory,
+        clearing.connectionType,
+        clearing.isStarterClaim,
+      );
       await territoryClaims.updateOne(
         { territoryId: territory.id },
         {
@@ -6558,7 +6645,7 @@ export function createApp() {
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
           ownerArchitectureId:
-            player?.kingdomArchitectureId ?? "lionheart",
+            player?.kingdomArchitectureId ?? "vietnam",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: computedSettlementKind,
@@ -6744,8 +6831,12 @@ export function createApp() {
           req.user.id,
           territory,
         );
-        const route = resolveAttackRoute(territory, target);
-        const connected = isClaimConnectedToCapital(claims, territory.id);
+        const route = parsed.data.kind === "attack"
+          ? resolvePlayerAttackRoute(claims, territory, target)
+          : resolveAttackRoute(territory, target);
+        const connected =
+          parsed.data.kind === "attack" ||
+          isClaimConnectedToCapital(claims, territory.id);
         const infantry = Math.max(
           0,
           Math.floor(Number(town.infantryCount || 0) || 0),
@@ -6850,7 +6941,10 @@ export function createApp() {
       const playerClaims = await territoryClaims
         .find({ playerId: req.user!.id })
         .toArray();
-      if (!isClaimConnectedToCapital(playerClaims, from.id)) {
+      if (
+        parsed.data.kind !== "attack" &&
+        !isClaimConnectedToCapital(playerClaims, from.id)
+      ) {
         return res
           .status(409)
           .json({
@@ -6861,7 +6955,7 @@ export function createApp() {
       const gameSettings = await loadGameConfig();
       let forceSeaRoute = false;
       if (parsed.data.kind === "attack") {
-        const route = resolveAttackRoute(from, to);
+        const route = resolvePlayerAttackRoute(playerClaims, from, to);
         if (!route.valid) {
           const error = route.reason?.includes("Bến tàu")
             ? "source_port_required"
@@ -7360,7 +7454,7 @@ export function createApp() {
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
           ownerArchitectureId:
-            player?.kingdomArchitectureId ?? "lionheart",
+            player?.kingdomArchitectureId ?? "vietnam",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: "capital",

@@ -1461,6 +1461,8 @@ export function GameApp({
   const setShopCatalog = useGameStore((state) => state.setShopCatalog);
   const shopInventory = useGameStore((state) => state.shopInventory);
   const setShopInventory = useGameStore((state) => state.setShopInventory);
+  const purchasedProductIds = useGameStore((state) => state.purchasedProductIds);
+  const setPurchasedProductIds = useGameStore((state) => state.setPurchasedProductIds);
   const syncVersion = useGameStore((state) => state.syncVersion);
   const setSyncVersion = useGameStore((state) => state.setSyncVersion);
   const serverTownsById = useGameStore((state) => state.townsById);
@@ -2861,6 +2863,7 @@ export function GameApp({
           });
         }
         if (event.type === "player_eliminated" && event.playerId === playerId) {
+          refreshGameStateFromServer("player-eliminated");
           localStorage.setItem(ONBOARDING_KEY, "1");
           setKingdomCreationRegion(null);
           setSelectedTown(null);
@@ -2898,11 +2901,13 @@ export function GameApp({
             },
           });
           engineRef.current?.handleAction("setToast", {
-            message: "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN VÙNG ĐẤT MỚI ĐỂ LÀM LẠI",
+            message: event.reason === "capital_captured"
+              ? "HOÀNG THÀNH THẤT THỦ. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ"
+              : "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ",
           });
           addPrivateReportMail(
             "Vương quốc thất thủ",
-            "Bạn đã mất toàn bộ thành trì. Tài nguyên và quân đội bị xóa, hãy chọn một vùng đất hoang để lập lại vương quốc.",
+            "Bạn đã mất toàn bộ lãnh thổ, tài nguyên và quân đội. Hãy chọn một vùng đất hoang để lập lại Hoàng Thành hoàn toàn miễn phí.",
           );
         }
         if (event.type === "territories_pruned") {
@@ -3118,7 +3123,24 @@ export function GameApp({
             engineRef.current?.getTownRegionId?.(candidate) ?? -1,
           ) === recommended.territoryId,
       );
-    return town ? mergeTownWithServer(town) : null;
+    if (town) return mergeTownWithServer(town);
+    const regionId = serverToEngineTerritoryId(recommended.territoryId);
+    const center = engineRef.current.getRegionCenter?.(regionId);
+    const serverTown = serverTownsById[recommended.townId] || {};
+    return center
+      ? mergeTownWithServer({
+          ...serverTown,
+          id: recommended.townId,
+          regionId,
+          x: center.x,
+          y: center.y,
+          owner: 0,
+          infantryCount: recommended.infantry,
+          cavalryCount: recommended.cavalry,
+          artilleryCount: recommended.artillery,
+          troops: recommended.troops,
+        })
+      : null;
   };
 
   function syncShopInventoryToEngine(
@@ -3126,13 +3148,7 @@ export function GameApp({
     nation = useGameStore.getState().nationStatus,
   ) {
     const nationTowns = nation?.towns || [];
-    const explicitCapitalTowns = nationTowns.filter(
-      (town) => town.kind === "capital" || town.kind === "sub_capital",
-    );
-    const capitalTowns =
-      explicitCapitalTowns.length > 0
-        ? explicitCapitalTowns
-        : nationTowns.slice(0, 1);
+    const capitalTowns = nationTowns.filter((town) => town.kind === "capital");
     const capitalTerritoryIds = capitalTowns
       .map((town) => serverToEngineTerritoryId(Number(town.territoryId)))
       .filter(Number.isFinite);
@@ -3156,6 +3172,7 @@ export function GameApp({
     setMailUnreadCount(sync.mailUnreadCount);
     setShopCatalog(sync.shopCatalog);
     setShopInventory(sync.shopInventory);
+    setPurchasedProductIds(sync.purchasedProductIds || []);
     syncShopInventoryToEngine(sync.shopInventory, sync.nationState);
     setSyncVersion((current) => Math.max(current, sync.version));
   }
@@ -3468,13 +3485,23 @@ export function GameApp({
   };
   const activityTerritoryLabel = (id: number) => {
     const territory = worldActivity.territoryById[id];
+    return territoryLabel(id);
+  };
+  const townName = (id: number) => {
+    const territory = worldActivity.territoryById[id];
     const town = Object.values(serverTownsById).find(
       (item: any) => Number(item?.territoryId) === Number(id),
     ) as any;
-    const kind = town?.kind || territory?.settlementKind;
+    const rawKind = town?.kind || territory?.settlementKind;
+    const engineState = engineRef.current?.getState?.();
+    const isCapital = engineState?.capitalTerritoryIds?.has(id) || rawKind === "capital";
+    const isSubCapital = rawKind === "sub_capital";
+    const isHarbor = territory && (territory.isIslet || territory.specialResources?.includes("Bến tàu tự nhiên") || territory.connectionType === "sea");
+    const kind = isCapital ? "capital" : isSubCapital ? "sub_capital" : isHarbor ? "military_district" : "flag";
+
     if (kind === "capital") return `Hoàng Thành #${id + 1}`;
     if (kind === "sub_capital") return `Thành trì #${id + 1}`;
-    if (kind === "military" || kind === "military_district")
+    if (kind === "military_district")
       return `Pháo đài #${id + 1}`;
     return territoryLabel(id);
   };
@@ -4311,12 +4338,10 @@ export function GameApp({
                   alt="Chiến báo"
                   className="rok-badge-img"
                 />
-                {reportUnreadCount > 0 ? (
+                {reportUnreadCount > 0 && (
                   <b className="rok-badge-notif">
                     {Math.min(99, reportUnreadCount)}
                   </b>
-                ) : (
-                  <b className="rok-badge-notif">7</b>
                 )}
               </div>
               <span className="rok-badge-subtext">Chiến báo</span>
@@ -4334,12 +4359,10 @@ export function GameApp({
                   alt="Mail"
                   className="rok-badge-img"
                 />
-                {unreadMailCount > 0 ? (
+                {unreadMailCount > 0 && (
                   <b className="rok-badge-notif">
                     {Math.min(99, unreadMailCount)}
                   </b>
-                ) : (
-                  <b className="rok-badge-notif">5</b>
                 )}
               </div>
               <span className="rok-badge-subtext">Thư tín</span>
@@ -4357,7 +4380,15 @@ export function GameApp({
                   alt="Cửa hàng"
                   className="rok-badge-img"
                 />
-                <b className="rok-badge-notif">3</b>
+                {shopCatalog.filter(
+                  (product) => product.type === "resource_pack" && !purchasedProductIds.includes(product.id)
+                ).length > 0 && (
+                  <b className="rok-badge-notif">
+                    {shopCatalog.filter(
+                      (product) => product.type === "resource_pack" && !purchasedProductIds.includes(product.id)
+                    ).length}
+                  </b>
+                )}
               </div>
               <span className="rok-badge-subtext">Cửa hàng</span>
             </div>
@@ -4577,6 +4608,7 @@ export function GameApp({
 
       {activeModal === "tutorial" && (
         <NewbieOnboardingModal
+          architectureId={engineRef.current?.getState()?.newbieArchitectureId}
           onClose={() => {
             engineRef.current?.handleAction("setUiOverlayActive", {
               active: false,
@@ -4695,13 +4727,30 @@ export function GameApp({
               infantry * (config.infantryTroopsValue || 18) +
               cavalry * (config.cavalryTroopsValue || 34) +
               artillery * (config.artilleryTroopsValue || 58);
-            const route = engineRef.current?.getMarchRouteStatus?.(
-              deploySourceTown,
-              deployTarget.targetRegionId,
+            const selectedServerSource = marchSourceOptions?.find(
+              (option) =>
+                option.townId === deploySourceTown.id ||
+                option.territoryId === engineToServerTerritoryId(
+                  engineRef.current?.getTownRegionId?.(deploySourceTown) ?? -1,
+                ),
             );
-            if (route && !route.ok) {
-              showGameError(route.message);
-              return;
+            if (deployTarget.isAttack) {
+              if (!selectedServerSource?.valid) {
+                showGameError(
+                  selectedServerSource?.reason ||
+                    "Mục tiêu chưa giáp bất kỳ lãnh thổ nào của bạn",
+                );
+                return;
+              }
+            } else {
+              const route = engineRef.current?.getMarchRouteStatus?.(
+                deploySourceTown,
+                deployTarget.targetRegionId,
+              );
+              if (route && !route.ok) {
+                showGameError(route.message);
+                return;
+              }
             }
             const sourceRegionId =
               engineRef.current?.getTownRegionId?.(deploySourceTown);
@@ -4729,7 +4778,9 @@ export function GameApp({
                     : "reinforce";
                 const result = await createMarch(token, {
                   requestId: crypto.randomUUID(),
-                  fromTerritoryId: engineToServerTerritoryId(sourceRegionId),
+                  fromTerritoryId:
+                    selectedServerSource?.territoryId ??
+                    engineToServerTerritoryId(sourceRegionId),
                   toTerritoryId: engineToServerTerritoryId(
                     deployTarget.targetRegionId,
                   ),
@@ -4928,6 +4979,7 @@ export function GameApp({
           resources={resources}
           catalog={shopCatalog}
           inventory={shopInventory}
+          purchasedProductIds={purchasedProductIds}
           onResources={(next) => {
             applyResourceSnapshot({ resources: next });
             engineRef.current?.handleAction("syncResources", {
@@ -4937,6 +4989,9 @@ export function GameApp({
           onInventory={(inventory) => {
             setShopInventory(inventory);
             syncShopInventoryToEngine(inventory);
+          }}
+          onPurchaseCompleted={(productId) => {
+            setPurchasedProductIds((prev) => [...prev, productId]);
           }}
           onNotify={(message) => {
             addSystemLine(message.toUpperCase());

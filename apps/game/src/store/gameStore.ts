@@ -103,6 +103,7 @@ type GameStore = {
   mailUnreadCount: number;
   shopCatalog: ShopProduct[];
   shopInventory: ShopInventory;
+  purchasedProductIds: string[];
   syncVersion: number;
   towns: Array<TownSnapshot & { lvl?: number; owner?: number }>;
   townsById: Record<number, TownSnapshot & { lvl?: number; owner?: number }>;
@@ -119,6 +120,7 @@ type GameStore = {
   setMailUnreadCount: (next: Updater<number>) => void;
   setShopCatalog: (next: Updater<ShopProduct[]>) => void;
   setShopInventory: (next: Updater<ShopInventory>) => void;
+  setPurchasedProductIds: (next: Updater<string[]>) => void;
   setSyncVersion: (next: Updater<number>) => void;
   setTowns: (next: Updater<any[]>) => void;
   upsertTown: (town: any) => void;
@@ -141,6 +143,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   mailUnreadCount: 0,
   shopCatalog: [],
   shopInventory: { ownedSkins: [], equippedCapitalSkin: null, equippedDistrictSkin: null, version: 0 },
+  purchasedProductIds: [],
   syncVersion: 0,
   towns: [],
   townsById: {},
@@ -157,6 +160,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   setMailUnreadCount: (next) => set((state) => ({ mailUnreadCount: resolve(next, state.mailUnreadCount) })),
   setShopCatalog: (next) => set((state) => ({ shopCatalog: resolve(next, state.shopCatalog) })),
   setShopInventory: (next) => set((state) => ({ shopInventory: resolve(next, state.shopInventory) })),
+  setPurchasedProductIds: (next) => set((state) => ({ purchasedProductIds: resolve(next, state.purchasedProductIds) })),
   setSyncVersion: (next) => set((state) => ({ syncVersion: resolve(next, state.syncVersion) })),
   setTowns: (next) => set((state) => {
     const towns = resolve(next, state.towns).map(normalizeTownSnapshot);
@@ -200,6 +204,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     mailUnreadCount: 0,
     shopCatalog: [],
     shopInventory: { ownedSkins: [], equippedCapitalSkin: null, equippedDistrictSkin: null, version: 0 },
+    purchasedProductIds: [],
     syncVersion: 0,
     towns: [],
     townsById: {},

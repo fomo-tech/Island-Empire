@@ -291,6 +291,7 @@ export type PlayerSyncResult = {
   sent: PlayerMail[];
   shopCatalog: ShopProduct[];
   shopInventory: ShopInventory;
+  purchasedProductIds?: string[];
   version: number;
   serverTime: string;
   newbieWelcomeClaimed?: boolean;   // true nếu vừa được cấp gói chào mừng lần đầu
@@ -580,7 +581,7 @@ export type RealtimeEvent =
   | { type: "shop_inventory_updated"; inventory: ShopInventory; version: number; serverTime: string }
   | { type: "nation_state_updated"; state: NationStatusSnapshot; version: number; serverTime: string }
   | { type: "army_state_updated"; state: ArmyStateSnapshot; version: number; serverTime: string }
-  | { type: "player_eliminated"; playerId: string; reason: "all_towns_captured" }
+  | { type: "player_eliminated"; playerId: string; reason: "capital_captured" | "all_towns_captured" }
   | { type: "territories_pruned"; playerId: string; prunedTerritoryIds: number[] }
   | { type: "world_state_hint"; reason: "reconnect" | "server_resync" }
   | { type: "resync_required"; reason: "event_backlog" | "event_gap" };

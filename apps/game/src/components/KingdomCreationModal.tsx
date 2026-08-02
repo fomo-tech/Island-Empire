@@ -68,10 +68,10 @@ export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "V�
     <div className="founding-preview-label"><span>{stage === 3 ? "VƯƠNG QUỐC ĐÃ SẴN SÀNG" : "KIẾN TRÚC VƯƠNG QUỐC"}</span><b>{selectedArchitectureInfo.subtitle}</b></div>
     <div className={`founding-castle-scene architecture-${selectedArchitectureInfo.effect}`}>
       <div className="founding-castle-aura"/><div className="founding-castle-plinth"/>
-      <KingdomBuildingSprite className="founding-building-asset" architectureId={selectedArchitecture} buildingType={previewType} label={`${selectedArchitectureInfo.name} ${previewType}`}/>
+      <KingdomBuildingSprite className={`founding-building-asset building-${previewType}`} architectureId={selectedArchitecture} buildingType={previewType} label={`${selectedArchitectureInfo.name} ${previewType}`}/>
       <div className="founding-building-particles" aria-hidden="true"><i/><i/><i/><i/><i/></div>
       <div className="founding-building-tabs" role="tablist" aria-label="Loại công trình">
-        {(["capital", "fortress", "district"] as KingdomBuildingType[]).map((type) => <button key={type} type="button" role="tab" aria-selected={previewType === type} className={previewType === type ? "active" : ""} onClick={() => setPreviewType(type)}>{type === "capital" ? "Hoàng Thành" : type === "fortress" ? "Pháo Đài" : "Quân Khu"}</button>)}
+        {(["capital", "district", "flag"] as KingdomBuildingType[]).map((type) => <button key={type} type="button" role="tab" aria-selected={previewType === type} className={previewType === type ? "active" : ""} onClick={() => setPreviewType(type)}>{type === "capital" ? "Hoàng Thành" : type === "district" ? "Quân Khu" : "Cờ"}</button>)}
       </div>
     </div>
     <div className="founding-preview-info"><EmblemIcon id={selectedEmblem}/><div><small>VƯƠNG QUỐC</small><strong>{cityName.trim() || defaultCityName}</strong><span>{territoryName} · {selectedColorInfo.name}</span></div></div>

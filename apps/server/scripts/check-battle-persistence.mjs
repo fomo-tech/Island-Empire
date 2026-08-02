@@ -20,10 +20,24 @@ const requiredAppFragments = [
   "if (joinedBattle.modifiedCount !== 1)",
   "battle: toPublicBattle(persistedBattle)",
   "battles: battles.map(toPublicBattle)",
-  'connectionType === "sea" ? "military_district" : "flag"',
+  "function settlementKindForClaim",
+  "const capturedSettlementKind = settlementKindForClaim(territory, connectionType)",
+  "const settlementKind = settlementKindForClaim(territory, connectionType)",
+  "const claimKindRepairs = claims.flatMap",
   "function isTerritoryRootClaim",
   "const disconnectedIds = disconnectedClaims.map",
   "rootTerritoryForNewClaim(",
+  'parsed.data.kind === "attack" ||',
+  'parsed.data.kind !== "attack" &&',
+  'const capturedDefenderCapital =',
+  'normalizedClaimKind(defenderClaim) === "capital"',
+  'territoryClaims.deleteMany({ playerId: battle.defenderId })',
+  'onboardingState: "needs_claim"',
+  '? "capital_captured"',
+  "function nearestLandFrontierClaim",
+  "function resolvePlayerAttackRoute",
+  "const captureParentTerritoryId =",
+  "parentTerritoryId: captureParentTerritoryId",
 ];
 
 for (const fragment of requiredAppFragments) {
@@ -36,8 +50,19 @@ if (!collections.includes("activeBattles.createIndex({ marchId: 1 }, { unique: t
   throw new Error("Active battle chưa có unique index theo marchId");
 }
 
+if ((app.match(/resolvePlayerAttackRoute\(/g) || []).length < 3) {
+  throw new Error("Luật biên giới cấp vương quốc chưa áp dụng cho cả gợi ý nguồn và tạo hành quân");
+}
+
 for (const field of ["marchId?: string", "fromTerritoryId?: number", "toTerritoryId?: number"]) {
   if (!shared.includes(field)) throw new Error(`Shared ActiveBattle thiếu ${field}`);
+}
+
+if (app.includes('const capitalId = explicitCapital\n      ? explicitCapital.territoryId')) {
+  throw new Error("World payload vẫn tự biến lãnh thổ đầu tiên thành Hoàng Thành");
+}
+if (app.includes('claim.settlementKind === "capital" || claim.settlementKind === "sub_capital"')) {
+  throw new Error("Sub-capital cũ chưa được chuyển về Quân Khu hoặc trụ cờ");
 }
 
 console.log("Battle persistence contract: OK");

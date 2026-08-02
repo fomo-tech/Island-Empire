@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import { kingdomArchitectureMeta } from "../game/kingdomArchitecture";
+import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 
 interface NewbieOnboardingModalProps {
   onClose: () => void;
   onConfirm?: () => void;
+  architectureId?: string | null;
 }
 
 // Vector SVGs
@@ -201,11 +204,12 @@ const STEPS_DATA = [
   }
 ];
 
-export function NewbieOnboardingModal({ onClose, onConfirm }: NewbieOnboardingModalProps) {
+export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: NewbieOnboardingModalProps) {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const activeStep = STEPS_DATA[activeStepIndex];
+  const architecture = kingdomArchitectureMeta(architectureId);
 
   const handlePrevStep = () => {
     setActiveStepIndex((prev) => (prev > 0 ? prev - 1 : STEPS_DATA.length - 1));
@@ -282,7 +286,12 @@ export function NewbieOnboardingModal({ onClose, onConfirm }: NewbieOnboardingMo
           <div className="guide-detail-area">
             {/* Top Artwork Preview Box */}
             <div className="guide-artwork-box">
-              <img src="/tutorial_castle.png" alt="Tutorial Castle Preview" className="artwork-img" />
+              <div className="guide-nation-artwork" aria-label={`Bộ công trình ${architecture.name}`}>
+                <KingdomBuildingSprite architectureId={architecture.id} buildingType="capital" className="guide-capital-sprite" />
+                <KingdomBuildingSprite architectureId={architecture.id} buildingType="district" className="guide-district-sprite" />
+                <KingdomBuildingSprite architectureId={architecture.id} buildingType="flag" className="guide-flag-sprite" />
+                <strong>{architecture.name}</strong>
+              </div>
 
               {/* Top Left Floating Blue Crest Badge */}
               <div className="artwork-crest-badge">
