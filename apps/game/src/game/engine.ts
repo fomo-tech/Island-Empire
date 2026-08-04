@@ -52,6 +52,14 @@ import {
   MAP_UNITS_TO_KM,
   createGameConfig,
 } from "./engine/config";
+import {
+  BIOMES,
+  FACTIONS as factions,
+  NEUTRAL_LAND,
+  OWNER_BIOMES,
+} from "./engine/worldPalette";
+import { drawOcean as drawOceanLayer } from "./render/oceanRenderer";
+import type { RenderContext } from "./render/renderContext";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export function createIslandEmpireGame(
   canvas: HTMLCanvasElement,
@@ -257,187 +265,6 @@ export function createIslandEmpireGame(
   const ONBOARDING_KEY = "island_empire_onboarding_pending";
   const NEWBIE_DEFAULT_REGION = 0;
   const gameConfig = createGameConfig();
-
-  const BIOMES = [
-    {
-      id: "grass",
-      a: "#3b6939",
-      b: "#2d522b",
-      hi: "#528a50",
-      dark: "#1c381a",
-      edge: "#112610",
-      beach: "#d4b868",
-      cliffUpper: "#5e4a2b",
-      cliffMid: "#3d2e18",
-      cliffDeep: "#1f160b",
-    }, // 0: Imperial Emerald (Đại lục trung tâm - Xanh ngọc sẫm sang trọng)
-    {
-      id: "sand",
-      a: "#94763b",
-      b: "#7d6330",
-      hi: "#b5944c",
-      dark: "#594621",
-      edge: "#382c14",
-      beach: "#d8be75",
-      cliffUpper: "#63502b",
-      cliffMid: "#3e3118",
-      cliffDeep: "#1f180a",
-    }, // 1: Golden Amber (Sa mạc hoàng sha - Vàng hổ phách trầm)
-    {
-      id: "snow",
-      a: "#4a6b64",
-      b: "#3a5750",
-      hi: "#638a82",
-      dark: "#283e39",
-      edge: "#172925",
-      beach: "#8fb5ac",
-      cliffUpper: "#53615d",
-      cliffMid: "#36403d",
-      cliffDeep: "#1a211f",
-    }, // 2: Alpine Jade (Bắc băng sơn - Tinh vân ngọc bích)
-    {
-      id: "ember",
-      a: "#3d424a",
-      b: "#2c3038",
-      hi: "#555b66",
-      dark: "#1d2026",
-      edge: "#111317",
-      beach: "#7a7e8a",
-      cliffUpper: "#40382d",
-      cliffMid: "#26211a",
-      cliffDeep: "#120f0c",
-    }, // 3: Obsidian Basalt (Hỏa tiêu thổ - Đá núi lửa sẫm)
-    {
-      id: "jade",
-      a: "#285440",
-      b: "#1d4030",
-      hi: "#3b7359",
-      dark: "#122c20",
-      edge: "#0a1b13",
-      beach: "#77b093",
-      cliffUpper: "#3c5443",
-      cliffMid: "#25362a",
-      cliffDeep: "#111c15",
-    }, // 4: Deep Forest Jade (Huyền vũ - Rừng thẫm ngọc)
-    {
-      id: "clay",
-      a: "#466336",
-      b: "#364e29",
-      hi: "#5c8247",
-      dark: "#23361a",
-      edge: "#13210e",
-      beach: "#c2b46b",
-      cliffUpper: "#544e29",
-      cliffMid: "#363218",
-      cliffDeep: "#1c190a",
-    }, // 5: Olive Meadow (Hồng hoa - Thảo nguyên ô liu)
-    {
-      id: "pine",
-      a: "#2f5c3a",
-      b: "#21452a",
-      hi: "#427a50",
-      dark: "#132e1a",
-      edge: "#091c0e",
-      beach: "#85b08c",
-      cliffUpper: "#344523",
-      cliffMid: "#202d15",
-      cliffDeep: "#0d1408",
-    }, // 6: Royal Pine (Rừng thông hoàng gia)
-    {
-      id: "moss",
-      a: "#4a6933",
-      b: "#385225",
-      hi: "#628b45",
-      dark: "#223816",
-      edge: "#12240b",
-      beach: "#abbd64",
-      cliffUpper: "#4d542a",
-      cliffMid: "#303618",
-      cliffDeep: "#161a0a",
-    }, // 7: Highland Moss (Cao nguyên rêu)
-  ];
-
-  const OWNER_BIOMES = [
-    {
-      a: "#2f70d7",
-      b: "#265bb5",
-      hi: "#578ff7",
-      dark: "#193d8a",
-      edge: "#112b63",
-    }, // Blue (0)
-    {
-      a: "#d74635",
-      b: "#b83526",
-      hi: "#f76957",
-      dark: "#8a2419",
-      edge: "#631711",
-    }, // Red (1)
-    {
-      a: "#44a13d",
-      b: "#358a30",
-      hi: "#6be263",
-      dark: "#205c1c",
-      edge: "#154212",
-    }, // Green (2)
-    {
-      a: "#d89b21",
-      b: "#b88017",
-      hi: "#f9bc48",
-      dark: "#8a5e0f",
-      edge: "#634208",
-    }, // Gold (3)
-    {
-      a: "#529642",
-      b: "#3f7832",
-      hi: "#77be65",
-      dark: "#2a5921",
-      edge: "#1d4217",
-    }, // Forest Green (4)
-    {
-      a: "#ff9736",
-      b: "#d9751e",
-      hi: "#ffc385",
-      dark: "#9e4e0b",
-      edge: "#733704",
-    }, // Vibrant Orange (5)
-    {
-      a: "#48a88e",
-      b: "#3c8d76",
-      hi: "#6ecfb5",
-      dark: "#276855",
-      edge: "#1e5141",
-    }, // Teal (6)
-    {
-      a: "#8d95a1",
-      b: "#747c87",
-      hi: "#aeb6c2",
-      dark: "#4a515a",
-      edge: "#373c43",
-    }, // Gray (7)
-  ];
-
-  const NEUTRAL_LAND = {
-    a: "#9fa07f",
-    b: "#858d68",
-    hi: "#bcb995",
-    dark: "#667052",
-    edge: "#3f4b34",
-  };
-
-  const factions = [
-    { name: "PLAYER1", color: COLORS.blue, chat: "CÙNG NHAU CHIẾN THẮNG!" },
-    {
-      name: "PLAYER2",
-      color: COLORS.red,
-      chat: "TÔI ĐÃ CHIẾM ĐƯỢC THÀNH PHỐ A",
-    },
-    { name: "PLAYER3", color: COLORS.green, chat: "CẦN THĂM DÒ PHÍA BẮC." },
-    { name: "PLAYER4", color: COLORS.gold, chat: "TẤN CÔNG KẺ ĐỊCH!" },
-    { name: "PLAYER5", color: COLORS.purple, chat: "LIÊN MINH ĐANG TẬP KẾT." },
-    { name: "PLAYER6", color: COLORS.pink, chat: "ĐẢO HỒNG SẼ LÀ CỦA TA!" },
-    { name: "PLAYER7", color: COLORS.teal, chat: "HẢI QUÂN ĐANG TUẦN TRA." },
-    { name: "PLAYER8", color: COLORS.gray, chat: "KẺ ĐỊCH ĐANG ÁP SÁT!" },
-  ];
 
   const megaContinents = [
     {
@@ -2271,22 +2098,6 @@ export function createIslandEmpireGame(
       pxRect(x + 8, y + 8, w - 16, 38, "#162c39");
       text(title, x + 18, y + 17, 21, "#ffd34d");
     }
-  }
-
-  function drawOcean() {
-    // Layer 1: deep tactical sea base.
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#071825");
-    g.addColorStop(0.48, "#0a263b");
-    g.addColorStop(1, "#061521");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    const lightG = ctx.createRadialGradient(W / 2, H / 3, 50, W / 2, H / 3, W);
-    lightG.addColorStop(0, "rgba(56, 189, 248, 0.10)");
-    lightG.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = lightG;
-    ctx.fillRect(0, 0, W, H);
   }
 
   function drawWorldOceanTexture() {
@@ -12819,7 +12630,17 @@ export function createIslandEmpireGame(
       (state.activeBattles?.length || 0) * 6;
     crowdedRenderMode = renderEntityLoad > 180;
     ultraCrowdedRenderMode = renderEntityLoad > 420;
-    drawOcean();
+    const renderContext: RenderContext = {
+      ctx,
+      width: W,
+      height: H,
+      dpr,
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      tick: state.tick,
+    };
+    drawOceanLayer(renderContext);
     // drawRoutes(); // routes hidden
     ctx.save();
     ctx.translate(
@@ -13528,7 +13349,7 @@ export function createIslandEmpireGame(
   }
 
   function drawWorldFullDeprecated() {
-    drawOcean();
+    drawOceanLayer({ ctx, width: W, height: H });
     // drawRoutes(); // routes hidden
     ctx.save();
     ctx.translate(
