@@ -2013,6 +2013,24 @@ export function createIslandEmpireGame(
     return Math.max(minSize, Math.min(preferredSize, widthLimit, heightLimit));
   }
 
+  // Capital buildings use a visual scale shared by every mainland nation.
+  // Island territories are military districts and intentionally use their own
+  // smaller scale; neither size depends on the polygon area of the territory.
+  const MAINLAND_CAPITAL_RENDER_SIZE = 240;
+  const ISLET_DISTRICT_RENDER_SIZE = 170;
+
+  function standardTerritoryBuildingSize(
+    r: any,
+    buildingType: KingdomBuildingType,
+    isIslet = false,
+  ) {
+    if (buildingType === "capital") return MAINLAND_CAPITAL_RENDER_SIZE;
+    if (buildingType === "district" && isIslet) return ISLET_DISTRICT_RENDER_SIZE;
+    const preferredSize =
+      buildingType === "district" || buildingType === "fortress" ? 170 : 105;
+    return territoryBuildingSize(r, buildingType, preferredSize);
+  }
+
   function territoryBuildingAnchor(
     centerX: number,
     centerY: number,
@@ -8673,6 +8691,7 @@ export function createIslandEmpireGame(
         ? explicitRegionId
         : regionAtCoords(t.x, t.y);
     const castleLand = castleRegionId >= 0 ? landById(castleRegionId) : null;
+    const isIslet = Boolean(castleLand?.isIslet);
     const drawX = castleLand ? castleLand.x : t.x;
     const drawY = castleLand ? castleLand.y : t.y;
 
@@ -8728,10 +8747,11 @@ export function createIslandEmpireGame(
       regionId >= 0 && state.capitalTerritoryIds.has(regionId);
     const serverConfirmedCapitalTown = state.capitalTownIds.has(Number(t.id));
     const isCapitalSettlement =
-      serverConfirmedCapital ||
-      serverConfirmedCapitalTown ||
-      settlementKind === "capital";
-    const isSubCapital = settlementKind === "sub_capital";
+      !isIslet &&
+      (serverConfirmedCapital ||
+        serverConfirmedCapitalTown ||
+        settlementKind === "capital");
+    const isSubCapital = !isIslet && settlementKind === "sub_capital";
     const connectionType = regionId >= 0 ? state.regionConnectionTypes[regionId] : undefined;
     const castleSpecials = regionId >= 0 ? territorySpecialResources(regionId) : [];
     const castleIsMaritime = Boolean(
@@ -8739,7 +8759,8 @@ export function createIslandEmpireGame(
       castleLand?.isIslet ||
       castleSpecials.includes("Bến tàu tự nhiên"),
     );
-    const isMilitaryDistrict = !isCapitalSettlement && !isSubCapital && castleIsMaritime;
+    const isMilitaryDistrict =
+      isIslet || (!isCapitalSettlement && !isSubCapital && castleIsMaritime);
     const isTerritoryFlag = !isCapitalSettlement && !isSubCapital && !isMilitaryDistrict;
 
     let flagColor = owner.color || "#ef4444";
@@ -8790,11 +8811,11 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const size = isCapitalSettlement
-      ? 270
-      : isSubCapital || isMilitaryDistrict
-        ? 170
-        : 105;
+    const size = standardTerritoryBuildingSize(
+      castleLand || {},
+      buildingType,
+      isIslet,
+    );
     const buildingAnchor = territoryBuildingAnchor(
       drawX,
       drawY,
@@ -11060,15 +11081,15 @@ export function createIslandEmpireGame(
         : state.regionOwnerArchitectureIds[regionId]
           ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[regionId])
           : "vietnam";
-      const constructionType: KingdomBuildingType = timing?.isStarterClaim
+      const constructionType: KingdomBuildingType = timing?.isStarterClaim && !r.isIslet
         ? "capital"
-        : timing?.connectionType === "sea"
+        : r.isIslet || timing?.connectionType === "sea"
           ? "district"
           : "flag";
       const constructionSize = constructionType === "capital"
-        ? 190
+        ? MAINLAND_CAPITAL_RENDER_SIZE
         : constructionType === "district"
-          ? 158
+          ? (r.isIslet ? ISLET_DISTRICT_RENDER_SIZE : 158)
           : 118;
       ctx.save();
       ctx.globalAlpha = 0.42 + buildP * 0.58;
@@ -11634,22 +11655,21 @@ export function createIslandEmpireGame(
       (town: any) =>
         town.regionId === regionId || town.territoryId === regionId,
     );
+    const isIslet = Boolean(r.isIslet);
     const serverConfirmedCapital =
       state.capitalTerritoryIds.has(regionId) ||
       (playerTown && state.capitalTownIds.has(Number(playerTown.id)));
     const isCapital =
-      serverConfirmedCapital ||
-      settlementKind === "capital";
-    const isSubCapital = settlementKind === "sub_capital";
+      !isIslet && (serverConfirmedCapital || settlementKind === "capital");
+    const isSubCapital = !isIslet && settlementKind === "sub_capital";
 
     // Resolve dynamic harbor state: islets or regions containing "Bến tàu tự nhiên" special resource, or sea connection
-    const isIslet = r?.isIslet || false;
     const specials = territorySpecialResources(regionId);
     const hasNaturalHarbor = specials.includes("Bến tàu tự nhiên");
     const connectionType = state.regionConnectionTypes[regionId];
     const isHarbor = isIslet || hasNaturalHarbor || connectionType === "sea";
 
-    const isMilitaryDistrict = !isCapital && !isSubCapital && isHarbor;
+    const isMilitaryDistrict = isIslet || (!isCapital && !isSubCapital && isHarbor);
     const rawEmblem =
       ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
     const emblem = resolveCastleEmblem(ownerName, regionId, rawEmblem);
@@ -11683,15 +11703,10 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const preferredCastleSize = isCapital
-      ? 270
-      : isSubCapital || isMilitaryDistrict
-        ? 170
-        : 105;
-    const castleSize = territoryBuildingSize(
+    const castleSize = standardTerritoryBuildingSize(
       r,
       buildingType,
-      preferredCastleSize,
+      isIslet,
     );
     const buildingAnchor = territoryBuildingAnchor(
       x,
