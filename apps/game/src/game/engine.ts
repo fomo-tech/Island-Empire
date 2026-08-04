@@ -76,6 +76,23 @@ import {
   subdividePolygon,
   warpPoint,
 } from "./engine/worldGeometry";
+import {
+  clearingDuration as clearingDurationSelector,
+  defaultBuildings as defaultBuildingsSelector,
+  defaultStorage as defaultStorageSelector,
+  maxDefendingTroops as maxDefendingTroopsSelector,
+  normalizeTown as normalizeTownSelector,
+  resourceCostText as resourceCostTextSelector,
+  territoryAreaFactor as territoryAreaFactorSelector,
+  territoryBuildCost as territoryBuildCostSelector,
+  territoryStartingPopulation as territoryStartingPopulationSelector,
+  territoryYield as territoryYieldSelector,
+  townPopulationCap as townPopulationCapSelector,
+  townPopulationGrowthPerSecond as townPopulationGrowthPerSecondSelector,
+  troopPopulationCost as troopPopulationCostSelector,
+  unitExtraCosts as unitExtraCostsSelector,
+  type SelectorDeps,
+} from "./engine/stateSelectors";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export function createIslandEmpireGame(
   canvas: HTMLCanvasElement,
@@ -1000,235 +1017,64 @@ export function createIslandEmpireGame(
     state.toast = "TÂN THỦ: CHỌN MẢNH ĐẤT HOANG ĐỂ XÂY THÀNH";
   }
 
-  // Biome resource yield rates per second (per owned territory)
-  const BIOME_YIELDS = [
-    {
-      gold: 0.003,
-      wood: 0.01,
-      stone: 0.006,
-      food: 0.03,
-      iron: 0.0015,
-      coal: 0.0008,
-      sulfur: 0.0004,
-      gems: 0.0002,
-    },
-    {
-      gold: 0.018,
-      wood: 0.001,
-      stone: 0.012,
-      food: 0.003,
-      iron: 0.003,
-      coal: 0.001,
-      sulfur: 0.001,
-      gems: 0.004,
-    },
-    {
-      gold: 0.002,
-      wood: 0.003,
-      stone: 0.02,
-      food: 0.003,
-      iron: 0.016,
-      coal: 0.008,
-      sulfur: 0.001,
-      gems: 0.002,
-    },
-    {
-      gold: 0.004,
-      wood: 0.001,
-      stone: 0.018,
-      food: 0.001,
-      iron: 0.02,
-      coal: 0.018,
-      sulfur: 0.014,
-      gems: 0.002,
-    },
-    {
-      gold: 0.005,
-      wood: 0.003,
-      stone: 0.01,
-      food: 0.003,
-      iron: 0.005,
-      coal: 0.001,
-      sulfur: 0.002,
-      gems: 0.014,
-    },
-    {
-      gold: 0.01,
-      wood: 0.008,
-      stone: 0.004,
-      food: 0.022,
-      iron: 0.002,
-      coal: 0.001,
-      sulfur: 0.0005,
-      gems: 0.002,
-    },
-    {
-      gold: 0.002,
-      wood: 0.026,
-      stone: 0.012,
-      food: 0.01,
-      iron: 0.004,
-      coal: 0.003,
-      sulfur: 0.0005,
-      gems: 0.0005,
-    },
-    {
-      gold: 0.003,
-      wood: 0.016,
-      stone: 0.003,
-      food: 0.018,
-      iron: 0.002,
-      coal: 0.006,
-      sulfur: 0.004,
-      gems: 0.001,
-    },
-  ];
+  const selectorDeps: SelectorDeps = {
+    getRegion: landById,
+    getSpecialResources: territorySpecialResources,
+    getRegionAtCoords: regionAtCoords,
+    gameConfig,
+  };
 
+  // Keep the engine-facing adapters stable while the pure selectors live in
+  // their own module. Mutating game actions below can continue using the same
+  // local names without coupling to selector implementation details.
   function territoryAreaFactor(regionOrId: any) {
-    const r =
-      typeof regionOrId === "number" ? landById(regionOrId) : regionOrId;
-    if (!r) return 1;
-    const rx = r.rx || r.r || 100;
-    const ry = r.ry || (r.r || 100) * 0.78;
-    return Math.max(0.35, Math.min(6, (rx * ry) / 10000));
+    return territoryAreaFactorSelector(regionOrId, landById);
   }
 
   function territoryYield(regionId: number) {
-    const r = landById(regionId);
-    const y = BIOME_YIELDS[r?.biome ?? 0] || BIOME_YIELDS[0];
-    const areaFactor = territoryAreaFactor(r);
-    const isIslet = Boolean(r?.isIslet);
-    const quality = 0.8 + hash((regionId + 1) * 51.715) * 0.4;
-    const hasGemMine = territorySpecialResources(regionId).includes("Mỏ Ngọc");
-    const mult = {
-      gold: isIslet ? 1.15 : 1,
-      wood: isIslet ? 0.3 : 1,
-      stone: isIslet ? 0.5 : 1,
-      food: isIslet ? 0.45 : 1,
-    };
-    return {
-      gold: y.gold * areaFactor * mult.gold * quality,
-      wood: y.wood * areaFactor * mult.wood * quality,
-      stone: y.stone * areaFactor * mult.stone * quality,
-      food: y.food * areaFactor * mult.food * quality,
-      gems: hasGemMine ? Math.max(0.004, y.gems * areaFactor * quality) : 0,
-    };
+    return territoryYieldSelector(regionId, selectorDeps);
   }
 
   function territoryStartingPopulation(regionId: number, ownerCode = 1) {
-    const r = landById(regionId);
-    if (!r) return ownerCode === 1 ? 32 : 64;
-    const biomePopMult =
-      [1.25, 0.65, 0.55, 0.45, 0.8, 1.35, 0.95, 0.75][r.biome ?? 0] || 1;
-    const isletPenalty = r?.isIslet ? 0.55 : 1;
-    const base = ownerCode === 1 ? 24 : 48;
-    return Math.max(
-      80,
-      Math.round(
-        base + territoryAreaFactor(r) * 28 * biomePopMult * isletPenalty,
-      ),
-    );
+    return territoryStartingPopulationSelector(regionId, ownerCode, landById);
   }
 
   function clearingDuration(rOrId?: any) {
-    const r = typeof rOrId === "number" ? landById(rOrId) : rOrId;
-    if (!r) return 45;
-    const rx = r.rx || r.r || 100;
-    const ry = r.ry || (r.r || 100) * 0.78;
-    const biomeMult =
-      [1.0, 1.25, 1.55, 1.75, 1.45, 1.1, 1.25, 1.65][r.biome ?? 0] || 1;
-    return Math.max(
-      15,
-      Math.min(600, Math.round(((rx * ry) / 650) * 1.8 * biomeMult)),
-    );
+    return clearingDurationSelector(rOrId, landById);
   }
 
   function defaultBuildings() {
-    return {
-      barracks: 0,
-      lumberCamp: 0,
-      quarry: 0,
-      goldMine: 0,
-      gemCutter: 0,
-      fort: 0,
-      siegeWorkshop: 0,
-      warehouse: 0,
-    };
+    return defaultBuildingsSelector();
   }
 
   function defaultStorage() {
-    return {
-      gold: 0,
-      wood: 0,
-      stone: 0,
-      food: 0,
-      iron: 0,
-      coal: 0,
-      sulfur: 0,
-      gems: 0,
-    };
+    return defaultStorageSelector();
   }
 
   const SETTLER_POPULATION_COST = 4;
+
   function unitExtraCosts() {
-    return {
-      infantry: { food: gameConfig.infantryCostFood },
-      cavalry: {
-        food: gameConfig.cavalryCostFood,
-        iron: gameConfig.cavalryCostIron,
-      },
-      artillery: {
-        iron: gameConfig.artilleryCostIron,
-        sulfur: gameConfig.artilleryCostSulfur,
-      },
-    };
+    return unitExtraCostsSelector(gameConfig);
   }
 
   function normalizeTown(town: any) {
-    if (!town) return town;
-    town.buildings = { ...defaultBuildings(), ...(town.buildings || {}) };
-    town.storage = { ...defaultStorage(), ...(town.storage || {}) };
-    town.population = Math.max(0, Number(town.population ?? 32) || 0);
-    town.infantryCount = Math.max(
-      0,
-      Math.floor(Number(town.infantryCount ?? town.troops ?? 0) || 0),
-    );
-    town.cavalryCount = Math.max(
-      0,
-      Math.floor(Number(town.cavalryCount ?? 0) || 0),
-    );
-    town.artilleryCount = Math.max(
-      0,
-      Math.floor(Number(town.artilleryCount ?? 0) || 0),
-    );
-    return town;
+    return normalizeTownSelector(town);
   }
 
   function townPopulationCap(town: any) {
-    normalizeTown(town);
-    const lvl = town?.lvl || 1;
-    const fort = town?.buildings?.fort || 0;
-    const warehouse = town?.buildings?.warehouse || 0;
-    const regionId = town ? regionAtCoords(town.x, town.y) : -1;
-    const areaBonus =
-      regionId >= 0 ? Math.round(territoryAreaFactor(regionId) * 18) : 0;
-    return 64 + lvl * 36 + fort * 24 + warehouse * 8 + areaBonus;
+    return townPopulationCapSelector(town, selectorDeps);
   }
 
   function townPopulationGrowthPerSecond(town: any) {
-    normalizeTown(town);
-    const lvl = town?.lvl || 1;
-    const fort = town?.buildings?.fort || 0;
-    return 1 / 120 + Math.max(0, lvl - 1) * (1 / 160) + fort * (1 / 240);
+    return townPopulationGrowthPerSecondSelector(town);
   }
 
   function troopPopulationCost(troopValue: number) {
-    return Math.max(1, Math.ceil((troopValue || 0) / 5));
+    return troopPopulationCostSelector(troopValue);
   }
 
   function maxDefendingTroops(town: any) {
-    normalizeTown(town);
-    return Math.max(10, Math.floor((town.population || 0) * 10));
+    return maxDefendingTroopsSelector(town);
   }
 
   function refundSettlerPopulationForRegion(regionId: number) {
@@ -1394,35 +1240,11 @@ export function createIslandEmpireGame(
   }
 
   function territoryBuildCost(regionId: number) {
-    const r = landById(regionId);
-    if (!r) return { gold: 0, wood: 0, stone: 0, food: 0 };
-    const rx = r.rx || r.r || 100;
-    const ry = r.ry || (r.r || 100) * 0.78;
-    const areaFactor = Math.max(0.85, (rx * ry) / 10000);
-    const y = territoryYield(regionId);
-    return {
-      gold: Math.round(180 + areaFactor * 32 + y.gold * 92),
-      wood: Math.round(130 + areaFactor * 28 + y.wood * 66),
-      stone: Math.round(125 + areaFactor * 34 + y.stone * 82),
-      food: Math.round(80 + areaFactor * 18 + y.food * 42),
-    };
+    return territoryBuildCostSelector(regionId, selectorDeps);
   }
 
   function resourceCostText(cost: Record<string, number>) {
-    const labels = {
-      gold: "VÀNG",
-      wood: "GỖ",
-      stone: "ĐÁ",
-      food: "LƯƠNG",
-      gems: "KIM CƯƠNG",
-    };
-    return Object.entries(cost)
-      .filter(([, amount]) => Math.floor(amount || 0) > 0)
-      .map(
-        ([key, amount]) =>
-          `${Math.floor(amount)} ${labels[key] || key.toUpperCase()}`,
-      )
-      .join(" · ");
+    return resourceCostTextSelector(cost);
   }
 
   function territorySpecialResources(regionId: number) {
