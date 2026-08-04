@@ -288,7 +288,10 @@ function enforceActionLimit(req, res, action, limit, windowMs) {
   return false;
 }
 const usedAntiBotChallenges = new Map();
-const ANTI_BOT_DIFFICULTY = 3;
+// LAN development runs over plain HTTP, where browser SubtleCrypto is not
+// exposed for non-secure IP origins. Keep the challenge enabled in production
+// but use a zero-work nonce check for the local development server.
+const ANTI_BOT_DIFFICULTY = config.NODE_ENV === "development" ? 0 : 3;
 const ANTI_BOT_TTL_MS = 2 * 60_000;
 function antiBotIp(req) {
   return String(req.ip || req.socket?.remoteAddress || "unknown");
@@ -337,7 +340,7 @@ function verifyAntiBotProof(req, proof) {
     return false;
   if (usedAntiBotChallenges.has(proof.challengeToken)) return false;
   const prefix = "0".repeat(
-    Math.max(1, Math.min(6, Math.floor(challenge.difficulty || 0))),
+    Math.max(0, Math.min(6, Math.floor(challenge.difficulty || 0))),
   );
   const digest = createHash("sha256")
     .update(`${challenge.nonce}:${proof.proof}`)
@@ -760,7 +763,10 @@ function resolvePlayerAttackRoute(claims, source, target) {
 }
 function isTerritoryRootClaim(claim: any) {
   const kind = normalizedClaimKind(claim);
-  return kind === "capital" || kind === "sub_capital" || kind === "military_district";
+  // Only an actual capital is a connectivity root.  A military district is
+  // deliberately *not* a root: it represents an overseas/disconnected claim
+  // and must not make every child territory appear connected to the flag.
+  return kind === "capital" || kind === "sub_capital";
 }
 function settlementKindForClaim(
   territory: any,
@@ -768,11 +774,10 @@ function settlementKindForClaim(
   isStarterClaim = false,
 ) {
   if (isStarterClaim) return "capital";
-  const hasNaturalHarbor = Boolean(
-    territory?.isIslet ||
-    territory?.specialResources?.includes("Bến tàu tự nhiên"),
-  );
-  return connectionType === "sea" || hasNaturalHarbor
+  // A coastal territory reached by land is part of the continuous kingdom and
+  // keeps the national flag. Only a genuine sea route creates a military
+  // district; coastal resources alone must never change this classification.
+  return connectionType === "sea"
     ? "military_district"
     : "flag";
 }
@@ -1299,6 +1304,7 @@ function toPublicMarch(order) {
     id: order._id || order.id,
     ownerId: order.ownerId,
     fromTerritoryId: normalizeWorldTerritoryId(order.fromTerritoryId),
+    sourceTownId: order.sourceTownId ?? townIdForTerritory(normalizeWorldTerritoryId(order.fromTerritoryId)),
     toTerritoryId: normalizeWorldTerritoryId(order.toTerritoryId),
     troops: order.troops,
     infantry: order.infantry ?? 0,
@@ -1314,6 +1320,7 @@ function toPublicMarch(order) {
     usesShip: order.usesShip ?? false,
     battleSide: order.battleSide,
     kind: order.kind ?? "attack",
+    status: "marching" as const,
     startedAt: startedAtDate.toISOString(),
     arrivesAt: arrivesAtDate.toISOString(),
   };
@@ -1384,6 +1391,62 @@ function advanceBattleHealth(battle, now = new Date()) {
     battleVersion: Math.max(1, Math.floor(Number(battle.battleVersion || 1))),
   };
 }
+function battleParticipants(battle, health = advanceBattleHealth(battle, new Date())) {
+  const rawParticipants = Array.isArray(battle.participants)
+    ? battle.participants
+    : Array.isArray(battle.attackerSources)
+      ? battle.attackerSources.map((source) => ({
+          id: source.id || `participant:${source.marchId}`,
+          marchId: source.marchId,
+          playerId: source.ownerId,
+          sourceTerritoryId: source.fromTerritoryId,
+          sourceTownId: source.sourceTownId ?? townIdForTerritory(source.fromTerritoryId),
+          infantry: source.infantry,
+          cavalry: source.cavalry,
+          artillery: source.artillery,
+          troops: source.troops,
+          power: source.power,
+          maxHp: source.maxHp ?? source.power,
+          status: source.status || "engaged",
+          departedAt: source.departedAt || battle.startedAt,
+          arrivesAt: source.arrivesAt || battle.startedAt,
+          engagedAt: source.engagedAt || battle.startedAt,
+        }))
+      : [];
+  const attackerRatio = Math.max(
+    0,
+    Math.min(1, Number(health.attackerCurrentHp || 0) / Math.max(1, Number(health.attackerMaxHp || 1))),
+  );
+  return rawParticipants.map((participant) => {
+    const maxHp = Math.max(1, Number(participant.maxHp ?? participant.power ?? 1));
+    const currentHp = participant.status === "engaged"
+      ? Math.max(0, Math.round(maxHp * attackerRatio))
+      : Math.max(0, Number(participant.currentHp ?? maxHp));
+    return {
+      id: participant.id || `participant:${participant.marchId}`,
+      marchId: participant.marchId,
+      playerId: participant.playerId || participant.ownerId,
+      sourceTerritoryId: Number(participant.sourceTerritoryId ?? participant.fromTerritoryId),
+      sourceTownId: Number(
+        participant.sourceTownId ??
+          townIdForTerritory(Number(participant.sourceTerritoryId ?? participant.fromTerritoryId)),
+      ),
+      infantry: Math.max(0, Number(participant.infantry || 0)),
+      cavalry: Math.max(0, Number(participant.cavalry || 0)),
+      artillery: Math.max(0, Number(participant.artillery || 0)),
+      troops: Math.max(0, Number(participant.troops || 0)),
+      power: Math.max(0, Number(participant.power || 0)),
+      maxHp,
+      currentHp,
+      status: currentHp <= 0 ? "defeated" : (participant.status || "engaged"),
+      departedAt: new Date(participant.departedAt || battle.startedAt).toISOString(),
+      arrivesAt: new Date(participant.arrivesAt || participant.engagedAt || battle.startedAt).toISOString(),
+      engagedAt: participant.engagedAt
+        ? new Date(participant.engagedAt).toISOString()
+        : new Date(battle.startedAt).toISOString(),
+    };
+  });
+}
 function toPublicBattle(battle) {
   const startedAtDate =
     battle.startedAt instanceof Date
@@ -1426,6 +1489,19 @@ function toPublicBattle(battle) {
     defenderCurrentHp: health.defenderCurrentHp,
     hpUpdatedAt: health.hpUpdatedAt.toISOString(),
     battleVersion: health.battleVersion,
+    participants: battleParticipants(battle, health),
+    attackerSources: Array.isArray(battle.attackerSources)
+      ? battle.attackerSources.map((source) => ({
+          marchId: source.marchId,
+          ownerId: source.ownerId,
+          fromTerritoryId: source.fromTerritoryId,
+          infantry: Number(source.infantry || 0),
+          cavalry: Number(source.cavalry || 0),
+          artillery: Number(source.artillery || 0),
+          troops: Number(source.troops || 0),
+          power: Number(source.power || 0),
+        }))
+      : [],
   };
 }
 function nationRankForPower(power) {
@@ -1467,7 +1543,7 @@ async function buildNationStatusSnapshot(
     context.battles !== undefined
       ? context.battles
       : activeBattles
-          .find({ $or: [{ attackerId: playerId }, { defenderId: playerId }] })
+          .find({ $or: [{ attackerId: playerId }, { defenderId: playerId }, { "participants.playerId": playerId }] })
           .toArray(),
   ]);
   const normalizedResources = normalizeResources(resources);
@@ -2004,13 +2080,13 @@ async function buildWorldTerritoriesPayload() {
   const capitalSkinByOwner = new Map(
     ownerDocs.map((player: any) => [
       player._id,
-      player.shopInventory?.equippedCapitalSkin,
+      normalizeShopInventory(player.shopInventory, player).equippedCapitalSkin,
     ]) as any,
   );
   const districtSkinByOwner = new Map(
     ownerDocs.map((player: any) => [
       player._id,
-      player.shopInventory?.equippedDistrictSkin,
+      normalizeShopInventory(player.shopInventory, player).equippedDistrictSkin,
     ]) as any,
   );
   const allianceByOwner = new Map();
@@ -2029,7 +2105,15 @@ async function buildWorldTerritoriesPayload() {
     if (ownerId) {
       if (capitalTerritoryByOwner.get(ownerId) === territory.id) {
         computedKind = "capital";
-      } else computedKind = normalizedClaimKind(claim);
+      } else {
+        // Display state is derived from the actual claim chain. A coastal
+        // territory remains a flag when land-connected; only a disconnected
+        // claim (typically reached by sea) is a military district.
+        const ownerClaims = claims.filter((candidate) => candidate.playerId === ownerId);
+        computedKind = isClaimConnectedToCapital(ownerClaims, territory.id)
+          ? "flag"
+          : "military_district";
+      }
     }
     return {
       ...territory,
@@ -2334,7 +2418,11 @@ async function buildGameStatePayload(playerId) {
     );
     const playerBattles = battles.filter(
       (battle) =>
-        battle.attackerId === playerId || battle.defenderId === playerId,
+        battle.attackerId === playerId ||
+        battle.defenderId === playerId ||
+        (Array.isArray(battle.participants) && battle.participants.some(
+          (participant) => participant.playerId === playerId,
+        )),
     );
     const nationStatus = await buildNationStatusSnapshot(
       playerId,
@@ -2481,15 +2569,26 @@ async function loadGameConfig() {
   return cachedGameConfig;
 }
 const NEWBIE_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày tính bằng ms
-const NEWBIE_WELCOME_SKIN_ID = "skin_long_bao_thanh"; // skin tặng cho tân thủ
 const NEWBIE_RESOURCE_PRICE_GEMS = 1; // giá tân thủ tuần đầu
+const NEWBIE_WELCOME_GEMS = 100;
+
+function newbieWeekEndsAt(player: { createdAt?: Date | null }) {
+  if (!player?.createdAt) return null;
+  const createdAt = new Date(player.createdAt).getTime();
+  if (!Number.isFinite(createdAt)) return null;
+  return new Date(createdAt + NEWBIE_WEEK_MS);
+}
 
 function isNewbieWeek(player: { createdAt?: Date | null }): boolean {
   if (!player?.createdAt) return false;
-  return Date.now() - new Date(player.createdAt).getTime() < NEWBIE_WEEK_MS;
+  const endsAt = newbieWeekEndsAt(player);
+  return Boolean(endsAt && Date.now() < endsAt.getTime());
 }
 
-function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProduct[] {
+function shopCatalog(gameConfig, player?: {
+  createdAt?: Date | null;
+  newbieSkinClaimedAt?: Date | null;
+}): ShopProduct[] {
   const testPrice =
     config.SHOP_TEST_MODE && config.NODE_ENV !== "production" ? 1 : null;
   const packAmount = Math.max(
@@ -2497,9 +2596,8 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProd
     Math.min(1500, Math.floor(gameConfig.shopResourcePackAmount || 500)),
   );
   const newbieWeek = player ? isNewbieWeek(player) : false;
-  const newbiePriceExpiresAt = newbieWeek && player?.createdAt
-    ? new Date(new Date(player.createdAt).getTime() + NEWBIE_WEEK_MS).toISOString()
-    : undefined;
+  const newbiePriceExpiresAt = newbieWeekEndsAt(player || {})?.toISOString();
+  const newbieSkinFree = newbieWeek && !player?.newbieSkinClaimedAt;
 
   return [
     {
@@ -2545,6 +2643,10 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProd
       testPrice: testPrice !== null,
       skinId: "skin_long_bao_thanh",
       skinTarget: "capital",
+      ...(newbieSkinFree && {
+        isNewbieFree: true,
+        newbieFreeExpiresAt: newbiePriceExpiresAt,
+      }),
     },
     {
       id: "skin_hoa_long_dien",
@@ -2555,6 +2657,10 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProd
       testPrice: testPrice !== null,
       skinId: "skin_hoa_long_dien",
       skinTarget: "capital",
+      ...(newbieSkinFree && {
+        isNewbieFree: true,
+        newbieFreeExpiresAt: newbiePriceExpiresAt,
+      }),
     },
     {
       id: "skin_phong_long_cac",
@@ -2565,24 +2671,56 @@ function shopCatalog(gameConfig, player?: { createdAt?: Date | null }): ShopProd
       testPrice: testPrice !== null,
       skinId: "skin_phong_long_cac",
       skinTarget: "capital",
+      ...(newbieSkinFree && {
+        isNewbieFree: true,
+        newbieFreeExpiresAt: newbiePriceExpiresAt,
+      }),
     },
   ];
 }
-function normalizeShopInventory(value, player?: { newbieSkinExpiresAt?: Date | null }) {
+function normalizeShopInventory(value, player?: {
+  newbieSkinExpiresAt?: Date | null;
+  newbieSkinId?: string | null;
+  newbieSkinClaimedAt?: Date | null;
+  newbieFreeProductIds?: string[];
+}) {
+  const expiresAt = player?.newbieSkinExpiresAt
+    ? new Date(player.newbieSkinExpiresAt)
+    : null;
+  const temporarySkinId = player?.newbieSkinId || null;
+  const temporarySkinActive = Boolean(
+    temporarySkinId && expiresAt && expiresAt.getTime() > Date.now(),
+  );
+  const ownedSkins = [
+    ...new Set(
+      Array.isArray(value?.ownedSkins)
+        ? value.ownedSkins.filter(Boolean)
+        : [],
+    ),
+  ].filter((skinId) => temporarySkinActive || skinId !== temporarySkinId);
+  const equippedCapitalSkin =
+    value?.equippedCapitalSkin &&
+    (temporarySkinActive || value.equippedCapitalSkin !== temporarySkinId)
+      ? value.equippedCapitalSkin
+      : null;
+  const equippedDistrictSkin =
+    value?.equippedDistrictSkin &&
+    (temporarySkinActive || value.equippedDistrictSkin !== temporarySkinId)
+      ? value.equippedDistrictSkin
+      : null;
   return {
-    ownedSkins: [
-      ...new Set(
-        Array.isArray(value?.ownedSkins)
-          ? value.ownedSkins.filter(Boolean)
-          : [],
-      ),
-    ],
-    equippedCapitalSkin: value?.equippedCapitalSkin || null,
-    equippedDistrictSkin: value?.equippedDistrictSkin || null,
+    ownedSkins,
+    equippedCapitalSkin,
+    equippedDistrictSkin,
     version: Math.max(0, Math.floor(Number(value?.version) || 0)),
-    newbieSkinExpiresAt: player?.newbieSkinExpiresAt
-      ? new Date(player.newbieSkinExpiresAt).toISOString()
+    newbieSkinExpiresAt: temporarySkinActive ? expiresAt!.toISOString() : null,
+    newbieSkinId: temporarySkinActive ? temporarySkinId : null,
+    newbieSkinClaimedAt: player?.newbieSkinClaimedAt
+      ? new Date(player.newbieSkinClaimedAt).toISOString()
       : null,
+    newbieFreeProductIds: Array.isArray(player?.newbieFreeProductIds)
+      ? [...new Set(player!.newbieFreeProductIds.filter(Boolean))]
+      : [],
   };
 }
 function toPublicMail(mail) {
@@ -2774,10 +2912,14 @@ async function processArrivedMarches(now = new Date()) {
             territory.id,
           ),
           connectionType,
-          equippedCapitalSkin:
-            attackerPlayer?.shopInventory?.equippedCapitalSkin ?? null,
-          equippedDistrictSkin:
-            attackerPlayer?.shopInventory?.equippedDistrictSkin ?? null,
+          equippedCapitalSkin: normalizeShopInventory(
+            attackerPlayer?.shopInventory,
+            attackerPlayer ?? undefined,
+          ).equippedCapitalSkin,
+          equippedDistrictSkin: normalizeShopInventory(
+            attackerPlayer?.shopInventory,
+            attackerPlayer ?? undefined,
+          ).equippedDistrictSkin,
         };
         publishRealtime({
           type: "territory_claimed",
@@ -2911,6 +3053,53 @@ async function processArrivedMarches(now = new Date()) {
       const currentHealth = advanceBattleHealth(existingBattle, now);
       Object.assign(existingBattle, currentHealth);
       if (isAttackerSide) {
+        const participants = Array.isArray(existingBattle.participants)
+          ? [...existingBattle.participants]
+          : battleParticipants(existingBattle, currentHealth);
+        participants.push({
+          id: `participant:${march._id}`,
+          marchId: march._id,
+          playerId: march.ownerId,
+          sourceTerritoryId: march.fromTerritoryId,
+          sourceTownId: march.sourceTownId || townIdForTerritory(march.fromTerritoryId),
+          infantry: marchInfantry,
+          cavalry: marchCavalry,
+          artillery: marchArtillery,
+          troops: marchInfantry + marchCavalry + marchArtillery,
+          power: addedPower,
+          maxHp: Math.max(1, addedPower),
+          currentHp: Math.max(1, addedPower),
+          status: "engaged" as const,
+          departedAt: new Date(march.startedAt).toISOString(),
+          arrivesAt: new Date(march.arrivesAt).toISOString(),
+          engagedAt: now.toISOString(),
+        });
+        existingBattle.participants = participants;
+        const attackerSources = Array.isArray(existingBattle.attackerSources)
+          ? existingBattle.attackerSources
+          : existingBattle.marchId
+            ? [{
+                marchId: existingBattle.marchId,
+                ownerId: existingBattle.attackerId,
+                fromTerritoryId: existingBattle.fromTerritoryId,
+                infantry: existingBattle.attackerInfantry || 0,
+                cavalry: existingBattle.attackerCavalry || 0,
+                artillery: existingBattle.attackerArtillery || 0,
+                troops: (existingBattle.attackerInfantry || 0) + (existingBattle.attackerCavalry || 0) + (existingBattle.attackerArtillery || 0),
+                power: existingBattle.attackerPower || 0,
+              }]
+            : [];
+        attackerSources.push({
+          marchId: march._id,
+          ownerId: march.ownerId,
+          fromTerritoryId: march.fromTerritoryId,
+          infantry: marchInfantry,
+          cavalry: marchCavalry,
+          artillery: marchArtillery,
+          troops: marchInfantry + marchCavalry + marchArtillery,
+          power: addedPower,
+        });
+        existingBattle.attackerSources = attackerSources;
         existingBattle.attackerInfantry =
           (existingBattle.attackerInfantry || 0) + marchInfantry;
         existingBattle.attackerCavalry =
@@ -2960,6 +3149,8 @@ async function processArrivedMarches(now = new Date()) {
             defenderPower: existingBattle.defenderPower,
             attackerMaxHp: existingBattle.attackerMaxHp,
             attackerCurrentHp: existingBattle.attackerCurrentHp,
+            attackerSources: existingBattle.attackerSources,
+            participants: existingBattle.participants,
             defenderMaxHp: existingBattle.defenderMaxHp,
             defenderCurrentHp: existingBattle.defenderCurrentHp,
             hpUpdatedAt: now,
@@ -3071,6 +3262,34 @@ async function processArrivedMarches(now = new Date()) {
       attackerInfantry,
       attackerCavalry,
       attackerArtillery,
+      attackerSources: [{
+        marchId: march._id,
+        ownerId: march.ownerId,
+        fromTerritoryId: march.fromTerritoryId,
+        infantry: attackerInfantry,
+        cavalry: attackerCavalry,
+        artillery: attackerArtillery,
+        troops: attackerInfantry + attackerCavalry + attackerArtillery,
+        power: attackerPower,
+      }],
+      participants: [{
+        id: `participant:${march._id}`,
+        marchId: march._id,
+        playerId: march.ownerId,
+        sourceTerritoryId: march.fromTerritoryId,
+        sourceTownId: townIdForTerritory(march.fromTerritoryId),
+        infantry: attackerInfantry,
+        cavalry: attackerCavalry,
+        artillery: attackerArtillery,
+        troops: attackerInfantry + attackerCavalry + attackerArtillery,
+        power: attackerPower,
+        maxHp: Math.max(1, attackerPower),
+        currentHp: Math.max(1, attackerPower),
+        status: "engaged" as const,
+        departedAt: new Date(march.startedAt).toISOString(),
+        arrivesAt: new Date(march.arrivesAt).toISOString(),
+        engagedAt: now.toISOString(),
+      }],
       defenderInfantry,
       defenderCavalry,
       defenderArtillery,
@@ -3133,8 +3352,31 @@ async function processActiveBattles(now = new Date()) {
       await activeBattles.deleteOne({ _id: battle._id });
       continue;
     }
+    const resolvedParticipants = battleParticipants(
+      battle,
+      advanceBattleHealth(battle, now),
+    ).filter((participant) => participant.status === "engaged");
+    const powerByPlayer = new Map<string, number>();
+    resolvedParticipants.forEach((participant) => {
+      powerByPlayer.set(
+        participant.playerId,
+        (powerByPlayer.get(participant.playerId) || 0) + participant.power,
+      );
+    });
+    const siegeLeaderId = [...powerByPlayer.entries()]
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || battle.attackerId;
+    const leaderParticipant = resolvedParticipants.find(
+      (participant) => participant.playerId === siegeLeaderId,
+    );
+    battle.attackerId = siegeLeaderId;
+    if (leaderParticipant) {
+      battle.fromTerritoryId = leaderParticipant.sourceTerritoryId;
+    }
+    const attackingPlayerIds = [...new Set(
+      resolvedParticipants.map((participant) => participant.playerId),
+    )];
     const releasePlayerLocks = await acquirePlayerMutationLocks([
-      battle.attackerId,
+      ...attackingPlayerIds,
       battle.defenderId,
     ]);
     try {
@@ -3291,6 +3533,15 @@ async function processActiveBattles(now = new Date()) {
         const captureParentTerritoryId =
           frontierClaim?.territory.id ?? battle.fromTerritoryId;
         const capturedSettlementKind = settlementKindForClaim(territory, connectionType);
+        // Gems are premium currency and are never lootable. Update only the
+        // four storage resources so this battle snapshot cannot overwrite a
+        // newer gem balance from a shop purchase or concurrent sync.
+        const attackerStorageUpdate = Object.fromEntries(
+          STORAGE_RESOURCE_KEYS.map((key) => [`resources.${key}`, attackerResources[key]]),
+        );
+        const defenderStorageUpdate = Object.fromEntries(
+          STORAGE_RESOURCE_KEYS.map((key) => [`resources.${key}`, defenderResources[key]]),
+        );
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -3347,7 +3598,7 @@ async function processActiveBattles(now = new Date()) {
             { _id: battle.attackerId },
             {
               $set: {
-                resources: attackerResources,
+                ...attackerStorageUpdate,
                 lastResourceCollectedAt: now,
                 lastSeenAt: now,
               },
@@ -3356,9 +3607,9 @@ async function processActiveBattles(now = new Date()) {
           battle.defenderId
             ? players.updateOne(
                 { _id: battle.defenderId },
-                {
-                  $set: {
-                    resources: defenderResources,
+              {
+                $set: {
+                    ...defenderStorageUpdate,
                     lastResourceCollectedAt: now,
                     lastSeenAt: now,
                   },
@@ -3366,17 +3617,27 @@ async function processActiveBattles(now = new Date()) {
               )
             : Promise.resolve(),
         ]);
+        const [updatedAttackerPlayer, updatedDefenderPlayer] = await Promise.all([
+          players.findOne({ _id: battle.attackerId }, { projection: { resources: 1 } }),
+          battle.defenderId
+            ? players.findOne({ _id: battle.defenderId }, { projection: { resources: 1 } })
+            : Promise.resolve(null),
+        ]);
+        const attackerResourcesAfterBattle = normalizeResources(updatedAttackerPlayer?.resources);
+        const defenderResourcesAfterBattle = battle.defenderId
+          ? normalizeResources(updatedDefenderPlayer?.resources)
+          : defenderResources;
         await publishPlayerState(
           battle.attackerId,
           "battle_resolved",
-          attackerResources,
+          attackerResourcesAfterBattle,
           attackerTowns,
         );
         if (battle.defenderId) {
           await publishPlayerState(
             battle.defenderId,
             "battle_resolved",
-            defenderResources,
+            defenderResourcesAfterBattle,
             capturedDefenderCapital ? [] : defenderTowns,
           );
           if (!capturedDefenderCapital) {
@@ -3667,9 +3928,14 @@ async function processActiveBattles(now = new Date()) {
         parentTerritoryId: claim?.parentTerritoryId,
         rootTerritoryId: claim?.rootTerritoryId,
         connectionType: claim?.connectionType,
-        equippedCapitalSkin: player?.shopInventory?.equippedCapitalSkin ?? null,
-        equippedDistrictSkin:
-          player?.shopInventory?.equippedDistrictSkin ?? null,
+        equippedCapitalSkin: normalizeShopInventory(
+          player?.shopInventory,
+          player ?? undefined,
+        ).equippedCapitalSkin,
+        equippedDistrictSkin: normalizeShopInventory(
+          player?.shopInventory,
+          player ?? undefined,
+        ).equippedDistrictSkin,
       };
       publishRealtime({
         type: "battle_resolved",
@@ -3678,8 +3944,10 @@ async function processActiveBattles(now = new Date()) {
         winner: attackerWins ? "attacker" : "defender",
       });
       const reportRecipients = [
-        ...new Set(
-          [battle.attackerId, battle.defenderId].filter((id) => Boolean(id)),
+        ...new Set<string>(
+          [...attackingPlayerIds, battle.defenderId].filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          ),
         ),
       ];
       await Promise.all(
@@ -4949,6 +5217,10 @@ export function createApp() {
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const now = new Date();
+    const welcomeResources = {
+      ...DEFAULT_PLAYER_RESOURCES,
+      gems: DEFAULT_PLAYER_RESOURCES.gems + NEWBIE_WELCOME_GEMS,
+    };
     await players.insertOne({
       _id: id,
       name: normalizedUsername,
@@ -4957,10 +5229,11 @@ export function createApp() {
       emblem,
       starterLandId,
       onboardingState: "profile_required",
-      resources: DEFAULT_PLAYER_RESOURCES,
+      resources: welcomeResources,
       lastResourceCollectedAt: now,
       role: "player",
       newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
+      newbieWelcomeGrantedAt: now,
       createdAt: now,
       lastSeenAt: now,
     });
@@ -5037,6 +5310,10 @@ export function createApp() {
     const id = `guest:${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
     const now = new Date();
+    const welcomeResources = {
+      ...DEFAULT_PLAYER_RESOURCES,
+      gems: DEFAULT_PLAYER_RESOURCES.gems + NEWBIE_WELCOME_GEMS,
+    };
     await players.updateOne(
       { _id: id },
       {
@@ -5046,9 +5323,10 @@ export function createApp() {
           emblem: "shield",
           createdAt: now,
           onboardingState: "profile_required",
-          resources: DEFAULT_PLAYER_RESOURCES,
+          resources: welcomeResources,
           lastResourceCollectedAt: now,
           newbieShieldUntil: new Date(now.getTime() + 24 * 3600 * 1000),
+          newbieWelcomeGrantedAt: now,
         },
       },
       { upsert: true },
@@ -5411,7 +5689,7 @@ export function createApp() {
     if (flagColor) updateData.flagColor = flagColor;
     if (emblem) updateData.emblem = emblem;
     if (cityName) {
-      updateData.cityName = cityName.trim().replace(/\s+/g, " ");
+      updateData.cityName = cityName.normalize("NFC").trim().replace(/\s+/g, " ");
       updateData.cityNameKey = normalizeCityName(cityName);
       const existing = await players.findOne({ cityNameKey: updateData.cityNameKey, _id: { $ne: req.user!.id } }, { projection: { _id: 1 } });
       if (existing) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
@@ -5434,7 +5712,16 @@ export function createApp() {
     if (req.user?.id) {
       await publishPlayerState(req.user!.id, "profile_updated", null, null);
     }
-    res.json({ ok: true, onboardingState: updateData.onboardingState });
+    const savedPlayer = await players.findOne(
+      { _id: req.user!.id },
+      { projection: { cityName: 1, name: 1, cityNameKey: 1, onboardingState: 1 } },
+    );
+    res.json({
+      ok: true,
+      onboardingState: savedPlayer?.onboardingState ?? updateData.onboardingState,
+      cityName: savedPlayer?.cityName ?? null,
+      displayName: savedPlayer?.cityName || savedPlayer?.name || null,
+    });
   });
   app.post("/api/player/active-map", requireAuth, async (req, res) => {
     if (!enforceActionLimit(req, res, "player:active-map", 30, 60_000)) return;
@@ -5651,19 +5938,22 @@ export function createApp() {
         });
     }
   });
-  app.get("/api/shop/catalog", requireAuth, async (_req, res) => {
+  app.get("/api/shop/catalog", requireAuth, async (req, res) => {
+    const { players } = await collections();
+    const player = await players.findOne({ _id: req.user!.id });
     res.json({
       ok: true,
-      products: shopCatalog(await loadGameConfig()),
+      products: shopCatalog(await loadGameConfig(), player ?? undefined),
       testMode: config.SHOP_TEST_MODE && config.NODE_ENV !== "production",
     });
   });
   app.get("/api/shop/inventory", requireAuth, async (req, res) => {
     const { players } = await collections();
     const player = await players.findOne({ _id: req.user!.id });
+    const inventory = normalizeShopInventory(player?.shopInventory, player ?? undefined);
     res.json({
       ok: true,
-      inventory: normalizeShopInventory(player?.shopInventory),
+      inventory,
     });
   });
   app.get("/api/shop/history", requireAuth, async (req, res) => {
@@ -5702,7 +5992,10 @@ export function createApp() {
       });
       if (existing) {
         const player = await players.findOne({ _id: playerId });
-        const currentInventory = normalizeShopInventory(player?.shopInventory);
+        const currentInventory = normalizeShopInventory(
+          player?.shopInventory,
+          player ?? undefined,
+        );
         const needsEquipRepair = Boolean(
           existing.grantedSkinId &&
           parsed.data.equipTarget &&
@@ -5746,7 +6039,8 @@ export function createApp() {
         });
       }
       const gameConfig = await loadGameConfig();
-      const product = shopCatalog(gameConfig).find(
+      const player = await players.findOne({ _id: playerId });
+      const product = shopCatalog(gameConfig, player ?? undefined).find(
         (item) => item.id === parsed.data.productId,
       );
       if (!product)
@@ -5759,9 +6053,31 @@ export function createApp() {
       const productResources = "resources" in product ? product.resources : undefined;
       const productSkinId = "skinId" in product ? product.skinId : undefined;
       const resourceState = await collectPlayerResources(playerId);
-      const player = await players.findOne({ _id: playerId });
       const currentResources = normalizeResources(resourceState.resources);
-      if (currentResources.gems < product.priceGems) {
+      const inventory = normalizeShopInventory(
+        player?.shopInventory,
+        player ?? undefined,
+      );
+      const priorNewbiePackPurchase =
+        product.type === "resource_pack" &&
+        Boolean(product.isNewbiePrice) &&
+        (player?.newbieFreeProductIds || []).includes(product.id);
+      if (priorNewbiePackPurchase) {
+        return res.status(409).json({
+          error: "newbie_offer_used",
+          message: "Gói tân thủ này đã được nhận trong tuần đầu",
+        });
+      }
+      const newbieSkinTrial = Boolean(
+        productSkinId &&
+        product.isNewbieFree &&
+        isNewbieWeek(player ?? {}) &&
+        !player?.newbieSkinClaimedAt,
+      );
+      const effectivePriceGems = newbieSkinTrial
+        ? 0
+        : Math.max(0, Math.floor(Number(product.priceGems) || 0));
+      if (currentResources.gems < effectivePriceGems) {
         return res
           .status(400)
           .json({
@@ -5769,7 +6085,6 @@ export function createApp() {
             message: "Không đủ ngọc để mua",
           });
       }
-      const inventory = normalizeShopInventory(player?.shopInventory);
       if (productSkinId && inventory.ownedSkins.includes(productSkinId)) {
         return res
           .status(409)
@@ -5802,7 +6117,15 @@ export function createApp() {
           );
         });
       }
-      nextResources.gems -= product.priceGems;
+      nextResources.gems -= effectivePriceGems;
+      const nextPlayerShopMeta: any = newbieSkinTrial
+        ? {
+            ...(player || {}),
+            newbieSkinClaimedAt: new Date(),
+            newbieSkinExpiresAt: new Date(Date.now() + NEWBIE_WEEK_MS),
+            newbieSkinId: productSkinId,
+          }
+        : player ?? undefined;
       const nextInventory: any = normalizeShopInventory({
         ...inventory,
         ownedSkins: productSkinId
@@ -5817,14 +6140,17 @@ export function createApp() {
             ? productSkinId
             : inventory.equippedDistrictSkin,
         version: inventory.version + 1,
-      } as any);
+      } as any, nextPlayerShopMeta);
+      const nextNewbieFreeProductIds = product.type === "resource_pack" && product.isNewbiePrice
+        ? [...new Set([...(player?.newbieFreeProductIds || []), product.id])]
+        : (player?.newbieFreeProductIds || []);
       const createdAt = new Date();
       const purchaseDoc = {
         _id: `purchase:${playerId}:${createdAt.getTime()}:${randomBytes(4).toString("hex")}`,
         playerId,
         productId: product.id,
         requestId: parsed.data.requestId,
-        priceGems: product.priceGems,
+        priceGems: effectivePriceGems,
         grantedResources: productResources,
         grantedSkinId: productSkinId,
         createdAt,
@@ -5835,6 +6161,14 @@ export function createApp() {
           $set: {
             resources: nextResources,
             shopInventory: nextInventory,
+            ...(newbieSkinTrial
+              ? {
+                  newbieSkinClaimedAt: createdAt,
+                  newbieSkinExpiresAt: new Date(createdAt.getTime() + NEWBIE_WEEK_MS),
+                  newbieSkinId: productSkinId,
+                }
+              : {}),
+            newbieFreeProductIds: nextNewbieFreeProductIds,
             lastResourceCollectedAt: createdAt,
             lastSeenAt: createdAt,
           },
@@ -5848,7 +6182,7 @@ export function createApp() {
       const purchase = {
         id: purchaseDoc._id,
         productId: product.id,
-        priceGems: product.priceGems,
+        priceGems: effectivePriceGems,
         grantedResources: productResources,
         grantedSkinId: productSkinId,
         createdAt: createdAt.toISOString(),
@@ -5894,7 +6228,10 @@ export function createApp() {
     try {
       const { players } = await collections();
       const player = await players.findOne({ _id: playerId });
-      const inventory = normalizeShopInventory(player?.shopInventory);
+      const inventory = normalizeShopInventory(
+        player?.shopInventory,
+        player ?? undefined,
+      );
       if (!inventory.ownedSkins.includes(parsed.data.skinId)) {
         return res
           .status(403)
@@ -5929,6 +6266,18 @@ export function createApp() {
         },
         `player:${playerId}`,
       );
+      // Broadcast the equipped visual separately so every connected client
+      // refreshes this player's castles, not only the owner.
+      publishRealtime({
+        type: "territory_skin_updated",
+        ownerId: playerId,
+        skinId: parsed.data.skinId,
+        target: parsed.data.target,
+        equippedCapitalSkin: nextInventory.equippedCapitalSkin,
+        equippedDistrictSkin: nextInventory.equippedDistrictSkin,
+        skinVersion: version,
+        serverTime: new Date(version).toISOString(),
+      });
       res.json({ ok: true, inventory: nextInventory });
     } finally {
       release();
@@ -6659,10 +7008,14 @@ export function createApp() {
                 territory.id,
               ),
           connectionType: clearing.connectionType,
-          equippedCapitalSkin:
-            player?.shopInventory?.equippedCapitalSkin ?? null,
-          equippedDistrictSkin:
-            player?.shopInventory?.equippedDistrictSkin ?? null,
+          equippedCapitalSkin: normalizeShopInventory(
+            player?.shopInventory,
+            player ?? undefined,
+          ).equippedCapitalSkin,
+          equippedDistrictSkin: normalizeShopInventory(
+            player?.shopInventory,
+            player ?? undefined,
+          ).equippedDistrictSkin,
         },
       };
       publishRealtime({
@@ -7090,6 +7443,7 @@ export function createApp() {
         ownerId: req.user!.id,
         requestId: parsed.data.requestId,
         fromTerritoryId: from.id,
+        sourceTownId: sourceTown.id,
         toTerritoryId: to.id,
         troops,
         infantry,
@@ -7458,10 +7812,14 @@ export function createApp() {
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: "capital",
-          equippedCapitalSkin:
-            player?.shopInventory?.equippedCapitalSkin ?? null,
-          equippedDistrictSkin:
-            player?.shopInventory?.equippedDistrictSkin ?? null,
+          equippedCapitalSkin: normalizeShopInventory(
+            player?.shopInventory,
+            player ?? undefined,
+          ).equippedCapitalSkin,
+          equippedDistrictSkin: normalizeShopInventory(
+            player?.shopInventory,
+            player ?? undefined,
+          ).equippedDistrictSkin,
         },
       };
       publishRealtime({

@@ -260,6 +260,8 @@ export type ShopProduct = {
   skinTarget?: "capital" | "military_district";
   isNewbiePrice?: boolean;          // true nếu giá tân thủ đặc biệt
   newbiePriceExpiresAt?: string;    // ISO timestamp hết hạn giá tân thủ
+  isNewbieFree?: boolean;            // skin thử miễn phí trong tuần đầu
+  newbieFreeExpiresAt?: string;      // ISO timestamp hết hạn ưu đãi
 };
 
 export type ShopInventory = {
@@ -268,6 +270,9 @@ export type ShopInventory = {
   equippedDistrictSkin: string | null;
   version: number;
   newbieSkinExpiresAt?: string | null;   // skin tân thủ hết hạn lúc nào
+  newbieSkinId?: string | null;
+  newbieSkinClaimedAt?: string | null;
+  newbieFreeProductIds?: string[];
 };
 
 export type ShopPurchase = {
@@ -397,6 +402,7 @@ export type MarchOrder = {
   id: string;
   ownerId: string;
   fromTerritoryId: number;
+  sourceTownId?: number;
   toTerritoryId: number;
   troops: number;
   infantry?: number;
@@ -407,8 +413,28 @@ export type MarchOrder = {
   usesShip?: boolean;
   battleSide?: "attacker" | "defender";
   kind: "attack" | "reinforce" | "move";
+  status?: "marching";
   startedAt: string;
   arrivesAt: string;
+};
+
+export type BattleParticipant = {
+  id: string;
+  marchId: string;
+  playerId: string;
+  sourceTerritoryId: number;
+  sourceTownId: number;
+  infantry: number;
+  cavalry: number;
+  artillery: number;
+  troops: number;
+  power: number;
+  maxHp: number;
+  currentHp: number;
+  status: "marching" | "engaged" | "defeated" | "returned";
+  departedAt: string;
+  arrivesAt: string;
+  engagedAt?: string;
 };
 
 export type ActiveBattle = {
@@ -440,6 +466,18 @@ export type ActiveBattle = {
   defenderCurrentHp?: number;
   hpUpdatedAt?: string;
   battleVersion?: number;
+  participants: BattleParticipant[];
+  /** Every origin that has committed troops to the ongoing siege. */
+  attackerSources?: Array<{
+    marchId: string;
+    ownerId: string;
+    fromTerritoryId: number;
+    infantry: number;
+    cavalry: number;
+    artillery: number;
+    troops: number;
+    power: number;
+  }>;
 };
 
 export type MarchSourceOption = {
@@ -579,6 +617,7 @@ export type RealtimeEvent =
   | { type: "mail_read"; mailId?: string; unreadCount: number; version: number; serverTime: string }
   | { type: "shop_purchase_completed"; purchase: ShopPurchase; inventory: ShopInventory; resources: ResourceBag; version: number; serverTime: string }
   | { type: "shop_inventory_updated"; inventory: ShopInventory; version: number; serverTime: string }
+  | { type: "territory_skin_updated"; ownerId: string; skinId: string; target: "capital" | "military_district"; equippedCapitalSkin: string | null; equippedDistrictSkin: string | null; skinVersion: number; serverTime: string }
   | { type: "nation_state_updated"; state: NationStatusSnapshot; version: number; serverTime: string }
   | { type: "army_state_updated"; state: ArmyStateSnapshot; version: number; serverTime: string }
   | { type: "player_eliminated"; playerId: string; reason: "capital_captured" | "all_towns_captured" }

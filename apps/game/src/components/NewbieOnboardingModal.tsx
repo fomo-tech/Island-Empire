@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { kingdomArchitectureMeta } from "../game/kingdomArchitecture";
 import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
+import { AssetIcon } from "./AssetIcon";
 
 interface NewbieOnboardingModalProps {
   onClose: () => void;
@@ -10,6 +11,7 @@ interface NewbieOnboardingModalProps {
 
 // Vector SVGs
 function OpenBookLaurelIcon() {
+  return <AssetIcon asset="scroll" size={42} />;
   return (
     <svg viewBox="0 0 64 48" width="42" height="32" style={{ flexShrink: 0 }}>
       <defs>
@@ -32,6 +34,7 @@ function OpenBookLaurelIcon() {
 }
 
 function CastleStepIcon() {
+  return <AssetIcon asset="castle" size={34} />;
   return (
     <svg viewBox="0 0 64 64" width="34" height="34" style={{ flexShrink: 0 }}>
       <path d="M 12 24 H 20 V 32 H 28 V 24 H 36 V 32 H 44 V 24 H 52 V 56 H 12 Z" fill="#3b82f6" stroke="#ffd34d" strokeWidth="2" />
@@ -44,6 +47,7 @@ function CastleStepIcon() {
 }
 
 function SwordsStepIcon() {
+  return <AssetIcon asset="army" size={34} />;
   return (
     <svg viewBox="0 0 64 64" width="34" height="34" style={{ flexShrink: 0 }}>
       <line x1="12" y1="12" x2="52" y2="52" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" />
@@ -56,6 +60,7 @@ function SwordsStepIcon() {
 }
 
 function AllianceStepIcon() {
+  return <AssetIcon asset="guild" size={34} />;
   return (
     <svg viewBox="0 0 64 64" width="34" height="34" style={{ flexShrink: 0 }}>
       <path d="M 14 36 C 22 24 30 24 36 34 L 46 24 C 54 32 50 44 42 48 L 32 40 L 24 48 Z" fill="#22c55e" stroke="#ffffff" strokeWidth="2" />
@@ -65,6 +70,7 @@ function AllianceStepIcon() {
 }
 
 function ResourceStepIcon() {
+  return <AssetIcon asset="food" size={34} />;
   return (
     <svg viewBox="0 0 64 64" width="34" height="34" style={{ flexShrink: 0 }}>
       <rect x="12" y="24" width="20" height="24" rx="3" fill="#d97706" stroke="#fef08a" strokeWidth="2" />
@@ -75,6 +81,7 @@ function ResourceStepIcon() {
 }
 
 function CrownStepIcon() {
+  return <AssetIcon asset="crown" size={34} />;
   return (
     <svg viewBox="0 0 64 64" width="34" height="34" style={{ flexShrink: 0 }}>
       <polygon points="12,48 8,20 24,32 32,12 40,32 56,20 52,48" fill="#eab308" stroke="#78350f" strokeWidth="2" />
@@ -88,6 +95,7 @@ function CrownStepIcon() {
 
 // 4 Sub-Action SVGs
 function SubTerritoryIcon() {
+  return <AssetIcon asset="map" size={28} />;
   return (
     <svg viewBox="0 0 36 36" width="28" height="28" fill="#ffd34d">
       <path d="M 18 4 L 4 12 V 24 L 18 32 L 32 24 V 12 Z" fill="#1e3a8a" stroke="#ffd34d" strokeWidth="2" />
@@ -97,6 +105,7 @@ function SubTerritoryIcon() {
 }
 
 function SubRecruitIcon() {
+  return <AssetIcon asset="troopInfantry" size={28} />;
   return (
     <svg viewBox="0 0 36 36" width="28" height="28">
       <circle cx="18" cy="12" r="6" fill="#ffd34d" stroke="#78350f" strokeWidth="1.5" />
@@ -106,6 +115,7 @@ function SubRecruitIcon() {
 }
 
 function SubAllianceIcon() {
+  return <AssetIcon asset="guild" size={28} />;
   return (
     <svg viewBox="0 0 36 36" width="28" height="28">
       <path d="M 8 18 Q 18 8 28 18 Q 18 28 8 18 Z" fill="#22c55e" stroke="#ffffff" strokeWidth="1.5" />
@@ -114,6 +124,7 @@ function SubAllianceIcon() {
 }
 
 function SubFameIcon() {
+  return <AssetIcon asset="crown" size={28} />;
   return (
     <svg viewBox="0 0 36 36" width="28" height="28">
       <polygon points="18,4 22,14 32,14 24,20 27,30 18,24 9,30 12,20 4,14 14,14" fill="#ffd34d" stroke="#78350f" strokeWidth="1" />
@@ -295,10 +306,7 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
 
               {/* Top Left Floating Blue Crest Badge */}
               <div className="artwork-crest-badge">
-                <svg width="24" height="28" viewBox="0 0 24 28">
-                  <path d="M0 0 H24 V22 L12 28 L0 22 Z" fill="#1d4ed8" stroke="#ffd34d" strokeWidth="1.5" />
-                  <path d="M7 6 H17 V12 H15 V10 H13 V12 H11 V10 H9 V12 H7 Z" fill="#ffd34d" />
-                </svg>
+                <AssetIcon asset="crown" size={24} />
               </div>
             </div>
 

@@ -195,10 +195,10 @@ if (!source.includes("drawActiveBattleConnections")
 }
 if (!architecture.includes("NATION_FLAG_SHEET")
   || !architecture.includes('buildingType === "flag"')
-  || !source.includes('? "district"\n          : "flag"')) {
+  || !/\? "district"\r?\n          : "flag"/.test(source)) {
   throw new Error("Vùng mở rộng chưa dùng atlas trụ cờ Nation riêng");
 }
-if (!source.includes('drawVoyageShip(\n            shipPoint.x')
+if (!/drawVoyageShip\(\r?\n            shipPoint\.x/.test(source)
   || !source.includes("travelled <= sourceLandLength + seaLength")) {
   throw new Error("Đoạn hành quân trên biển chưa khóa renderer về sprite thuyền");
 }

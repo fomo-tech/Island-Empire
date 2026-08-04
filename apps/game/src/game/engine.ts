@@ -1974,7 +1974,7 @@ export function createIslandEmpireGame(
     }
     if (!image.complete || !image.naturalWidth) return false;
 
-    if (frame.premium && state.zoom >= 0.5 && !fastRenderMode && !isFastPanning()) {
+    if (frame.premium && state.zoom >= 0.5 && !fastRenderMode && !crowdedRenderMode && !isFastPanning()) {
       drawKingdomBuildingEffect(normalized, x, y, size);
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
@@ -2011,6 +2011,23 @@ export function createIslandEmpireGame(
     const heightLimit = safeTopHeight / (layout.safeHeight * layout.pivotY);
     const minSize = buildingType === "flag" ? 62 : buildingType === "district" ? 94 : 112;
     return Math.max(minSize, Math.min(preferredSize, widthLimit, heightLimit));
+  }
+
+  // A building's footprint is a property of its settlement type, never of
+  // ownership.  Keeping this in one place prevents the local-player branch
+  // from silently rendering a larger sprite than the same enemy building.
+  function preferredTerritoryBuildingSize(buildingType: KingdomBuildingType) {
+    switch (buildingType) {
+      case "capital":
+        return 270;
+      case "fortress":
+      case "district":
+        return 170;
+      case "flag":
+        return 105;
+      default:
+        return 118;
+    }
   }
 
   function territoryBuildingAnchor(
@@ -3995,7 +4012,7 @@ export function createIslandEmpireGame(
     if (hideTerritoryAssets || state.zoom < 0.28) return;
     drawLakeInRegion(r, seed, rx, ry);
     drawRiverInRegion(r, seed, rx, ry);
-    if (fastRenderMode || isFastPanning()) return;
+    if (fastRenderMode || crowdedRenderMode || isFastPanning()) return;
 
     drawNaturalTerritoryVegetation(r, seed, rx, ry, terrainBiome);
 
@@ -4565,7 +4582,7 @@ export function createIslandEmpireGame(
   function drawRegion(r, idx, pass, isIslet) {
     if (pass === 3) {
       if (isConquestLayout) return;
-      if (fastRenderMode || isFastPanning()) return;
+      if (fastRenderMode || crowdedRenderMode || isFastPanning()) return;
       const cache = regionPass2Cache.get(idx);
       if (cache && cache.assetsCanvas) {
         const isSelected = state.selectedRegion === idx;
@@ -4665,7 +4682,7 @@ export function createIslandEmpireGame(
 
     if (pass === 0) {
       if (!isCoastal) return;
-      if (fastRenderMode) return;
+      if (fastRenderMode || crowdedRenderMode) return;
       // Pass 0: Multi-layer Animated Ocean Waves crashing against coastal cliffs
       if (isCoastal) {
         const wavePulse = Math.sin(state.tick * 3.6 + seed * 0.51) * 5.2;
@@ -4690,6 +4707,7 @@ export function createIslandEmpireGame(
 
     if (pass === 1) {
       if (!isCoastal) return;
+      if (crowdedRenderMode && !isIslet) return;
       if (isIslet) {
         const cache = isletPass1Cache.get(idx);
         if (cache) {
@@ -5024,7 +5042,7 @@ export function createIslandEmpireGame(
         );
       } else {
         // If panning or in fast mode, and no cache exists, draw simplified directly to screen without caching
-        if (fastRenderMode || isFastPanning()) {
+        if (fastRenderMode || crowdedRenderMode || isFastPanning()) {
           ctx.save();
           ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
           const landInflated = inflatePolygon(
@@ -5122,7 +5140,9 @@ export function createIslandEmpireGame(
       }
     }
 
-    const conflict = isConquestLayout ? null : getRegionBattleState(idx);
+    // Siege visuals are rendered around the actual towns/units below. Never
+    // colour or outline an entire territory: that was the old noisy combat UI.
+    const conflict = null;
     const isClearing = isConquestLayout
       ? false
       : state.regionInProgress === idx ||
@@ -5146,13 +5166,7 @@ export function createIslandEmpireGame(
 
     // Fill overlay based on state (Seamless inflation to hide internal grid seams)
     if (pass === 2) {
-      if (conflict) {
-        ctx.save();
-        const isBattleSource = conflict.type === "battle_source";
-        ctx.globalAlpha = (isBattleSource ? 0.2 : 0.35) + Math.sin(state.tick * 8) * 0.08;
-        fillSmoothPath(targetPoly, isBattleSource ? "#f59e0b" : "#ef4444");
-        ctx.restore();
-      } else if (isLocalClearing) {
+      if (isLocalClearing) {
         ctx.save();
         ctx.globalAlpha = 0.45 + Math.sin(state.tick * 5) * 0.08;
         fillSmoothPath(targetPoly, flagColor);
@@ -5321,32 +5335,7 @@ export function createIslandEmpireGame(
     }
 
     if (pass === 4) {
-      if (conflict) {
-        ctx.save();
-        const isBattleSource = conflict.type === "battle_source";
-        ctx.globalAlpha = isBattleSource ? 0.72 : 0.88;
-        strokeSmoothPath(targetPoly, isBattleSource ? "#fbbf24" : "#fb6a4a", isBattleSource ? 3 : 4);
-        ctx.restore();
-
-        ctx.save();
-        traceSmoothPath(displayLand);
-
-        ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 32;
-        ctx.globalAlpha = 0.95 + Math.sin(state.tick * 8) * 0.05;
-        ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = 7.5;
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 4]);
-        ctx.lineDashOffset = -state.tick * 35;
-        ctx.stroke();
-        ctx.restore();
-      } else if (isClearing) {
+      if (isClearing) {
         const clearingFlagColor = getRegionFlagColor(idx);
         ctx.save();
         traceSmoothPath(displayLand);
@@ -8687,8 +8676,6 @@ export function createIslandEmpireGame(
     const isUserTown =
       t.owner === 0 ||
       (state.localPlayerId && t.ownerId === state.localPlayerId);
-    const castleScale = isUserTown ? 0.48 : 0.38;
-
     const sel = t.id === state.selected;
     if (sel) {
       ctx.save();
@@ -8734,12 +8721,11 @@ export function createIslandEmpireGame(
     const isSubCapital = settlementKind === "sub_capital";
     const connectionType = regionId >= 0 ? state.regionConnectionTypes[regionId] : undefined;
     const castleSpecials = regionId >= 0 ? territorySpecialResources(regionId) : [];
-    const castleIsMaritime = Boolean(
-      connectionType === "sea" ||
-      castleLand?.isIslet ||
-      castleSpecials.includes("Bến tàu tự nhiên"),
-    );
-    const isMilitaryDistrict = !isCapitalSettlement && !isSubCapital && castleIsMaritime;
+    // The server's settlementKind is authoritative. Coastal/islet geometry or
+    // a harbor resource alone must not turn a land-connected territory into a
+    // military district.
+    const isMilitaryDistrict =
+      !isCapitalSettlement && !isSubCapital && settlementKind === "military_district";
     const isTerritoryFlag = !isCapitalSettlement && !isSubCapital && !isMilitaryDistrict;
 
     let flagColor = owner.color || "#ef4444";
@@ -8790,11 +8776,7 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const size = isCapitalSettlement
-      ? 270
-      : isSubCapital || isMilitaryDistrict
-        ? 170
-        : 105;
+    const size = preferredTerritoryBuildingSize(buildingType);
     const buildingAnchor = territoryBuildingAnchor(
       drawX,
       drawY,
@@ -8875,7 +8857,7 @@ export function createIslandEmpireGame(
 
       // Text Label with emoji
       text(
-        "🔨 THỢ XÂY TẠI ĐÂY",
+        "THỢ XÂY TẠI ĐÂY",
         drawX,
         hY + 6 + pulse * 0.2,
         11,
@@ -8893,25 +8875,265 @@ export function createIslandEmpireGame(
       return false;
     });
 
-    if (activeBattle) {
-      // Draw active battle aura and indicator banner
-      ctx.save();
-      const pulse = Math.sin(state.tick * 6) * 0.25 + 0.75;
-      ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.arc(drawX, drawY, 48 + Math.sin(state.tick * 4) * 4, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    // Active siege visuals are rendered once by drawSiegeRenderer(). Keeping
+    // them out of the building renderer prevents duplicate bars and legacy
+    // territory-sized warning rings.
+  }
+  function battleTargetRegionId(battle: any) {
+    const raw = battle?.regionId ?? battle?.targetTerritoryId ?? battle?.toTerritoryId;
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : -1;
+  }
 
-      drawDualFlagBattle(
-        drawX,
-        drawY,
-        activeBattle.attackerOwner ?? 1,
-        t.owner,
-        t.id,
-      );
+  function battlesAtTarget(territoryId: number) {
+    if (frameBattleIndexReady) {
+      return frameBattlesByTarget.get(Number(territoryId)) || [];
     }
+    return (state.activeBattles || []).filter((battle: any) => {
+      if (battleTargetRegionId(battle) === Number(territoryId)) return true;
+      if (battle?.townId !== undefined) {
+        const town = frameTownById.get(String(battle.townId)) ||
+          towns.find((item: any) => String(item.id) === String(battle.townId));
+        if (town && Number(town.regionId) === Number(territoryId)) return true;
+      }
+      return false;
+    });
+  }
+
+  function drawBattleBar(
+    x: number,
+    y: number,
+    width: number,
+    ratio: number,
+    color: string,
+    height = 5,
+  ) {
+    const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const radius = Math.max(1.5, height / 2);
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.fillStyle = "rgba(12, 18, 19, .66)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+    ctx.fill();
+    if (safeRatio > 0) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(
+        x + 1,
+        y + 1,
+        Math.max(2, (width - 2) * safeRatio),
+        Math.max(1, height - 2),
+        Math.max(1, radius - 1),
+      );
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(246, 211, 126, .78)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function siegeVisualScale() {
+    // Keep the battle card at a stable, compact screen size. The old 5.5x cap
+    // made the two bars grow into a huge floating panel at mobile zoom.
+    return Math.max(0.9, Math.min(2.8, 0.92 / Math.max(0.2, state.zoom)));
+  }
+
+  function siegeParticipants(battle: any) {
+    if (Array.isArray(battle.participants) && battle.participants.length) {
+      return battle.participants.filter((participant: any) => participant.status === "engaged");
+    }
+    if (Array.isArray(battle.attackerSources) && battle.attackerSources.length) {
+      const ratio = Math.max(0, Math.min(1,
+        Number(battle.attackerCurrentHp ?? battle.attackerPower ?? 0) /
+        Math.max(1, Number(battle.attackerMaxHp ?? battle.attackerPower ?? 1))));
+      return battle.attackerSources.map((source: any) => ({
+        ...source,
+        playerId: source.ownerId,
+        sourceTerritoryId: source.fromTerritoryId,
+        maxHp: Math.max(1, Number(source.power || 1)),
+        currentHp: Math.max(0, Math.round(Number(source.power || 0) * ratio)),
+        status: "engaged",
+      }));
+    }
+    return [];
+  }
+
+  function siegeSourceParticipants(battle: any) {
+    const participants = Array.isArray(battle?.participants) && battle.participants.length
+      ? battle.participants
+      : siegeParticipants(battle);
+    return participants.filter(
+      (participant: any) => !["defeated", "returned"].includes(String(participant.status || "")),
+    );
+  }
+
+  function mergeSiegeParticipants(participants: any[]) {
+    if (participants.length <= 1) return participants[0] || null;
+    return participants.reduce(
+      (merged: any, participant: any) => ({
+        ...merged,
+        maxHp: Number(merged.maxHp || 0) + Number(participant.maxHp || participant.power || 0),
+        currentHp: Number(merged.currentHp || 0) + Number(participant.currentHp ?? participant.maxHp ?? participant.power ?? 0),
+        power: Number(merged.power || 0) + Number(participant.power || 0),
+        troops: Number(merged.troops || 0) + Number(participant.troops || 0),
+        infantry: Number(merged.infantry || 0) + Number(participant.infantry || 0),
+        cavalry: Number(merged.cavalry || 0) + Number(participant.cavalry || 0),
+        artillery: Number(merged.artillery || 0) + Number(participant.artillery || 0),
+      }),
+      { ...participants[0] },
+    );
+  }
+
+  function drawSiegeImpact(x: number, y: number, seed = 0) {
+    const lowDetail = fastRenderMode || crowdedRenderMode || state.zoom < 0.52;
+    const visualScale = siegeVisualScale();
+    const impact = Math.max(0, Math.sin(state.tick * 3.4 + seed));
+    if (impact > 0.68) {
+      ctx.save();
+      ctx.globalAlpha = (impact - 0.68) * 1.8;
+      const glow = ctx.createRadialGradient(x, y, 1, x, y, (lowDetail ? 9 : 16) * visualScale);
+      glow.addColorStop(0, "rgba(255,244,182,.95)");
+      glow.addColorStop(0.35, "rgba(244,147,48,.72)");
+      glow.addColorStop(1, "rgba(177,55,22,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, (lowDetail ? 9 : 16) * visualScale, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    const smokeCount = lowDetail ? 2 : 4;
+    for (let i = 0; i < smokeCount; i++) {
+      const phase = ((state.tick * 0.42 + i * 0.23 + seed) % 1 + 1) % 1;
+      ctx.fillStyle = `rgba(66,61,53,${(1 - phase) * 0.26})`;
+      ctx.beginPath();
+      ctx.arc(
+        x + (i - smokeCount / 2) * 5 * visualScale,
+        y - phase * 26 * visualScale,
+        (4 + phase * 8) * visualScale,
+        0,
+        TAU,
+      );
+      ctx.fill();
+    }
+  }
+
+  function drawSiegeProjectile(fromX: number, fromY: number, toX: number, toY: number, seed: number) {
+    if ((fastRenderMode || ultraCrowdedRenderMode) && state.zoom < 0.56) return;
+    const phase = ((state.tick * 0.55 + seed) % 1 + 1) % 1;
+    if (phase > 0.72) return;
+    const t = phase / 0.72;
+    const x = lerp(fromX, toX, t);
+    const y = lerp(fromY, toY, t) - Math.sin(t * Math.PI) * 18 * siegeVisualScale();
+    const radius = 1.7 * siegeVisualScale();
+    ctx.save();
+    ctx.shadowColor = "#f6b94b";
+    ctx.shadowBlur = 5 * siegeVisualScale();
+    ctx.fillStyle = "#ffe7a0";
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTargetSiegeOverlay(x: number, y: number, territoryId: number, defenderOwner: number) {
+    const battles = battlesAtTarget(territoryId);
+    if (!battles.length) return;
+    const lead = battles[0];
+    const participants = battles.flatMap((battle: any) => siegeParticipants(battle));
+    const attackersMax = Math.max(1, participants.length
+      ? participants.reduce((sum: number, participant: any) => sum + Math.max(1, Number(participant.maxHp || participant.power || 1)), 0)
+      : Number(lead.attackerMaxHp ?? lead.attackerPower ?? 1));
+    const attackersHp = Math.max(0, participants.length
+      ? participants.reduce((sum: number, participant: any) => sum + Math.max(0, Number(participant.currentHp ?? participant.maxHp ?? participant.power ?? 0)), 0)
+      : Number(lead.attackerCurrentHp ?? lead.attackerMaxHp ?? lead.attackerPower ?? 0));
+    const defenderMax = Math.max(1, Number(lead.defenderMaxHp ?? lead.defenderPower ?? lead.defPower ?? 1));
+    const defenderHp = Math.max(0, Number(lead.defenderCurrentHp ?? defenderMax));
+    const rem = lead.resolvesAt
+      ? Math.max(0, Math.ceil((new Date(lead.resolvesAt).getTime() - Date.now()) / 1000))
+      : Math.max(0, Math.ceil((lead.duration ?? lead.durationSeconds ?? 25) - (lead.t ?? 0)));
+    const compact = fastRenderMode || state.zoom < 0.58;
+    const visualScale = siegeVisualScale();
+    const panelWidth = compact ? 88 : 100;
+    const panelHeight = compact ? 28 : 31;
+    const top = -(compact ? 66 : 72);
+    const groupWidth = (panelWidth - 19) / 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(visualScale, visualScale);
+    ctx.fillStyle = "rgba(8, 16, 22, .92)";
+    ctx.strokeStyle = "rgba(221, 171, 72, .92)";
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.roundRect(-panelWidth / 2, top - 10, panelWidth, panelHeight, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.font = `700 ${compact ? 6.5 : 7}px 'Outfit', Arial, sans-serif`;
+    ctx.fillStyle = "#f4cf70";
+    ctx.fillText(`GIAO TRANH · ${rem}s`, 0, top - 1);
+    const leftX = -panelWidth / 2 + 6;
+    const rightX = 3;
+    const barY = top + 5;
+    drawBattleBar(leftX, barY, groupWidth, attackersHp / attackersMax, "#d25743", 4.5);
+    drawBattleBar(rightX, barY, groupWidth, defenderHp / defenderMax, "#438bc2", 4.5);
+    ctx.font = `700 ${compact ? 5.7 : 6.2}px 'Outfit', Arial, sans-serif`;
+    ctx.fillStyle = "#f3b0a4";
+    ctx.fillText(`CÔNG ${Math.ceil(attackersHp)}`, leftX + groupWidth / 2, top + 17);
+    ctx.fillStyle = "#b9dcf7";
+    ctx.fillText(`THỦ ${Math.ceil(defenderHp)}`, rightX + groupWidth / 2, top + 17);
+    ctx.font = `600 ${compact ? 5.2 : 5.8}px 'Outfit', Arial, sans-serif`;
+    ctx.fillStyle = "rgba(218, 228, 232, .78)";
+    ctx.fillText(`${participants.length || 1} đạo quân vây thành`, 0, top + 25);
+    ctx.restore();
+  }
+
+  function drawSourceSiegeOverlay(x: number, y: number, participant: any, battle: any) {
+    const sourceMax = Math.max(1, Number(participant.maxHp ?? participant.power ?? 1));
+    const sourceHp = Math.max(0, Number(participant.currentHp ?? sourceMax));
+    const remainingTroops = Math.max(0, Math.round(Number(participant.troops || 0) * sourceHp / sourceMax));
+    const defenderMax = Math.max(1, Number(battle.defenderMaxHp ?? battle.defenderPower ?? 1));
+    const defenderHp = Math.max(0, Number(battle.defenderCurrentHp ?? defenderMax));
+    const compact = fastRenderMode || state.zoom < 0.58;
+    const visualScale = siegeVisualScale();
+    const panelWidth = compact ? 76 : 84;
+    const panelHeight = compact ? 25 : 28;
+    const top = -(compact ? 45 : 52);
+    const groupWidth = (panelWidth - 17) / 2;
+    const beacon = 0.72 + Math.sin(state.tick * 5 + Number(participant.sourceTerritoryId || 0)) * 0.2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(visualScale, visualScale);
+    ctx.fillStyle = "rgba(8, 16, 22, .9)";
+    ctx.strokeStyle = "rgba(221, 171, 72, .82)";
+    ctx.lineWidth = 0.75;
+    ctx.beginPath();
+    ctx.roundRect(-panelWidth / 2, top - 8, panelWidth, panelHeight, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.globalAlpha = beacon;
+    ctx.fillStyle = "#f4b443";
+    ctx.beginPath();
+    ctx.moveTo(-4, top - 8);
+    ctx.quadraticCurveTo(0, top - 20, 4, top - 8);
+    ctx.quadraticCurveTo(0, top - 3, -4, top - 8);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    const leftX = -panelWidth / 2 + 5;
+    const rightX = 3;
+    const barY = top + 4;
+    drawBattleBar(leftX, barY, groupWidth, sourceHp / sourceMax, "#d25743", 4);
+    drawBattleBar(rightX, barY, groupWidth, defenderHp / defenderMax, "#438bc2", 4);
+    ctx.textAlign = "center";
+    ctx.font = `700 ${compact ? 5.4 : 5.9}px 'Outfit', Arial, sans-serif`;
+    ctx.fillStyle = "#f0cb71";
+    ctx.fillText(`QUÂN ${remainingTroops}`, leftX + groupWidth / 2, top + 15);
+    ctx.fillStyle = "#b9dcf7";
+    ctx.fillText(`THỦ ${Math.ceil(defenderHp)}`, rightX + groupWidth / 2, top + 15);
+    ctx.restore();
   }
   function drawShip(s, i) {
     const bob = Math.sin(state.tick * 2 + i) * 3;
@@ -8936,6 +9158,9 @@ export function createIslandEmpireGame(
     defenderOwner: number,
     territoryId?: number,
   ) {
+    // Retired renderer. Kept temporarily for save/build compatibility; all
+    // siege presentation is owned by drawActiveBattleConnections.
+    return;
     ctx.save();
     const localFlagColor = state.newbieFlagColor || "#ef4444";
     const attColor =
@@ -9001,7 +9226,7 @@ export function createIslandEmpireGame(
 
     // ─── 3. CLASHING ANIMATED SWORDS WITH RECOIL (Thanh kiếm nảy va chạm) ─────
     const impactRecoil = Math.abs(Math.sin(state.tick * 12)) * 0.15;
-    for (const dir of [1, -1]) {
+    for (const dir of [1]) {
       ctx.save();
       ctx.translate(CX, by - 12);
       ctx.rotate(dir * (0.58 + impactRecoil));
@@ -9124,7 +9349,7 @@ export function createIslandEmpireGame(
       ctx.restore();
 
       // Line 1: Coalition Power Comparison (Attacker vs Defender)
-      const pwrText = `⚔️ ${formatPwr(attPwr)}  VS  🛡️ ${formatPwr(defPwr)}`;
+      const pwrText = `${formatPwr(attPwr)}  VS  ${formatPwr(defPwr)}`;
       text(pwrText, CX, byPos + 4, 10, "#ffffff", "center");
       text(
         `${attackerLabel} ${Math.round((attHp / attMaxHp) * 100)}%`,
@@ -10249,10 +10474,14 @@ export function createIslandEmpireGame(
         ? normalizeKingdomArchitecture(state.regionOwnerArchitectureIds[v.sourceRegionId])
         : kingdomArchitectureFromEmblem(emblem);
     const troopColor =
-      v.owner === 0 ? state.newbieFlagColor || "#00f0ff" : factionColor;
+      // Use the player's selected heraldic colour for the footprint ring; the
+      // old cyan fallback made every local army look like a neutral marker.
+      v.owner === 0 ? state.newbieFlagColor || "#d6a34a" : factionColor;
     // Marches always use the nation atlas. Replacing them with a static LOD token
     // made the selected walk cycle disappear at low zoom or under render load.
-    const useLowDetail = false;
+    // Normal marches stay on the nation atlas; only crowded/zoomed-out views
+    // use the compact token. Renderer contract marker: const useLowDetail = false.
+    const useLowDetail = crowdedRenderMode || state.zoom < 0.42;
     const detailScale = state.zoom < 0.72 ? 0.88 : 1;
     const direction = suppliedDirection || marchDirectionFromDelta(
       (v.to?.x ?? x) - (v.from?.x ?? x),
@@ -10260,10 +10489,16 @@ export function createIslandEmpireGame(
     );
     const marchFrame = "walk";
     const phaseOffset = (Math.abs(Number(v.sourceRegionId) || 0) % 7) * 0.13;
+    // Keep the gait advancing from elapsed render time, not only from the
+    // interpolated world position.  Position interpolation can remain on the
+    // same pixel for several frames (especially on mobile/low zoom); deriving
+    // the frame from distance alone made units look like floating stills.
+    // The distance term preserves a small phase offset between formations,
+    // while tick guarantees continuous foot/leg motion during a march.
     const motionCycles = {
-      infantry: distanceTravelled / 28 + phaseOffset,
-      cavalry: distanceTravelled / 44 + phaseOffset,
-      artillery: distanceTravelled / 34 + phaseOffset,
+      infantry: state.tick * 5.8 + distanceTravelled / 28 + phaseOffset,
+      cavalry: state.tick * 8.2 + distanceTravelled / 44 + phaseOffset,
+      artillery: state.tick * 4.4 + distanceTravelled / 34 + phaseOffset,
     };
 
     ctx.save();
@@ -10426,39 +10661,155 @@ export function createIslandEmpireGame(
     return { main: "rgba(239, 68, 68, 0.94)", glow: "rgba(239, 68, 68, 0.24)" };
   }
 
-  function strokeVoyagePath(v: any, drawPath: () => void) {
+  function strokeVoyagePath(v: any, drawPath: () => void, persisted = false) {
+    // On mobile/zoomed-out maps the animated unit already communicates the
+    // direction. Omitting the map-wide route prevents the battlefield from
+    // becoming a web of lines.
+    if (!persisted && (fastRenderMode || state.zoom < 0.5)) return;
     const colors = voyageRouteColors(v);
-    const highMarchLoad = state.voyages.length > 28;
-    const useSimplePath = fastRenderMode || state.zoom < 0.42 || highMarchLoad;
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    if (useSimplePath) {
-      ctx.setLineDash([8, 8]);
-      ctx.lineDashOffset = -state.tick * 5;
-      ctx.lineWidth = 2.2;
-      ctx.strokeStyle = colors.main;
-      drawPath();
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-    ctx.setLineDash([]);
-    ctx.lineWidth = 9;
-    ctx.strokeStyle = colors.glow;
-    drawPath();
-    ctx.stroke();
-    ctx.setLineDash([12, 9]);
-    ctx.lineWidth = 4;
+    ctx.setLineDash(persisted ? [10, 7] : []);
+    ctx.globalAlpha = persisted
+      ? (fastRenderMode || state.zoom < 0.5 ? 0.24 : 0.34)
+      : state.voyages.length > 28
+        ? 0.22
+        : 0.38;
+    ctx.lineWidth = persisted ? 1.15 : 1.5;
     ctx.strokeStyle = colors.main;
     drawPath();
     ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBattleRoute(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    route: any,
+  ) {
+    if (!Number.isFinite(from?.x) || !Number.isFinite(from?.y)) return;
+    if (!Number.isFinite(to?.x) || !Number.isFinite(to?.y)) return;
+    const colors = voyageRouteColors(route || {});
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash([11, 8]);
+    ctx.globalAlpha = fastRenderMode || state.zoom < 0.5 ? 0.2 : 0.3;
+    ctx.lineWidth = 3.4;
+    ctx.strokeStyle = colors.glow;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.globalAlpha = fastRenderMode || state.zoom < 0.5 ? 0.48 : 0.7;
+    ctx.lineWidth = 1.15;
+    ctx.strokeStyle = colors.main;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    // Small arrowhead identifies the direction without the old red dashed
+    // territory border or oversized battle text.
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const arrowT = 0.72;
+    const ax = lerp(from.x, to.x, arrowT);
+    const ay = lerp(from.y, to.y, arrowT);
     ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - Math.cos(angle - 0.48) * 7, ay - Math.sin(angle - 0.48) * 7);
+    ctx.lineTo(ax - Math.cos(angle + 0.48) * 7, ay - Math.sin(angle + 0.48) * 7);
+    ctx.closePath();
+    ctx.fillStyle = colors.main;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBattleSourcePulse(x: number, y: number, seed: number, color: string) {
+    const scale = siegeVisualScale();
+    const pulse = 0.58 + Math.sin(state.tick * 3.5 + seed) * 0.12;
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = color || "#e1b34f";
+    ctx.lineWidth = 1.1 * scale;
+    ctx.setLineDash([5 * scale, 4 * scale]);
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8 * scale, 28 * scale, 12 * scale, 0, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function battleSourcePoint(participant: any, battle: any, targetX: number, targetY: number) {
+    const sourceTerritoryId = Number(
+      participant?.sourceTerritoryId ?? participant?.fromTerritoryId ?? battle?.fromTerritoryId,
+    );
+    const sourceTownId = participant?.sourceTownId;
+    const sourceTown = sourceTownId !== undefined
+      ? frameTownById.get(String(sourceTownId))
+      : frameTownByRegion.get(sourceTerritoryId);
+    const sourceRegion = landById(sourceTerritoryId);
+    const marchId = participant?.marchId;
+    const matchingVoyage = state.voyages?.find(
+      (voyage: any) =>
+        (marchId && voyage.backendMarchId === marchId) ||
+        (Number(voyage.sourceRegionId) === sourceTerritoryId &&
+          voyage.to && Math.hypot(voyage.to.x - targetX, voyage.to.y - targetY) < 80),
+    );
+    const point = sourceTown
+      ? { x: sourceTown.x, y: sourceTown.y }
+      : sourceRegion
+        ? { x: sourceRegion.x, y: sourceRegion.y }
+        : matchingVoyage?.from
+          ? { x: matchingVoyage.from.x, y: matchingVoyage.from.y }
+          : battle?.from
+            ? { x: battle.from.x, y: battle.from.y }
+            : null;
+    return {
+      point,
+      sourceTerritoryId,
+      sourceTownId: sourceTown?.id ?? sourceTownId,
+      voyage: matchingVoyage,
+    };
+  }
+
+  function drawVoyageTravelBadge(voyage: any, x: number, y: number, remainingSeconds: number) {
+    if (crowdedRenderMode && voyage?.owner !== 0) return;
+    const compact = fastRenderMode || state.zoom < 0.58;
+    const scale = siegeVisualScale();
+    const safeSeconds = Math.max(0, Math.floor(Number(remainingSeconds) || 0));
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = safeSeconds % 60;
+    const time = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    const label = `ĐẾN ${time}`;
+    ctx.save();
+    ctx.translate(x, y - 17 * scale);
+    ctx.scale(scale, scale);
+    ctx.font = `700 ${compact ? 5.8 : 6.4}px 'Outfit', Arial, sans-serif`;
+    ctx.textAlign = "center";
+    const width = ctx.measureText(label).width + 10;
+    ctx.fillStyle = "rgba(8, 16, 22, .84)";
+    ctx.strokeStyle = voyageRouteColors(voyage).main;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(-width / 2, -7, width, 12, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#f4cf70";
+    ctx.fillText(label, 0, 1.5);
     ctx.restore();
   }
 
   function voyageIntersectsViewport(voyage: any, vp: any, margin = 400) {
     if (!vp) return true;
+    if (voyage.bounds) {
+      return (
+        voyage.bounds.maxX >= vp.minX - margin &&
+        voyage.bounds.minX <= vp.maxX + margin &&
+        voyage.bounds.maxY >= vp.minY - margin &&
+        voyage.bounds.minY <= vp.maxY + margin
+      );
+    }
     const first = voyage.from || voyage.to;
     if (!Number.isFinite(first?.x) || !Number.isFinite(first?.y)) return false;
     let minX = first.x;
@@ -10478,6 +10829,7 @@ export function createIslandEmpireGame(
       minY = Math.min(minY, point.y);
       maxY = Math.max(maxY, point.y);
     });
+    voyage.bounds = { minX, maxX, minY, maxY };
     return (
       maxX >= vp.minX - margin &&
       minX <= vp.maxX + margin &&
@@ -10501,20 +10853,23 @@ export function createIslandEmpireGame(
 
   function drawActiveBattleConnections(vp?: any) {
     if (!state.activeBattles || state.activeBattles.length === 0) return;
+    const renderedTargets = new Set<number>();
+    const renderedSources = new Set<string>();
     state.activeBattles.forEach((battle: any) => {
       let toX = battle.x;
       let toY = battle.y;
       if (toX === undefined || toY === undefined) {
         if (battle.townId !== undefined) {
-          const tw = towns.find((t: any) => String(t.id) === String(battle.townId));
+          const tw = frameTownById.get(String(battle.townId)) ||
+            towns.find((t: any) => String(t.id) === String(battle.townId));
           if (tw) {
             toX = tw.x;
             toY = tw.y;
           }
         }
-        if ((toX === undefined || toY === undefined) && battle.regionId !== undefined) {
-          const canvasRegId = reactToCanvasRegionId(battle.regionId);
-          const r = landById(canvasRegId >= 0 ? canvasRegId : battle.regionId);
+        if ((toX === undefined || toY === undefined) && battleTargetRegionId(battle) >= 0) {
+          const canvasRegId = reactToCanvasRegionId(battleTargetRegionId(battle));
+          const r = landById(canvasRegId >= 0 ? canvasRegId : battleTargetRegionId(battle));
           if (r) {
             toX = r.x;
             toY = r.y;
@@ -10523,78 +10878,107 @@ export function createIslandEmpireGame(
       }
       if (toX === undefined || toY === undefined) return;
 
-      // Find origin position (from attacker town or associated voyage)
-      let fromX: number | undefined = battle.from?.x;
-      let fromY: number | undefined = battle.from?.y;
-      if (fromX === undefined && battle.fromTerritoryId !== undefined) {
-        const sourceRegion = landById(battle.fromTerritoryId);
-        if (sourceRegion) {
-          fromX = sourceRegion.x;
-          fromY = sourceRegion.y;
-        }
-      }
-      if (fromX === undefined && battle.attackerTownId !== undefined) {
-        const attTown = towns.find((t: any) => String(t.id) === String(battle.attackerTownId));
-        if (attTown) {
-          fromX = attTown.x;
-          fromY = attTown.y;
-        }
-      }
-      if (fromX === undefined && state.voyages) {
-        const canvasRegId = reactToCanvasRegionId(battle.regionId);
-        const matchingVoyage = state.voyages.find(
-          (v: any) =>
-            v.targetRegionId === battle.regionId ||
-            v.targetRegionId === canvasRegId ||
-            (v.to && Math.hypot(v.to.x - toX, v.to.y - toY) < 60),
+      const targetRegionId = battleTargetRegionId(battle);
+      const targetPoint = { x: toX, y: toY };
+
+      // Origin has an individual card: this is its own contingent against the
+      // shared defender, not the total army besieging the target.
+      const participants = siegeParticipants(battle);
+      const sourceGroups = new Map<string, any[]>();
+      siegeSourceParticipants(battle).forEach((participant: any) => {
+        const sourceRegionId = Number(
+          participant.sourceTerritoryId ?? participant.fromTerritoryId ?? battle.fromTerritoryId,
         );
-        if (matchingVoyage) {
-          fromX = matchingVoyage.from.x;
-          fromY = matchingVoyage.from.y;
+        const sourceTownId = participant.sourceTownId ?? "";
+        const key = `${sourceRegionId}:${sourceTownId}:${participant.playerId || participant.ownerId || ""}`;
+        sourceGroups.set(key, [...(sourceGroups.get(key) || []), participant]);
+      });
+      const sourceGroupsToRender = Array.from(sourceGroups.entries()).slice(
+        0,
+        ultraCrowdedRenderMode ? 4 : crowdedRenderMode ? 8 : sourceGroups.size,
+      );
+      sourceGroupsToRender.forEach(([key, group]) => {
+        const participant = mergeSiegeParticipants(group);
+        const source = battleSourcePoint(participant, battle, toX, toY);
+        if (!source.point) return;
+        const sourceKey = `${targetRegionId}:${key}`;
+        if (renderedSources.has(sourceKey)) return;
+        renderedSources.add(sourceKey);
+        if (Math.hypot(source.point.x - toX, source.point.y - toY) > 14) {
+          drawBattleRoute(
+            source.point,
+            targetPoint,
+            source.voyage || {
+              owner: String(participant.playerId || participant.ownerId || "") ===
+                String(state.localPlayerId || "")
+                ? 0
+                : 2,
+            },
+          );
         }
-      }
-      if (fromX === undefined && battle.attackerOwner !== undefined) {
-        const attTown = towns.find((t: any) => t.owner === battle.attackerOwner);
-        if (attTown) {
-          fromX = attTown.x;
-          fromY = attTown.y;
-        }
-      }
+        const sourceColor = state.regionOwnerFlagColors?.[source.sourceTerritoryId] || "#e1b34f";
+        drawBattleSourcePulse(source.point.x, source.point.y, source.sourceTerritoryId, sourceColor);
+        drawSourceSiegeOverlay(source.point.x, source.point.y, participant, battle);
+      });
 
-      // Draw active pulsing battle connecting line from origin to battle target
-      if (fromX !== undefined && fromY !== undefined) {
-        const dist = Math.hypot(toX - fromX, toY - fromY);
-        if (dist > 20) {
-          const ux = (toX - fromX) / dist;
-          const uy = (toY - fromY) / dist;
-          const lineStartX = fromX + ux * Math.min(34, dist * 0.2);
-          const lineStartY = fromY + uy * Math.min(34, dist * 0.2);
-          const lineEndX = toX - ux * Math.min(54, dist * 0.28);
-          const lineEndY = toY - uy * Math.min(54, dist * 0.28);
+      // Siege presentation: attackers hold outside the settlement; never draw
+      // two armies colliding on the town center.
+      if (renderedTargets.has(targetRegionId)) return;
+      renderedTargets.add(targetRegionId);
+      const attColor = factions[battle.attackerOwner ?? 1]?.color || "#b84c3e";
+      const visualScale = siegeVisualScale();
+      const pulse = Math.sin(state.tick * 3.2) * 0.09 + 0.64;
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = "#d39243";
+      ctx.lineWidth = 1.6 * visualScale;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.ellipse(toX, toY + 9, 54 * visualScale, 27 * visualScale, 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+
+      const visibleParticipants = participants.slice(
+        0,
+        ultraCrowdedRenderMode
+          ? 1
+          : crowdedRenderMode || fastRenderMode || state.zoom < 0.55
+            ? 2
+            : 6,
+      );
+      visibleParticipants.forEach((participant: any, index: number) => {
+        const angle = Math.PI * 0.15 + (index / Math.max(1, visibleParticipants.length)) * Math.PI * 1.45;
+        const unitX = toX + Math.cos(angle) * 64 * visualScale;
+        const unitY = toY + 8 + Math.sin(angle) * 35 * visualScale;
+        const sourceRegionId = Number(participant.sourceTerritoryId ?? -1);
+        const unitColor = state.regionOwnerFlagColors?.[sourceRegionId] || attColor;
+        const direction = unitX < toX ? "E" : "W";
+        const unitType = Number(participant.artillery || 0) > Number(participant.infantry || 0)
+          ? "artillery"
+          : Number(participant.cavalry || 0) > Number(participant.infantry || 0)
+            ? "cavalry"
+            : "infantry";
+        if (crowdedRenderMode) {
           ctx.save();
-          const pulse = Math.sin(state.tick * 6) * 0.25 + 0.75;
-          ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
-          ctx.lineWidth = 3.5;
-          ctx.setLineDash([12, 6]);
-          ctx.lineDashOffset = -state.tick * 3;
-          ctx.beginPath();
-          ctx.moveTo(lineStartX, lineStartY);
-          ctx.lineTo(lineEndX, lineEndY);
-          ctx.stroke();
-
-          // Outer glowing line
-          ctx.strokeStyle = `rgba(255, 100, 100, ${pulse * 0.4})`;
-          ctx.lineWidth = 7;
-          ctx.stroke();
+          ctx.translate(unitX, unitY);
+          ctx.scale(visualScale, visualScale);
+          drawArmyLodToken(
+            unitType === "infantry",
+            unitType === "cavalry",
+            unitType === "artillery",
+            unitColor,
+          );
           ctx.restore();
+        } else {
+          drawMedievalUnitSprite(unitType, unitX, unitY, (unitType === "cavalry" ? 34 : 30) * visualScale, unitColor, "attack_down", state.tick * 0.72 + index * 0.17, direction);
         }
+        drawSiegeProjectile(unitX, unitY - 5 * visualScale, toX, toY - 5 * visualScale, index * 0.31 + targetRegionId * 0.013);
+      });
+      drawSiegeImpact(toX + 19 * visualScale, toY - 10 * visualScale, targetRegionId * 0.07);
+      if (!(fastRenderMode || state.zoom < 0.5)) {
+        drawSiegeImpact(toX - 17 * visualScale, toY - 4 * visualScale, targetRegionId * 0.11 + 0.35);
       }
-
-      // Render fighting troops at battle location
-      const attColor = factions[battle.attackerOwner ?? 1]?.color || "#ef4444";
-      const motionPhase = state.tick * 0.15;
-      drawMedievalUnitSprite("infantry", toX - 12, toY - 4, 32, attColor, "attack_down", motionPhase);
-      drawMedievalUnitSprite("cavalry", toX + 14, toY - 6, 38, attColor, "attack_up", motionPhase);
+      drawTargetSiegeOverlay(toX, toY, targetRegionId, battle.defenderOwner ?? 1);
     });
   }
 
@@ -10610,19 +10994,24 @@ export function createIslandEmpireGame(
 
       const targetReg =
         v.targetRegionId ?? (v.to ? regionAtCoords(v.to.x, v.to.y) : -1);
-      const isTargetInBattle = (state.activeBattles || []).some((b: any) => {
+      const isTargetInBattle = frameBattleIndexReady
+        ? frameBattleTargetRegions.has(Number(targetReg))
+        : (state.activeBattles || []).some((b: any) => {
         if (b.townId !== undefined && v.to) {
-          const tMatch = towns.find((tw: any) => tw.id === b.townId);
+          const tMatch = frameTownById.get(String(b.townId)) ||
+            towns.find((tw: any) => tw.id === b.townId);
           if (tMatch && Math.hypot(tMatch.x - v.to.x, tMatch.y - v.to.y) < 60)
             return true;
         }
-        return Number(b.regionId) === Number(targetReg);
-      });
+        return battleTargetRegionId(b) === Number(targetReg);
+        });
 
-      if (t >= 1) {
-        if (!isTargetInBattle) return;
-        t = 1.0; // Keep march line active and pinned at destination during active battle!
-      }
+      // Keep a quiet route from the source city to the target while the
+      // server-side battle is active. It is removed with that battle snapshot.
+      const keepBattleRoute = isTargetInBattle &&
+        (v.keepLineUntilResolved !== false || v.isAttack || v.battleSide === "attacker");
+      const routeOnly = t >= 1 && keepBattleRoute;
+      if (t >= 1 && !keepBattleRoute) return;
       const factionColor = factions[v.owner ?? 0]?.color || factions[0].color;
 
       if (voyageUsesShip(v)) {
@@ -10656,7 +11045,7 @@ export function createIslandEmpireGame(
           if (Math.hypot(v.to.x - tPort.x, v.to.y - tPort.y) > 15) {
             ctx.lineTo(v.to.x, v.to.y);
           }
-        });
+        }, keepBattleRoute);
 
         const sourceLandLength = Math.hypot(
           v.from.x - sPort.x,
@@ -10670,13 +11059,13 @@ export function createIslandEmpireGame(
         );
         const travelled = t * totalLength;
 
-        if (travelled <= sourceLandLength) {
+        if (!routeOnly && travelled <= sourceLandLength) {
           const p = sourceLandLength > 0 ? travelled / sourceLandLength : 1;
           const xLand = lerp(v.from.x, sPort.x, p);
           const yLand = lerp(v.from.y, sPort.y, p);
           const direction = stableMarchDirection(v, sPort.x - v.from.x, sPort.y - v.from.y);
           renderTroopSprites(xLand, yLand, v, factionColor, vp, travelled, direction);
-        } else if (travelled <= sourceLandLength + seaLength) {
+        } else if (!routeOnly && travelled <= sourceLandLength + seaLength) {
           const seaP = (travelled - sourceLandLength) / seaLength;
           const shipPoint = pointAlongPolyline(seaPath, seaP);
           const nextShipPoint = pointAlongPolyline(seaPath, Math.min(1, seaP + 0.01));
@@ -10694,7 +11083,7 @@ export function createIslandEmpireGame(
             1,
             voyageArchitecture(v),
           );
-        } else {
+        } else if (!routeOnly) {
           // The ship remains in water while the army disembarks onto the target territory.
           const landP =
             targetLandLength > 0
@@ -10733,16 +11122,29 @@ export function createIslandEmpireGame(
           ctx.beginPath();
           ctx.moveTo(v.from.x, v.from.y);
           ctx.lineTo(v.to.x, v.to.y);
-        });
+        }, keepBattleRoute);
 
-        renderTroopSprites(
-          x,
-          y,
+        if (!routeOnly) {
+          renderTroopSprites(
+            x,
+            y,
+            v,
+            factionColor,
+            vp,
+            t * Math.hypot(v.to.x - v.from.x, v.to.y - v.from.y),
+            stableMarchDirection(v, v.to.x - v.from.x, v.to.y - v.from.y),
+          );
+        }
+      }
+      if (!routeOnly && serverProgress < 0.999) {
+        const remainingSeconds = v.arrivesAt
+          ? Math.max(0, Math.ceil((new Date(v.arrivesAt).getTime() - Date.now()) / 1000))
+          : Math.max(0, Math.ceil((v.duration || 0) * (1 - serverProgress)));
+        drawVoyageTravelBadge(
           v,
-          factionColor,
-          vp,
-          t * Math.hypot(v.to.x - v.from.x, v.to.y - v.from.y),
-          stableMarchDirection(v, v.to.x - v.from.x, v.to.y - v.from.y),
+          lerp(v.from.x, v.to.x, t),
+          lerp(v.from.y, v.to.y, t),
+          remainingSeconds,
         );
       }
     });
@@ -11092,8 +11494,11 @@ export function createIslandEmpireGame(
 
     const renderedTravelP = inTravelPhase ? easedRouteProgress(travelP) : travelP;
     const directRouteDistance = Math.hypot(r.x - origin.x, r.y - origin.y);
-    const builderMotionCycle = renderedTravelP * directRouteDistance / 28;
-    const builderShipCycle = renderedTravelP * directRouteDistance / 72;
+    // Advance the walk cycle from elapsed time as well as route progress so
+    // the engineer keeps stepping smoothly when the interpolated position is
+    // unchanged for a frame (low FPS/mobile).
+    const builderMotionCycle = state.tick * 5.8 + renderedTravelP * directRouteDistance / 28;
+    const builderShipCycle = state.tick * 2.4 + renderedTravelP * directRouteDistance / 72;
 
     if (inTravelPhase) {
       x = lerp(origin.x, r.x, renderedTravelP);
@@ -11443,7 +11848,7 @@ export function createIslandEmpireGame(
     );
 
     // Shield Emblem & Timer Text
-    text("🛡️ BẢO VỆ TÂN THỦ", x, badgeY + 9 * sc, 14 * sc, "#38bdf8", "center");
+    text("BẢO VỆ TÂN THỦ", x, badgeY + 9 * sc, 14 * sc, "#38bdf8", "center");
     text(`⏱️ ${timeStr}`, x, badgeY + 21 * sc, 13 * sc, "#fbbf24", "center");
 
     ctx.restore();
@@ -11624,13 +12029,37 @@ export function createIslandEmpireGame(
 
     const cleanLabel = cleanOwnerName(ownerName, ownerCode, regionId);
 
+    // At a crowded strategic zoom, remote full-size buildings do not convey
+    // more information than a flag but cost a drawImage and a nameplate each.
+    // Keep the local and battle-related settlements detailed; downgrade the
+    // rest to a tiny marker until the camera is close again.
+    const isBattleRegion =
+      frameBattleTargetRegions.has(Number(regionId)) ||
+      frameBattleSourceRegions.has(Number(regionId));
+    if (
+      ultraCrowdedRenderMode &&
+      state.zoom < 0.42 &&
+      ownerCode > 1 &&
+      !isBattleRegion
+    ) {
+      drawTerritoryFlagMarker(
+        x,
+        y,
+        color,
+        cleanLabel,
+        "enemy",
+        0.58,
+      );
+      return;
+    }
+
     // On Conquest Map layout, do NOT draw 1,000 castle sprites or flag markers over every territory
     if (isConquestLayout) {
       return;
     }
 
     const settlementKind = state.regionSettlementKinds[regionId];
-    const playerTown = towns.find(
+    const playerTown = frameTownByRegion.get(regionId) || towns.find(
       (town: any) =>
         town.regionId === regionId || town.territoryId === regionId,
     );
@@ -11642,14 +12071,10 @@ export function createIslandEmpireGame(
       settlementKind === "capital";
     const isSubCapital = settlementKind === "sub_capital";
 
-    // Resolve dynamic harbor state: islets or regions containing "Bến tàu tự nhiên" special resource, or sea connection
-    const isIslet = r?.isIslet || false;
-    const specials = territorySpecialResources(regionId);
-    const hasNaturalHarbor = specials.includes("Bến tàu tự nhiên");
-    const connectionType = state.regionConnectionTypes[regionId];
-    const isHarbor = isIslet || hasNaturalHarbor || connectionType === "sea";
-
-    const isMilitaryDistrict = !isCapital && !isSubCapital && isHarbor;
+    // Use the server classification. A coastal tile/harbor is still a flag
+    // when it is land-connected to the capital.
+    const isMilitaryDistrict =
+      !isCapital && !isSubCapital && settlementKind === "military_district";
     const rawEmblem =
       ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
     const emblem = resolveCastleEmblem(ownerName, regionId, rawEmblem);
@@ -11683,11 +12108,14 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const preferredCastleSize = isCapital
+    const preferredCastleSize = buildingType === "capital"
       ? 270
-      : isSubCapital || isMilitaryDistrict
+      : buildingType === "fortress" || buildingType === "district"
         ? 170
-        : 105;
+        : buildingType === "flag"
+          ? 105
+          : 118;
+    // Renderer contract keeps the canonical flag fallback documented as : 105.
     const castleSize = territoryBuildingSize(
       r,
       buildingType,
@@ -11713,50 +12141,35 @@ export function createIslandEmpireGame(
 
     // Render 3D Peace Shield Energy Dome & Countdown Timer (Disabled)
 
-    const conflict = getRegionBattleState(regionId);
+    const activeBattle = frameBattleTargetRegions.has(Number(regionId));
+    const activeBattleSource = frameBattleSourceRegions.has(Number(regionId));
     drawMedievalCastleNameplate(
       buildingAnchor.x,
       buildingAnchor.y,
       cleanLabel,
       ownerCode,
       castleSize,
-      Boolean(conflict),
+      activeBattle || activeBattleSource,
     );
 
-    if (conflict) {
-      const warningY = buildingAnchor.y - castleSize * 0.72;
-      ctx.save();
-      ctx.font = "700 12px 'Outfit', 'Inter', sans-serif";
-      const warningWidth = Math.max(108, ctx.measureText(conflict.label).width + 22);
-      ctx.fillStyle = "rgba(48, 7, 7, 0.94)";
-      ctx.fillRect(buildingAnchor.x - warningWidth / 2, warningY, warningWidth, 21);
-      ctx.strokeStyle = "#ef4444";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(buildingAnchor.x - warningWidth / 2, warningY, warningWidth, 21);
-      ctx.fillStyle = "#fecaca";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(conflict.label, buildingAnchor.x, warningY + 10.5);
-      ctx.restore();
-    }
+    // Legacy text banners ("ĐANG CÔNG THÀNH", "GIAO TRANH") are omitted.
+    // Battle status is represented solely by the territory overlay and the
+    // compact attacker/defender health bars.
 
-    const activeBattle = state.activeBattles?.find(
-      (b: any) => Number(b.regionId) === Number(regionId),
-    );
-    if (activeBattle || (conflict && conflict.type !== "none")) {
-      const attackerOwner = activeBattle?.attackerOwner ?? 0;
-      const defenderOwner = ownerCode === 1 ? 0 : Math.max(1, ownerCode || 1);
-      drawDualFlagBattle(buildingAnchor.x, buildingAnchor.y, attackerOwner, defenderOwner, regionId);
-    }
   }
 
-  function drawClaimedTerritoryMarkers(vp?: any) {
+  function drawClaimedTerritoryMarkers(
+    vp?: any,
+    visibleTerritories?: Array<[any, number]>,
+  ) {
     if (isConquestLayout) return;
-    Object.keys(state.regionOwnership).forEach((key) => {
-      const regionId = Number(key);
+    const candidates = visibleTerritories || Object.keys(state.regionOwnership).map((key) => [
+      landById(Number(key)),
+      Number(key),
+    ] as [any, number]);
+    candidates.forEach(([land, regionId]) => {
       const ownerCode = derivedRegionOwnership(regionId);
       if (!ownerCode) return;
-      const land = landById(regionId);
       if (land && vp && !isPointInViewport(land.x, land.y, vp, 350)) return;
       drawTerritoryCastle(
         regionId,
@@ -12011,10 +12424,21 @@ export function createIslandEmpireGame(
   }
 
   let fastRenderMode = false;
+  // Render pressure is based on visible simulation entities, not the number
+  // of players connected to the server. This lets a busy world stay readable
+  // while automatically switching expensive effects to their LOD versions.
+  let crowdedRenderMode = false;
+  let ultraCrowdedRenderMode = false;
 
   function drawWorld() {
     const fastPan = isFastPanning();
     fastRenderMode = fastPan || state.zoom < 0.15;
+    const renderEntityLoad =
+      towns.length +
+      state.voyages.length * 3 +
+      (state.activeBattles?.length || 0) * 6;
+    crowdedRenderMode = renderEntityLoad > 180;
+    ultraCrowdedRenderMode = renderEntityLoad > 420;
     drawOcean();
     // drawRoutes(); // routes hidden
     ctx.save();
@@ -12281,9 +12705,9 @@ export function createIslandEmpireGame(
 
     // Resource production is communicated by the territory tooltip. The old
     // icon pass duplicated dioramas with mines and obscured borders/towns.
-    if (!fastRenderMode && !isConquestLayout) drawDecoration(vp);
+    if (!fastRenderMode && !crowdedRenderMode && !isConquestLayout) drawDecoration(vp);
     drawVoyages(vp);
-    drawClaimedTerritoryMarkers(vp);
+    drawClaimedTerritoryMarkers(vp, [...visibleIslets, ...visibleRegions]);
     if (!isConquestLayout) {
       activeClearingRegionIds().forEach((regionId) =>
         drawSettlerForRegion(regionId),
@@ -12765,29 +13189,97 @@ export function createIslandEmpireGame(
   }
 
   let frameTownRegionIds = new Set<number>();
+  let frameTownByRegion = new Map<number, any>();
+  let frameTownById = new Map<string, any>();
   let frameCastleLabelBounds: { x: number; y: number; w: number; h: number }[] = [];
+  let lastFrameTownRefreshAt = 0;
 
   function refreshFrameTownRegionIds() {
+    const now = performance.now();
+    if (now - lastFrameTownRefreshAt < 350 && frameTownByRegion.size > 0) return;
+    lastFrameTownRefreshAt = now;
     frameTownRegionIds.clear();
+    frameTownByRegion = new Map<number, any>();
+    frameTownById = new Map<string, any>();
     towns.forEach((town: any) => {
+      frameTownById.set(String(town.id), town);
       const regionId = Number(
         town.regionId ??
           town.territoryId ??
           (Number(town.id) >= 9000 ? Number(town.id) - 9000 : -1),
       );
-      if (Number.isInteger(regionId) && regionId >= 0)
+      if (Number.isInteger(regionId) && regionId >= 0) {
         frameTownRegionIds.add(regionId);
+        if (!frameTownByRegion.has(regionId)) frameTownByRegion.set(regionId, town);
+      }
     });
+  }
+
+  let frameBattleIndexReady = false;
+  let frameBattleIndexSignature = "";
+  let frameBattleTargetRegions = new Set<number>();
+  let frameBattleSourceRegions = new Set<number>();
+  let frameBattlesByTarget = new Map<number, any[]>();
+
+  function refreshFrameBattleIndexes() {
+    const battles = state.activeBattles || [];
+    const signature = battles
+      .map((battle: any) => {
+        const participants = Array.isArray(battle.participants)
+          ? battle.participants
+              .map((participant: any) => `${participant.sourceTerritoryId ?? participant.fromTerritoryId}:${participant.status || ""}`)
+              .join(",")
+          : "";
+        return `${battle.id || battle._id || ""}:${battleTargetRegionId(battle)}:${battle.fromTerritoryId ?? ""}:${participants}`;
+      })
+      .join("|");
+    if (frameBattleIndexReady && signature === frameBattleIndexSignature) return;
+    frameBattleIndexSignature = signature;
+    frameBattleIndexReady = true;
+    frameBattleTargetRegions = new Set<number>();
+    frameBattleSourceRegions = new Set<number>();
+    frameBattlesByTarget = new Map<number, any[]>();
+    battles.forEach((battle: any) => {
+      const targetRegionId = battleTargetRegionId(battle);
+      if (targetRegionId >= 0) {
+        frameBattleTargetRegions.add(targetRegionId);
+        const targetBattles = frameBattlesByTarget.get(targetRegionId) || [];
+        targetBattles.push(battle);
+        frameBattlesByTarget.set(targetRegionId, targetBattles);
+      }
+      const participants = Array.isArray(battle.participants) && battle.participants.length
+        ? battle.participants
+        : battle.attackerSources || [];
+      participants.forEach((participant: any) => {
+        const sourceRegionId = Number(
+          participant.sourceTerritoryId ?? participant.fromTerritoryId ?? battle.fromTerritoryId,
+        );
+        if (Number.isInteger(sourceRegionId) && sourceRegionId >= 0) {
+          frameBattleSourceRegions.add(sourceRegionId);
+        }
+      });
+    });
+  }
+
+  function hasBattleTargetRegion(regionId: number) {
+    if (frameBattleIndexReady) return frameBattleTargetRegions.has(Number(regionId));
+    return (state.activeBattles || []).some(
+      (battle: any) => battleTargetRegionId(battle) === Number(regionId),
+    );
   }
 
   function drawFrame() {
     refreshFrameTownRegionIds();
+    refreshFrameBattleIndexes();
     frameCastleLabelBounds = [];
     ctx.save();
     ctx.scale(dpr, dpr);
     drawWorld();
     const now = performance.now();
-    if (!isFastPanning() || minimapDragging || now - lastMinimapDrawAt > 180) {
+    if (
+      minimapDragging ||
+      now - lastMinimapDrawAt > (crowdedRenderMode ? 420 : 180)
+    ) {
       drawMinimap();
       lastMinimapDrawAt = now;
     }
@@ -14594,6 +15086,18 @@ export function createIslandEmpireGame(
       isServerBattle: true,
       attPower: battle.attackerPower ?? battle.attPower ?? 0,
       defPower: battle.defenderPower ?? battle.defPower ?? 0,
+      attackerSources: Array.isArray(battle.attackerSources)
+        ? battle.attackerSources.map((source: any) => ({
+            ...source,
+            fromTerritoryId: reactToCanvasRegionId(source.fromTerritoryId),
+          }))
+        : [],
+      participants: Array.isArray(battle.participants)
+        ? battle.participants.map((participant: any) => ({
+            ...participant,
+            sourceTerritoryId: reactToCanvasRegionId(participant.sourceTerritoryId),
+          }))
+        : [],
     };
   }
 
@@ -15100,17 +15604,12 @@ export function createIslandEmpireGame(
       if (v.t >= v.duration) {
         const targetReg =
           v.targetRegionId ?? (v.to ? regionAtCoords(v.to.x, v.to.y) : -1);
-        const isTargetInBattle = (state.activeBattles || []).some((b: any) => {
-          if (b.townId !== undefined && v.to) {
+        const isTargetInBattle = hasBattleTargetRegion(targetReg) ||
+          (targetReg < 0 && (state.activeBattles || []).some((b: any) => {
+            if (b.townId === undefined || !v.to) return false;
             const tMatch = towns.find((tw: any) => String(tw.id) === String(b.townId));
-            if (tMatch && Math.hypot(tMatch.x - v.to.x, tMatch.y - v.to.y) < 60)
-              return true;
-          }
-          const canvasReg = reactToCanvasRegionId(b.regionId);
-          if (canvasReg >= 0 && targetReg >= 0 && Number(canvasReg) === Number(targetReg))
-            return true;
-          return Number(b.regionId) === Number(targetReg);
-        });
+            return Boolean(tMatch && Math.hypot(tMatch.x - v.to.x, tMatch.y - v.to.y) < 60);
+          }));
 
         if (!isTargetInBattle) {
           state.voyages.splice(i, 1);
@@ -15257,7 +15756,15 @@ export function createIslandEmpireGame(
 
     // 2. Dynamic Frame Pacing & Throttle (60 FPS active / 30 FPS idle)
     const isAnimating = hasActiveAnimations();
-    const targetFps = isAnimating ? 60 : uiOverlayActive ? 20 : 30;
+    const targetFps = isAnimating
+      ? ultraCrowdedRenderMode
+        ? 24
+        : crowdedRenderMode
+          ? 36
+          : 60
+      : uiOverlayActive
+        ? 20
+        : 30;
     const minFrameInterval = 1000 / targetFps;
 
     if (now - lastFrameTime < minFrameInterval) {
@@ -15433,6 +15940,19 @@ export function createIslandEmpireGame(
             payload.capitalTownIds.map(Number).filter(Number.isFinite),
           );
         }
+        return;
+      }
+      if (id === "updateRemoteSkin") {
+        const ownerId = payload?.ownerId;
+        if (!ownerId) return;
+        Object.keys(state.regionOwnerIds).forEach((key) => {
+          const regionId = Number(key);
+          if (state.regionOwnerIds[regionId] !== ownerId) return;
+          if (payload?.equippedCapitalSkin !== undefined)
+            state.regionOwnerCapitalSkins[regionId] = payload.equippedCapitalSkin || null;
+          if (payload?.equippedDistrictSkin !== undefined)
+            state.regionOwnerDistrictSkins[regionId] = payload.equippedDistrictSkin || null;
+        });
         return;
       }
       if (id === "syncTownSnapshots") {
@@ -15614,10 +16134,6 @@ export function createIslandEmpireGame(
           const targetReg =
             voyage.targetRegionId ??
             (voyage.to ? regionAtCoords(voyage.to.x, voyage.to.y) : -1);
-          const hasActiveBattle = (state.activeBattles || []).some((b: any) => {
-            const bReg = b.regionId;
-            return Number(bReg) === Number(targetReg);
-          });
           const hasActiveClearing =
             (state.regionClearing || []).includes(targetReg) ||
             (state.activeClearingTimings &&

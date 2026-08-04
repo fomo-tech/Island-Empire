@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { equipShopSkin, purchaseShopProduct } from "../game/api";
+import { createClientId, equipShopSkin, purchaseShopProduct } from "../game/api";
 import type { ResourceBag, ShopInventory, ShopProduct } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 import {
@@ -14,6 +14,7 @@ import {
   kingdomArchitectureFromSkin,
 } from "../game/kingdomArchitecture";
 import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
+import { AssetIcon } from "./AssetIcon";
 
 type SkinVariant = "gold" | "fire" | "wind";
 
@@ -77,6 +78,7 @@ const TransparentChestImage: React.FC<{ src: string; alt: string; className: str
 };
 
 function CastleSkinArt({ variant }: { variant: SkinVariant }) {
+  return <KingdomSkinAsset skinId="skin_long_bao_thanh" variant={variant} />;
   const uid = useId().replace(/:/g, "");
   const wallId = `skin-wall-${variant}-${uid}`;
   const roofId = `skin-roof-${variant}-${uid}`;
@@ -272,13 +274,18 @@ function PremiumCastleCanvas({
   );
 }
 
-const ResFoodIcon = () => (
+const ResFoodIcon = () => {
+  return <AssetIcon asset="food" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <path d="M32 6v52M32 16q10-8 20 0M32 30q10-8 20 0M32 44q10-8 20 0M32 16q-10-8-20 0M32 30q-10-8-20 0M32 44q-10-8-20 0" stroke="#facc15" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </svg>
-);
+  );
+};
 
-const ResWoodIcon = () => (
+const ResWoodIcon = () => {
+  return <AssetIcon asset="wood" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <path d="M12 16h40M8 32h48M14 48h36" stroke="#ca8a04" strokeWidth="5.5" strokeLinecap="round" fill="none" />
     <circle cx="12" cy="16" r="3" fill="#854d0e" />
@@ -286,25 +293,34 @@ const ResWoodIcon = () => (
     <circle cx="8" cy="32" r="3" fill="#854d0e" />
     <circle cx="56" cy="32" r="3" fill="#854d0e" />
   </svg>
-);
+  );
+};
 
-const ResStoneIcon = () => (
+const ResStoneIcon = () => {
+  return <AssetIcon asset="stone" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <polygon points="32,8 54,22 54,48 32,58 10,48 10,22" fill="#94a3b8" stroke="#475569" strokeWidth="3" />
     <polygon points="32,8 32,58 10,48" fill="#cbd5e1" />
     <polygon points="32,8 54,22 32,58" fill="#64748b" opacity="0.6" />
   </svg>
-);
+  );
+};
 
-const ResIronIcon = () => (
+const ResIronIcon = () => {
+  return <AssetIcon asset="iron" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <polygon points="8,26 32,8 56,26 56,48 8,48" fill="#e2e8f0" stroke="#475569" strokeWidth="2.5" />
     <polygon points="8,26 32,26 32,48 8,48" fill="#94a3b8" />
     <polygon points="32,8 56,26 32,26" fill="#ffffff" opacity="0.75" />
   </svg>
-);
+  );
+};
 
-const ResGoldIcon = () => (
+const ResGoldIcon = () => {
+  return <AssetIcon asset="gold" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20">
     <circle cx="24" cy="40" r="16" fill="#eab308" stroke="#ca8a04" strokeWidth="2.5" />
     <circle cx="24" cy="40" r="10" fill="#facc15" />
@@ -312,7 +328,8 @@ const ResGoldIcon = () => (
     <circle cx="40" cy="24" r="10" fill="#fef08a" />
     <text x="36" y="29" fill="#ca8a04" fontSize="15" fontWeight="900" fontFamily="sans-serif">$</text>
   </svg>
-);
+  );
+};
 
 interface ShopModalProps {
   onClose: () => void;
@@ -366,7 +383,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       const result = await purchaseShopProduct(
         token,
         productId,
-        crypto.randomUUID(),
+        createClientId("shop"),
         product?.skinId ? product.skinTarget || "capital" : undefined,
       );
       onResources(result.resources);
@@ -425,6 +442,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   ];
 
   const effectiveCatalog = catalog && catalog.length > 0 ? catalog : defaultCatalog;
+  const newbieResourceOffer = effectiveCatalog.find(
+    (product) => product.type === "resource_pack" && product.isNewbiePrice,
+  );
+  const newbieSkinOffer = effectiveCatalog.find(
+    (product) => product.type === "skin" && product.isNewbieFree,
+  );
+  const newbieOfferExpiresAt =
+    newbieSkinOffer?.newbieFreeExpiresAt || newbieResourceOffer?.newbiePriceExpiresAt;
+  const newbieOfferDate = newbieOfferExpiresAt
+    ? new Date(newbieOfferExpiresAt).toLocaleDateString("vi-VN")
+    : null;
 
   const resourceIcons: Partial<Record<keyof ResourceBag, React.ReactNode>> = {
     food: <img src="/assets/icons/resource_food_medieval.webp" alt="Lúa mì" className="res-icon-medieval res-icon-food" />,
@@ -444,6 +472,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       ...product,
       desc: product.description,
       price: product.priceGems,
+      isNewbiePrice: Boolean(product.isNewbiePrice),
       badge: product.testPrice ? "GIÁ THỬ NGHIỆM" : index === 0 ? "Phổ biến" : "Hoàng gia",
       color: index === 0 ? "#f59e0b" : "#ffd700",
       contents: Object.entries(product.resources || {}).map(([key, amount]) => ({
@@ -457,8 +486,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     {
       id: "skin_long_bao_thanh",
       name: "Long Bảo Thành",
-      price: catalog.find((product) => product.id === "skin_long_bao_thanh")?.priceGems ?? 1500,
-      testPrice: catalog.find((product) => product.id === "skin_long_bao_thanh")?.testPrice ?? false,
+      price: effectiveCatalog.find((product) => product.id === "skin_long_bao_thanh")?.priceGems ?? 1500,
+      isNewbieFree: Boolean(effectiveCatalog.find((product) => product.id === "skin_long_bao_thanh")?.isNewbieFree),
+      newbieFreeExpiresAt: effectiveCatalog.find((product) => product.id === "skin_long_bao_thanh")?.newbieFreeExpiresAt,
+      testPrice: effectiveCatalog.find((product) => product.id === "skin_long_bao_thanh")?.testPrice ?? false,
       desc: "Thành trì rồng vàng hoàng kim tối thượng với vầng hào quang rực rỡ hộ vệ.",
       themeColor: "#ffd700",
       variant: "gold" as SkinVariant,
@@ -471,8 +502,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     {
       id: "skin_hoa_long_dien",
       name: "Hỏa Long Điện",
-      price: catalog.find((product) => product.id === "skin_hoa_long_dien")?.priceGems ?? 2000,
-      testPrice: catalog.find((product) => product.id === "skin_hoa_long_dien")?.testPrice ?? false,
+      price: effectiveCatalog.find((product) => product.id === "skin_hoa_long_dien")?.priceGems ?? 2000,
+      isNewbieFree: Boolean(effectiveCatalog.find((product) => product.id === "skin_hoa_long_dien")?.isNewbieFree),
+      newbieFreeExpiresAt: effectiveCatalog.find((product) => product.id === "skin_hoa_long_dien")?.newbieFreeExpiresAt,
+      testPrice: effectiveCatalog.find((product) => product.id === "skin_hoa_long_dien")?.testPrice ?? false,
       desc: "Điện thờ rồng lửa đỏ rực bùng cháy ngọn lửa dung nham thiêu rụi mọi đạo quân xâm lược.",
       themeColor: "#ff4500",
       variant: "fire" as SkinVariant,
@@ -485,8 +518,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     {
       id: "skin_phong_long_cac",
       name: "Phong Long Các",
-      price: catalog.find((product) => product.id === "skin_phong_long_cac")?.priceGems ?? 2500,
-      testPrice: catalog.find((product) => product.id === "skin_phong_long_cac")?.testPrice ?? false,
+      price: effectiveCatalog.find((product) => product.id === "skin_phong_long_cac")?.priceGems ?? 2500,
+      isNewbieFree: Boolean(effectiveCatalog.find((product) => product.id === "skin_phong_long_cac")?.isNewbieFree),
+      newbieFreeExpiresAt: effectiveCatalog.find((product) => product.id === "skin_phong_long_cac")?.newbieFreeExpiresAt,
+      testPrice: effectiveCatalog.find((product) => product.id === "skin_phong_long_cac")?.testPrice ?? false,
       desc: "Tòa lâu đài ngự trên đỉnh mây ngàn, hội tụ phong lôi bão tố & tinh thể linh thiêng.",
       themeColor: "#38bdf8",
       variant: "wind" as SkinVariant,
@@ -570,6 +605,16 @@ export const ShopModal: React.FC<ShopModalProps> = ({
             </div>
           </div>
 
+          {newbieOfferDate && (
+            <div className="shop-newbie-offer-strip" role="status">
+              <span className="shop-newbie-offer-mark">TÂN THỦ</span>
+              <span className="shop-newbie-offer-copy">
+                Gói quân nhu chỉ <strong>1 ngọc</strong>; chọn một ngoại trang để dùng thử miễn phí.
+              </span>
+              <span className="shop-newbie-offer-expiry">Đến {newbieOfferDate}</span>
+            </div>
+          )}
+
           {/* 3D Navigation Tabs */}
           <nav className="euro-shop-tabs wood-slate-tabs">
             <button
@@ -599,6 +644,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 {resourcePacks.map((pack, packIndex) => {
                   const isStarter = packIndex % 2 === 0;
                   const isBought = purchasedProductIds.includes(pack.id);
+                  const isNewbiePrice = Boolean(pack.isNewbiePrice && !isBought);
 
                   return (
                     <div
@@ -606,8 +652,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       key={pack.id}
                     >
                       {/* Corner ribbon badge */}
-                      <span className={`rk-badge ${isStarter ? "rk-badge--sale" : "rk-badge--hot"}`}>
-                        {isStarter ? "SALE -30%" : "HOT"}
+                      <span className={`rk-badge ${isNewbiePrice ? "rk-badge--newbie" : isStarter ? "rk-badge--sale" : "rk-badge--hot"}`}>
+                        {isNewbiePrice ? "TÂN THỦ · 1 NGỌC" : isStarter ? "SALE -30%" : "HOT"}
                       </span>
 
                       {/* Header: chest image + title side by side */}
@@ -662,7 +708,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                           >
                             <img src="/assets/icons/icon_red_gem.webp" alt="Gem" className="rk-btn-gem" />
                             <span className="rk-btn-price">
-                              {busyProductId === pack.id ? "..." : (pack.price > 10 ? pack.price.toLocaleString() : 1)}
+                              {busyProductId === pack.id ? "..." : pack.price.toLocaleString()}
                             </span>
                             <span className="rk-btn-label">MUA NGAY</span>
                           </button>
@@ -685,6 +731,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 {skinPacks.map((skin) => {
                   const isEquipped = inventory.equippedCapitalSkin === skin.id;
                   const isOwned = (inventory.ownedSkins || []).includes(skin.id);
+                  const isNewbieFree = Boolean(skin.isNewbieFree && !inventory.newbieSkinClaimedAt);
                   const isLegendary = skin.variant === "gold";
                   const isMythic = skin.variant === "fire";
                   const badgeText = isLegendary ? "GIỚI HẠN" : isMythic ? "SALE -15%" : "MỚI";
@@ -695,7 +742,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       key={skin.id}
                     >
                       {/* Ribbon badge */}
-                      <span className={`sk-badge sk-badge--${skin.variant}`}>{badgeText}</span>
+                      <span className={`sk-badge sk-badge--${skin.variant}`}>{isNewbieFree ? "TẶNG TÂN THỦ" : badgeText}</span>
                       {isEquipped && <span className="sk-equipped-indicator">✓ ĐANG SỬ DỤNG</span>}
 
                       {/* Top Preview */}
@@ -749,11 +796,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                             disabled={busyProductId !== null}
                             onClick={() => buyProduct(skin.id)}
                           >
-                            <img src="/assets/icons/icon_red_gem.webp" alt="Gem" className="sk-btn-gem" />
-                            <span className="sk-btn-price">
-                              {busyProductId === skin.id ? "..." : skin.price.toLocaleString()}
-                            </span>
-                            <span className="sk-btn-cta">MUA NGAY</span>
+                            {isNewbieFree ? (
+                              <span className="sk-btn-free">NHẬN MIỄN PHÍ</span>
+                            ) : (
+                              <>
+                                <img src="/assets/icons/icon_red_gem.webp" alt="Gem" className="sk-btn-gem" />
+                                <span className="sk-btn-price">
+                                  {busyProductId === skin.id ? "..." : skin.price.toLocaleString()}
+                                </span>
+                                <span className="sk-btn-cta">MUA NGAY</span>
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
@@ -872,6 +925,18 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       }}
                     >
                       {busyProductId === previewSkin.id ? "..." : "TRANG BỊ NGAY"}
+                    </button>
+                  ) : previewSkin.isNewbieFree && !inventory.newbieSkinClaimedAt ? (
+                    <button
+                      type="button"
+                      className="euro-emerald-btn btn-3d btn-3d-emerald"
+                      disabled={busyProductId !== null}
+                      onClick={async () => {
+                        await buyProduct(previewSkin.id);
+                        setPreviewSkin(null);
+                      }}
+                    >
+                      <span className="sk-btn-free">NHẬN MIỄN PHÍ · 7 NGÀY</span>
                     </button>
                   ) : (
                     <button

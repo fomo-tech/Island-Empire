@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { NationStatusSnapshot, NationTownStatus } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
+import { AssetIcon, type IconAssetId } from "./AssetIcon";
 
 type Props = {
   nation: NationStatusSnapshot | null;
@@ -11,6 +12,10 @@ type Props = {
 };
 
 function NationIcon({ name }: { name: "crown" | "land" | "people" | "store" | "build" | "pin" | "manage" }) {
+  const assets: Record<typeof name, IconAssetId> = {
+    crown: "crown", land: "map", people: "guild", store: "shop", build: "army", pin: "map", manage: "settings",
+  };
+  return <AssetIcon asset={assets[name]} size={20} className="nation-icon-raster" />;
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const path = {
     crown: <><path {...common} d="M4 18h16L19 8l-5 4-2-7-2 7-5-4-1 10Z"/><path {...common} d="M5 21h14"/></>,

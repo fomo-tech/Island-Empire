@@ -8,6 +8,7 @@ import {
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
 import {
   cancelClearing,
+  createClientId,
   checkCityName,
   clearPlayerMail,
   completeClearing,
@@ -50,6 +51,7 @@ import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
 import { RESOURCE_ORDER, ResourceHudItem } from "./ResourceDisplay";
+import { AssetIcon, type IconAssetId } from "./AssetIcon";
 import { useGameStore } from "../store/gameStore";
 import type {
   BattleReport,
@@ -112,6 +114,24 @@ type HudIconName =
   | "minus";
 
 function HudIcon({ name }: { name: HudIconName }) {
+  const rasterIcons: Partial<Record<HudIconName, IconAssetId>> = {
+    food: "food", wood: "wood", stone: "stone", iron: "iron", gems: "gems", gold: "gold",
+    scroll: "scroll", chart: "chart", swords: "army", shield: "defender", helmet: "troopTotal",
+    castle: "castle", map: "map", mail: "mail", bag: "bag", crown: "crown", globe: "map",
+    info: "info", search: "search", target: "army", gear: "settings", book: "scroll",
+    gift: "chest", pin: "map", chat: "guild", anchor: "map", clock: "settingsInfo",
+    pickaxe: "army", hammer: "army", flask: "settingsInfo", handshake: "guild", banner: "crown",
+  };
+  const rasterAsset = rasterIcons[name];
+  if (rasterAsset) return <AssetIcon asset={rasterAsset} size={24} className="hud-icon" />;
+  if (name === "minus") return <span className="hud-icon hud-icon-text" aria-hidden="true">−</span>;
+  if (name === "chevronUp") return <span className="hud-icon hud-icon-text" aria-hidden="true">⌃</span>;
+  if (name === "diamonds") {
+    return <AssetIcon asset="gems" size={24} className="hud-icon" />;
+  }
+  return <AssetIcon asset="info" size={24} className="hud-icon" />;
+
+  /* Legacy inline SVG icon map retained below temporarily for save compatibility; unreachable. */
   if (name === "food") return <VectorFoodIcon />;
   if (name === "wood") return <VectorWoodIcon />;
   if (name === "stone") return <VectorStoneIcon />;
@@ -443,7 +463,7 @@ function HudIcon({ name }: { name: HudIconName }) {
   };
   return (
     <svg className="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
-      {paths[name]}
+      {paths[name as keyof typeof paths]}
     </svg>
   );
 }
@@ -806,6 +826,7 @@ function VectorSulfurIcon() {
 
 /* Rich Status Icons for Left Card */
 function StatusIconLeaf() {
+  return <AssetIcon asset="food" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -823,6 +844,7 @@ function StatusIconLeaf() {
 }
 
 function StatusIconShield() {
+  return <AssetIcon asset="defender" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -836,6 +858,7 @@ function StatusIconShield() {
 }
 
 function StatusIconBlood() {
+  return <AssetIcon asset="attacker" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -849,6 +872,7 @@ function StatusIconBlood() {
 }
 
 function StatusIconVault() {
+  return <AssetIcon asset="chest" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <rect
@@ -867,6 +891,7 @@ function StatusIconVault() {
 }
 
 function StatusIconBolt() {
+  return <AssetIcon asset="gems" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <polygon
@@ -880,6 +905,7 @@ function StatusIconBolt() {
 }
 
 function StatusIconSwords() {
+  return <AssetIcon asset="army" size={18} className="vector-status-icon" />;
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -1093,6 +1119,7 @@ function stableJson(value: unknown) {
 }
 
 function CastleArt() {
+  return <AssetIcon asset="castle" size={80} />;
   return (
     <svg
       viewBox="0 0 100 100"
@@ -1158,6 +1185,7 @@ function CastleArt() {
 }
 
 function ArmyArt() {
+  return <AssetIcon asset="army" size={80} />;
   return (
     <svg
       viewBox="0 0 100 100"
@@ -1198,6 +1226,7 @@ function ArmyArt() {
 }
 
 function ResourceArt() {
+  return <AssetIcon asset="food" size={80} />;
   return (
     <svg
       viewBox="0 0 100 100"
@@ -1240,6 +1269,7 @@ function ResourceArt() {
 }
 
 function DiplomacyArt() {
+  return <AssetIcon asset="guild" size={80} />;
   return (
     <svg
       viewBox="0 0 100 100"
@@ -1485,6 +1515,8 @@ export function GameApp({
     "CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH",
   );
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  const [serverOnboardingState, setServerOnboardingState] = useState<string | null>(null);
+  const tutorialServerConfirmedRef = useRef(false);
   function applyResourceSnapshot(snapshot: {
     resources?: Partial<ResourceBag>;
     resourceCapacity?: Partial<ResourceBag>;
@@ -1565,6 +1597,8 @@ export function GameApp({
   const [selectedTown, setSelectedTown] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
+  const [serverHealth, setServerHealth] = useState<"checking" | "online" | "offline">("checking");
+  const [showHealthNotice, setShowHealthNotice] = useState(true);
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<
     number | null
   >(null);
@@ -1685,7 +1719,7 @@ export function GameApp({
 
   const addSystemLine = useCallback((message: string, level: "info" | "success" | "warning" | "battle" = "info") => {
     const next: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat"),
       kind: "system",
       level,
       text: message,
@@ -1730,7 +1764,7 @@ export function GameApp({
         recipientId: to,
         title,
         body,
-        requestId: crypto.randomUUID(),
+        requestId: createClientId("mail"),
       });
       setSentMail((current) => [
         result.mail,
@@ -1815,6 +1849,26 @@ export function GameApp({
   }, [coordinateSearch]);
 
   useEffect(() => {
+    let cancelled = false;
+    const checkHealth = async () => {
+      setServerHealth("checking");
+      setShowHealthNotice(true);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 3000);
+      try {
+        const response = await fetch("/api/health", { signal: controller.signal, cache: "no-store" });
+        if (!cancelled) setServerHealth(response.ok ? "online" : "offline");
+      } catch {
+        if (!cancelled) setServerHealth("offline");
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+    checkHealth();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (!isNewbieMode()) return;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PLAYER_ID_KEY);
@@ -1835,12 +1889,6 @@ export function GameApp({
           "setMinimapCanvas",
           minimapCanvasRef.current,
         );
-      }
-      const completed = localStorage.getItem(
-        "island_empire_tutorial_completed",
-      );
-      if (completed !== "1") {
-        setShowTutorial(true);
       }
     }
   }, [gameReady]);
@@ -2101,6 +2149,8 @@ export function GameApp({
 
       fetchWorldData
         .then((world) => {
+          const onboardingState = world.playerProfile?.onboardingState ?? null;
+          setServerOnboardingState(onboardingState);
           const effectivePlayerId =
             world.playerId && world.playerId !== playerId
               ? world.playerId
@@ -2190,6 +2240,16 @@ export function GameApp({
             ),
           );
           setInitialSyncReady(true);
+          if (
+            onboardingState === "settled" &&
+            localStorage.getItem(ONBOARDING_KEY) === "1" &&
+            localStorage.getItem("island_empire_tutorial_completed") !== "1" &&
+            localStorage.getItem("island_empire_hide_tutorial") !== "true"
+          ) {
+            tutorialServerConfirmedRef.current = true;
+            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            setShowTutorial(true);
+          }
           setWorldActivity({
             marches: world.marches,
             clearings: world.clearings,
@@ -2244,7 +2304,15 @@ export function GameApp({
               world.playerProfile?.onboardingState !== "profile_required",
           );
           setKingdomProfileReady(kingdomProfileComplete);
-          if (!hasOwnedTerritory && !hasOwnClearing) {
+          const serverControlsNewbie =
+            onboardingState === "profile_required" ||
+            onboardingState === "needs_claim" ||
+            onboardingState === "claiming";
+          if (onboardingState === "settled") {
+            localStorage.removeItem(ONBOARDING_KEY);
+            setShowKingdomCreation(false);
+            setNewbiePhase("none");
+          } else if (serverControlsNewbie && !hasOwnedTerritory && !hasOwnClearing) {
             localStorage.setItem(ONBOARDING_KEY, "1");
             setKingdomCreationRegion(null);
             if (!kingdomProfileComplete) {
@@ -2261,6 +2329,9 @@ export function GameApp({
               engineRef.current?.cancelNewbieOnboarding();
               setNewbiePhase("select_land");
             }
+          } else if (onboardingState === "claiming" || hasOwnClearing) {
+            setShowKingdomCreation(false);
+            setNewbiePhase("claiming");
           } else {
             setShowKingdomCreation(false);
           }
@@ -2486,6 +2557,15 @@ export function GameApp({
           syncShopInventoryToEngine(event.inventory);
           return;
         }
+        if (event.type === "territory_skin_updated") {
+          engineRef.current?.handleAction("updateRemoteSkin", {
+            ownerId: event.ownerId,
+            equippedCapitalSkin: event.equippedCapitalSkin,
+            equippedDistrictSkin: event.equippedDistrictSkin,
+            skinVersion: event.skinVersion,
+          });
+          return;
+        }
         if (event.type === "battle_resolved") {
           if (event.territory) {
             const engTerritoryId = serverToEngineTerritoryId(
@@ -2548,6 +2628,18 @@ export function GameApp({
           }
         }
         if (event.type === "territory_claimed") {
+          if (
+            event.territory.ownerId === playerId &&
+            !tutorialServerConfirmedRef.current &&
+            localStorage.getItem("island_empire_tutorial_completed") !== "1" &&
+            localStorage.getItem("island_empire_hide_tutorial") !== "true"
+          ) {
+            // The guide is unlocked only by the server's committed claim event.
+            tutorialServerConfirmedRef.current = true;
+            setServerOnboardingState("settled");
+            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            setShowTutorial(true);
+          }
           addWarReport({
             id: `socket-claim-${event.territory.id}-${event.territory.ownerId}`,
             kind: "clearing",
@@ -3515,6 +3607,9 @@ export function GameApp({
   worldActivity.battles.forEach((battle: any) => {
     const territoryId = Number(battle.regionId);
     if (!Number.isFinite(territoryId)) return;
+    const isLocalAttacker = battle.attackerId === playerId ||
+      (Array.isArray(battle.participants) && battle.participants.some((participant: any) =>
+        participant.playerId === playerId && participant.status === "engaged"));
     if (battle.defenderId === playerId) {
       trackedBattleTerritories.add(territoryId);
       battlefieldActivities.push({
@@ -3527,7 +3622,7 @@ export function GameApp({
         territoryId,
         focus: "territory",
       });
-    } else if (battle.attackerId === playerId) {
+    } else if (isLocalAttacker) {
       trackedBattleTerritories.add(territoryId);
       battlefieldActivities.push({
         id: `attack-${battle.id || territoryId}`,
@@ -3576,7 +3671,7 @@ export function GameApp({
           : `Quân đang di chuyển đến ${activityTerritoryLabel(territoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
       icon: isAttack
-        ? "/assets/icons/icon_battle_vs.png"
+        ? "/assets/icons/icon_troop_total_helmet.png"
         : "/assets/icons/icon_military.png",
       tone: isAttack ? "warning" : "active",
       priority: isAttack ? 2 : 3,
@@ -4182,6 +4277,23 @@ export function GameApp({
             </div>
           </div>
 
+          {!conquestMode && visibleBattlefieldActivities[0] && (
+            <button
+              type="button"
+              className={`mobile-battlefield-alert battlefield-${visibleBattlefieldActivities[0].tone} hud-interactive`}
+              onClick={() => focusBattlefieldActivity(visibleBattlefieldActivities[0])}
+              disabled={!visibleBattlefieldActivities[0].focus}
+              aria-label={`Định vị ${visibleBattlefieldActivities[0].title.toLowerCase()}`}
+            >
+              <img src={visibleBattlefieldActivities[0].icon} alt="" />
+              <span>
+                <b>{visibleBattlefieldActivities[0].title}</b>
+                <small>{visibleBattlefieldActivities[0].meta}</small>
+              </span>
+              <img className="mobile-battlefield-locate" src="/assets/icons/icon_search_european.png" alt="" />
+            </button>
+          )}
+
           {!conquestMode && (
             <nav
               className={`hud-command-dock hud-interactive ${mobileActionsExpanded ? "is-expanded" : ""}`}
@@ -4631,7 +4743,7 @@ export function GameApp({
             territoryName="Chưa chọn lãnh thổ"
             checkName={checkKingdomName}
             onClose={() => undefined}
-            onConfirm={async (flagColor, emblem, cityName, architectureId) => {
+          onConfirm={async (flagColor, emblem, cityName, architectureId) => {
               if (!token) {
                 showGameError(
                   "Chưa kết nối server, không thể thành lập vương quốc",
@@ -4681,6 +4793,9 @@ export function GameApp({
           targetTownId={deployTarget.targetRegionId}
           isAttack={deployTarget.isAttack}
           battleSide={deployTarget.battleSide}
+          targetBattleActive={Boolean(
+            engineRef.current.getActiveBattleForRegion?.(deployTarget.targetRegionId),
+          )}
           gameConfig={(engineRef.current as any).getConfig?.()}
           errorMessage={deployError}
           getTownRegionId={(town) =>
@@ -4777,7 +4892,7 @@ export function GameApp({
                     ? "attack"
                     : "reinforce";
                 const result = await createMarch(token, {
-                  requestId: crypto.randomUUID(),
+                  requestId: createClientId("march"),
                   fromTerritoryId:
                     selectedServerSource?.territoryId ??
                     engineToServerTerritoryId(sourceRegionId),
@@ -5433,9 +5548,19 @@ export function GameApp({
         </div>
       )}
 
+      {showHealthNotice && serverHealth !== "checking" && (
+        <div className={`server-health-notice ${serverHealth}`} role="status">
+          <span className="server-health-dot" aria-hidden="true" />
+          <span>{serverHealth === "online" ? "Máy chủ đã kết nối" : "Không thể kết nối máy chủ"}</span>
+          {serverHealth === "offline" && (
+            <button type="button" onClick={() => window.location.reload()}>Thử lại</button>
+          )}
+          <button type="button" className="server-health-close" aria-label="Đóng" onClick={() => setShowHealthNotice(false)}>×</button>
+        </div>
+      )}
 
       {/* Newbie Tutorial Modal Overlay */}
-      {showTutorial && (
+      {showTutorial && serverOnboardingState === "settled" && (
         <NewbieOnboardingModal
           onClose={() => {
             localStorage.setItem("island_empire_tutorial_completed", "1");

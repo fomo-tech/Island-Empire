@@ -72,6 +72,16 @@ function toHex(bytes: ArrayBuffer) {
     .join("");
 }
 
+// crypto.randomUUID is unavailable on plain HTTP LAN origins. Keep request
+// IDs stable enough for idempotency without requiring a Secure Context.
+export function createClientId(prefix = "req") {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const random = Math.random().toString(36).slice(2, 12);
+  return `${prefix}-${Date.now()}-${random}`;
+}
+
 async function solveAntiBotChallenge() {
   const challenge = await request<AntiBotChallenge>("/api/auth/challenge");
   const [payload] = challenge.token.split(".");
@@ -79,6 +89,11 @@ async function solveAntiBotChallenge() {
     atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
   ) as { nonce: string };
   const prefix = "0".repeat(challenge.difficulty);
+  // Development/LAN mode intentionally uses a zero-work challenge because
+  // SubtleCrypto is unavailable on plain HTTP IP origins.
+  if (challenge.difficulty === 0) {
+    return { challengeToken: challenge.token, proof: 0 };
+  }
   const encoder = new TextEncoder();
   for (let proof = 0; proof <= 2_147_483_647; proof += 1) {
     const digest = toHex(
@@ -531,11 +546,7 @@ export function recruitTroops(
     requestId?: string;
   },
 ): Promise<RecruitTroopsResult> {
-  const requestId =
-    payload.requestId ||
-    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `recruit-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`);
+  const requestId = payload.requestId || createClientId("recruit");
   return request<RecruitTroopsResult>("/api/game/recruit", {
     method: "POST",
     headers: {

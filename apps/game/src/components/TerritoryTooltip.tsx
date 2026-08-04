@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { ActiveBattle, ActiveClearing, TerritoryInfo, TownSnapshot } from "@island/shared";
 import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
 import { SPECIAL_RESOURCE_META, SpecialResourceIcon, getSpecialResourceMeta } from "./SpecialResourceDisplay";
+import { AssetIcon } from "./AssetIcon";
 
 // --- PREMIUM MEDIEVAL SPRITE ICON HELPER ---
 interface SpriteIconProps {
@@ -33,6 +34,7 @@ const SpriteIcon = ({ src, size = 16, className = "", style = {} }: SpriteIconPr
 
 const BannerFlagIcon = ({ color }: { color?: string }) => {
   const flagColor = color || "#8c2a1e";
+  return <span className="rt-banner-flag-raster" style={{ backgroundColor: flagColor }} aria-hidden="true"><AssetIcon asset="crown" size={24} /></span>;
   return (
     <svg viewBox="0 0 40 60" width="32" height="48" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))" }}>
       <path d="M4 2h32v44l-16-10-16 10V2z" fill={flagColor} stroke="#ca8a04" strokeWidth="2" />
@@ -241,12 +243,15 @@ export function TerritoryTooltip({
     if (safe >= 10) return Math.round(safe).toLocaleString("vi-VN");
     return safe.toFixed(safe >= 1 ? 1 : 2).replace(/0+$/, "").replace(/\.$/, "");
   };
+  const totalYield = (["food", "wood", "stone", "gold", "gems"] as const)
+    .reduce((sum, key) => sum + Math.max(0, Number(y[key]) || 0), 0);
   const resourceRows = (["food", "wood", "stone", "gold", "gems"] as const).map((key) => ({
     key,
     label: RESOURCE_META[key].label,
     value: y[key],
     hourly: y[key] * 3600,
     daily: y[key] * 86400,
+    share: totalYield > 0 ? Math.round((Math.max(0, Number(y[key]) || 0) / totalYield) * 100) : 0,
     className: key,
     icon: <ResourceIcon resource={key} />,
   })).filter((row) => row.value > 0.00001);
@@ -356,8 +361,12 @@ export function TerritoryTooltip({
 
   const rx = r.rx || r.r || 100;
   const zoom = engineState.zoom || 1;
-  const cardW = 420;
-  const estimatedH = showGuide ? 580 : 520;
+  // Keep the active-territory card compact enough to fit beside the map and
+  // above the mobile action dock; it must be fully visible without scrolling.
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const isMobileViewport = viewportWidth <= 640;
+  const cardW = isMobileViewport ? Math.min(350, viewportWidth - 16) : 360;
+  const estimatedH = showGuide ? 430 : 390;
 
   let left = coords.x + rx * zoom + 16;
   let top = coords.y - estimatedH / 2;
@@ -373,7 +382,8 @@ export function TerritoryTooltip({
 
   if (left < 16) left = 16;
   if (top < 16) top = 16;
-  if (top + estimatedH > winH - 16) top = Math.max(16, winH - estimatedH - 16);
+  const safeBottom = isMobileViewport ? 92 : 16;
+  if (top + estimatedH > winH - safeBottom) top = Math.max(8, winH - estimatedH - safeBottom);
 
   const arrowOffsetY = Math.max(32, Math.min(estimatedH - 38, coords.y - top));
 
@@ -388,41 +398,34 @@ export function TerritoryTooltip({
         : activeBattle
           ? Math.max(0, Math.ceil((activeBattle.duration || activeBattle.durationSeconds || 25) - (activeBattle.t || 0)))
           : 15;
-      const totalDur = Math.max(1, battle?.durationSeconds || activeBattle?.duration || activeBattle?.durationSeconds || 25);
-      const progressPct = Math.round(Math.max(0, Math.min(1, 1 - remSec / totalDur)) * 100);
       const attackerMaxHp = Math.max(1, Number(activeBattle?.attackerMaxHp || activeBattle?.attackerPower || activeBattle?.attPower || 1));
       const defenderMaxHp = Math.max(1, Number(activeBattle?.defenderMaxHp || activeBattle?.defenderPower || activeBattle?.defPower || 1));
       const attackerHp = Math.max(0, Math.min(attackerMaxHp, Number(activeBattle?.attackerCurrentHp ?? attackerMaxHp)));
       const defenderHp = Math.max(0, Math.min(defenderMaxHp, Number(activeBattle?.defenderCurrentHp ?? defenderMaxHp)));
       const attackerLabel = activeBattle?.attackerId === playerId ? "QUÂN CỦA BẠN" : "QUÂN TẤN CÔNG";
       const defenderLabel = activeBattle?.defenderId === playerId ? "QUÂN CỦA BẠN" : "QUÂN PHÒNG THỦ";
-      const hpRow = (label: string, hp: number, maxHp: number, color: string) => (
-        <div style={{ display: "grid", gridTemplateColumns: "88px 1fr 116px", alignItems: "center", gap: 8, marginTop: 7 }}>
-          <strong style={{ color, fontSize: 9 }}>{label}</strong>
-          <span style={{ height: 7, overflow: "hidden", background: "rgba(0,0,0,.62)", border: "1px solid rgba(255,255,255,.12)" }}>
-            <span style={{ display: "block", height: "100%", width: `${Math.round((hp / maxHp) * 100)}%`, background: color, transition: "width .35s linear" }} />
+      const participantCount = Array.isArray(activeBattle?.participants)
+        ? activeBattle.participants.filter((item: any) => item?.status === "engaged").length
+        : Math.max(1, activeBattle?.attackerSources?.length || 1);
+      const hpRow = (label: string, hp: number, maxHp: number, tone: "attack" | "defend") => (
+        <div className={`rt-siege-hp-row ${tone}`}>
+          <span className="rt-siege-hp-label">{label}</span>
+          <span className="rt-siege-hp-track" aria-label={`${label} ${Math.ceil(hp)} trên ${Math.ceil(maxHp)}`}>
+            <span className="rt-siege-hp-fill" style={{ width: `${Math.round((hp / maxHp) * 100)}%` }} />
           </span>
-          <span style={{ color: "#e8edf3", fontSize: 9, textAlign: "right" }}>
-            {Math.ceil(hp)}/{Math.ceil(maxHp)} · {Math.round((hp / maxHp) * 100)}%
-          </span>
+          <strong>{Math.ceil(hp)}/{Math.ceil(maxHp)}</strong>
         </div>
       );
 
       return (
         <>
-          <div className="rt-clearing-box remote" style={{ borderColor: "#ef4444", marginBottom: 12, background: "rgba(30, 10, 10, 0.9)" }}>
-            <div className="rt-clearing-header">
-              <span className="rt-clearing-title-text" style={{ color: "#fca5a5" }}>
-                CHIẾN SỰ ĐANG DIỄN RA KHỐC LIỆT
-              </span>
-              <span className="rt-clearing-pct-text" style={{ color: "#ffd34d" }}>Còn {remSec}s</span>
+          <div className="rt-siege-summary-v2">
+            <div className="rt-siege-summary-head">
+              <span>VÂY THÀNH</span>
+              <small>{participantCount} đạo quân · còn {formatTime(remSec)}</small>
             </div>
-            <div className="rt-clearing-bar-track">
-              <div className="rt-clearing-bar-fill" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #ef4444 0%, #f59e0b 100%)" }} />
-            </div>
-            {hpRow(attackerLabel, attackerHp, attackerMaxHp, "#ef6a5b")}
-            {hpRow(defenderLabel, defenderHp, defenderMaxHp, "#4aa3ff")}
-            <div className="rt-clearing-subtext">Trận đánh đang đếm ngược tổng kết trên Server</div>
+            {hpRow(attackerLabel, attackerHp, attackerMaxHp, "attack")}
+            {hpRow(defenderLabel, defenderHp, defenderMaxHp, "defend")}
           </div>
           {isPlayerOwned ? (
             <>
@@ -437,7 +440,7 @@ export function TerritoryTooltip({
           ) : (
             <>
               <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onReinforce(id, "attacker"))}>
-                <SpriteIcon src="/assets/icons/icon_battle_vs.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">THAM GIA TẤN CÔNG</span>
+                <SpriteIcon src="/assets/icons/icon_attacker_lion_shield.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">GỬI QUÂN TIẾP VIỆN</span>
               </button>
               <div className="rt-warning-note">Quân tới nơi sẽ cộng vào phe tấn công đang giao tranh</div>
             </>
@@ -557,7 +560,7 @@ export function TerritoryTooltip({
     if (effectiveOwnership > 1) {
       return (
         <button type="button" className="rt-main-action-btn attacker" onClick={() => runAndClose(() => onAttack(id))}>
-          <SpriteIcon src="/assets/icons/icon_battle_vs.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">PHÁT ĐỘNG TẤN CÔNG</span>
+          <SpriteIcon src="/assets/icons/icon_attacker_lion_shield.png" size={20} style={{ marginRight: 6 }} /> <span className="text-gold-serif">PHÁT ĐỘNG TẤN CÔNG</span>
         </button>
       );
     }
@@ -568,36 +571,13 @@ export function TerritoryTooltip({
 
   const tooltipElement = (
     <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none", overflow: "visible" }}>
-      {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
+      {/* CSS pointer keeps the tooltip lightweight and avoids inline vector filters. */}
       <div
         className={`rt-tooltip-arrow-pointer ${positionClass}`}
         style={{ top: `${arrowOffsetY}px` }}
         aria-hidden="true"
-      >
-        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#fff08a" />
-              <stop offset="50%" stopColor="#fbbf24" />
-              <stop offset="100%" stopColor="#b45309" />
-            </linearGradient>
-          </defs>
-          <circle cx="22" cy="22" r="18" fill="rgba(251, 191, 36, 0.3)" stroke="#fbbf24" strokeWidth="2" className="pulse-halo" />
-          {positionClass === "pointer-left" ? (
-            <path d="M30 10 L10 22 L30 34 L23 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
-          ) : (
-            <path d="M14 10 L34 22 L14 34 L21 22 Z" fill="url(#goldGrad)" stroke="#ffffff" strokeWidth="2" filter="url(#goldGlow)" />
-          )}
-        </svg>
-      </div>
-      <div className="rt-tooltip-card" style={{ pointerEvents: "auto" }}>
+      ><span className="rt-tooltip-arrow-css" /></div>
+      <div className="rt-tooltip-card rt-territory-active" style={{ pointerEvents: "auto" }}>
         {/* Header */}
         <div className="rt-tooltip-header">
           <div className="rt-header-top-row">
@@ -606,11 +586,8 @@ export function TerritoryTooltip({
               <div className="rt-header-title-bar">
                 <div className="rt-zone-id">{isIslet ? `ĐẢO NHỎ #${id + 1}` : `LÃNH THỔ #${id + 1}`}</div>
                 {onClose && (
-                  <button type="button" onClick={onClose} className="rt-close-btn">
-                    <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" strokeWidth="3.5" fill="none" strokeLinecap="round" style={{ display: "block" }}>
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                  <button type="button" onClick={onClose} className="rt-close-btn" aria-label="Đóng thông tin lãnh thổ">
+                    <span aria-hidden="true">×</span>
                   </button>
                 )}
               </div>
@@ -628,6 +605,12 @@ export function TerritoryTooltip({
             <div className="rt-biome-desc-text">{bDesc}</div>
             <BiomeMedievalCard biome={biome} color={bColor} />
           </div>
+        </div>
+
+        {/* Primary actions stay directly under the header so they are always
+            visible; informational sections below may scroll independently. */}
+        <div className="rt-primary-actions" style={{ width: "100%" }}>
+          {renderActionButtons()}
         </div>
 
         {/* Section Divider */}
@@ -727,7 +710,7 @@ export function TerritoryTooltip({
               {resourceRows.map((row) => (
                 <button type="button" key={row.key} className={`rt-yield-ledger-item ${row.className}${selectedYield === row.key ? " is-open" : ""}`} onClick={() => setSelectedYield((current) => current === row.key ? null : row.key)} aria-expanded={selectedYield === row.key}>
                   <span className="rt-yield-main">{row.icon}<span className="name">{row.label}</span></span>
-                  <span className="rate">+{formatRate(row.hourly)}/giờ</span>
+                  <span className="rate">+{formatRate(row.hourly)}/giờ <em className="share">{row.share}%</em></span>
                   <span className="rt-yield-popover">
                     <strong>{row.label}</strong>
                     <span><b>Trong giờ</b><em>+{formatRate(row.hourly)}</em></span>
@@ -761,10 +744,6 @@ export function TerritoryTooltip({
           </>
         )}
 
-        {/* Action Button Section */}
-        <div style={{ marginTop: "14px", width: "100%" }}>
-          {renderActionButtons()}
-        </div>
       </div>
     </div>
   );

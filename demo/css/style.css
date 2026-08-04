@@ -26,8 +26,6 @@ canvas {
   display: block;
   width: min(100vw, calc(100vh * 0.88));
   height: min(100vh, calc(100vw / 0.88));
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   box-shadow: 0 0 0 4px #05090e, 0 0 0 8px #183344, 0 22px 60px rgba(0, 0, 0, 0.55);
   background: #0b6f95;
   cursor: default;

@@ -1,99 +1,137 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { MarchSourceOption } from "@island/shared";
+import { AssetIcon } from "./AssetIcon";
 
 // Premium Vector SVGs
-const SwordsIcon = () => (
+const SwordsIcon = () => {
+  return <AssetIcon asset="army" size={20} />;
+  return (
   <svg viewBox="0 0 64 64" width="20" height="20" style={{ verticalAlign: "middle" }}>
     <path d="M48 8l8 8-36 36-4 4-4-4 4-36z" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
     <path d="M12 48l-4 8 8-4z" fill="#f59e0b" stroke="#78350f" strokeWidth="2" />
     <path d="M16 8l-8 8 36 36 4 4 4-4-4-36z" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
     <circle cx="32" cy="24" r="5" fill="#fef08a" opacity="0.9" />
   </svg>
-);
+  );
+};
 
-const ShieldIcon = () => (
+const ShieldIcon = () => {
+  return <AssetIcon asset="defender" size={16} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16">
     <path d="M32 6C18 10 12 18 12 32c0 14 12 22 20 26 8-4 20-12 20-26 0-14-6-22-20-26z" fill="#2563eb" stroke="#1d4ed8" strokeWidth="2" />
     <path d="M32 10v42c6-3 14-9 14-20 0-10-4-16-14-22z" fill="#60a5fa" />
   </svg>
-);
+  );
+};
 
-const MapPinIcon = () => (
+const MapPinIcon = () => {
+  return <AssetIcon asset="map" size={14} style={{ color: "#f59e0b" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="14" height="14" style={{ color: "#f59e0b" }}>
     <path d="M32 6C20 6 12 14 12 26c0 14 20 32 20 32s20-18 20-32c0-12-8-20-20-20z" fill="#f59e0b" stroke="#78350f" strokeWidth="1.5" />
     <circle cx="32" cy="24" r="8" fill="#ffffff" />
   </svg>
-);
+  );
+};
 
-const EyeIcon = () => (
+const EyeIcon = () => {
+  return <AssetIcon asset="info" size={14} />;
+  return (
   <svg viewBox="0 0 64 64" width="14" height="14">
     <path d="M8 32s10-18 24-18 24 18 24 18-10 18-24 18S8 32 8 32z" fill="none" stroke="#38bdf8" strokeWidth="3" />
     <circle cx="32" cy="32" r="8" fill="#38bdf8" />
   </svg>
-);
+  );
+};
 
-const FlagIcon = () => (
+const FlagIcon = () => {
+  return <AssetIcon asset="crown" size={14} />;
+  return (
   <svg viewBox="0 0 64 64" width="14" height="14">
     <path d="M12 8v48M12 12h32l-8 12 8 12H12" stroke="#38bdf8" strokeWidth="3" fill="#0284c7" />
   </svg>
-);
+  );
+};
 
-const HourglassIcon = () => (
+const HourglassIcon = () => {
+  return <AssetIcon asset="settingsInfo" size={16} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16">
     <path d="M14 10h36v6c0 10-10 14-16 16 6 2 16 6 16 16v6H14v-6c0-10 10-14 16-16-6-2-16-6-16-16z" fill="#e2e8f0" stroke="#475569" strokeWidth="2.5" />
     <path d="M20 14h24v2L32 28 20 16zm0 34h24v-2L32 34 20 46z" fill="#f59e0b" />
   </svg>
-);
+  );
+};
 
 // 6 Overview Stat Vector SVGs (Zero Emojis)
-const HelmetIconSVG = () => (
+const HelmetIconSVG = () => {
+  return <AssetIcon asset="troopTotal" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <path d="M32 8C18 8 12 18 12 32v16h8v8h24v-8h8V32c0-14-6-24-20-24z" fill="#d97706" stroke="#78350f" strokeWidth="2" />
     <rect x="20" y="28" width="24" height="4" rx="1" fill="#fef08a" />
     <rect x="30" y="32" width="4" height="10" rx="1" fill="#fef08a" />
   </svg>
-);
+  );
+};
 
-const CrossedSwordsSVG = () => (
+const CrossedSwordsSVG = () => {
+  return <AssetIcon asset="army" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <path d="M48 8l8 8-36 36-4 4-4-4 4-36z" fill="#f59e0b" stroke="#78350f" strokeWidth="2" />
     <path d="M16 8l-8 8 36 36 4 4 4-4-4-36z" fill="#f59e0b" stroke="#78350f" strokeWidth="2" />
     <circle cx="32" cy="24" r="5" fill="#fef08a" />
   </svg>
-);
+  );
+};
 
-const ShieldIconSVG = () => (
+const ShieldIconSVG = () => {
+  return <AssetIcon asset="defender" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <path d="M32 6C18 10 12 18 12 32c0 14 12 22 20 26 8-4 20-12 20-26 0-14-6-22-20-26z" fill="#d97706" stroke="#78350f" strokeWidth="2" />
     <path d="M32 10v42c6-3 14-9 14-20 0-10-4-16-14-22z" fill="#fef08a" opacity="0.6" />
     <rect x="30" y="16" width="4" height="28" fill="#78350f" />
     <rect x="18" y="28" width="28" height="4" fill="#78350f" />
   </svg>
-);
+  );
+};
 
-const HorseHeadSVG = () => (
+const HorseHeadSVG = () => {
+  return <AssetIcon asset="troopCavalry" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <path d="M16 48c0-16 12-28 28-28l8-12h-8c-12 0-20 8-24 16l-4 24z" fill="#d97706" stroke="#78350f" strokeWidth="2" />
   </svg>
-);
+  );
+};
 
-const TargetIconSVG = () => (
+const TargetIconSVG = () => {
+  return <AssetIcon asset="army" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <circle cx="32" cy="32" r="26" fill="#ef4444" stroke="#991b1b" strokeWidth="2" />
     <circle cx="32" cy="32" r="18" fill="#ffffff" stroke="#991b1b" strokeWidth="1.5" />
     <circle cx="32" cy="32" r="10" fill="#ef4444" stroke="#991b1b" strokeWidth="1.5" />
     <circle cx="32" cy="32" r="4" fill="#ffd34d" />
   </svg>
-);
+  );
+};
 
-const ScalesIconSVG = () => (
+const ScalesIconSVG = () => {
+  return <AssetIcon asset="settingsInfo" size={16} style={{ marginRight: 4, verticalAlign: "middle" }} />;
+  return (
   <svg viewBox="0 0 64 64" width="16" height="16" style={{ marginRight: 4, verticalAlign: "middle" }}>
     <path d="M32 8v44M16 18h32M16 18l-8 20h16zM48 18l-8 20h16z" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinecap="round" />
     <rect x="24" y="52" width="16" height="4" fill="#d97706" rx="1" />
   </svg>
-);
+  );
+};
 
 function InfantryAvatar() {
+  return <AssetIcon asset="troopInfantry" size={46} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }} />;
   return (
     <svg viewBox="0 0 100 100" width="46" height="46" style={{ flexShrink: 0, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}>
       <defs>
@@ -150,6 +188,7 @@ function InfantryAvatar() {
 }
 
 function CavalryAvatar() {
+  return <AssetIcon asset="troopCavalry" size={46} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }} />;
   return (
     <svg viewBox="0 0 100 100" width="46" height="46" style={{ flexShrink: 0, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}>
       <defs>
@@ -199,6 +238,7 @@ function CavalryAvatar() {
 }
 
 function ArtilleryAvatar() {
+  return <AssetIcon asset="troopArtillery" size={46} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }} />;
   return (
     <svg viewBox="0 0 100 100" width="46" height="46" style={{ flexShrink: 0, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}>
       <defs>
@@ -245,7 +285,9 @@ function ArtilleryAvatar() {
   );
 }
 
-const CastleThumbnail = () => (
+const CastleThumbnail = () => {
+  return <img src="/assets/kingdoms/kingdom_base.webp" alt="" width={125} height={75} style={{ borderRadius: 6, border: "1px solid rgba(184, 147, 68, 0.4)", flexShrink: 0, objectFit: "cover" }} />;
+  return (
   <svg viewBox="0 0 160 100" width="125" height="75" style={{ borderRadius: 6, border: "1px solid rgba(184, 147, 68, 0.4)", flexShrink: 0 }}>
     <defs>
       <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
@@ -261,7 +303,8 @@ const CastleThumbnail = () => (
     <rect x="47" y="52" width="66" height="33" fill="#1e293b" stroke="#0f172a" strokeWidth="1.5" />
     <path d="M70,85 v-18 a10,10 0 0,1 20,0 v18 z" fill="#78350f" stroke="#f59e0b" strokeWidth="1.5" />
   </svg>
-);
+  );
+};
 
 interface TroopDeploymentModalProps {
   sourceTown: {
@@ -291,6 +334,7 @@ interface TroopDeploymentModalProps {
   targetTownId: number;
   isAttack: boolean;
   battleSide?: "attacker" | "defender";
+  targetBattleActive?: boolean;
   gameConfig?: any;
   errorMessage?: string | null;
   getTownRegionId?: (town: any) => number;
@@ -309,6 +353,7 @@ export function TroopDeploymentModal({
   targetTownId,
   isAttack,
   battleSide,
+  targetBattleActive = false,
   gameConfig,
   errorMessage,
   getTownRegionId,
@@ -381,6 +426,10 @@ export function TroopDeploymentModal({
     const routeLabel = option?.routeType === "sea" ? "Đường biển" : option?.routeType === "land" ? "Đường bộ" : hasServerSourceDecision ? "Không hợp lệ" : "Đang kiểm tra";
     return {
       id: town.id,
+      town,
+      option,
+      unitCount: townUnitCount,
+      routeLabel,
       disabled: hasServerSourceDecision ? !option?.valid : false,
       label: `Thành #${town.id} - ${townUnitCount} quân - ${routeLabel}${option ? ` - ${option.travelSeconds}s` : ""}`,
     };
@@ -477,9 +526,9 @@ export function TroopDeploymentModal({
         {/* Top Header Banner (100% Matching Reference Art) */}
         <div className="rt-attack-header">
           <div className="rt-attack-header-title-box">
-            <span className="swords-icon"><SwordsIcon /></span>
+            <span className="swords-icon"><FlagIcon /></span>
             <h2 className="title">{actionLabel}</h2>
-            <span className="swords-icon"><SwordsIcon /></span>
+            <span className="swords-icon"><FlagIcon /></span>
           </div>
           <p className="subtitle">
             Từ Thành trì #{sourceTown.id} đến LÃNH THỔ #{targetTownId + 1}
@@ -490,39 +539,38 @@ export function TroopDeploymentModal({
         {/* Section 1: CHỌN THÀNH XUẤT QUÂN */}
         <div className="rt-dispatch-section">
           <div className="rt-dispatch-section-title">CHỌN THÀNH XUẤT QUÂN</div>
-          <div className="rt-town-select-row">
-            <CastleThumbnail />
-            <div className="rt-town-select-info">
-              <select
-                value={selectedSourceTownId ?? sourceTown.id}
-                onChange={(e) => onSelectSourceTown?.(Number(e.target.value))}
-                className="rt-town-dropdown"
-              >
-                {townOptions.map((town) => (
-                  <option key={town.id} value={town.id} disabled={town.disabled}>
-                    {town.label}
-                  </option>
-                ))}
-              </select>
-              <div className="rt-town-mini-stats">
-                <div className="mini-stat-card">
-                  <span className="label"><MapPinIcon /> KHOẢNG CÁCH</span>
-                  <span className="val text-gold">{distanceKm} km</span>
-                </div>
-                <div className="mini-stat-card">
-                  <span className="label"><EyeIcon /> ĐƯỜNG ĐI</span>
-                  <span className="val text-blue">
-                    {currentSourceOption?.routeType === "sea" ? "Đường biển" : currentSourceOption?.routeType === "land" ? "Đường bộ" : "Đang kiểm tra"}
+          <div className="rt-source-card-grid" role="list" aria-label="Chọn thành xuất quân">
+            {townOptions.map((town) => {
+              const selected = Number(selectedSourceTownId ?? sourceTown.id) === Number(town.id);
+              return (
+                <button
+                  key={town.id}
+                  type="button"
+                  role="listitem"
+                  className={`rt-source-card${selected ? " is-selected" : ""}${town.disabled ? " is-disabled" : ""}`}
+                  disabled={town.disabled}
+                  onClick={() => onSelectSourceTown?.(town.id)}
+                  title={town.disabled ? town.option?.reason || "Thành không đủ điều kiện xuất quân" : `Chọn thành #${town.id}`}
+                >
+                  <span className="rt-source-card-emblem"><CastleThumbnail /></span>
+                  <span className="rt-source-card-copy">
+                    <strong>Thành #{town.id}</strong>
+                    <span>{town.unitCount} quân</span>
+                    <small>{town.routeLabel} · {town.option ? `${town.option.distanceKm} km · ${town.option.travelSeconds}s` : "Đang kiểm tra"}</small>
+                    {town.disabled && <em>{town.option?.reason || "Không thể xuất quân"}</em>}
                   </span>
-                </div>
-                <div className="mini-stat-card">
-                  <span className="label"><FlagIcon /> THÀNH NGUỒN</span>
-                  <span className="val text-gold">#{sourceTown.id} / LT #{sourceRegionId >= 0 ? sourceRegionId + 1 : "976"}</span>
-                </div>
-              </div>
-            </div>
+                  <span className="rt-source-card-check" aria-hidden="true">{selected ? "✓" : ""}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {targetBattleActive && isAttack && (
+          <div className="rt-join-battle-note">
+            Mục tiêu đang bị vây. Đạo quân này chỉ được cộng vào lực công sau khi hành quân tới nơi.
+          </div>
+        )}
 
         {errorMessage && (
           <div className="rt-error-banner">
@@ -537,7 +585,7 @@ export function TroopDeploymentModal({
             <span className="val text-gold">{totalUnitsAvailable} quân</span>
           </div>
           <div className="rt-army-stat-card">
-            <span className="label"><CrossedSwordsSVG /> LỰC LƯỢNG XUẤT CHINH</span>
+            <span className="label"><FlagIcon /> LỰC LƯỢNG XUẤT CHINH</span>
             <span className="val text-gold">{currentUnitsSent} quân</span>
           </div>
           <div className="rt-army-stat-card">
@@ -679,7 +727,7 @@ export function TroopDeploymentModal({
               ? currentSourceOption?.reason || "Không có thành xuất quân hợp lệ"
               : actionLabel}
           >
-            <SwordsIcon /> <span>{actionLabel}</span>
+            <FlagIcon /> <span>{actionLabel}</span>
           </button>
         </div>
 

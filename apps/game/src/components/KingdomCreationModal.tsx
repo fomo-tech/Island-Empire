@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { KINGDOM_ARCHITECTURES, type KingdomBuildingType } from "../game/kingdomArchitecture";
 import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
+import { AssetIcon, type IconAssetId } from "./AssetIcon";
 
 interface KingdomCreationModalProps {
   onClose: () => void;
@@ -20,6 +21,10 @@ const FLAG_COLORS = [
 ];
 
 function EmblemIcon({ id, className = "" }: { id: string; className?: string }) {
+  const assets: Record<string, IconAssetId> = {
+    crown: "crown", swords: "army", shield: "defender", eagle: "attacker", lion: "attacker", dragon: "defender",
+  };
+  return <AssetIcon asset={assets[id] || "crown"} size={34} className={className} />;
   const line = { fill: "none", stroke: "currentColor", strokeWidth: 2.1, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   return <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
     {id === "crown" && <><path {...line} d="M8 16l8 7 8-13 8 13 8-7-3 21H11L8 16z"/><path {...line} d="M12 31h24M14 37h20"/><circle cx="8" cy="14" r="2" fill="currentColor"/><circle cx="24" cy="8" r="2" fill="currentColor"/><circle cx="40" cy="14" r="2" fill="currentColor"/></>}

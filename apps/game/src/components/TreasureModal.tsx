@@ -1,5 +1,6 @@
 import React from "react";
 import { MedievalModal } from "./MedievalModal";
+import { AssetIcon } from "./AssetIcon";
 
 interface Town {
   id: number;
@@ -16,31 +17,11 @@ interface TreasureModalProps {
   onClose: () => void;
 }
 
-const SeaSwordSVG = ({ active }: { active: boolean }) => (
-  <svg viewBox="0 0 64 64" width="30" height="30" fill="none" stroke={active ? "#9a3412" : "#64748b"} strokeWidth="3" strokeLinecap="round">
-    <line x1="16" y1="48" x2="48" y2="16" />
-    <line x1="14" y1="50" x2="22" y2="42" />
-    <path d="M12 52 L10 54 L6 50 L8 48 Z" fill={active ? "#9a3412" : "#64748b"} />
-    <line x1="20" y1="44" x2="24" y2="48" />
-  </svg>
-);
+const SeaSwordIcon = ({ active }: { active: boolean }) => <AssetIcon asset="army" size={30} active={active} />;
 
-const SunShieldSVG = ({ active }: { active: boolean }) => (
-  <svg viewBox="0 0 64 64" width="30" height="30" fill="none" stroke={active ? "#9a3412" : "#64748b"} strokeWidth="3" strokeLinejoin="round">
-    <path d="M32 6 C42 10 50 11 54 12 V28 C54 42 42 50 32 58 C22 50 10 42 10 28 V12 C14 11 22 10 32 6 Z" />
-    <circle cx="32" cy="26" r="8" />
-    <path d="M32 14 L32 18 M32 34 L32 38 M20 26 L24 26 M38 26 L42 26" />
-  </svg>
-);
+const SunShieldIcon = ({ active }: { active: boolean }) => <AssetIcon asset="defender" size={30} active={active} />;
 
-const LostMapSVG = ({ active }: { active: boolean }) => (
-  <svg viewBox="0 0 64 64" width="30" height="30" fill="none" stroke={active ? "#9a3412" : "#64748b"} strokeWidth="3">
-    <path d="M12 14 L24 8 L40 14 L52 8 V48 L40 54 L24 48 L12 54 Z" strokeLinejoin="round" />
-    <line x1="24" y1="8" x2="24" y2="48" />
-    <line x1="40" y1="14" x2="40" y2="54" />
-    <circle cx="32" cy="30" r="4" fill={active ? "#9a3412" : "#64748b"} />
-  </svg>
-);
+const LostMapIcon = ({ active }: { active: boolean }) => <AssetIcon asset="map" size={30} active={active} />;
 
 export const TreasureModal: React.FC<TreasureModalProps> = ({ towns, regionOwnership, onClose }) => {
   const playerTowns = towns.filter((t) => t.owner === 0);
@@ -69,7 +50,7 @@ export const TreasureModal: React.FC<TreasureModalProps> = ({ towns, regionOwner
       effect: "Tăng +10% sức mạnh tấn công vượt biển cho toàn đạo quân.",
       condition: "Sở hữu ít nhất 1 thành phố giáp biển / vùng vịnh đảo khơi.",
       active: isSeaActive,
-      icon: <SeaSwordSVG active={isSeaActive} />
+      icon: <SeaSwordIcon active={isSeaActive} />
     },
     {
       id: "sun_shield",
@@ -77,7 +58,7 @@ export const TreasureModal: React.FC<TreasureModalProps> = ({ towns, regionOwner
       effect: "Giảm -15% tổn thất binh sĩ khi đồn trú phòng thủ thành trì.",
       condition: "Sở hữu từ 3 thành phố trở lên trên toàn thế giới.",
       active: isShieldActive,
-      icon: <SunShieldSVG active={isShieldActive} />
+      icon: <SunShieldIcon active={isShieldActive} />
     },
     {
       id: "lost_map",
@@ -85,7 +66,7 @@ export const TreasureModal: React.FC<TreasureModalProps> = ({ towns, regionOwner
       effect: "Tăng +20% tốc độ di chuyển của Thuyền chở quân vượt biển.",
       condition: "Xây thành thành công ít nhất 5 vùng đất hoang dã.",
       active: isMapActive,
-      icon: <LostMapSVG active={isMapActive} />
+      icon: <LostMapIcon active={isMapActive} />
     }
   ];
 

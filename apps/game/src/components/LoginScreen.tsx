@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { loginGuest, loginPlayer, registerPlayer } from "../game/api";
 import { detectDeviceLanguage, translate } from "../game/i18n";
+import { AssetIcon } from "./AssetIcon";
 
 interface LoginScreenProps {
   onSuccess: (token: string, playerId: string) => void;
@@ -14,6 +15,7 @@ const ONBOARDING_KEY = "island_empire_onboarding_pending";
 
 // --- 100% VECTOR SVGS (ZERO EMOJIS) ---
 function GlobeIcon() {
+  return <AssetIcon asset="map" size={15} style={{ marginRight: 6 }} />;
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
       <circle cx="12" cy="12" r="10" />
@@ -24,6 +26,7 @@ function GlobeIcon() {
 }
 
 function HeadsetHelpIcon() {
+  return <AssetIcon asset="info" size={15} style={{ marginRight: 6 }} />;
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
       <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
@@ -33,6 +36,7 @@ function HeadsetHelpIcon() {
 }
 
 function GearSettingsIcon() {
+  return <AssetIcon asset="settings" size={15} style={{ marginRight: 6 }} />;
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d7e3ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 6 }}>
       <circle cx="12" cy="12" r="3" />
@@ -42,6 +46,7 @@ function GearSettingsIcon() {
 }
 
 function UserIcon() {
+  return <AssetIcon asset="settingsAccount" size={18} />;
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b89344" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -51,6 +56,7 @@ function UserIcon() {
 }
 
 function LockIcon() {
+  return <AssetIcon asset="settingsAccount" size={18} />;
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b89344" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -60,6 +66,7 @@ function LockIcon() {
 }
 
 function EyeIcon() {
+  return <AssetIcon asset="info" size={18} />;
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -69,6 +76,7 @@ function EyeIcon() {
 }
 
 function EyeOffIcon() {
+  return <AssetIcon asset="info" size={18} active={false} />;
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
@@ -78,6 +86,7 @@ function EyeOffIcon() {
 }
 
 function GoogleIcon() {
+  return <span className="login-google-mark" aria-hidden="true">G</span>;
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0, marginRight: 8 }}>
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -89,6 +98,7 @@ function GoogleIcon() {
 }
 
 function CastleFeatureArt() {
+  return <AssetIcon asset="castle" size={40} />;
   return (
     <svg viewBox="0 0 80 80" width="40" height="40" style={{ flexShrink: 0 }}>
       <defs>
@@ -108,6 +118,7 @@ function CastleFeatureArt() {
 }
 
 function BattleFeatureArt() {
+  return <AssetIcon asset="battleVs" size={40} />;
   return (
     <svg viewBox="0 0 80 80" width="40" height="40" style={{ flexShrink: 0 }}>
       <line x1="16" y1="16" x2="64" y2="64" stroke="url(#goldShieldArt)" strokeWidth="4" strokeLinecap="round" />
@@ -120,6 +131,7 @@ function BattleFeatureArt() {
 }
 
 function AllianceFeatureArt() {
+  return <AssetIcon asset="guild" size={40} />;
   return (
     <svg viewBox="0 0 80 80" width="40" height="40" style={{ flexShrink: 0 }}>
       <path d="M40 8L12 20v24c0 18 16 26 28 28 12-2 28-10 28-28V20L40 8z" fill="#0f172a" stroke="url(#goldShieldArt)" strokeWidth="2.5" />
@@ -129,6 +141,7 @@ function AllianceFeatureArt() {
 }
 
 function CrownFeatureArt() {
+  return <AssetIcon asset="crown" size={40} />;
   return (
     <svg viewBox="0 0 80 80" width="40" height="40" style={{ flexShrink: 0 }}>
       <path d="M40 8L12 20v24c0 18 16 26 28 28 12-2 28-10 28-28V20L40 8z" fill="#0f172a" stroke="url(#goldShieldArt)" strokeWidth="2.5" />
@@ -141,6 +154,7 @@ function CrownFeatureArt() {
 }
 
 function MedievalCornerDecorations() {
+  return <span className="decor-corners-css" aria-hidden="true" />;
   return (
     <>
       <svg className="decor-corner tl" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

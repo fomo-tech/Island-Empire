@@ -41,6 +41,9 @@ export type PlayerDocument = {
   newbieShieldUntil?: Date;
   newbieWelcomeGrantedAt?: Date;   // timestamp khi đã cấp gói chào mừng (idempotent guard)
   newbieSkinExpiresAt?: Date;      // skin tân thủ hết hạn sau 7 ngày
+  newbieSkinId?: string;           // skin được cấp miễn phí, dùng để thu hồi đúng skin
+  newbieSkinClaimedAt?: Date;      // đã dùng lượt skin miễn phí
+  newbieFreeProductIds?: string[]; // các gói quân nhu đã dùng giá tân thủ
   createdAt: Date;
   lastSeenAt: Date;
 };
@@ -92,6 +95,7 @@ export type MarchOrderDocument = {
   ownerId: string;
   requestId?: string;
   fromTerritoryId: number;
+  sourceTownId?: number;
   toTerritoryId: number;
   troops: number;
   infantry?: number;
@@ -267,8 +271,20 @@ export async function ensureIndexes() {
     shopPurchases,
     chatMessages,
   } = await collections();
+  // Legacy databases used a plain unique name index. MongoDB treats multiple
+  // missing/null names as duplicates, which made authenticated upserts crash
+  // the API before onboarding had assigned a name. Migrate it to a partial
+  // unique index that only applies to real string names.
+  const playerIndexList = await players.listIndexes().toArray();
+  const legacyNameIndex = playerIndexList.find((index) => index.name === "name_1");
+  if (legacyNameIndex && !legacyNameIndex.partialFilterExpression) {
+    await players.dropIndex("name_1");
+  }
   await Promise.all([
-    players.createIndex({ name: 1 }, { unique: true }),
+    players.createIndex(
+      { name: 1 },
+      { unique: true, partialFilterExpression: { name: { $type: "string" } } },
+    ),
     players.createIndex({ lastSeenAt: -1 }),
     players.createIndex({ cityNameKey: 1 }, { unique: true, sparse: true }),
     saves.createIndex({ playerId: 1 }, { unique: true }),
