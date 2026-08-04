@@ -67,6 +67,9 @@ import {
   strokeSmoothPath as strokeSmoothPathLayer,
 } from "./render/pathRenderer";
 import {
+  drawNaturalTerritoryVegetation as drawNaturalTerritoryVegetationLayer,
+} from "./render/vegetationRenderer";
+import {
   ensureMinVertices,
   facetedRegionPath,
   organicPath,
@@ -3315,156 +3318,27 @@ export function createIslandEmpireGame(
     }
   }
 
-  function drawNaturalTerritoryVegetation(
+  const drawNaturalTerritoryVegetation = (
     r: any,
     seed: number,
     rx: number,
     ry: number,
     biome: number,
-  ) {
-    // Only 70% of empty regions will display minor vegetation to keep the map clean and not too crowded
-    const hasTown = frameTownRegionIds.has(Number(r.id));
-    const vegDensity = hash(seed * 83 + r.id * 29);
-    if (!hasTown && vegDensity > 0.7) return;
-
-    const atlas = getTerritoryVegetationAtlas();
-    if (!atlas.complete || !atlas.naturalWidth) return;
-
-    const palettes: Record<number, { canopy: string[]; ground: string[] }> = {
-      0: {
-        canopy: ["oak", "blossomTree", "broadleaf"],
-        ground: ["roundBush", "leafyBush", "flowerBush"],
+  ) =>
+    drawNaturalTerritoryVegetationLayer(
+      {
+        hasTown: (regionId) => frameTownRegionIds.has(regionId),
+        zoom: state.zoom,
+        getAtlas: getTerritoryVegetationAtlas,
+        drawMedievalWorldSprite,
+        drawTerritoryVegetationSprite,
       },
-      1: {
-        canopy: ["cactusTall", "cactusGroup", "cactusPad"],
-        ground: ["cactusRound", "agave", "cactusPad"],
-      },
-      2: {
-        canopy: ["pine", "cypress", "oak"],
-        ground: ["roundBush", "fern", "leafyBush"],
-      },
-      3: {
-        canopy: ["pine", "cypress", "broadleaf"],
-        ground: ["leafyBush", "fern", "roundBush"],
-      },
-      4: {
-        canopy: ["palm", "blossomTree", "broadleaf"],
-        ground: ["fern", "flowerBush", "leafyBush"],
-      },
-      5: {
-        canopy: ["autumn", "oak", "broadleaf"],
-        ground: ["berryBush", "leafyBush", "roundBush"],
-      },
-      6: {
-        canopy: ["pine", "cypress", "broadleaf"],
-        ground: ["berryBush", "fern", "leafyBush"],
-      },
-      7: {
-        canopy: ["willow", "oak", "broadleaf"],
-        ground: ["fern", "leafyBush", "roundBush"],
-      },
-    };
-    const palette = palettes[biome] || palettes[0];
-    const medievalCanopy: Record<number, string> = {
-      0: "forest_oak",
-      1: "desert",
-      2: "forest_snow",
-      3: "forest_pine",
-      4: "forest_oak",
-      5: "forest_autumn",
-      6: "forest_pine",
-      7: "forest_oak",
-    };
-    const clusterCount = 1;
-    const items: Array<{
-      sprite: string;
-      x: number;
-      y: number;
-      size: number;
-      medieval?: boolean;
-    }> = [];
-    const baseAngle = hash(seed * 79.3) * TAU;
-
-    for (let cluster = 0; cluster < clusterCount; cluster++) {
-      const clusterSeed = seed * 137 + cluster * 83;
-      const angle =
-        baseAngle +
-        cluster * (TAU / clusterCount) +
-        (hash(clusterSeed * 1.71) - 0.5) * 0.42;
-      const minRadius = hasTown ? 0.34 : 0.12;
-      const maxRadius = hasTown ? 0.5 : 0.46;
-      const radius =
-        minRadius + hash(clusterSeed * 2.13) * (maxRadius - minRadius);
-      const cx = r.x + Math.cos(angle) * rx * radius;
-      const cy = r.y + Math.sin(angle) * ry * radius * 0.82;
-      const useMedievalCluster = hash(clusterSeed * 7.17) < 0.42;
-      const itemCount =
-        state.zoom < 0.52 ? 1 : 1 + Math.floor(hash(clusterSeed * 3.19) * 2);
-
-      for (let item = 0; item < itemCount; item++) {
-        const itemSeed = clusterSeed * 5.31 + item * 47;
-        const groundLayer = useMedievalCluster
-          ? item > 0
-          : item >= Math.ceil(itemCount * 0.58);
-        const slot = item % 4;
-        const offsets = [
-          [0, -4],
-          [-19, 3],
-          [19, 4],
-          [-10, 12],
-        ];
-        const jitterX = (hash(itemSeed * 1.37) - 0.5) * 7;
-        const jitterY = (hash(itemSeed * 2.47) - 0.5) * 4;
-        const x = cx + offsets[slot][0] + jitterX;
-        const y = cy + offsets[slot][1] + jitterY + (groundLayer ? 9 : 0);
-        const spritePool = groundLayer ? palette.ground : palette.canopy;
-        const medieval = useMedievalCluster && item === 0;
-        const sprite = medieval
-          ? medievalCanopy[biome] || "forest_oak"
-          : spritePool[Math.floor(hash(itemSeed * 3.83) * spritePool.length)];
-        const isLowPlant = [
-          "roundBush",
-          "leafyBush",
-          "berryBush",
-          "fern",
-          "flowerBush",
-          "agave",
-          "cactusRound",
-          "cactusPad",
-        ].includes(sprite);
-        const baseSize = isLowPlant ? 34 : 68;
-        const variation = 0.94 + hash(itemSeed * 4.91) * 0.12;
-        items.push({
-          sprite,
-          x,
-          y,
-          size: baseSize * variation,
-          medieval,
-        });
-      }
-    }
-
-    items.sort((a, b) => a.y - b.y);
-    items.forEach((item) => {
-      if (item.medieval) {
-        drawMedievalWorldSprite(
-          item.sprite,
-          item.x,
-          item.y,
-          item.size * 1.05,
-          0.94,
-        );
-      } else {
-        drawTerritoryVegetationSprite(
-          item.sprite,
-          item.x,
-          item.y,
-          item.size,
-          0.97,
-        );
-      }
-    });
-  }
+      r,
+      seed,
+      rx,
+      ry,
+      biome,
+    );
 
   function drawRegionTerrain(
     r: any,
