@@ -171,16 +171,21 @@ export function createMinimapController(
           ctx.beginPath();
           ctx.arc(x, y, pulse, 0, TAU);
           ctx.stroke();
-          ctx.fillStyle = "#ffffff";
+          ctx.fillStyle = "#22c55e";
           ctx.beginPath();
           ctx.arc(x, y, 2, 0, TAU);
           ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 0.75;
+          ctx.stroke();
         } else {
           ctx.fillStyle = "#ef4444";
-          ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, TAU);
+          ctx.fill();
           ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
           ctx.lineWidth = 0.5;
-          ctx.strokeRect(x - 1.5, y - 1.5, 3, 3);
+          ctx.stroke();
         }
       },
     );
