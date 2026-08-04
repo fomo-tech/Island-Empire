@@ -51,6 +51,7 @@ import { SettingsModal } from "./SettingsModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
+import { MinimapPanel } from "./MinimapPanel";
 import { RESOURCE_ORDER, ResourceHudItem } from "./ResourceDisplay";
 import { AssetIcon, type IconAssetId } from "./AssetIcon";
 import { useGameStore } from "../store/gameStore";
@@ -68,6 +69,7 @@ const TOKEN_KEY = "island_empire_token";
 const PLAYER_ID_KEY = "island_empire_playerId";
 const CLAIM_KEY = "island_empire_onboarding_claim";
 const ONBOARDING_KEY = "island_empire_onboarding_pending";
+const MINIMAP_COLLAPSED_KEY = "island_empire_minimap_collapsed";
 let didApplyNewbieReset = false;
 
 type MailConfirmAction =
@@ -1652,7 +1654,7 @@ export function GameApp({
   const [serverHealth, setServerHealth] = useState<
     "checking" | "online" | "offline"
   >("checking");
-  const [showHealthNotice, setShowHealthNotice] = useState(true);
+  const [showHealthNotice, setShowHealthNotice] = useState(false);
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<
     number | null
   >(null);
@@ -1715,26 +1717,25 @@ export function GameApp({
   const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
-  // Tablet starts with the minimap as a lightweight affordance so the map stays
-  // usable. The full card is still one tap away and follows orientation changes.
+  // Keep the player's ROK-style minimap preference across orientation changes.
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(() =>
-    typeof window !== "undefined" &&
-    window.matchMedia(
-      "(min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
-    ).matches,
+    typeof window !== "undefined"
+      ? localStorage.getItem(MINIMAP_COLLAPSED_KEY) === "true" ||
+        (localStorage.getItem(MINIMAP_COLLAPSED_KEY) === null &&
+          window.matchMedia(
+            "(max-width: 767px), (min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
+          ).matches)
+      : false,
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tabletQuery = window.matchMedia(
-      "(min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
-    );
-    const syncTabletMinimap = () => setMinimapCollapsed(tabletQuery.matches);
-    syncTabletMinimap();
-    tabletQuery.addEventListener?.("change", syncTabletMinimap);
-    return () => tabletQuery.removeEventListener?.("change", syncTabletMinimap);
+  const toggleMinimapCollapsed = useCallback(() => {
+    setMinimapCollapsed((previous) => {
+      const next = !previous;
+      localStorage.setItem(MINIMAP_COLLAPSED_KEY, String(next));
+      return next;
+    });
   }, []);
   const [socketOnline, setSocketOnline] = useState(false);
+  const socketWasConnectedRef = useRef(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const backendClearingStartRef = useRef<Set<number>>(new Set());
 
@@ -1934,7 +1935,6 @@ export function GameApp({
     let cancelled = false;
     const checkHealth = async () => {
       setServerHealth("checking");
-      setShowHealthNotice(true);
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 3000);
       try {
@@ -1942,9 +1942,16 @@ export function GameApp({
           signal: controller.signal,
           cache: "no-store",
         });
-        if (!cancelled) setServerHealth(response.ok ? "online" : "offline");
+        if (!cancelled) {
+          const online = response.ok;
+          setServerHealth(online ? "online" : "offline");
+          setShowHealthNotice(!online);
+        }
       } catch {
-        if (!cancelled) setServerHealth("offline");
+        if (!cancelled) {
+          setServerHealth("offline");
+          setShowHealthNotice(true);
+        }
       } finally {
         window.clearTimeout(timeout);
       }
@@ -3145,7 +3152,19 @@ export function GameApp({
           refreshGameStateWithRetry(`socket-${event.reason}`, 4, 600);
         }
       },
-      setSocketOnline,
+      (online) => {
+        setSocketOnline(online);
+        if (online) {
+          socketWasConnectedRef.current = true;
+          setServerHealth("online");
+          setShowHealthNotice(false);
+          return;
+        }
+        if (socketWasConnectedRef.current) {
+          setServerHealth("offline");
+          setShowHealthNotice(true);
+        }
+      },
     );
   }, [isAuthenticated, token, playerId, initialSyncReady, refreshChatHistory]);
 
@@ -3157,6 +3176,8 @@ export function GameApp({
   };
 
   const handleLogout = () => {
+    socketWasConnectedRef.current = false;
+    setShowHealthNotice(false);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PLAYER_ID_KEY);
     setToken(null);
@@ -4301,60 +4322,14 @@ export function GameApp({
             {!conquestMode && <div className="hud-left-command-cluster"></div>}
             {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
             <div className="hud-right-side hud-interactive">
-              {/* Minimap card with Gold Trim (matching Mockup) */}
-              <div
-                className={`hud-minimap-card premium-framed ${minimapCollapsed ? "collapsed" : ""}`}
+              <MinimapPanel
+                ref={minimapCanvasRef}
+                title={t("worldMap")}
+                collapsed={minimapCollapsed}
+                onToggle={toggleMinimapCollapsed}
+                onSearch={jumpToCoordinates}
+                searchTitle={t("search")}
               >
-                <div className="hud-minimap-header">
-                  <span className="hud-minimap-title">
-                    <span className="hud-minimap-svg-icon">
-                      <img src="/assets/icons/icon_map.png" alt="" />
-                    </span>{" "}
-                    {t("worldMap")}
-                  </span>
-                  <button
-                    type="button"
-                    className="hud-mini-icon-btn-plus"
-                    title={
-                      minimapCollapsed ? "Mở rộng bản đồ" : "Thu gọn bản đồ"
-                    }
-                    onClick={() => setMinimapCollapsed(!minimapCollapsed)}
-                  >
-                    <img
-                      className={minimapCollapsed ? "is-collapsed" : ""}
-                      src="/assets/icons/icon_collapse_european.png"
-                      alt=""
-                    />
-                  </button>
-                </div>
-
-                <div className="hud-minimap-coords-display">
-                  <span className="coords-text">X: 10650 Y: 6254</span>
-                  <button
-                    type="button"
-                    className="hud-mini-icon-btn"
-                    onClick={jumpToCoordinates}
-                    title={t("search")}
-                    style={{ marginLeft: "auto" }}
-                  >
-                    <img src="/assets/icons/icon_search_european.png" alt="" />
-                  </button>
-                </div>
-
-                <div className="hud-minimap-canvas-wrapper">
-                  <canvas
-                    ref={minimapCanvasRef}
-                    width={160}
-                    height={120}
-                    className="hud-minimap-canvas"
-                    style={{
-                      width: "100%",
-                      height: "96px",
-                      display: "block",
-                      background: "#060f16",
-                    }}
-                  />
-                </div>
                 <section
                   className="hud-main-missions"
                   aria-label="Tình hình chiến trường"
@@ -4406,7 +4381,7 @@ export function GameApp({
                     ))}
                   </div>
                 </section>
-              </div>
+              </MinimapPanel>
             </div>
           </div>
 
@@ -4538,7 +4513,8 @@ export function GameApp({
                 online={socketOnline}
                 onSend={(message) => {
                   const sent = sendWorldChat(message);
-                  if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+                  if (!sent)
+                    showGameError("Chat đang mất kết nối, vui lòng thử lại");
                   return sent;
                 }}
               />
@@ -5762,19 +5738,13 @@ export function GameApp({
         </div>
       )}
 
-      {showHealthNotice && serverHealth !== "checking" && (
-        <div className={`server-health-notice ${serverHealth}`} role="status">
+      {showHealthNotice && serverHealth === "offline" && (
+        <div className="server-health-notice offline" role="alert">
           <span className="server-health-dot" aria-hidden="true" />
-          <span>
-            {serverHealth === "online"
-              ? "Máy chủ đã kết nối"
-              : "Không thể kết nối máy chủ"}
-          </span>
-          {serverHealth === "offline" && (
-            <button type="button" onClick={() => window.location.reload()}>
-              Thử lại
-            </button>
-          )}
+          <span>Mất kết nối máy chủ</span>
+          <button type="button" onClick={() => window.location.reload()}>
+            Thử lại
+          </button>
           <button
             type="button"
             className="server-health-close"

@@ -1,0 +1,255 @@
+/* Minimap owns one responsive layout. This file is imported after global.css
+   so legacy HUD rules cannot hide the map on touch-sized viewports. */
+.hud-wrapper .hud-right-side {
+  position: fixed !important;
+  top: calc(104px + var(--safe-top, 0px)) !important;
+  right: max(12px, var(--safe-right, 0px)) !important;
+  width: min(244px, calc(100vw - 24px)) !important;
+  max-height: calc(
+    var(--app-height, 100dvh) - 104px - var(--safe-top, 0px) - 92px -
+      var(--safe-bottom, 0px)
+  ) !important;
+  margin: 0 !important;
+  display: flex !important;
+  z-index: 1170 !important;
+  pointer-events: auto !important;
+}
+
+.hud-wrapper .hud-minimap-card {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-height: inherit !important;
+  padding: 8px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.hud-wrapper .minimap-panel-body {
+  min-width: 0;
+}
+
+.hud-wrapper .hud-minimap-canvas-wrapper {
+  height: auto !important;
+  aspect-ratio: 4 / 3;
+  touch-action: none;
+}
+
+.hud-wrapper .hud-minimap-canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  background: #060f16;
+  touch-action: none;
+}
+
+.hud-wrapper .minimap-marker-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 2px 2px;
+  color: #9fb1bd;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hud-wrapper .minimap-marker-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hud-wrapper .minimap-marker-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.hud-wrapper .minimap-marker-dot.player {
+  color: #22c55e;
+  background: #22c55e;
+}
+
+.hud-wrapper .minimap-marker-dot.other {
+  color: #ef4444;
+  background: #ef4444;
+}
+
+.hud-wrapper .hud-minimap-card.collapsed {
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 5px !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+.hud-wrapper .hud-minimap-card.collapsed .minimap-panel-body {
+  display: none !important;
+}
+
+.hud-wrapper .hud-minimap-card.collapsed .hud-minimap-header {
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.hud-wrapper .hud-minimap-card.collapsed .hud-minimap-title {
+  display: none !important;
+}
+
+.hud-wrapper .hud-minimap-card.collapsed .hud-mini-icon-btn-plus {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+@media (min-width: 768px) and (max-width: 1199px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  .hud-wrapper .hud-right-side {
+    top: calc(
+      var(--tablet-top-hud-height, 112px) + var(--safe-top, 0px) + 12px
+    ) !important;
+    right: max(12px, var(--safe-right, 0px)) !important;
+    width: min(230px, calc(100vw - 24px)) !important;
+    max-height: calc(
+      var(--app-height, 100dvh) - var(--tablet-top-hud-height, 112px) -
+        var(--tablet-bottom-dock-height, 78px) - 24px
+    ) !important;
+  }
+
+  .hud-wrapper .hud-minimap-card:not(.collapsed) {
+    max-height: 440px !important;
+    overflow: auto !important;
+  }
+}
+
+@media (max-width: 767px),
+  (max-height: 599px) and (pointer: coarse) {
+  .hud-wrapper .hud-right-side {
+    top: calc(158px + var(--safe-top, 0px)) !important;
+    right: max(8px, var(--safe-right, 0px)) !important;
+    width: min(220px, calc(100vw - 16px)) !important;
+    max-height: calc(
+      var(--app-height, 100dvh) - 96px - var(--safe-top, 0px) -
+        var(--mobile-command-height, 68px) - var(--safe-bottom, 0px) - 16px
+    ) !important;
+  }
+
+  .hud-wrapper .hud-minimap-card.collapsed {
+    width: 56px !important;
+    min-width: 56px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  .hud-wrapper .hud-minimap-card:not(.collapsed) {
+    width: min(220px, calc(100vw - 16px)) !important;
+    padding: 7px !important;
+  }
+
+  .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-main-missions {
+    display: none !important;
+  }
+
+  .hud-wrapper .minimap-marker-legend {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+  .hud-wrapper .hud-right-side {
+    top: calc(86px + var(--safe-top, 0px)) !important;
+  }
+}
+
+/* Legacy responsive blocks use html/body/game-shell-qualified selectors. Keep
+   these final guards equally specific so the minimap cannot be hidden or
+   stretched by an older HUD variant. */
+html body .game-shell .hud-wrapper .hud-right-side {
+  display: flex !important;
+  min-width: 0 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+html body .game-shell .hud-wrapper .hud-minimap-card.collapsed {
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  overflow: hidden !important;
+}
+
+html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .minimap-panel-body,
+html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-minimap-title {
+  display: none !important;
+}
+
+@media (max-width: 767px),
+  (max-height: 599px) and (pointer: coarse) {
+  html body .game-shell .hud-wrapper .hud-right-side {
+    top: calc(158px + var(--safe-top, 0px)) !important;
+    width: min(220px, calc(100vw - 16px)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed {
+    width: 56px !important;
+    min-width: 56px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-title,
+  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-coords-display,
+  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-canvas-wrapper {
+    display: flex !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-canvas-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+  html body .game-shell .hud-wrapper .hud-right-side {
+    top: calc(86px + var(--safe-top, 0px)) !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-right-side {
+    top: calc(
+      var(--tablet-top-hud-height, 112px) + var(--safe-top, 0px) + 12px
+    ) !important;
+    right: max(12px, var(--safe-right, 0px)) !important;
+    width: min(230px, calc(100vw - 24px)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-minimap-card {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}

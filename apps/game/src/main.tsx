@@ -4,6 +4,7 @@ import { GameApp } from "./components/GameApp";
 import { ConquestMap } from "./components/ConquestMap";
 import { updateActiveMap } from "./game/api";
 import "./styles/global.css";
+import "./styles/minimap.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");

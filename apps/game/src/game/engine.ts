@@ -78,6 +78,10 @@ import {
   warpPoint,
 } from "./engine/worldGeometry";
 import {
+  createMinimapController,
+  type MinimapController,
+} from "./minimap/controller";
+import {
   clearingDuration as clearingDurationSelector,
   defaultBuildings as defaultBuildingsSelector,
   defaultStorage as defaultStorageSelector,
@@ -252,10 +256,9 @@ export function createIslandEmpireGame(
     }
   }
 
-  let minimapCtx = minimapCanvas?.getContext("2d");
-
   let destroyed = false;
   let raf = 0;
+  let minimapController: MinimapController | null = null;
 
   function getRenderDpr() {
     if (typeof window === "undefined") return 1;
@@ -12091,7 +12094,7 @@ export function createIslandEmpireGame(
       Boolean(state.drag) ||
       Math.abs(panVelX) > 0.35 ||
       Math.abs(panVelY) > 0.35 ||
-      minimapDragging
+      Boolean(minimapController?.isDragging())
     );
   }
 
@@ -12972,10 +12975,10 @@ export function createIslandEmpireGame(
     drawWorld();
     const now = performance.now();
     if (
-      minimapDragging ||
+      minimapController?.isDragging() ||
       now - lastMinimapDrawAt > (crowdedRenderMode ? 420 : 180)
     ) {
-      drawMinimap();
+      minimapController?.draw();
       lastMinimapDrawAt = now;
     }
     ctx.restore();
@@ -13006,7 +13009,6 @@ export function createIslandEmpireGame(
     return color;
   }
 
-  let minimapDragging = false;
   let lastMinimapDrawAt = 0;
   let uiOverlayActive = false;
   let renderSuspended = false;
@@ -13025,188 +13027,33 @@ export function createIslandEmpireGame(
   let lastOverlayFrameAt = 0;
   let lastOverlayUpdateAt = 0;
 
-  function panToMinimapCoords(e) {
-    if (!minimapCanvas) return;
-    const rect = minimapCanvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (160 / rect.width);
-    const my = (e.clientY - rect.top) * (120 / rect.height);
-    // Map to world coordinates (0 to 24000, 0 to 18000)
-    const worldX = Math.max(0, Math.min(24000, mx * 150));
-    const worldY = Math.max(0, Math.min(18000, my * 150));
+  // Minimap owns its canvas rendering and pointer lifecycle. The engine only
+  // supplies world/camera snapshots and receives a world-coordinate pan.
+  minimapController = createMinimapController({
+    canvas: minimapCanvas,
+    getDpr: () => dpr,
+    getViewport: () => ({ width: W, height: H }),
+    getCamera: () => ({
+      panX: state.panX,
+      panY: state.panY,
+      zoom: state.zoom,
+    }),
+    getTick: () => state.tick,
+    getRegions: () => regions,
+    getIslets: () => islets,
+    getTowns: () => towns,
+    getLocalPlayerId: () => state.localPlayerId,
+    getTerritoryColor: minimapTerritoryColor,
+    panToWorld: (worldX, worldY) => {
+      state.panX =
+        -worldX * state.zoom + W * 0.5 - (1 - state.zoom) * W * 0.48;
+      state.panY =
+        -worldY * state.zoom + H * 0.5 - (1 - state.zoom) * H * 0.48;
+      clampPan();
+      saveCamera();
+    },
+  });
 
-    // Center camera on this world coordinate
-    state.panX = -worldX * state.zoom + W * 0.5 - (1 - state.zoom) * W * 0.48;
-    state.panY = -worldY * state.zoom + H * 0.5 - (1 - state.zoom) * H * 0.48;
-    clampPan();
-    saveCamera();
-  }
-
-  const onMinimapMouseMove = (e) => {
-    if (minimapDragging) panToMinimapCoords(e);
-  };
-  const onMinimapMouseUp = () => {
-    minimapDragging = false;
-    window.removeEventListener("mousemove", onMinimapMouseMove);
-    window.removeEventListener("mouseup", onMinimapMouseUp);
-  };
-  const onMinimapMouseDown = (e) => {
-    minimapDragging = true;
-    panToMinimapCoords(e);
-    window.addEventListener("mousemove", onMinimapMouseMove);
-    window.addEventListener("mouseup", onMinimapMouseUp);
-  };
-
-  if (minimapCanvas) {
-    minimapCanvas.addEventListener("mousedown", onMinimapMouseDown);
-  }
-
-  function drawMinimap() {
-    if (!minimapCanvas || !minimapCtx) return;
-    const mw = 160;
-    const mh = 120;
-    if (minimapCanvas.width !== Math.floor(mw * dpr)) {
-      minimapCanvas.width = Math.floor(mw * dpr);
-      minimapCanvas.height = Math.floor(mh * dpr);
-      minimapCanvas.style.width = mw + "px";
-      minimapCanvas.style.height = mh + "px";
-    }
-    minimapCtx.save();
-    minimapCtx.scale(dpr, dpr);
-
-    // Deep slate navy ocean background gradient
-    const oceanGrad = minimapCtx.createRadialGradient(80, 60, 10, 80, 60, 100);
-    oceanGrad.addColorStop(0, "#121d28");
-    oceanGrad.addColorStop(1, "#0a1118");
-    minimapCtx.fillStyle = oceanGrad;
-    minimapCtx.fillRect(0, 0, 160, 120);
-
-    // Draw circular latitudes and rhumb lines in gold ink (Wind Rose Navigation Chart style)
-    minimapCtx.strokeStyle = "rgba(197, 160, 89, 0.05)";
-    minimapCtx.lineWidth = 0.5;
-    // Circular latitudes
-    for (let r = 25; r <= 100; r += 25) {
-      minimapCtx.beginPath();
-      minimapCtx.arc(80, 60, r, 0, Math.PI * 2);
-      minimapCtx.stroke();
-    }
-    // Diagonal rhumb lines
-    minimapCtx.strokeStyle = "rgba(197, 160, 89, 0.035)";
-    const angles = [0, Math.PI / 4, Math.PI / 2, (Math.PI * 3) / 4];
-    angles.forEach((a) => {
-      minimapCtx.beginPath();
-      minimapCtx.moveTo(80 - Math.cos(a) * 120, 60 - Math.sin(a) * 120);
-      minimapCtx.lineTo(80 + Math.cos(a) * 120, 60 + Math.sin(a) * 120);
-      minimapCtx.stroke();
-    });
-
-    // Draw all regions (continents)
-    regions.forEach((r) => {
-      minimapCtx.fillStyle = minimapTerritoryColor(r, false);
-      minimapCtx.beginPath();
-      const mx = r.x / 150;
-      const my = r.y / 150;
-      const mrx = ((r.rx || r.r) / 150) * 1.02;
-      const mry = ((r.ry || r.r * 0.78) / 150) * 1.02;
-      minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
-      minimapCtx.fill();
-
-      // Hand-drawn shoreline sepia outline
-      minimapCtx.strokeStyle = "rgba(110, 80, 50, 0.32)";
-      minimapCtx.lineWidth = 0.55;
-      minimapCtx.stroke();
-    });
-
-    // Draw all islets
-    islets.forEach((r) => {
-      minimapCtx.fillStyle = minimapTerritoryColor(r, true);
-      minimapCtx.beginPath();
-      const mx = r.x / 150;
-      const my = r.y / 150;
-      const mrx = ((r.rx || r.r) / 150) * 0.82;
-      const mry = ((r.ry || r.r * 0.78) / 150) * 0.82;
-      minimapCtx.ellipse(mx, my, mrx, mry, 0, 0, TAU);
-      minimapCtx.fill();
-
-      // Hand-drawn shoreline sepia outline for islets
-      minimapCtx.strokeStyle = "rgba(110, 80, 50, 0.32)";
-      minimapCtx.lineWidth = 0.55;
-      minimapCtx.stroke();
-    });
-
-    // Draw all towns (Castles/Capitals)
-    towns.forEach((t) => {
-      const isPlayer = t.owner === 0;
-      let color = "#10b981"; // player (bright neon green)
-      if (!isPlayer) {
-        // Alliance (blue), Enemy (red)
-        const isAlly = t.owner === 2 || t.owner === 4 || t.owner === 6;
-        color = isAlly ? "#3b82f6" : "#ef4444";
-      }
-
-      const tx = t.x / 150;
-      const ty = t.y / 150;
-
-      if (isPlayer) {
-        // Draw pulsing green radar halo for player's capital / towns
-        const pulse = 4 + Math.sin(state.tick * 0.2) * 2;
-        minimapCtx.strokeStyle = "rgba(16, 185, 129, 0.8)";
-        minimapCtx.lineWidth = 1.5;
-        minimapCtx.beginPath();
-        minimapCtx.arc(tx, ty, pulse, 0, TAU);
-        minimapCtx.stroke();
-
-        // Draw inner white core
-        minimapCtx.fillStyle = "#ffffff";
-        minimapCtx.beginPath();
-        minimapCtx.arc(tx, ty, 2, 0, TAU);
-        minimapCtx.fill();
-      } else {
-        minimapCtx.fillStyle = color;
-        minimapCtx.fillRect(tx - 1, ty - 1, 2, 2);
-      }
-    });
-
-    // Draw viewport boundary box
-    const viewW = W / state.zoom;
-    const viewH = H / state.zoom;
-    const viewX = -(state.panX + (1 - state.zoom) * W * 0.48) / state.zoom;
-    const viewY = -(state.panY + (1 - state.zoom) * H * 0.48) / state.zoom;
-
-    const vx = viewX / 150;
-    const vy = viewY / 150;
-    const vw = viewW / 150;
-    const vh = viewH / 150;
-
-    // Solid brass/gold metallic camera viewport frame
-    minimapCtx.strokeStyle = "rgba(212, 175, 55, 0.85)";
-    minimapCtx.lineWidth = 1.25;
-    minimapCtx.strokeRect(vx, vy, vw, vh);
-
-    // Draw coordinate overlay panel at the bottom of the minimap
-    const cx = Math.round(viewX + viewW / 2);
-    const cy = Math.round(viewY + viewH / 2);
-
-    // Coords overlay styled with a gold-bordered slate ribbon
-    minimapCtx.fillStyle = "rgba(10, 20, 30, 0.9)";
-    minimapCtx.fillRect(0, 106, 160, 14);
-    minimapCtx.fillStyle = "#c5a059";
-    minimapCtx.fillRect(0, 106, 160, 1);
-
-    minimapCtx.fillStyle = "#ffd34d";
-    minimapCtx.font = "bold 9px Courier New, monospace";
-    minimapCtx.textAlign = "center";
-    minimapCtx.fillText(`X:${cx} Y:${cy}`, 80, 116);
-
-    // Draw user capital status indicator
-    const playerCapital = towns.find((t) => t.owner === 0);
-    if (playerCapital) {
-      minimapCtx.fillStyle = "#10b981";
-      minimapCtx.font = "bold 8px Courier New, monospace";
-      minimapCtx.textAlign = "left";
-      minimapCtx.fillText("★ TA", 4, 12);
-    }
-    minimapCtx.restore();
-  }
 
   function buttonAt(x, y) {
     return getDynamicButtons().find(
@@ -15414,7 +15261,7 @@ export function createIslandEmpireGame(
       (state.activeClearingTimings &&
         Object.keys(state.activeClearingTimings).length > 0) ||
       isFastPanning() ||
-      minimapDragging
+      Boolean(minimapController?.isDragging())
     );
   }
 
@@ -15494,8 +15341,7 @@ export function createIslandEmpireGame(
       clearAllRegionCache();
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("pagehide", flushCameraOnPageHide);
-      window.removeEventListener("mousemove", onMinimapMouseMove);
-      window.removeEventListener("mouseup", onMinimapMouseUp);
+      minimapController?.destroy();
       if (raf) cancelAnimationFrame(raf);
     },
     getState: () => state,
@@ -15577,10 +15423,7 @@ export function createIslandEmpireGame(
     handleAction: (id: string, payload?: any) => {
       if (id === "setMinimapCanvas") {
         minimapCanvas = payload;
-        minimapCtx = minimapCanvas?.getContext("2d") || null;
-        if (minimapCanvas) {
-          minimapCanvas.addEventListener("mousedown", onMinimapMouseDown);
-        }
+        minimapController?.setCanvas(minimapCanvas);
         return;
       }
       if (id === "setUiOverlayActive") {
