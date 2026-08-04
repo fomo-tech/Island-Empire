@@ -18,7 +18,10 @@ export function fillPath(
   ctx.fill();
 }
 
-function traceSmoothPath(ctx: CanvasRenderingContext2D, points: PolygonPoint[]) {
+export function traceSmoothPath(
+  ctx: CanvasRenderingContext2D,
+  points: PolygonPoint[],
+) {
   if (!points || points.length === 0) return;
   ctx.beginPath();
   if (points.length < 3) {

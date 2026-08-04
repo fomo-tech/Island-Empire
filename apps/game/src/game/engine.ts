@@ -65,6 +65,7 @@ import {
   fillSmoothPath as fillSmoothPathLayer,
   strokePath as strokePathLayer,
   strokeSmoothPath as strokeSmoothPathLayer,
+  traceSmoothPath as traceSmoothPathLayer,
 } from "./render/pathRenderer";
 import {
   drawNaturalTerritoryVegetation as drawNaturalTerritoryVegetationLayer,
@@ -158,6 +159,7 @@ export function createIslandEmpireGame(
     strokePathLayer(ctx, points, color, lineWidth);
   const strokeSmoothPath = (points: any, color: any, lineWidth: number) =>
     strokeSmoothPathLayer(ctx, points, color, lineWidth);
+  const traceSmoothPath = (points: any) => traceSmoothPathLayer(ctx, points);
 
   const nationUnitSheet = new Image();
   nationUnitSheet.decoding = "async";
