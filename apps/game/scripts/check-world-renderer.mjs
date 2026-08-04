@@ -13,6 +13,14 @@ const architecture = readFileSync(
   new URL("../src/game/kingdomArchitecture.ts", import.meta.url),
   "utf8",
 );
+const buildingSizing = readFileSync(
+  new URL("../src/game/engine/buildingSizing.ts", import.meta.url),
+  "utf8",
+);
+const marchDirection = readFileSync(
+  new URL("../src/game/engine/marchDirection.ts", import.meta.url),
+  "utf8",
+);
 const townManagement = readFileSync(
   new URL("../src/components/TownManagementModal.tsx", import.meta.url),
   "utf8",
@@ -106,8 +114,8 @@ rejectCalls("Bản đồ thành trì", castles, [
 if (!castles.includes("drawKingdomBuildingSprite(")) {
   throw new Error("Thành trì chưa dùng asset vuông có pivot");
 }
-if (!source.includes("const MAINLAND_CAPITAL_RENDER_SIZE = 240")
-  || !source.includes("const ISLET_DISTRICT_RENDER_SIZE = 170")
+if (!buildingSizing.includes("const MAINLAND_CAPITAL_RENDER_SIZE = 240")
+  || !buildingSizing.includes("const ISLET_DISTRICT_RENDER_SIZE = 170")
   || !castles.includes("standardTerritoryBuildingSize(")) {
   throw new Error("Kích thước Hoàng Thành, Quân Khu và trụ cờ chưa được chuẩn hóa");
 }
@@ -176,9 +184,9 @@ for (const legacySheet of [
 ]) {
   if (source.includes(legacySheet)) throw new Error(`Renderer còn sheet cũ: ${legacySheet}`);
 }
-if (!source.includes("stableMarchDirection")
-  || !source.includes("marchDirectionCells")
-  || !source.includes("Math.PI / 8 + 0.14")) {
+if (!marchDirection.includes("stableMarchDirection")
+  || !marchDirection.includes("marchDirectionCells")
+  || !marchDirection.includes("Math.PI / 8 + 0.14")) {
   throw new Error("Renderer chưa chọn 8 hướng theo tiếp tuyến có hysteresis");
 }
 if (!voyageShip.includes("nationUnitSheet") || voyageShip.includes("fillRect(")) {

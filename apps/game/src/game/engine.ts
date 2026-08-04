@@ -17,6 +17,26 @@ import {
   normalizeKingdomArchitecture,
   type KingdomBuildingType,
 } from "./kingdomArchitecture";
+import {
+  marchDirectionCells,
+  marchDirectionFromDelta,
+  stableMarchDirection,
+  type MarchDirection,
+} from "./engine/marchDirection";
+import {
+  ISLET_DISTRICT_RENDER_SIZE,
+  MAINLAND_CAPITAL_RENDER_SIZE,
+  standardTerritoryBuildingSize,
+} from "./engine/buildingSizing";
+import {
+  BASE_ZOOM,
+  FIXED_FAR_ZOOM,
+  cameraStorageKey,
+  getDefaultFarZoom as getDefaultFarZoomForViewport,
+  getMinZoom as getMinZoomForViewport,
+  getZoomTier,
+  MAX_ZOOM,
+} from "./engine/cameraRules";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export type GameEngineHandle = {
   destroy: () => void;
@@ -109,14 +129,6 @@ export function createIslandEmpireGame(
   const regionPass2Cache = new Map<number, CachedRegion>();
   const isletPass1Cache = new Map<number, CachedRegion>();
 
-  function getZoomTier(zoom: number) {
-    if (zoom < 0.28) return 0;
-    if (zoom < 0.5) return 1;
-    if (zoom < 0.66) return 2;
-    if (zoom < 0.75) return 3;
-    return 4;
-  }
-
   function invalidateRegionCache(regionId: number) {
     regionPass2Cache.delete(regionId);
     isletPass1Cache.delete(regionId);
@@ -131,70 +143,6 @@ export function createIslandEmpireGame(
   const nationUnitSheet = new Image();
   nationUnitSheet.decoding = "async";
   nationUnitSheet.src = NATION_UNIT_SHEET;
-
-  type MarchDirection = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
-  const marchDirectionCells: Record<
-    MarchDirection,
-    { row: number; pair: number }
-  > = {
-    S: { row: 0, pair: 0 },
-    SW: { row: 0, pair: 1 },
-    W: { row: 1, pair: 0 },
-    NW: { row: 1, pair: 1 },
-    N: { row: 2, pair: 0 },
-    NE: { row: 2, pair: 1 },
-    E: { row: 3, pair: 0 },
-    SE: { row: 3, pair: 1 },
-  };
-
-  function marchDirectionFromDelta(dx: number, dy: number): MarchDirection {
-    if (Math.abs(dx) + Math.abs(dy) < 0.001) return "S";
-    const directions: MarchDirection[] = [
-      "E",
-      "SE",
-      "S",
-      "SW",
-      "W",
-      "NW",
-      "N",
-      "NE",
-    ];
-    const octant = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
-    return directions[(octant + 8) % 8];
-  }
-
-  function stableMarchDirection(
-    owner: any,
-    dx: number,
-    dy: number,
-  ): MarchDirection {
-    const next = marchDirectionFromDelta(dx, dy);
-    const previous = owner?.lastDirection as MarchDirection | undefined;
-    if (!previous) {
-      if (owner) owner.lastDirection = next;
-      return next;
-    }
-    const directionAngles: Record<MarchDirection, number> = {
-      E: 0,
-      SE: Math.PI / 4,
-      S: Math.PI / 2,
-      SW: (Math.PI * 3) / 4,
-      W: Math.PI,
-      NW: (-Math.PI * 3) / 4,
-      N: -Math.PI / 2,
-      NE: -Math.PI / 4,
-    };
-    const angle = Math.atan2(dy, dx);
-    const delta = Math.abs(
-      Math.atan2(
-        Math.sin(angle - directionAngles[previous]),
-        Math.cos(angle - directionAngles[previous]),
-      ),
-    );
-    const resolved = delta <= Math.PI / 8 + 0.14 ? previous : next;
-    if (owner) owner.lastDirection = resolved;
-    return resolved;
-  }
 
   function drawMedievalUnitSprite(
     kind: "builder" | "infantry" | "cavalry" | "artillery",
@@ -308,22 +256,10 @@ export function createIslandEmpireGame(
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
 
-  function getMinZoom() {
-    if (W <= 600) return 0.08;
-    if (W <= 1024) return 0.1;
-    return 0.12;
-  }
-
-  function getMaxZoom() {
-    return 4.0;
-  }
-
-  function getDefaultFarZoom() {
-    if (options?.layout === "conquest") return W <= 700 ? 0.28 : 0.48;
-    if (W <= 600) return 0.42;
-    if (W <= 1024) return 0.4;
-    return 0.52;
-  }
+  const getMinZoom = () => getMinZoomForViewport(W);
+  const getMaxZoom = () => MAX_ZOOM;
+  const getDefaultFarZoom = () =>
+    getDefaultFarZoomForViewport(W, options?.layout || "world");
 
   function resizeCanvas() {
     if (destroyed) return;
@@ -351,12 +287,8 @@ export function createIslandEmpireGame(
 
   const TAU = Math.PI * 2;
   const isConquestLayout = options?.layout === "conquest";
-  const CAMERA_KEY = isConquestLayout
-    ? "island_empire_conquest_camera_v1"
-    : "island_empire_camera_v1";
+  const CAMERA_KEY = cameraStorageKey(isConquestLayout ? "conquest" : "world");
   const ONBOARDING_KEY = "island_empire_onboarding_pending";
-  const BASE_ZOOM = 1;
-  const FIXED_FAR_ZOOM = 0.52;
   const NEWBIE_DEFAULT_REGION = 0;
   const gameConfig = {
     infantryCostGold: 100,
@@ -2035,39 +1967,6 @@ export function createIslandEmpireGame(
     );
     ctx.restore();
     return true;
-  }
-
-  function territoryBuildingSize(
-    r: any,
-    buildingType: KingdomBuildingType,
-    preferredSize: number,
-  ) {
-    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-    const safeHalfWidth = Math.max(48, Number(r.rx || 0) * 0.72);
-    const safeTopHeight = Math.max(54, Number(r.ry || 0) * 0.72);
-    const widthLimit = (safeHalfWidth * 2) / layout.safeWidth;
-    const heightLimit = safeTopHeight / (layout.safeHeight * layout.pivotY);
-    const minSize =
-      buildingType === "flag" ? 62 : buildingType === "district" ? 94 : 112;
-    return Math.max(minSize, Math.min(preferredSize, widthLimit, heightLimit));
-  }
-
-  // Capital buildings use a visual scale shared by every mainland nation.
-  // Island territories are military districts and intentionally use their own
-  // smaller scale; neither size depends on the polygon area of the territory.
-  const MAINLAND_CAPITAL_RENDER_SIZE = 240;
-  const ISLET_DISTRICT_RENDER_SIZE = 170;
-
-  function standardTerritoryBuildingSize(
-    r: any,
-    buildingType: KingdomBuildingType,
-    isIslet = false,
-  ) {
-    if (buildingType === "capital") return MAINLAND_CAPITAL_RENDER_SIZE;
-    if (buildingType === "district" && isIslet) return ISLET_DISTRICT_RENDER_SIZE;
-    const preferredSize =
-      buildingType === "district" || buildingType === "fortress" ? 170 : 105;
-    return territoryBuildingSize(r, buildingType, preferredSize);
   }
 
   function territoryBuildingAnchor(
