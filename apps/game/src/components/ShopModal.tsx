@@ -1,10 +1,18 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import {
+  activateNewbieSkinTrial,
   createClientId,
   equipShopSkin,
+  getNewbieSkinTrial,
+  getShopInventory,
   purchaseShopProduct,
 } from "../game/api";
-import type { ResourceBag, ShopInventory, ShopProduct } from "@island/shared";
+import type {
+  NewbieSkinTrialState,
+  ResourceBag,
+  ShopInventory,
+  ShopProduct,
+} from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 import {
   EuroBullet,
@@ -19,7 +27,7 @@ import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 import { AssetIcon } from "./AssetIcon";
 import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
 
-type SkinVariant = "gold" | "fire" | "wind";
+type SkinVariant = "gold" | "fire" | "wind" | "ice" | "shadow";
 
 function KingdomSkinAsset({
   skinId,
@@ -138,6 +146,22 @@ function CastleSkinArt({ variant }: { variant: SkinVariant }) {
       roofB: "#3dd9e8",
       auraA: "#b9fbff",
       auraB: "#158ca4",
+    },
+    ice: {
+      wallA: "#385a75",
+      wallB: "#d7f3ff",
+      roofA: "#176ca0",
+      roofB: "#7ee7ff",
+      auraA: "#e7fbff",
+      auraB: "#2599d1",
+    },
+    shadow: {
+      wallA: "#171329",
+      wallB: "#55447d",
+      roofA: "#20143e",
+      roofB: "#7957bd",
+      auraA: "#d8c4ff",
+      auraB: "#6336aa",
     },
   } as const;
   const palette = palettes[variant];
@@ -791,6 +815,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   const [activeTab, setActiveTab] = useState<ShopTab>("featured");
   const [previewSkin, setPreviewSkin] = useState<any | null>(null);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
+  const [trial, setTrial] = useState<NewbieSkinTrialState | null>(null);
+  const [trialNow, setTrialNow] = useState(Date.now());
+  const [pendingTrialSkin, setPendingTrialSkin] = useState<any | null>(null);
+  const expirySyncRef = useRef(false);
 
   const [rewardModalPack, setRewardModalPack] = useState<any | null>(null);
   const [quote, setQuote] = useState(MERCHANT_QUOTES[0]);
@@ -799,6 +827,66 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     const randomIndex = Math.floor(Math.random() * MERCHANT_QUOTES.length);
     setQuote(MERCHANT_QUOTES[randomIndex]);
   }, [activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getNewbieSkinTrial(token)
+      .then((result) => {
+        if (!cancelled) setTrial(result.trial);
+      })
+      .catch(() => undefined);
+    const timer = window.setInterval(() => setTrialNow(Date.now()), 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token]);
+
+  const trialRemainingMs = trial?.expiresAt
+    ? Math.max(0, new Date(trial.expiresAt).getTime() - trialNow)
+    : 0;
+  const trialRemainingLabel = (() => {
+    const totalSeconds = Math.floor(trialRemainingMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return days > 0
+      ? `${days} ngày ${hours} giờ`
+      : `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  })();
+
+  useEffect(() => {
+    if (trial?.status !== "active" || trialRemainingMs > 0 || expirySyncRef.current) return;
+    expirySyncRef.current = true;
+    void Promise.all([getNewbieSkinTrial(token), getShopInventory(token)])
+      .then(([trialResult, inventoryResult]) => {
+        setTrial(trialResult.trial);
+        onInventory(inventoryResult.inventory);
+        onNotify("Skin dùng thử đã hết hạn; trang bị trước đó đã được khôi phục");
+      })
+      .finally(() => {
+        expirySyncRef.current = false;
+      });
+  }, [onInventory, onNotify, token, trial?.status, trialRemainingMs]);
+
+  const activateTrial = async (skinId: string) => {
+    if (busyProductId) return;
+    setBusyProductId(skinId);
+    try {
+      const result = await activateNewbieSkinTrial(token, skinId);
+      onInventory(result.inventory);
+      setTrial(result.trial);
+      setTrialNow(Date.now());
+      setPendingTrialSkin(null);
+      setPreviewSkin(null);
+      onNotify("Đã kích hoạt bộ skin dùng thử trong 7 ngày");
+    } catch (error: any) {
+      onNotify(error?.message || "Không thể kích hoạt dùng thử");
+    } finally {
+      setBusyProductId(null);
+    }
+  };
 
   const buyProduct = async (productId: string) => {
     if (busyProductId) return;
@@ -944,7 +1032,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       themeColor: "#d7b56b",
       variant: "gold" as SkinVariant,
       perks: [
-        "Hào quang Long Vương (+5% phòng thủ)",
+        "Hào quang Long Vương chuyển động độc quyền",
         "Rồng Vàng hộ thể lượn quanh thành trì",
         "Cờ phướn Hoàng Gia rực rỡ phất phơ",
       ],
@@ -976,7 +1064,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     },
     {
       id: "skin_phong_long_cac",
-      name: "Phong Long Các",
+      name: "Thiên Không Thần Điện",
       price:
         effectiveCatalog.find((product) => product.id === "skin_phong_long_cac")
           ?.priceGems ?? 2500,
@@ -994,9 +1082,59 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       themeColor: "#73aeb8",
       variant: "wind" as SkinVariant,
       perks: [
-        "Vòng xoáy Phong Lôi cuồn cuộn bao bọc",
-        "Tinh thể lơ lửng tỏa cực quang huyền ảo",
-        "Mây bão bồng bềnh vương quanh chân tháp",
+        "Vòng thiên văn xanh vàng chuyển động",
+        "Quân khu có tháp thiên sứ đồng bộ",
+        "Trụ cờ Thái Dương có cánh riêng biệt",
+      ],
+    },
+    {
+      id: "skin_bang_vuong",
+      name: "Băng Vương Thành",
+      price:
+        effectiveCatalog.find((product) => product.id === "skin_bang_vuong")
+          ?.priceGems ?? 2200,
+      isNewbieFree: Boolean(
+        effectiveCatalog.find((product) => product.id === "skin_bang_vuong")
+          ?.isNewbieFree,
+      ),
+      newbieFreeExpiresAt: effectiveCatalog.find(
+        (product) => product.id === "skin_bang_vuong",
+      )?.newbieFreeExpiresAt,
+      testPrice:
+        effectiveCatalog.find((product) => product.id === "skin_bang_vuong")
+          ?.testPrice ?? false,
+      desc: "Thành pha lê băng lam với quân khu tuyết và trụ cờ Băng Vương đồng bộ.",
+      themeColor: "#69c8ed",
+      variant: "ice" as SkinVariant,
+      perks: [
+        "Hào quang băng văn phát sáng dịu",
+        "Tinh thể và tuyết bay quanh nền thành",
+        "Trụ cờ pha lê mang biểu tượng Tuyết Vương",
+      ],
+    },
+    {
+      id: "skin_hac_nguyet",
+      name: "Hắc Nguyệt Thành",
+      price:
+        effectiveCatalog.find((product) => product.id === "skin_hac_nguyet")
+          ?.priceGems ?? 2500,
+      isNewbieFree: Boolean(
+        effectiveCatalog.find((product) => product.id === "skin_hac_nguyet")
+          ?.isNewbieFree,
+      ),
+      newbieFreeExpiresAt: effectiveCatalog.find(
+        (product) => product.id === "skin_hac_nguyet",
+      )?.newbieFreeExpiresAt,
+      testPrice:
+        effectiveCatalog.find((product) => product.id === "skin_hac_nguyet")
+          ?.testPrice ?? false,
+      desc: "Pháo đài đá đêm dưới vầng trăng bạc, đi cùng quân khu và trụ cờ Hắc Nguyệt.",
+      themeColor: "#a987ef",
+      variant: "shadow" as SkinVariant,
+      perks: [
+        "Hào quang nguyệt tím và sương nền nhẹ",
+        "Cửa sổ pha lê tím phát sáng",
+        "Trụ cờ lưỡi liềm bằng bạc độc quyền",
       ],
     },
   ];
@@ -1135,15 +1273,20 @@ export const ShopModal: React.FC<ShopModalProps> = ({
             </div>
           </div>
 
-          {newbieOfferDate && (
+          {(newbieOfferDate || trial?.status === "active") && (
             <div className="shop-newbie-offer-strip" role="status">
               <span className="shop-newbie-offer-mark">TÂN THỦ</span>
               <span className="shop-newbie-offer-copy">
-                Gói quân nhu chỉ <strong>1 ngọc</strong>; chọn một ngoại trang
-                để dùng thử miễn phí.
+                {trial?.status === "active" ? (
+                  <>Đang dùng thử <strong>{trial.skinId}</strong>. Mua vĩnh viễn để giữ skin sau khi hết hạn.</>
+                ) : (
+                  <>Gói quân nhu chỉ <strong>1 ngọc</strong>; chọn duy nhất một ngoại trang để dùng thử miễn phí 7 ngày.</>
+                )}
               </span>
               <span className="shop-newbie-offer-expiry">
-                Đến {newbieOfferDate}
+                {trial?.status === "active"
+                  ? `Còn ${trialRemainingLabel}`
+                  : `Đến ${newbieOfferDate}`}
               </span>
             </div>
           )}
@@ -1273,7 +1416,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                     skin.id,
                   );
                   const isNewbieFree = Boolean(
-                    skin.isNewbieFree && !inventory.newbieSkinClaimedAt,
+                    skin.isNewbieFree && trial?.status === "eligible",
+                  );
+                  const isActiveTrial = Boolean(
+                    trial?.status === "active" && trial.skinId === skin.id,
                   );
                   const isLegendary = skin.variant === "gold";
                   const isMythic = skin.variant === "fire";
@@ -1290,7 +1436,11 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                     >
                       {/* Ribbon badge */}
                       <span className={`sk-badge sk-badge--${skin.variant}`}>
-                        {isNewbieFree ? "TẶNG TÂN THỦ" : badgeText}
+                        {isActiveTrial
+                          ? `DÙNG THỬ · ${trialRemainingLabel}`
+                          : isNewbieFree
+                            ? "MIỄN PHÍ 7 NGÀY"
+                            : badgeText}
                       </span>
                       {isEquipped && (
                         <span className="sk-equipped-indicator">
@@ -1347,7 +1497,18 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
                       {/* Bottom Button */}
                       <div className="sk-btn-wrap">
-                        {isEquipped ? (
+                        {isActiveTrial ? (
+                          <button
+                            type="button"
+                            className={`sk-btn sk-btn--buy sk-btn--buy-${skin.variant}`}
+                            disabled={busyProductId !== null}
+                            onClick={() => buyProduct(skin.id)}
+                          >
+                            <ResourceIcon resource="gems" className="sk-btn-gem" />
+                            <span className="sk-btn-price">{skin.price.toLocaleString()}</span>
+                            <span className="sk-btn-cta">MUA VĨNH VIỄN</span>
+                          </button>
+                        ) : isEquipped ? (
                           <button
                             type="button"
                             className="sk-btn sk-btn--equipped"
@@ -1369,7 +1530,11 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                             type="button"
                             className={`sk-btn sk-btn--buy sk-btn--buy-${skin.variant}`}
                             disabled={busyProductId !== null}
-                            onClick={() => buyProduct(skin.id)}
+                            onClick={() =>
+                              isNewbieFree
+                                ? setPendingTrialSkin(skin)
+                                : buyProduct(skin.id)
+                            }
                           >
                             {isNewbieFree ? (
                               <span className="sk-btn-free">NHẬN MIỄN PHÍ</span>
@@ -1547,7 +1712,21 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 </ul>
 
                 <div className="skin-modal-actions">
-                  {inventory.equippedCapitalSkin === previewSkin.id ? (
+                  {trial?.status === "active" &&
+                  trial.skinId === previewSkin.id ? (
+                    <button
+                      type="button"
+                      className="euro-emerald-btn btn-3d btn-3d-emerald"
+                      disabled={busyProductId !== null}
+                      onClick={async () => {
+                        await buyProduct(previewSkin.id);
+                        setPreviewSkin(null);
+                      }}
+                    >
+                      <ResourceIcon resource="gems" className="euro-btn-gem-icon" />
+                      MUA VĨNH VIỄN · {previewSkin.price.toLocaleString()}
+                    </button>
+                  ) : inventory.equippedCapitalSkin === previewSkin.id ? (
                     <button
                       type="button"
                       className="euro-btn-equipped btn-3d-grey"
@@ -1570,15 +1749,12 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                         : "TRANG BỊ NGAY"}
                     </button>
                   ) : previewSkin.isNewbieFree &&
-                    !inventory.newbieSkinClaimedAt ? (
+                    trial?.status === "eligible" ? (
                     <button
                       type="button"
                       className="euro-emerald-btn btn-3d btn-3d-emerald"
                       disabled={busyProductId !== null}
-                      onClick={async () => {
-                        await buyProduct(previewSkin.id);
-                        setPreviewSkin(null);
-                      }}
+                      onClick={() => setPendingTrialSkin(previewSkin)}
                     >
                       <span className="sk-btn-free">
                         NHẬN MIỄN PHÍ · 7 NGÀY
@@ -1607,6 +1783,32 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingTrialSkin && (
+        <div className="skin-trial-confirm" role="dialog" aria-modal="true" aria-labelledby="skin-trial-title">
+          <div className="skin-trial-confirm__card">
+            <span className="skin-trial-confirm__eyebrow">ĐẶC QUYỀN TÂN THỦ</span>
+            <h3 id="skin-trial-title">Dùng thử {pendingTrialSkin.name}?</h3>
+            <KingdomSkinAsset skinId={pendingTrialSkin.id} variant={pendingTrialSkin.variant} />
+            <ul>
+              <li>Được sử dụng miễn phí trong đúng 7 ngày kể từ lúc xác nhận.</li>
+              <li>Chỉ được chọn một bộ skin duy nhất cho tài khoản này.</li>
+              <li>Không tự gia hạn và không tự động trừ ngọc.</li>
+              <li>Hết hạn sẽ trở về skin hợp lệ đã dùng trước đó.</li>
+            </ul>
+            <div className="skin-trial-confirm__actions">
+              <button type="button" onClick={() => setPendingTrialSkin(null)}>CHỌN LẠI</button>
+              <button
+                type="button"
+                className="is-primary"
+                disabled={busyProductId !== null}
+                onClick={() => activateTrial(pendingTrialSkin.id)}
+              >
+                {busyProductId ? "ĐANG KÍCH HOẠT..." : "XÁC NHẬN DÙNG THỬ"}
+              </button>
             </div>
           </div>
         </div>

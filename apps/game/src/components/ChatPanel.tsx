@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@island/shared";
+import { CollapsedChatHud } from "./CollapsedChatHud";
 
 type ChatTab = "user" | "system";
 
@@ -56,11 +57,6 @@ export function ChatPanel({
     () => messages.filter((message) => message.kind === tab).slice(-100),
     [messages, tab],
   );
-  const previewMessages = useMemo(
-    () => messages.filter((message) => message.kind === "user").slice(-3),
-    [messages],
-  );
-  const latestMessage = messages[messages.length - 1];
 
   useEffect(() => {
     const previous = previousIdsRef.current;
@@ -115,63 +111,31 @@ export function ChatPanel({
     <section
       className={`strategy-chat hud-interactive ${collapsed ? "is-collapsed" : ""}`}
     >
-      <button
-        className="strategy-chat__header"
-        type="button"
-        aria-expanded={!collapsed}
-        onClick={() => setCollapsed((value) => !value)}
-      >
-        <img
-          src={
-            collapsed
-              ? "/assets/icons/icon_map.png"
-              : "/assets/icons/icon_chat_users_european.png"
-          }
-          alt=""
-        />
-        <span>
-          <strong>QUẢNG TRƯỜNG</strong>
-          <small className={online ? "is-online" : "is-offline"}>
-            <i /> {online ? "Realtime" : "Đang kết nối lại"}
-          </small>
-        </span>
-        {(unread.user + unread.system > 0 || !collapsed) && (
-          <b>
-            {unread.user + unread.system > 0
-              ? unread.user + unread.system
-              : "−"}
-          </b>
-        )}
-      </button>
+      {!collapsed && (
+        <button
+          className="strategy-chat__header"
+          type="button"
+          aria-expanded="true"
+          onClick={() => setCollapsed(true)}
+        >
+          <img src="/assets/icons/icon_chat_users_european.png" alt="" />
+          <span>
+            <strong>QUẢNG TRƯỜNG</strong>
+            <small className={online ? "is-online" : "is-offline"}>
+              <i /> {online ? "Realtime" : "Đang kết nối lại"}
+            </small>
+          </span>
+          <b>−</b>
+        </button>
+      )}
 
       {collapsed && (
-        <button
-          className="strategy-chat__preview"
-          type="button"
-          onClick={() => setCollapsed(false)}
-        >
-          <span className="strategy-chat__preview-lines">
-            {previewMessages.length > 0 ? (
-              previewMessages.map((message) => (
-                <span className="strategy-chat__preview-line" key={message.id}>
-                  <strong>{message.userName}:</strong>
-                  <span>{message.text}</span>
-                </span>
-              ))
-            ) : (
-              <span className="strategy-chat__preview-line">
-                <strong>
-                  {latestMessage?.kind === "system"
-                    ? "Hệ thống"
-                    : latestMessage
-                      ? latestMessage.userName
-                      : "Quảng trường"}
-                </strong>
-                <span>{latestMessage?.text || "Chạm để mở trò chuyện"}</span>
-              </span>
-            )}
-          </span>
-        </button>
+        <CollapsedChatHud
+          messages={messages}
+          currentUserId={currentUserId}
+          currentAvatarId={currentAvatarId}
+          onOpen={() => setCollapsed(false)}
+        />
       )}
 
       {!collapsed && (

@@ -1,0 +1,236 @@
+/* Collapsed chat HUD only. Expanded chat remains owned by chat.css. */
+
+@media (min-width: 768px) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    inset: auto auto 0 0 !important;
+    width: min(430px, calc(100vw - 16px)) !important;
+    height: 78px !important;
+    min-height: 78px !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+    z-index: 1300 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    width: min(430px, calc(100vw - 16px)) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    margin: 6px 0 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+  }
+}
+
+.collapsed-chat {
+  --chat-gold: #d9ad50;
+  position: relative;
+  width: 100%;
+  height: 72px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  isolation: isolate;
+}
+
+.collapsed-chat button {
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.collapsed-chat__badge {
+  position: relative;
+  z-index: 2;
+  width: 76px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.72));
+}
+
+.collapsed-chat__badge-ring {
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #e5c269;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 38%, #315c70, #102b38 68%);
+  box-shadow: 0 0 0 3px #553818, inset 0 0 0 2px rgba(255, 238, 153, 0.36);
+}
+
+.collapsed-chat__badge-ring > img {
+  width: 54px;
+  height: 54px;
+  display: block;
+  object-fit: contain;
+}
+
+.collapsed-chat__feed {
+  position: relative;
+  z-index: 1;
+  left: -18px;
+  width: calc(100% + 18px);
+  min-width: 0;
+  height: 64px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 5px 11px 5px 32px;
+  overflow: hidden;
+  border: 1px solid rgba(210, 169, 77, 0.68);
+  border-left-color: rgba(210, 169, 77, 0.3);
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(100deg, rgba(13, 34, 41, 0.94), rgba(5, 17, 23, 0.83) 78%, rgba(5, 17, 23, 0.38));
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.44);
+  text-align: left;
+}
+
+.collapsed-chat__feed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 45%);
+}
+
+.collapsed-chat__row {
+  min-width: 0;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: #e7e8e3;
+  font: 600 11px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+
+.collapsed-chat__avatar {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-right: 5px;
+  overflow: hidden;
+  border: 1px solid #c99a3e;
+  border-radius: 50%;
+  background: #17313b;
+}
+
+.collapsed-chat__avatar.is-mine {
+  border-color: #5bd5f0;
+  box-shadow: 0 0 3px rgba(62, 201, 235, 0.8);
+}
+
+.collapsed-chat__avatar--system {
+  border-color: #84aeb8;
+  border-radius: 4px;
+}
+
+.collapsed-chat__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.collapsed-chat__row strong {
+  max-width: 34%;
+  flex: 0 0 auto;
+  margin-right: 5px;
+  overflow: hidden;
+  color: #f5d995;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsed-chat__row strong::after {
+  content: ":";
+}
+
+.collapsed-chat__message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsed-chat__empty {
+  color: #c8d0cf;
+  font: italic 600 12px/1.2 Georgia, serif;
+}
+
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+    position: fixed !important;
+    inset: auto max(8px, var(--safe-right, 0px)) calc(var(--mobile-command-height, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom, 0px) + 8px) max(8px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    z-index: 1305 !important;
+  }
+
+  .collapsed-chat {
+    height: 62px;
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .collapsed-chat__badge {
+    width: 58px;
+    height: 58px;
+  }
+
+  .collapsed-chat__badge-ring {
+    width: 52px;
+    height: 52px;
+  }
+
+  .collapsed-chat__badge-ring > img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .collapsed-chat__feed {
+    left: -14px;
+    width: calc(100% + 14px);
+    height: 58px;
+    gap: 4px;
+    padding: 5px 8px 5px 25px;
+  }
+
+  .collapsed-chat__row {
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .collapsed-chat__row:nth-child(n + 3) {
+    display: none;
+  }
+
+  .collapsed-chat__avatar {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+  }
+}

@@ -94,6 +94,8 @@ export function AdminApp() {
     shopSkinLongBaoThanhPrice: 1500,
     shopSkinHoaLongDienPrice: 2000,
     shopSkinPhongLongCacPrice: 1800,
+    shopSkinBangVuongPrice: 2200,
+    shopSkinHacNguyetPrice: 2500,
     powerConnectedTerritory: 100,
     powerIsolatedTerritory: 25,
     powerNaturalHarborBonus: 30,
@@ -191,6 +193,8 @@ export function AdminApp() {
       shopSkinLongBaoThanhPrice: Number(form.get("shopSkinLongBaoThanhPrice")),
       shopSkinHoaLongDienPrice: Number(form.get("shopSkinHoaLongDienPrice")),
       shopSkinPhongLongCacPrice: Number(form.get("shopSkinPhongLongCacPrice")),
+      shopSkinBangVuongPrice: Number(form.get("shopSkinBangVuongPrice")),
+      shopSkinHacNguyetPrice: Number(form.get("shopSkinHacNguyetPrice")),
       powerConnectedTerritory: Number(form.get("powerConnectedTerritory")),
       powerIsolatedTerritory: Number(form.get("powerIsolatedTerritory")),
       powerNaturalHarborBonus: Number(form.get("powerNaturalHarborBonus")),
@@ -904,6 +908,14 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     Giá Phong Long Các (Gems)
                     <input type="number" name="shopSkinPhongLongCacPrice" defaultValue={configData.shopSkinPhongLongCacPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Băng Vương Thành (Gems)
+                    <input type="number" name="shopSkinBangVuongPrice" defaultValue={configData.shopSkinBangVuongPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Giá Hắc Nguyệt Thành (Gems)
+                    <input type="number" name="shopSkinHacNguyetPrice" defaultValue={configData.shopSkinHacNguyetPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                 </div>
 

@@ -44,6 +44,10 @@ export type PlayerDocument = {
   newbieSkinExpiresAt?: Date; // skin tân thủ hết hạn sau 7 ngày
   newbieSkinId?: string; // skin được cấp miễn phí, dùng để thu hồi đúng skin
   newbieSkinClaimedAt?: Date; // đã dùng lượt skin miễn phí
+  newbieSkinConvertedAt?: Date;
+  newbieSkinExpiredAt?: Date;
+  newbieSkinPreviousCapitalSkin?: string | null;
+  newbieSkinPreviousDistrictSkin?: string | null;
   newbieFreeProductIds?: string[]; // các gói quân nhu đã dùng giá tân thủ
   createdAt: Date;
   lastSeenAt: Date;
@@ -235,6 +239,15 @@ export type ShopPurchaseDocument = {
   createdAt: Date;
 };
 
+export type CosmeticAuditDocument = {
+  _id: string;
+  playerId: string;
+  event: "trial_activated" | "trial_expired" | "trial_converted";
+  skinId: string;
+  createdAt: Date;
+  metadata?: Record<string, unknown>;
+};
+
 export type ChatMessageDocument = Omit<UserChatMessage, "id" | "sentAt"> & {
   _id: string;
   sentAt: Date;
@@ -258,6 +271,7 @@ export async function collections() {
     battleReports: db.collection<BattleReportDocument>("battle_reports"),
     playerMails: db.collection<PlayerMailDocument>("player_mails"),
     shopPurchases: db.collection<ShopPurchaseDocument>("shop_purchases"),
+    cosmeticAudits: db.collection<CosmeticAuditDocument>("cosmetic_audits"),
     chatMessages: db.collection<ChatMessageDocument>("chat_messages"),
   };
 }
@@ -275,6 +289,7 @@ export async function ensureIndexes() {
     battleReports,
     playerMails,
     shopPurchases,
+    cosmeticAudits,
     chatMessages,
   } = await collections();
   // Legacy databases used a plain unique name index. MongoDB treats multiple
@@ -333,6 +348,8 @@ export async function ensureIndexes() {
     playerMails.createIndex({ senderId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, createdAt: -1 }),
+    cosmeticAudits.createIndex({ playerId: 1, createdAt: -1 }),
+    cosmeticAudits.createIndex({ event: 1, createdAt: -1 }),
     chatMessages.createIndex({ sentAt: -1 }),
     chatMessages.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);

@@ -61,6 +61,724 @@
   }
 }
 
+/* -------------------------------------------------------------------------
+ * Collapsed chat preview v2
+ *
+ * This is deliberately scoped to the collapsed state. The expanded chat keeps
+ * its existing tabs, history and composer; the quick preview only exposes one
+ * real latest message and a small, non-overlapping open control.
+ * ------------------------------------------------------------------------- */
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
+  display: grid !important;
+  grid-template-columns: 56px minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+  color: #f4ead1 !important;
+  border: 1px solid rgba(190, 145, 57, 0.9) !important;
+  border-radius: 10px !important;
+  background:
+    linear-gradient(110deg, rgba(16, 37, 44, 0.97), rgba(5, 15, 21, 0.96)) !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.62),
+    inset 0 1px rgba(255, 224, 131, 0.16) !important;
+  font-family: Inter, "Segoe UI", sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed::before {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+  position: relative !important;
+  width: 56px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 5px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(217, 172, 76, 0.42) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, rgba(26, 57, 65, 0.94), rgba(8, 24, 31, 0.96)) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > img {
+  width: 39px !important;
+  height: 39px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.78)) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > span {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > b {
+  position: absolute !important;
+  top: 3px !important;
+  right: 2px !important;
+  left: auto !important;
+  min-width: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid #f5dda0 !important;
+  border-radius: 50% !important;
+  color: #fff8dc !important;
+  background: #a13b38 !important;
+  font: 800 9px/1 Inter, sans-serif !important;
+  z-index: 2 !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview {
+  min-width: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) 16px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px 4px 9px !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  color: #f4ead1 !important;
+  background: transparent !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview:hover {
+  background: rgba(218, 173, 77, 0.09) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar {
+  position: relative !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid rgba(216, 171, 78, 0.86) !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle, #223b44 0%, #071720 72%) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.64) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-portrait {
+  width: 31px !important;
+  height: 31px !important;
+  border: 1px solid #ebc660 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  background: #182c37 !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-frame {
+  position: absolute !important;
+  inset: -3px !important;
+  width: 48px !important;
+  height: 48px !important;
+  pointer-events: none !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-vip {
+  position: absolute !important;
+  right: -7px !important;
+  bottom: -5px !important;
+  width: 19px !important;
+  height: 17px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #fff4c6 !important;
+  font: 800 8px/1 Georgia, serif !important;
+  filter: drop-shadow(0 1px 2px #000) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-vip img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 19px !important;
+  height: 17px !important;
+  object-fit: contain !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-vip b {
+  position: relative !important;
+  z-index: 1 !important;
+  text-shadow: 0 1px 1px #41250a !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--system {
+  border-radius: 8px !important;
+  border-color: rgba(135, 174, 184, 0.68) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--system.level-success {
+  border-color: rgba(108, 173, 114, 0.85) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--system.level-warning {
+  border-color: rgba(221, 175, 72, 0.9) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--system.level-battle {
+  border-color: rgba(190, 77, 69, 0.9) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--system > img,
+html body .game-shell .hud-wrapper .strategy-chat__preview-avatar--empty > img {
+  width: 28px !important;
+  height: 28px !important;
+  object-fit: contain !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-content {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+  align-content: center !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #f5d77f !important;
+  font: 800 12px/1.1 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.01em !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta time {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  color: #95a2a5 !important;
+  font: 700 9px/1 Inter, sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-text {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #e7e5db !important;
+  font: 500 11px/1.1 Inter, sans-serif !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview-open {
+  display: grid !important;
+  place-items: center !important;
+  width: 16px !important;
+  height: 28px !important;
+  color: #f2d47b !important;
+  font: 400 28px/1 Arial, sans-serif !important;
+  text-shadow: 0 1px 2px #000 !important;
+}
+
+/* Desktop: a small feed in the lower-left safe zone, away from profile and dock. */
+@media (min-width: 1200px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto auto max(8px, var(--safe-bottom, 0px)) max(8px, var(--safe-left, 0px)) !important;
+    width: min(360px, calc(100vw - 24px)) !important;
+    height: 84px !important;
+    min-height: 84px !important;
+    grid-template-columns: 56px minmax(0, 1fr) !important;
+    z-index: 1305 !important;
+  }
+}
+
+/* Tablet: keep the preview above the bottom command dock, never inside it. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto auto calc(var(--tablet-bottom-dock-height, 78px) + var(--safe-bottom, 0px) + 10px) max(8px, var(--safe-left, 0px)) !important;
+    width: min(340px, calc(100vw - 16px)) !important;
+    height: 80px !important;
+    min-height: 80px !important;
+    z-index: 1305 !important;
+  }
+}
+
+/* Phone: full-width, two-message preview just above the thumb dock. */
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto max(8px, var(--safe-right, 0px)) calc(var(--mobile-command-height, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom, 0px) + 8px) max(8px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    z-index: 1305 !important;
+    border-radius: 9px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+    width: 48px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview {
+    grid-template-columns: 36px minmax(0, 1fr) 14px !important;
+    gap: 7px !important;
+    padding: 3px 7px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-portrait {
+    width: 25px !important;
+    height: 25px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-frame {
+    width: 39px !important;
+    height: 39px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-vip {
+    right: -6px !important;
+    bottom: -4px !important;
+    width: 16px !important;
+    height: 14px !important;
+    font-size: 7px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-avatar-vip img {
+    width: 16px !important;
+    height: 14px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-meta strong {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-text {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line strong {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line:nth-child(n + 3) {
+    display: none !important;
+  }
+}
+
+/* ROK reference feed: transparent map overlay with a large map emblem and
+ * three readable lines. This is the desktop/tablet landscape presentation. */
+@media (min-width: 768px) and (orientation: landscape) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    width: min(620px, calc(100vw - 16px)) !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    display: block !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+    z-index: 1300 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    width: min(620px, calc(100vw - 16px)) !important;
+    max-width: none !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    display: grid !important;
+    grid-template-columns: 104px minmax(0, 1fr) !important;
+    grid-template-rows: 96px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+    z-index: 1301 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed::before {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header {
+    position: relative !important;
+    width: 104px !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 4px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, rgba(39, 96, 126, 0.76) 0%, rgba(7, 34, 49, 0.76) 62%, rgba(4, 13, 19, 0.38) 72%, transparent 73%) !important;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 5px !important;
+    z-index: 0 !important;
+    border: 2px solid rgba(231, 190, 83, 0.9) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 0 2px rgba(75, 37, 14, 0.88), inset 0 0 0 1px rgba(255, 239, 158, 0.48) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header::after {
+    content: "" !important;
+    position: absolute !important;
+    right: -19px !important;
+    top: 35px !important;
+    width: 38px !important;
+    height: 27px !important;
+    border: 3px solid #fff !important;
+    border-radius: 6px !important;
+    background: linear-gradient(#fff, #fff) 7px 6px / 18px 2px no-repeat, linear-gradient(#fff, #fff) 7px 12px / 13px 2px no-repeat, linear-gradient(#fff, #fff) 7px 18px / 18px 2px no-repeat, rgba(8, 14, 17, 0.92) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header > img {
+    position: relative !important;
+    z-index: 1 !important;
+    width: 82px !important;
+    height: 82px !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview {
+    min-width: 0 !important;
+    width: auto !important;
+    height: 96px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 10px 0 14px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: linear-gradient(90deg, rgba(4, 15, 20, 0.12), rgba(4, 15, 20, 0.03) 72%, transparent) !important;
+    text-align: left !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-lines {
+    min-width: 0 !important;
+    width: 100% !important;
+    display: grid !important;
+    gap: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    display: flex !important;
+    overflow: hidden !important;
+    color: #f5f3e8 !important;
+    font: 600 clamp(12px, 1.05vw, 16px)/1.16 Georgia, "Times New Roman", serif !important;
+    text-shadow: 0 2px 3px #000 !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line strong {
+    flex: 0 0 auto !important;
+    max-width: 42% !important;
+    overflow: hidden !important;
+    margin-right: 5px !important;
+    color: #fff8d9 !important;
+    font-size: inherit !important;
+    font-weight: 800 !important;
+    line-height: inherit !important;
+    font-family: inherit !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line > span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    color: #f1f0eb !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Direct-child selectors win over the old landscape feed sizing. */
+/* Duplicate state class is intentional: it outranks the legacy landscape
+ * selectors that were introduced before the compact preview contract. */
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+  display: block !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(190, 145, 57, 0.9) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(110deg, rgba(16, 37, 44, 0.94), rgba(5, 15, 21, 0.94)) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 224, 131, 0.16) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__collapsed {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 32px !important;
+  align-items: stretch !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview {
+  min-width: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) 20px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px 4px 10px !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  background: transparent !important;
+  text-align: left !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__expand {
+  width: 32px !important;
+  height: 100% !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(217, 172, 76, 0.42) !important;
+  border-radius: 0 !important;
+  color: #f2d47b !important;
+  background: rgba(6, 18, 24, 0.72) !important;
+  cursor: pointer !important;
+  font: 400 28px/1 Arial, sans-serif !important;
+  text-shadow: 0 1px 2px #000 !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__expand:hover {
+  background: rgba(218, 173, 77, 0.16) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-unread {
+  min-width: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid #f6dfa2 !important;
+  border-radius: 50% !important;
+  color: #fff8dc !important;
+  background: #a53b38 !important;
+  font: 800 9px/1 Inter, sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-list {
+  min-width: 0 !important;
+  width: 100% !important;
+  display: grid !important;
+  gap: 3px !important;
+  align-content: center !important;
+  overflow: hidden !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  display: flex !important;
+  align-items: baseline !important;
+  overflow: hidden !important;
+  color: #e8e5da !important;
+  font: 500 11px/1.15 Inter, sans-serif !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line strong {
+  flex: 0 0 auto !important;
+  max-width: 40% !important;
+  overflow: hidden !important;
+  margin-right: 4px !important;
+  color: #f6d983 !important;
+  font: 800 11px/1.15 Georgia, "Times New Roman", serif !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line > span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #e7e5db !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+  display: block !important;
+  flex-direction: row !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header {
+  width: 56px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  flex-direction: row !important;
+  padding: 5px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(217, 172, 76, 0.42) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, rgba(26, 57, 65, 0.94), rgba(8, 24, 31, 0.96)) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header > img {
+  width: 39px !important;
+  height: 39px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header > span {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header::before,
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header::after {
+  content: none !important;
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview {
+  height: 100% !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) 16px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px 4px 9px !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(217, 172, 76, 0.26) !important;
+  background: transparent !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header > b {
+  top: 3px !important;
+  right: 2px !important;
+  left: auto !important;
+}
+
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+    display: block !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header {
+    width: 48px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__header > img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview {
+    grid-template-columns: 36px minmax(0, 1fr) 14px !important;
+    gap: 7px !important;
+    padding: 3px 7px !important;
+  }
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header {
+  width: 56px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  flex-direction: row !important;
+  padding: 5px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(217, 172, 76, 0.42) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, rgba(26, 57, 65, 0.94), rgba(8, 24, 31, 0.96)) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > img {
+  width: 39px !important;
+  height: 39px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > span {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__preview {
+  height: 100% !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) 16px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px 4px 9px !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(217, 172, 76, 0.26) !important;
+  background: transparent !important;
+}
+
+html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > b {
+  top: 3px !important;
+  right: 2px !important;
+  left: auto !important;
+}
+
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header {
+    width: 48px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__preview {
+    grid-template-columns: 36px minmax(0, 1fr) 14px !important;
+    gap: 7px !important;
+    padding: 3px 7px !important;
+  }
+}
+
 /* ROK-style landscape HUD: a compact chat feed shares the bottom command rail. */
 @media (min-width: 768px) and (orientation: landscape) {
   html body .game-shell .hud-wrapper .rok-event-badges-row {
@@ -638,5 +1356,212 @@
     max-width: calc(100vw - 20px) !important;
     height: min(58dvh, 430px) !important;
     min-height: 0 !important;
+  }
+}
+
+/* Final specificity pass: keep the v2 preview above legacy layout media rules. */
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
+  display: grid !important;
+  grid-template-columns: 56px minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(190, 145, 57, 0.9) !important;
+  border-radius: 10px !important;
+  background:
+    linear-gradient(110deg, rgba(16, 37, 44, 0.97), rgba(5, 15, 21, 0.96)) !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.62),
+    inset 0 1px rgba(255, 224, 131, 0.16) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed::before {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+  position: relative !important;
+  width: 56px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 5px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(217, 172, 76, 0.42) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, rgba(26, 57, 65, 0.94), rgba(8, 24, 31, 0.96)) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > img {
+  width: 39px !important;
+  height: 39px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.78)) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > span {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > b {
+  position: absolute !important;
+  top: 3px !important;
+  right: 2px !important;
+  left: auto !important;
+  min-width: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid #f5dda0 !important;
+  border-radius: 50% !important;
+  color: #fff8dc !important;
+  background: #a13b38 !important;
+  font: 800 9px/1 Inter, sans-serif !important;
+  z-index: 2 !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview {
+  min-width: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) 16px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px 4px 9px !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(217, 172, 76, 0.26) !important;
+  color: #f4ead1 !important;
+  background: transparent !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview:hover {
+  background: rgba(218, 173, 77, 0.09) !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-content {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+  align-content: center !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #f5d77f !important;
+  font: 800 12px/1.1 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.01em !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-meta time {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  color: #95a2a5 !important;
+  font: 700 9px/1 Inter, sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat__preview-text {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #e7e5db !important;
+  font: 500 11px/1.1 Inter, sans-serif !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview-open {
+  display: grid !important;
+  place-items: center !important;
+  width: 16px !important;
+  height: 28px !important;
+  color: #f2d47b !important;
+  font: 400 28px/1 Arial, sans-serif !important;
+  text-shadow: 0 1px 2px #000 !important;
+}
+
+@media (min-width: 1200px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto auto max(8px, var(--safe-bottom, 0px)) max(8px, var(--safe-left, 0px)) !important;
+    width: min(360px, calc(100vw - 24px)) !important;
+    height: 84px !important;
+    min-height: 84px !important;
+    z-index: 1305 !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto auto calc(var(--tablet-bottom-dock-height, 78px) + var(--safe-bottom, 0px) + 10px) max(8px, var(--safe-left, 0px)) !important;
+    width: min(340px, calc(100vw - 16px)) !important;
+    height: 80px !important;
+    min-height: 80px !important;
+    z-index: 1305 !important;
+  }
+}
+
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto max(8px, var(--safe-right, 0px)) calc(var(--mobile-command-height, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom, 0px) + 8px) max(8px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    z-index: 1305 !important;
+    border-radius: 9px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+    width: 48px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview {
+    grid-template-columns: 36px minmax(0, 1fr) 14px !important;
+    gap: 7px !important;
+    padding: 3px 7px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-meta strong {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-text {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line strong {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__preview-line:nth-child(n + 3) {
+    display: none !important;
   }
 }

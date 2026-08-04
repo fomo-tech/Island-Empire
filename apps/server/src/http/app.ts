@@ -112,6 +112,9 @@ const ShopEquipSchema = z
     target: z.enum(["capital", "military_district"]),
   })
   .strict();
+const NewbieSkinTrialActivateSchema = z
+  .object({ skinId: z.string().trim().min(3).max(80) })
+  .strict();
 const CreateAllianceSchema = z.object({
   name: z.string().trim().min(3).max(32),
   tag: z
@@ -2621,6 +2624,8 @@ const DEFAULT_CONFIG = {
   shopSkinLongBaoThanhPrice: 1500,
   shopSkinHoaLongDienPrice: 2000,
   shopSkinPhongLongCacPrice: 1800,
+  shopSkinBangVuongPrice: 2200,
+  shopSkinHacNguyetPrice: 2500,
   powerConnectedTerritory: 100,
   powerIsolatedTerritory: 25,
   powerNaturalHarborBonus: 30,
@@ -2761,6 +2766,34 @@ function shopCatalog(
         newbieFreeExpiresAt: newbiePriceExpiresAt,
       }),
     },
+    {
+      id: "skin_bang_vuong",
+      type: "skin",
+      name: "Băng Vương Thành",
+      description: "Bộ thành trì băng lam, quân khu và trụ cờ Băng Vương.",
+      priceGems: testPrice ?? gameConfig.shopSkinBangVuongPrice,
+      testPrice: testPrice !== null,
+      skinId: "skin_bang_vuong",
+      skinTarget: "capital",
+      ...(newbieSkinFree && {
+        isNewbieFree: true,
+        newbieFreeExpiresAt: newbiePriceExpiresAt,
+      }),
+    },
+    {
+      id: "skin_hac_nguyet",
+      type: "skin",
+      name: "Hắc Nguyệt Thành",
+      description: "Bộ thành trì, quân khu và trụ cờ dưới ánh Hắc Nguyệt.",
+      priceGems: testPrice ?? gameConfig.shopSkinHacNguyetPrice,
+      testPrice: testPrice !== null,
+      skinId: "skin_hac_nguyet",
+      skinTarget: "capital",
+      ...(newbieSkinFree && {
+        isNewbieFree: true,
+        newbieFreeExpiresAt: newbiePriceExpiresAt,
+      }),
+    },
   ];
 }
 function normalizeShopInventory(
@@ -2769,6 +2802,7 @@ function normalizeShopInventory(
     newbieSkinExpiresAt?: Date | null;
     newbieSkinId?: string | null;
     newbieSkinClaimedAt?: Date | null;
+    newbieSkinConvertedAt?: Date | null;
     newbieFreeProductIds?: string[];
   },
 ) {
@@ -2779,19 +2813,27 @@ function normalizeShopInventory(
   const temporarySkinActive = Boolean(
     temporarySkinId && expiresAt && expiresAt.getTime() > Date.now(),
   );
+  const temporarySkinConverted = Boolean(player?.newbieSkinConvertedAt);
   const ownedSkins = [
     ...new Set(
       Array.isArray(value?.ownedSkins) ? value.ownedSkins.filter(Boolean) : [],
     ),
-  ].filter((skinId) => temporarySkinActive || skinId !== temporarySkinId);
+  ].filter(
+    (skinId) =>
+      temporarySkinActive || temporarySkinConverted || skinId !== temporarySkinId,
+  );
   const equippedCapitalSkin =
     value?.equippedCapitalSkin &&
-    (temporarySkinActive || value.equippedCapitalSkin !== temporarySkinId)
+    (temporarySkinActive ||
+      temporarySkinConverted ||
+      value.equippedCapitalSkin !== temporarySkinId)
       ? value.equippedCapitalSkin
       : null;
   const equippedDistrictSkin =
     value?.equippedDistrictSkin &&
-    (temporarySkinActive || value.equippedDistrictSkin !== temporarySkinId)
+    (temporarySkinActive ||
+      temporarySkinConverted ||
+      value.equippedDistrictSkin !== temporarySkinId)
       ? value.equippedDistrictSkin
       : null;
   return {
@@ -2808,6 +2850,111 @@ function normalizeShopInventory(
       ? [...new Set(player!.newbieFreeProductIds.filter(Boolean))]
       : [],
   };
+}
+
+function newbieSkinTrialState(player: any) {
+  const now = new Date();
+  const startedAt = player?.newbieSkinClaimedAt
+    ? new Date(player.newbieSkinClaimedAt)
+    : null;
+  const expiresAt = player?.newbieSkinExpiresAt
+    ? new Date(player.newbieSkinExpiresAt)
+    : null;
+  const convertedAt = player?.newbieSkinConvertedAt
+    ? new Date(player.newbieSkinConvertedAt)
+    : null;
+  const active = Boolean(
+    startedAt && expiresAt && !convertedAt && expiresAt.getTime() > now.getTime(),
+  );
+  const status = convertedAt
+    ? "converted"
+    : active
+      ? "active"
+      : startedAt
+        ? "expired"
+        : isNewbieWeek(player || {})
+          ? "eligible"
+          : "unavailable";
+  return {
+    status,
+    skinId: player?.newbieSkinId || null,
+    startedAt: startedAt?.toISOString() || null,
+    expiresAt: expiresAt?.toISOString() || null,
+    convertedAt: convertedAt?.toISOString() || null,
+    serverNow: now.toISOString(),
+    remainingMs: active ? Math.max(0, expiresAt!.getTime() - now.getTime()) : 0,
+  };
+}
+
+async function reconcileExpiredNewbieSkinTrial(
+  player: any,
+  players: any,
+  cosmeticAudits: any,
+) {
+  const state = newbieSkinTrialState(player);
+  if (state.status !== "expired" || player?.newbieSkinExpiredAt) return player;
+  const trialSkinId = player.newbieSkinId;
+  const rawInventory = player.shopInventory || {};
+  const ownedSkins = (Array.isArray(rawInventory.ownedSkins)
+    ? rawInventory.ownedSkins
+    : []
+  ).filter((skinId: string) => skinId !== trialSkinId);
+  const validFallback = (skinId?: string | null) =>
+    skinId && ownedSkins.includes(skinId) ? skinId : null;
+  const expiredAt = new Date();
+  const shopInventory = {
+    ...rawInventory,
+    ownedSkins,
+    equippedCapitalSkin:
+      rawInventory.equippedCapitalSkin === trialSkinId
+        ? validFallback(player.newbieSkinPreviousCapitalSkin)
+        : rawInventory.equippedCapitalSkin || null,
+    equippedDistrictSkin:
+      rawInventory.equippedDistrictSkin === trialSkinId
+        ? validFallback(player.newbieSkinPreviousDistrictSkin)
+        : rawInventory.equippedDistrictSkin || null,
+    version: Math.max(0, Number(rawInventory.version) || 0) + 1,
+  };
+  await players.updateOne(
+    { _id: player._id, newbieSkinExpiredAt: { $exists: false } },
+    { $set: { shopInventory, newbieSkinExpiredAt: expiredAt } },
+  );
+  await cosmeticAudits.updateOne(
+    { _id: `trial_expired:${player._id}` },
+    {
+      $setOnInsert: {
+        _id: `trial_expired:${player._id}`,
+        playerId: player._id,
+        event: "trial_expired",
+        skinId: trialSkinId,
+        createdAt: expiredAt,
+      },
+    },
+    { upsert: true },
+  );
+  publishRealtime(
+    {
+      type: "shop_inventory_updated",
+      inventory: normalizeShopInventory(shopInventory, {
+        ...player,
+        newbieSkinExpiredAt: expiredAt,
+      }) as any,
+      version: expiredAt.getTime(),
+      serverTime: expiredAt.toISOString(),
+    },
+    `player:${player._id}`,
+  );
+  publishRealtime({
+    type: "territory_skin_updated",
+    ownerId: player._id,
+    skinId: trialSkinId,
+    target: "capital",
+    equippedCapitalSkin: shopInventory.equippedCapitalSkin,
+    equippedDistrictSkin: shopInventory.equippedDistrictSkin,
+    skinVersion: expiredAt.getTime(),
+    serverTime: expiredAt.toISOString(),
+  });
+  return { ...player, shopInventory, newbieSkinExpiredAt: expiredAt };
 }
 function toPublicMail(mail) {
   return {
@@ -6109,9 +6256,106 @@ export function createApp() {
       });
     }
   });
+  app.get("/api/shop/newbie-trial", requireAuth, async (req, res) => {
+    const { players, cosmeticAudits } = await collections();
+    const found = await players.findOne({ _id: req.user!.id });
+    const player = found
+      ? await reconcileExpiredNewbieSkinTrial(found, players, cosmeticAudits)
+      : found;
+    res.json({ ok: true, trial: newbieSkinTrialState(player) });
+  });
+  app.post("/api/shop/newbie-trial/activate", requireAuth, async (req, res) => {
+    if (!enforceActionLimit(req, res, "shop:trial", 5, 60_000)) return;
+    const parsed = NewbieSkinTrialActivateSchema.safeParse(req.body);
+    if (!parsed.success)
+      return res.status(400).json({ error: "bad_request", message: "Skin dùng thử không hợp lệ" });
+    const playerId = req.user!.id;
+    const release = await acquirePlayerMutationLock(playerId);
+    try {
+      const { players, cosmeticAudits } = await collections();
+      const player = await players.findOne({ _id: playerId });
+      if (!player || !isNewbieWeek(player) || player.newbieSkinClaimedAt) {
+        return res.status(409).json({
+          error: "trial_unavailable",
+          message: "Tài khoản không còn lượt dùng thử skin tân thủ",
+        });
+      }
+      const product = shopCatalog(await loadGameConfig(), player).find(
+        (item) => item.type === "skin" && item.skinId === parsed.data.skinId && item.isNewbieFree,
+      );
+      if (!product?.skinId) {
+        return res.status(404).json({ error: "skin_not_found", message: "Skin không được phép dùng thử" });
+      }
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + NEWBIE_WEEK_MS);
+      const currentInventory = normalizeShopInventory(player.shopInventory, player);
+      const nextInventory = {
+        ...currentInventory,
+        ownedSkins: [
+          ...new Set<string>([
+            ...(currentInventory.ownedSkins as string[]),
+            product.skinId,
+          ]),
+        ],
+        equippedCapitalSkin: product.skinId,
+        equippedDistrictSkin: product.skinId,
+        version: currentInventory.version + 1,
+        newbieSkinExpiresAt: expiresAt.toISOString(),
+        newbieSkinId: product.skinId,
+        newbieSkinClaimedAt: now.toISOString(),
+      };
+      const result = await players.updateOne(
+        { _id: playerId, newbieSkinClaimedAt: null },
+        {
+          $set: {
+            shopInventory: nextInventory,
+            newbieSkinClaimedAt: now,
+            newbieSkinExpiresAt: expiresAt,
+            newbieSkinId: product.skinId,
+            newbieSkinPreviousCapitalSkin: currentInventory.equippedCapitalSkin,
+            newbieSkinPreviousDistrictSkin: currentInventory.equippedDistrictSkin,
+          },
+        },
+      );
+      if (result.modifiedCount !== 1) {
+        return res.status(409).json({ error: "trial_already_claimed", message: "Lượt dùng thử đã được nhận" });
+      }
+      await cosmeticAudits.insertOne({
+        _id: `trial_activated:${playerId}`,
+        playerId,
+        event: "trial_activated",
+        skinId: product.skinId,
+        createdAt: now,
+        metadata: { expiresAt: expiresAt.toISOString() },
+      });
+      const trialPlayer = { ...player, shopInventory: nextInventory, newbieSkinClaimedAt: now, newbieSkinExpiresAt: expiresAt, newbieSkinId: product.skinId };
+      publishRealtime({
+        type: "shop_inventory_updated",
+        inventory: nextInventory,
+        version: now.getTime(),
+        serverTime: now.toISOString(),
+      }, `player:${playerId}`);
+      publishRealtime({
+        type: "territory_skin_updated",
+        ownerId: playerId,
+        skinId: product.skinId,
+        target: "capital",
+        equippedCapitalSkin: product.skinId,
+        equippedDistrictSkin: product.skinId,
+        skinVersion: now.getTime(),
+        serverTime: now.toISOString(),
+      });
+      res.json({ ok: true, inventory: nextInventory, trial: newbieSkinTrialState(trialPlayer) });
+    } finally {
+      release();
+    }
+  });
   app.get("/api/shop/catalog", requireAuth, async (req, res) => {
-    const { players } = await collections();
-    const player = await players.findOne({ _id: req.user!.id });
+    const { players, cosmeticAudits } = await collections();
+    const found = await players.findOne({ _id: req.user!.id });
+    const player = found
+      ? await reconcileExpiredNewbieSkinTrial(found, players, cosmeticAudits)
+      : found;
     res.json({
       ok: true,
       products: shopCatalog(await loadGameConfig(), player ?? undefined),
@@ -6119,8 +6363,11 @@ export function createApp() {
     });
   });
   app.get("/api/shop/inventory", requireAuth, async (req, res) => {
-    const { players } = await collections();
-    const player = await players.findOne({ _id: req.user!.id });
+    const { players, cosmeticAudits } = await collections();
+    const found = await players.findOne({ _id: req.user!.id });
+    const player = found
+      ? await reconcileExpiredNewbieSkinTrial(found, players, cosmeticAudits)
+      : found;
     const inventory = normalizeShopInventory(
       player?.shopInventory,
       player ?? undefined,
@@ -6247,6 +6494,14 @@ export function createApp() {
         isNewbieWeek(player ?? {}) &&
         !player?.newbieSkinClaimedAt,
       );
+      const convertingActiveTrial = Boolean(
+        productSkinId &&
+          productSkinId === player?.newbieSkinId &&
+          player?.newbieSkinClaimedAt &&
+          player?.newbieSkinExpiresAt &&
+          new Date(player.newbieSkinExpiresAt).getTime() > Date.now() &&
+          !player?.newbieSkinConvertedAt,
+      );
       const effectivePriceGems = newbieSkinTrial
         ? 0
         : Math.max(0, Math.floor(Number(product.priceGems) || 0));
@@ -6256,7 +6511,11 @@ export function createApp() {
           message: "Không đủ ngọc để mua",
         });
       }
-      if (productSkinId && inventory.ownedSkins.includes(productSkinId)) {
+      if (
+        productSkinId &&
+        inventory.ownedSkins.includes(productSkinId) &&
+        !convertingActiveTrial
+      ) {
         return res.status(409).json({
           error: "already_owned",
           message: "Bạn đã sở hữu ngoại trang này",
@@ -6287,6 +6546,7 @@ export function createApp() {
         });
       }
       nextResources.gems -= effectivePriceGems;
+      const conversionTime = convertingActiveTrial ? new Date() : null;
       const nextPlayerShopMeta: any = newbieSkinTrial
         ? {
             ...(player || {}),
@@ -6294,7 +6554,9 @@ export function createApp() {
             newbieSkinExpiresAt: new Date(Date.now() + NEWBIE_WEEK_MS),
             newbieSkinId: productSkinId,
           }
-        : (player ?? undefined);
+        : convertingActiveTrial
+          ? { ...(player || {}), newbieSkinConvertedAt: conversionTime }
+          : (player ?? undefined);
       const nextInventory: any = normalizeShopInventory(
         {
           ...inventory,
@@ -6341,8 +6603,14 @@ export function createApp() {
                     createdAt.getTime() + NEWBIE_WEEK_MS,
                   ),
                   newbieSkinId: productSkinId,
+                  newbieSkinPreviousCapitalSkin:
+                    inventory.equippedCapitalSkin,
+                  newbieSkinPreviousDistrictSkin:
+                    inventory.equippedDistrictSkin,
                 }
-              : {}),
+              : convertingActiveTrial
+                ? { newbieSkinConvertedAt: conversionTime }
+                : {}),
             newbieFreeProductIds: nextNewbieFreeProductIds,
             lastResourceCollectedAt: createdAt,
             lastSeenAt: createdAt,
@@ -6354,6 +6622,23 @@ export function createApp() {
         { $set: { resources: nextResources, updatedAt: createdAt } },
       );
       await shopPurchases.insertOne(purchaseDoc);
+      if (convertingActiveTrial && productSkinId) {
+        const { cosmeticAudits } = await collections();
+        await cosmeticAudits.updateOne(
+          { _id: `trial_converted:${playerId}` },
+          {
+            $setOnInsert: {
+              _id: `trial_converted:${playerId}`,
+              playerId,
+              event: "trial_converted",
+              skinId: productSkinId,
+              createdAt: conversionTime!,
+              metadata: { priceGems: effectivePriceGems },
+            },
+          },
+          { upsert: true },
+        );
+      }
       const purchase = {
         id: purchaseDoc._id,
         productId: product.id,
@@ -8021,6 +8306,8 @@ export function createApp() {
     shopSkinLongBaoThanhPrice: z.number().int().positive(),
     shopSkinHoaLongDienPrice: z.number().int().positive(),
     shopSkinPhongLongCacPrice: z.number().int().positive(),
+    shopSkinBangVuongPrice: z.number().int().positive(),
+    shopSkinHacNguyetPrice: z.number().int().positive(),
     powerConnectedTerritory: z.number().nonnegative(),
     powerIsolatedTerritory: z.number().nonnegative(),
     powerNaturalHarborBonus: z.number().nonnegative(),

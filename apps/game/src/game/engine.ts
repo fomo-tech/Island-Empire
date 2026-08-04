@@ -75,6 +75,7 @@ import {
   TERRITORY_OWNER_TINT_ALPHA,
   territoryTerrainColor,
 } from "./render/territoryVisuals";
+import { territorySkinEffect } from "./cosmetics/territorySkinEffects";
 import {
   ensureMinVertices,
   facetedRegionPath,
@@ -1562,9 +1563,12 @@ export function createIslandEmpireGame(
       drawKingdomBuildingEffect(normalized, x, y, size);
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-    const preserveFrameAspect = buildingType === "flag";
     const drawHeight = size;
-    const drawWidth = preserveFrameAspect ? size * (frame.sw / frame.sh) : size;
+    const drawWidth = buildingType === "flag"
+      ? frame.premium
+        ? size
+        : size * (frame.sw / frame.sh)
+      : size;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
@@ -1598,8 +1602,11 @@ export function createIslandEmpireGame(
       skinId,
     );
     const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
-    const drawWidth =
-      buildingType === "flag" ? size * (frame.sw / frame.sh) : size;
+    const drawWidth = buildingType === "flag"
+      ? frame.premium
+        ? size
+        : size * (frame.sw / frame.sh)
+      : size;
     return {
       x: centerX + drawWidth * (layout.pivotX - visualCenter.x),
       y: centerY + size * (layout.pivotY - visualCenter.y),
@@ -4350,6 +4357,11 @@ export function createIslandEmpireGame(
       state.regionOwnerNames[idx],
     );
     const flagColor = getRegionFlagColor(idx);
+    const ownerSkinId =
+      ownerCode === 1
+        ? state.equippedCapitalSkin
+        : state.regionOwnerCapitalSkins[idx];
+    const skinTerritoryEffect = territorySkinEffect(ownerSkinId);
 
     // Fill overlay based on state (Seamless inflation to hide internal grid seams)
     if (pass === 2) {
@@ -4365,9 +4377,13 @@ export function createIslandEmpireGame(
         ctx.restore();
       } else if (ownerCode > 0) {
         ctx.save();
-        ctx.globalAlpha = TERRITORY_OWNER_TINT_ALPHA;
+        ctx.globalAlpha =
+          skinTerritoryEffect?.fillAlpha ?? TERRITORY_OWNER_TINT_ALPHA;
         const claimedLand = inflatePolygon(displayLand, 3, r.x, r.y);
-        fillSmoothPath(claimedLand, flagColor);
+        fillSmoothPath(
+          claimedLand,
+          skinTerritoryEffect?.fill ?? flagColor,
+        );
         ctx.restore();
       }
 
@@ -4510,6 +4526,17 @@ export function createIslandEmpireGame(
     }
 
     if (pass === 4) {
+      if (ownerCode > 0 && skinTerritoryEffect && !isClearing) {
+        ctx.save();
+        ctx.globalAlpha = fastRenderMode ? 0.48 : 0.68;
+        drawOuterBoundaryLines(
+          skinTerritoryEffect.border,
+          fastRenderMode ? 1.6 : 2.25,
+          fastRenderMode ? undefined : skinTerritoryEffect.glow,
+        );
+        ctx.restore();
+      }
+
       if (isClearing) {
         const clearingFlagColor = getRegionFlagColor(idx);
         ctx.save();
@@ -7930,13 +7957,13 @@ export function createIslandEmpireGame(
         ? state.equippedCapitalSkin
         : isMilitaryDistrict
           ? state.equippedDistrictSkin
-          : null;
+          : state.equippedCapitalSkin;
     } else if (regionId >= 0) {
       equippedSkin = isCapitalSettlement
         ? state.regionOwnerCapitalSkins[regionId]
         : isMilitaryDistrict
           ? state.regionOwnerDistrictSkins[regionId]
-          : null;
+          : state.regionOwnerCapitalSkins[regionId];
     }
 
     const architectureId = isUserTown
@@ -11711,13 +11738,13 @@ export function createIslandEmpireGame(
         ? state.equippedCapitalSkin
         : isMilitaryDistrict
           ? state.equippedDistrictSkin
-          : null;
+          : state.equippedCapitalSkin;
     } else if (regionId >= 0) {
       equippedSkin = isCapital
         ? state.regionOwnerCapitalSkins[regionId]
         : isMilitaryDistrict
           ? state.regionOwnerDistrictSkins[regionId]
-          : null;
+          : state.regionOwnerCapitalSkins[regionId];
     }
 
     const architectureId =
@@ -15464,6 +15491,8 @@ export function createIslandEmpireGame(
         state.regionRootTerritoryIds = {};
         state.regionConnectionTypes = {};
         state.regionSpecialResources = {};
+        state.regionOwnerCapitalSkins = {};
+        state.regionOwnerDistrictSkins = {};
         state.regionClearing = [];
         state.activeClearingTimings = {};
         state.regionInProgress = -1;

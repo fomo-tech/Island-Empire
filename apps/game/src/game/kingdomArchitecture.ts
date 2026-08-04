@@ -10,7 +10,7 @@ export type KingdomArchitectureId =
 
 export type KingdomBuildingType = "capital" | "fortress" | "district" | "flag" | "construction";
 
-export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/kingdom_premium.webp";
+export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/skins/kingdom-skin-bundles.webp?v=bundles-v1";
 export const NATION_BUILDING_SHEET = "/assets/kingdoms/nations/nations_8_buildings.webp?v=nations-v2";
 export const NATION_FLAG_SHEET = "/assets/kingdoms/nation_flags_atlas.webp?v=flags-v2";
 export const NATION_UNIT_SHEET = "/assets/units/medieval/nation_units_8.webp?v=units-v7";
@@ -54,7 +54,9 @@ const KINGDOM_PREMIUM_SPRITE_CELL = 512;
 const PREMIUM_COLUMNS: Record<string, number> = {
   skin_long_bao_thanh: 0,
   skin_hoa_long_dien: 1,
-  skin_phong_long_cac: 2,
+  skin_bang_vuong: 2,
+  skin_phong_long_cac: 3,
+  skin_hac_nguyet: 4,
 };
 
 export const KINGDOM_BUILDING_LAYOUT: Record<KingdomBuildingType, {
@@ -113,7 +115,7 @@ export function kingdomBuildingVisualCenter(
   buildingType: KingdomBuildingType,
   skinId?: string | null,
 ) {
-  if ((buildingType === "capital" || buildingType === "district")
+  if ((buildingType === "capital" || buildingType === "district" || buildingType === "flag")
     && skinId && PREMIUM_COLUMNS[skinId] !== undefined) {
     return { x: 0.5, y: 0.51 };
   }
@@ -140,6 +142,8 @@ export function kingdomArchitectureFromSkin(skinId?: string | null): KingdomArch
   if (skinId === "skin_hac_ung") return "england";
   if (skinId === "skin_long_bao_thanh") return "ottoman";
   if (skinId === "skin_phong_long_cac") return "rome";
+  if (skinId === "skin_bang_vuong") return "france";
+  if (skinId === "skin_hac_nguyet") return "england";
   return null;
 }
 
@@ -149,6 +153,22 @@ export function kingdomBuildingSprite(
   skinId?: string | null,
 ) {
   const nationIndex = kingdomArchitectureIndex(architectureId);
+  const premiumColumn = (buildingType === "capital" || buildingType === "district" || buildingType === "flag") && skinId
+    ? PREMIUM_COLUMNS[skinId]
+    : undefined;
+  if (premiumColumn !== undefined) {
+    const premiumRow = buildingType === "capital" ? 0 : buildingType === "district" ? 1 : 2;
+    return {
+      src: KINGDOM_PREMIUM_SHEET,
+      sx: premiumColumn * KINGDOM_PREMIUM_SPRITE_CELL,
+      sy: premiumRow * KINGDOM_PREMIUM_SPRITE_CELL,
+      sw: KINGDOM_PREMIUM_SPRITE_CELL,
+      sh: KINGDOM_PREMIUM_SPRITE_CELL,
+      columns: 5,
+      rows: 3,
+      premium: true,
+    };
+  }
   if (buildingType === "flag") {
     return {
       src: NATION_FLAG_SHEET,
@@ -159,22 +179,6 @@ export function kingdomBuildingSprite(
       columns: 4,
       rows: 2,
       premium: false,
-    };
-  }
-
-  const premiumColumn = (buildingType === "capital" || buildingType === "district") && skinId
-    ? PREMIUM_COLUMNS[skinId]
-    : undefined;
-  if (premiumColumn !== undefined) {
-    return {
-      src: KINGDOM_PREMIUM_SHEET,
-      sx: premiumColumn * KINGDOM_PREMIUM_SPRITE_CELL,
-      sy: 0,
-      sw: KINGDOM_PREMIUM_SPRITE_CELL,
-      sh: KINGDOM_PREMIUM_SPRITE_CELL,
-      columns: 3,
-      rows: 1,
-      premium: true,
     };
   }
 

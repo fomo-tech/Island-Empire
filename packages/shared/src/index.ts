@@ -57,6 +57,8 @@ export type GameConfig = {
   shopSkinLongBaoThanhPrice: number;
   shopSkinHoaLongDienPrice: number;
   shopSkinPhongLongCacPrice: number;
+  shopSkinBangVuongPrice: number;
+  shopSkinHacNguyetPrice: number;
   powerConnectedTerritory: number;
   powerIsolatedTerritory: number;
   powerNaturalHarborBonus: number;
@@ -283,6 +285,23 @@ export type ShopInventory = {
   newbieSkinId?: string | null;
   newbieSkinClaimedAt?: string | null;
   newbieFreeProductIds?: string[];
+};
+
+export type NewbieSkinTrialStatus =
+  | "eligible"
+  | "active"
+  | "expired"
+  | "converted"
+  | "unavailable";
+
+export type NewbieSkinTrialState = {
+  status: NewbieSkinTrialStatus;
+  skinId: string | null;
+  startedAt: string | null;
+  expiresAt: string | null;
+  convertedAt: string | null;
+  serverNow: string;
+  remainingMs: number;
 };
 
 export type ShopPurchase = {

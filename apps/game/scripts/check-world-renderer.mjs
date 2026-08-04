@@ -128,14 +128,14 @@ if (onboarding.includes("getCastleSprite") || onboarding.includes("<canvas")) {
 if (shop.includes("<CastleSkinArt")) {
   throw new Error("Cửa hàng còn dùng preview SVG 3D cũ");
 }
-if (!architecture.includes("/kingdoms/nations/") || !architecture.includes("kingdom_premium.webp")) {
+if (!architecture.includes("/kingdoms/nations/") || !architecture.includes("kingdom-skin-bundles.webp")) {
   throw new Error("Kiến trúc chưa dùng sprite atlas chuẩn");
 }
 if (!architecture.includes("KINGDOM_PREMIUM_SPRITE_CELL = 512")) {
   throw new Error("Skin premium chưa dùng đúng grid 512px");
 }
 if (!architecture.includes('if (buildingType === "flag")')
-  || !architecture.includes('buildingType === "capital" || buildingType === "district"')) {
+  || !architecture.includes('buildingType === "capital" || buildingType === "district" || buildingType === "flag"')) {
   throw new Error("Skin multiplayer chưa tách đúng Hoàng Thành, Quân Khu và trụ cờ");
 }
 if (townManagement.includes("<svg") || townManagement.includes("EuropeanUnitArt")) {

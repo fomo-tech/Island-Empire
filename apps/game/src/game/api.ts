@@ -10,6 +10,7 @@ import type {
   ShopInventory,
   ShopProduct,
   ShopPurchase,
+  NewbieSkinTrialState,
   BattleReport,
   PlayerMail,
   ServerStatus,
@@ -262,6 +263,37 @@ export function getShopCatalog(
 ): Promise<{ ok: true; products: ShopProduct[]; testMode: boolean }> {
   return request("/api/shop/catalog", {
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getNewbieSkinTrial(
+  token: string,
+): Promise<{ ok: true; trial: NewbieSkinTrialState }> {
+  return request("/api/shop/newbie-trial", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getShopInventory(
+  token: string,
+): Promise<{ ok: true; inventory: ShopInventory }> {
+  return request("/api/shop/inventory", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function activateNewbieSkinTrial(
+  token: string,
+  skinId: string,
+): Promise<{
+  ok: true;
+  inventory: ShopInventory;
+  trial: NewbieSkinTrialState;
+}> {
+  return request("/api/shop/newbie-trial/activate", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ skinId }),
   });
 }
 

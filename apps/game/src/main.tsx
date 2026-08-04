@@ -7,6 +7,8 @@ import "./styles/global.css";
 import "./styles/minimap.css";
 import "./styles/chat.css";
 import "./styles/hud-topbar.css";
+import "./styles/chat-reference.css";
+import "./styles/shop-trial.css";
 import "./styles/settings.css";
 import "./styles/war-reports.css";
 
