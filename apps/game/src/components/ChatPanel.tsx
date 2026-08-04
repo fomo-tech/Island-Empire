@@ -22,7 +22,7 @@ export function ChatPanel({ messages, currentUserId, online, onSend }: ChatPanel
     typeof window !== "undefined" &&
     window
       .matchMedia(
-        "(max-width: 760px), (max-height: 599px) and (pointer: coarse)",
+        "(max-width: 760px), (max-height: 599px) and (pointer: coarse), (min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
       )
       .matches,
   );

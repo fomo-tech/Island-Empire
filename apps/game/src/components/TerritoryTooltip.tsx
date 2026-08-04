@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ActiveBattle, ActiveClearing, TerritoryInfo, TownSnapshot } from "@island/shared";
 import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
@@ -153,6 +153,37 @@ export function TerritoryTooltip({
   const [showGuide, setShowGuide] = useState(false);
   const [selectedYield, setSelectedYield] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [hudBottomInset, setHudBottomInset] = useState(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const dock = document.querySelector<HTMLElement>(".hud-command-dock");
+
+    const measureDock = () => {
+      if (!dock || getComputedStyle(dock).display === "none") {
+        setHudBottomInset(0);
+        return;
+      }
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const dockTop = dock.getBoundingClientRect().top;
+      setHudBottomInset(Math.max(0, Math.ceil(viewportHeight - dockTop + 8)));
+    };
+
+    measureDock();
+    const resizeObserver = dock ? new ResizeObserver(measureDock) : null;
+    if (dock) resizeObserver?.observe(dock);
+    const mutationObserver = dock ? new MutationObserver(measureDock) : null;
+    if (dock) mutationObserver?.observe(dock, { attributes: true, attributeFilter: ["class", "style"] });
+    window.addEventListener("resize", measureDock);
+    window.visualViewport?.addEventListener("resize", measureDock);
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      window.removeEventListener("resize", measureDock);
+      window.visualViewport?.removeEventListener("resize", measureDock);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -162,8 +193,8 @@ export function TerritoryTooltip({
   }, []);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const cardElement = document.querySelector(".rt-tooltip-card");
+    function handleClickOutside(event: PointerEvent) {
+      const cardElement = cardRef.current;
       const arrowPointer = document.querySelector(".rt-tooltip-arrow-pointer");
       
       // If clicking outside the tooltip box, close it smoothly
@@ -175,15 +206,21 @@ export function TerritoryTooltip({
         onClose?.();
       }
     }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose?.();
+    }
     
     // Register listener after a micro delay to avoid capturing the activation click
     const registerTimer = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("pointerdown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }, 100);
 
     return () => {
       clearTimeout(registerTimer);
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
 
@@ -567,7 +604,7 @@ export function TerritoryTooltip({
   const territoryFlagColor = territory?.ownerFlagColor || engineState.regionOwnerFlagColors?.[id] || (effectiveOwnership === 1 ? (engineState.newbieFlagColor || "#2563eb") : undefined);
 
   const tooltipElement = (
-    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none", overflow: "visible" }}>
+    <div className={`rt-tooltip-container ${positionClass}`} style={{ position: "fixed", left: `${left}px`, top: `${top}px`, width: `${cardW}px`, zIndex: 99999, pointerEvents: "none", overflow: "visible", "--rt-hud-bottom-inset": `${hudBottomInset}px` } as React.CSSProperties}>
       {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
       <div
         className={`rt-tooltip-arrow-pointer ${positionClass}`}
@@ -597,7 +634,14 @@ export function TerritoryTooltip({
           )}
         </svg>
       </div>
-      <div className="rt-tooltip-card" style={{ pointerEvents: "auto" }}>
+      <div
+        ref={cardRef}
+        className="rt-tooltip-card"
+        role="dialog"
+        aria-modal="false"
+        aria-label={isIslet ? `Thông tin đảo nhỏ ${id + 1}` : `Thông tin lãnh thổ ${id + 1}`}
+        style={{ pointerEvents: "auto" }}
+      >
         {/* Header */}
         <div className="rt-tooltip-header">
           <div className="rt-header-top-row">
@@ -629,6 +673,8 @@ export function TerritoryTooltip({
             <BiomeMedievalCard biome={biome} color={bColor} />
           </div>
         </div>
+
+        <div className="rt-tooltip-scroll">
 
         {/* Section Divider */}
         <div className="rt-section-divider">
@@ -761,8 +807,10 @@ export function TerritoryTooltip({
           </>
         )}
 
+        </div>
+
         {/* Action Button Section */}
-        <div style={{ marginTop: "14px", width: "100%" }}>
+        <div className="rt-tooltip-action-section">
           {renderActionButtons()}
         </div>
       </div>

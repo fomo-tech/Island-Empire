@@ -1625,7 +1625,25 @@ export function GameApp({
   const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
-  const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false);
+  // Tablet starts with the minimap as a lightweight affordance so the map stays
+  // usable. The full card is still one tap away and follows orientation changes.
+  const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia(
+      "(min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
+    ).matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tabletQuery = window.matchMedia(
+      "(min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
+    );
+    const syncTabletMinimap = () => setMinimapCollapsed(tabletQuery.matches);
+    syncTabletMinimap();
+    tabletQuery.addEventListener?.("change", syncTabletMinimap);
+    return () => tabletQuery.removeEventListener?.("change", syncTabletMinimap);
+  }, []);
   const [socketOnline, setSocketOnline] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const backendClearingStartRef = useRef<Set<number>>(new Set());
@@ -4262,6 +4280,16 @@ export function GameApp({
                 <img src="/assets/icons/icon_bag.png" alt="" />
                 <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
               </button>
+              <ChatPanel
+                messages={chatMessages}
+                currentUserId={playerId ?? undefined}
+                online={socketOnline}
+                onSend={(message) => {
+                  const sent = sendWorldChat(message);
+                  if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+                  return sent;
+                }}
+              />
             </nav>
           )}
 
@@ -4279,18 +4307,6 @@ export function GameApp({
               </b>
             </button>
           )}
-
-          {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
-          <ChatPanel
-            messages={chatMessages}
-            currentUserId={playerId ?? undefined}
-            online={socketOnline}
-            onSend={(message) => {
-              const sent = sendWorldChat(message);
-              if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
-              return sent;
-            }}
-          />
 
           {/* Bottom-Right Navigation Menu Dock */}
           <div className="rok-event-badges-row hud-interactive">
