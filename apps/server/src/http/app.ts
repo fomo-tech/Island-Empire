@@ -164,13 +164,7 @@ const SendAllianceAidSchema = z.object({
     .max(ALLIANCE_AID_MAX_TROOPS)
     .default(0),
 });
-const RESOURCE_KEYS = [
-  "gold",
-  "wood",
-  "stone",
-  "food",
-  "gems",
-];
+const RESOURCE_KEYS = ["gold", "wood", "stone", "food", "gems"];
 const STORAGE_RESOURCE_KEYS = ["gold", "wood", "stone", "food"];
 const DEFAULT_PLAYER_RESOURCES = {
   gold: 1250,
@@ -279,12 +273,10 @@ function enforceActionLimit(req, res, action, limit, windowMs) {
   const result = consumeActionLimit(playerId, action, limit, windowMs);
   if (result.ok) return true;
   res.setHeader("Retry-After", String(Math.ceil(result.retryAfterMs / 1000)));
-  res
-    .status(429)
-    .json({
-      error: "rate_limited",
-      message: "Bạn thao tác quá nhanh, vui lòng chờ một chút",
-    });
+  res.status(429).json({
+    error: "rate_limited",
+    message: "Bạn thao tác quá nhanh, vui lòng chờ một chút",
+  });
   return false;
 }
 const usedAntiBotChallenges = new Map();
@@ -380,12 +372,10 @@ function enforceAuthAttempt(req, res, action, identity) {
       : null;
   if (!blocked) return true;
   res.setHeader("Retry-After", String(Math.ceil(blocked.retryAfterMs / 1000)));
-  res
-    .status(429)
-    .json({
-      error: "rate_limited",
-      message: "Bạn thao tác quá nhanh, vui lòng chờ một chút",
-    });
+  res.status(429).json({
+    error: "rate_limited",
+    message: "Bạn thao tác quá nhanh, vui lòng chờ một chút",
+  });
   return false;
 }
 function emptyResources() {
@@ -426,9 +416,11 @@ function compactResourceDelta(resources) {
 function resourceCapacityForOwnedTerritories(ownedCount) {
   const cap = emptyResources();
   RESOURCE_KEYS.forEach((key) => {
-    cap[key] = key === "gems" ? 0 :
-      BASE_RESOURCE_CAPACITY[key] +
-      Math.max(0, ownedCount) * TERRITORY_RESOURCE_CAPACITY[key];
+    cap[key] =
+      key === "gems"
+        ? 0
+        : BASE_RESOURCE_CAPACITY[key] +
+          Math.max(0, ownedCount) * TERRITORY_RESOURCE_CAPACITY[key];
   });
   return cap;
 }
@@ -584,7 +576,7 @@ function calcClearingSeconds(
  * Islet penalty: wood × 0.3, stone × 0.5, food × 0.45, iron × 0.55, coal × 0.35
  */
 function territoryRoll(id, salt = 0) {
-  let value = (Math.imul((id + 1) ^ salt, 2654435761) >>> 0);
+  let value = Math.imul((id + 1) ^ salt, 2654435761) >>> 0;
   value ^= value >>> 16;
   return (value >>> 0) / 4294967295;
 }
@@ -630,8 +622,7 @@ function calcSpecialResources(t) {
 function trainingSpecialtyForTerritory(territory: any, settlementKind?: any) {
   const specials = territory?.specialResources || [];
   if (specials.includes("Bãi ngựa")) return "cavalry";
-  if (specials.includes("Xưởng rèn"))
-    return "artillery";
+  if (specials.includes("Xưởng rèn")) return "artillery";
   if (settlementKind === "capital" || settlementKind === "sub_capital")
     return "infantry";
   return "infantry";
@@ -684,16 +675,15 @@ function territoryConnectionType(source, target) {
   // Mainland expansion is always one connected land tile at a time.
   const sumRx = (source.rx || 100) + (target.rx || 100);
   const sumRy = (source.ry || 100) + (target.ry || 100);
-  const closeEnough =
-    dx <= sumRx * 1.28 &&
-    dy <= sumRy * 1.42;
+  const closeEnough = dx <= sumRx * 1.28 && dy <= sumRy * 1.42;
   const centerDistance = Math.hypot(source.x - target.x, source.y - target.y);
   const bridgeDistance = centerDistance - sumRx * 0.72;
   if (
     !source.isIslet &&
     !target.isIslet &&
     (closeEnough || bridgeDistance <= 130)
-  ) return "land";
+  )
+    return "land";
   const targetIsCoastal = Boolean(
     target.isIslet ||
     target.coastal ||
@@ -744,7 +734,9 @@ function nearestLandFrontierClaim(claims, target) {
       };
     })
     .filter((candidate) => candidate !== null)
-    .sort((a, b) => a.distance - b.distance || a.territory.id - b.territory.id)[0];
+    .sort(
+      (a, b) => a.distance - b.distance || a.territory.id - b.territory.id,
+    )[0];
 }
 function resolvePlayerAttackRoute(claims, source, target) {
   const frontier = nearestLandFrontierClaim(claims, target);
@@ -777,22 +769,30 @@ function settlementKindForClaim(
   // A coastal territory reached by land is part of the continuous kingdom and
   // keeps the national flag. Only a genuine sea route creates a military
   // district; coastal resources alone must never change this classification.
-  return connectionType === "sea"
-    ? "military_district"
-    : "flag";
+  return connectionType === "sea" ? "military_district" : "flag";
 }
 function normalizedClaimKind(claim: any) {
   if (!claim) return undefined;
-  if (claim.settlementKind === "capital")
-    return claim.settlementKind;
+  if (claim.settlementKind === "capital") return claim.settlementKind;
   const territory = getStaticTerritory(claim.territoryId);
   return settlementKindForClaim(territory, claim.connectionType, false);
 }
-function rootTerritoryForNewClaim(claims: any[], sourceTerritoryId: number | undefined, connectionType: "land" | "sea" | undefined, targetTerritoryId: number) {
-  if (connectionType === "sea" || sourceTerritoryId === undefined) return targetTerritoryId;
-  const source = claims.find((claim) => claim.territoryId === sourceTerritoryId);
+function rootTerritoryForNewClaim(
+  claims: any[],
+  sourceTerritoryId: number | undefined,
+  connectionType: "land" | "sea" | undefined,
+  targetTerritoryId: number,
+) {
+  if (connectionType === "sea" || sourceTerritoryId === undefined)
+    return targetTerritoryId;
+  const source = claims.find(
+    (claim) => claim.territoryId === sourceTerritoryId,
+  );
   if (!source) return sourceTerritoryId;
-  return Number(source.rootTerritoryId ?? (isTerritoryRootClaim(source) ? source.territoryId : sourceTerritoryId));
+  return Number(
+    source.rootTerritoryId ??
+      (isTerritoryRootClaim(source) ? source.territoryId : sourceTerritoryId),
+  );
 }
 function isClaimConnectedToCapital(claims, territoryId) {
   const byId = new Map(
@@ -1105,7 +1105,10 @@ function normalizeTownSnapshotForState(
     ? productionForClaims([{ territoryId: territory.id }])
     : emptyResources();
   const resolvedKind = territory?.settlementKind ?? town?.kind;
-  const isHarbor = territory && (territory.isIslet || territory.specialResources?.includes("Bến tàu tự nhiên"));
+  const isHarbor =
+    territory &&
+    (territory.isIslet ||
+      territory.specialResources?.includes("Bến tàu tự nhiên"));
   const kind = resolvedKind ?? (isHarbor ? "military_district" : "flag");
   const infantryCount = Math.max(
     0,
@@ -1304,7 +1307,9 @@ function toPublicMarch(order) {
     id: order._id || order.id,
     ownerId: order.ownerId,
     fromTerritoryId: normalizeWorldTerritoryId(order.fromTerritoryId),
-    sourceTownId: order.sourceTownId ?? townIdForTerritory(normalizeWorldTerritoryId(order.fromTerritoryId)),
+    sourceTownId:
+      order.sourceTownId ??
+      townIdForTerritory(normalizeWorldTerritoryId(order.fromTerritoryId)),
     toTerritoryId: normalizeWorldTerritoryId(order.toTerritoryId),
     troops: order.troops,
     infantry: order.infantry ?? 0,
@@ -1391,7 +1396,10 @@ function advanceBattleHealth(battle, now = new Date()) {
     battleVersion: Math.max(1, Math.floor(Number(battle.battleVersion || 1))),
   };
 }
-function battleParticipants(battle, health = advanceBattleHealth(battle, new Date())) {
+function battleParticipants(
+  battle,
+  health = advanceBattleHealth(battle, new Date()),
+) {
   const rawParticipants = Array.isArray(battle.participants)
     ? battle.participants
     : Array.isArray(battle.attackerSources)
@@ -1400,7 +1408,8 @@ function battleParticipants(battle, health = advanceBattleHealth(battle, new Dat
           marchId: source.marchId,
           playerId: source.ownerId,
           sourceTerritoryId: source.fromTerritoryId,
-          sourceTownId: source.sourceTownId ?? townIdForTerritory(source.fromTerritoryId),
+          sourceTownId:
+            source.sourceTownId ?? townIdForTerritory(source.fromTerritoryId),
           infantry: source.infantry,
           cavalry: source.cavalry,
           artillery: source.artillery,
@@ -1415,21 +1424,35 @@ function battleParticipants(battle, health = advanceBattleHealth(battle, new Dat
       : [];
   const attackerRatio = Math.max(
     0,
-    Math.min(1, Number(health.attackerCurrentHp || 0) / Math.max(1, Number(health.attackerMaxHp || 1))),
+    Math.min(
+      1,
+      Number(health.attackerCurrentHp || 0) /
+        Math.max(1, Number(health.attackerMaxHp || 1)),
+    ),
   );
   return rawParticipants.map((participant) => {
-    const maxHp = Math.max(1, Number(participant.maxHp ?? participant.power ?? 1));
-    const currentHp = participant.status === "engaged"
-      ? Math.max(0, Math.round(maxHp * attackerRatio))
-      : Math.max(0, Number(participant.currentHp ?? maxHp));
+    const maxHp = Math.max(
+      1,
+      Number(participant.maxHp ?? participant.power ?? 1),
+    );
+    const currentHp =
+      participant.status === "engaged"
+        ? Math.max(0, Math.round(maxHp * attackerRatio))
+        : Math.max(0, Number(participant.currentHp ?? maxHp));
     return {
       id: participant.id || `participant:${participant.marchId}`,
       marchId: participant.marchId,
       playerId: participant.playerId || participant.ownerId,
-      sourceTerritoryId: Number(participant.sourceTerritoryId ?? participant.fromTerritoryId),
+      sourceTerritoryId: Number(
+        participant.sourceTerritoryId ?? participant.fromTerritoryId,
+      ),
       sourceTownId: Number(
         participant.sourceTownId ??
-          townIdForTerritory(Number(participant.sourceTerritoryId ?? participant.fromTerritoryId)),
+          townIdForTerritory(
+            Number(
+              participant.sourceTerritoryId ?? participant.fromTerritoryId,
+            ),
+          ),
       ),
       infantry: Math.max(0, Number(participant.infantry || 0)),
       cavalry: Math.max(0, Number(participant.cavalry || 0)),
@@ -1438,9 +1461,13 @@ function battleParticipants(battle, health = advanceBattleHealth(battle, new Dat
       power: Math.max(0, Number(participant.power || 0)),
       maxHp,
       currentHp,
-      status: currentHp <= 0 ? "defeated" : (participant.status || "engaged"),
-      departedAt: new Date(participant.departedAt || battle.startedAt).toISOString(),
-      arrivesAt: new Date(participant.arrivesAt || participant.engagedAt || battle.startedAt).toISOString(),
+      status: currentHp <= 0 ? "defeated" : participant.status || "engaged",
+      departedAt: new Date(
+        participant.departedAt || battle.startedAt,
+      ).toISOString(),
+      arrivesAt: new Date(
+        participant.arrivesAt || participant.engagedAt || battle.startedAt,
+      ).toISOString(),
       engagedAt: participant.engagedAt
         ? new Date(participant.engagedAt).toISOString()
         : new Date(battle.startedAt).toISOString(),
@@ -1456,10 +1483,7 @@ function toPublicBattle(battle) {
     battle.resolvesAt instanceof Date
       ? battle.resolvesAt
       : new Date(battle.resolvesAt);
-  const health = advanceBattleHealth(
-    battle,
-    new Date(),
-  );
+  const health = advanceBattleHealth(battle, new Date());
   return {
     id: battle._id || battle.id,
     regionId: battle.regionId,
@@ -1468,7 +1492,8 @@ function toPublicBattle(battle) {
     fromTerritoryId: battle.fromTerritoryId,
     toTerritoryId: battle.toTerritoryId,
     status: battle.status || "fighting",
-    joinedMarchIds: battle.joinedMarchIds || (battle.marchId ? [battle.marchId] : []),
+    joinedMarchIds:
+      battle.joinedMarchIds || (battle.marchId ? [battle.marchId] : []),
     attackerId: battle.attackerId,
     defenderId: battle.defenderId,
     attackerPower: battle.attackerPower,
@@ -1543,7 +1568,13 @@ async function buildNationStatusSnapshot(
     context.battles !== undefined
       ? context.battles
       : activeBattles
-          .find({ $or: [{ attackerId: playerId }, { defenderId: playerId }, { "participants.playerId": playerId }] })
+          .find({
+            $or: [
+              { attackerId: playerId },
+              { defenderId: playerId },
+              { "participants.playerId": playerId },
+            ],
+          })
           .toArray(),
   ]);
   const normalizedResources = normalizeResources(resources);
@@ -1566,10 +1597,20 @@ async function buildNationStatusSnapshot(
       .filter(Number.isFinite),
   );
   const unitPower = (unit: any, fallback = 0) => {
-    const infantry = Math.max(0, Number(unit?.infantry ?? unit?.infantryCount) || 0);
-    const cavalry = Math.max(0, Number(unit?.cavalry ?? unit?.cavalryCount) || 0);
-    const artillery = Math.max(0, Number(unit?.artillery ?? unit?.artilleryCount) || 0);
-    if (infantry + cavalry + artillery <= 0) return Math.max(0, Number(fallback) || 0);
+    const infantry = Math.max(
+      0,
+      Number(unit?.infantry ?? unit?.infantryCount) || 0,
+    );
+    const cavalry = Math.max(
+      0,
+      Number(unit?.cavalry ?? unit?.cavalryCount) || 0,
+    );
+    const artillery = Math.max(
+      0,
+      Number(unit?.artillery ?? unit?.artilleryCount) || 0,
+    );
+    if (infantry + cavalry + artillery <= 0)
+      return Math.max(0, Number(fallback) || 0);
     return (
       infantry * gameConfig.infantryTroopsValue +
       cavalry * gameConfig.cavalryTroopsValue +
@@ -1578,7 +1619,9 @@ async function buildNationStatusSnapshot(
   };
   const military = Math.round(
     towns.reduce((sum, town) => {
-      const territoryId = Number(town?.territoryId ?? town?.regionId ?? town?.id);
+      const territoryId = Number(
+        town?.territoryId ?? town?.regionId ?? town?.id,
+      );
       return defendedTerritoryIds.has(territoryId)
         ? sum
         : sum + unitPower(town, town?.troops);
@@ -1586,18 +1629,30 @@ async function buildNationStatusSnapshot(
       marches.reduce((sum, march) => sum + unitPower(march, march?.troops), 0) +
       battles.reduce((sum, battle) => {
         if (battle?.attackerId === playerId) {
-          return sum + unitPower({
-            infantry: battle.attackerInfantry,
-            cavalry: battle.attackerCavalry,
-            artillery: battle.attackerArtillery,
-          }, battle.attackerPower);
+          return (
+            sum +
+            unitPower(
+              {
+                infantry: battle.attackerInfantry,
+                cavalry: battle.attackerCavalry,
+                artillery: battle.attackerArtillery,
+              },
+              battle.attackerPower,
+            )
+          );
         }
         if (battle?.defenderId === playerId) {
-          return sum + unitPower({
-            infantry: battle.defenderInfantry,
-            cavalry: battle.defenderCavalry,
-            artillery: battle.defenderArtillery,
-          }, battle.defenderPower);
+          return (
+            sum +
+            unitPower(
+              {
+                infantry: battle.defenderInfantry,
+                cavalry: battle.defenderCavalry,
+                artillery: battle.defenderArtillery,
+              },
+              battle.defenderPower,
+            )
+          );
         }
         return sum;
       }, 0),
@@ -1606,7 +1661,10 @@ async function buildNationStatusSnapshot(
   let settlements = 0;
   let buildings = 0;
   const townByTerritoryId = new Map(
-    towns.map((town) => [Number(town?.territoryId ?? town?.regionId ?? town?.id), town]),
+    towns.map((town) => [
+      Number(town?.territoryId ?? town?.regionId ?? town?.id),
+      town,
+    ]),
   );
   claims.forEach((claim) => {
     const territoryId = Number(claim?.territoryId);
@@ -1621,22 +1679,36 @@ async function buildNationStatusSnapshot(
       territoryPower += gameConfig.powerMilitaryResourceBonus;
     const town = townByTerritoryId.get(territoryId) as any;
     if (!town) return;
-    const level = Math.max(1, Math.floor(Number(town?.level ?? town?.lvl) || 1));
+    const level = Math.max(
+      1,
+      Math.floor(Number(town?.level ?? town?.lvl) || 1),
+    );
     const kind = town?.kind ?? claim?.settlementKind;
     if (kind === "capital" || kind === "sub_capital") {
-      settlements += gameConfig.powerCapitalBase + level * gameConfig.powerCapitalLevel;
+      settlements +=
+        gameConfig.powerCapitalBase + level * gameConfig.powerCapitalLevel;
     } else {
-      settlements += gameConfig.powerMilitaryDistrictBase + level * gameConfig.powerMilitaryDistrictLevel;
+      settlements +=
+        gameConfig.powerMilitaryDistrictBase +
+        level * gameConfig.powerMilitaryDistrictLevel;
     }
     const townBuildings = town?.buildings || {};
-    buildings += Math.max(0, Number(townBuildings.fort) || 0) * gameConfig.powerFortLevel;
-    buildings += Math.max(0, Number(townBuildings.barracks) || 0) * gameConfig.powerBarracksLevel;
-    buildings += Math.max(0, Number(townBuildings.siegeWorkshop) || 0) * gameConfig.powerSiegeWorkshopLevel;
-    buildings += Math.max(0, Number(townBuildings.warehouse) || 0) * gameConfig.powerWarehouseLevel;
-    buildings += ["lumberCamp", "quarry", "goldMine", "gemCutter"].reduce(
-      (sum, key) => sum + Math.max(0, Number(townBuildings[key]) || 0),
-      0,
-    ) * gameConfig.powerResourceBuildingLevel;
+    buildings +=
+      Math.max(0, Number(townBuildings.fort) || 0) * gameConfig.powerFortLevel;
+    buildings +=
+      Math.max(0, Number(townBuildings.barracks) || 0) *
+      gameConfig.powerBarracksLevel;
+    buildings +=
+      Math.max(0, Number(townBuildings.siegeWorkshop) || 0) *
+      gameConfig.powerSiegeWorkshopLevel;
+    buildings +=
+      Math.max(0, Number(townBuildings.warehouse) || 0) *
+      gameConfig.powerWarehouseLevel;
+    buildings +=
+      ["lumberCamp", "quarry", "goldMine", "gemCutter"].reduce(
+        (sum, key) => sum + Math.max(0, Number(townBuildings[key]) || 0),
+        0,
+      ) * gameConfig.powerResourceBuildingLevel;
   });
   const strategicPowerBreakdown = {
     military,
@@ -1647,28 +1719,36 @@ async function buildNationStatusSnapshot(
   };
   const strategicPower = strategicPowerBreakdown.total;
   const previousPower = player?.strategicPowerSnapshot;
-  const powerChanged = !previousPower ||
+  const powerChanged =
+    !previousPower ||
     ["military", "territory", "settlements", "buildings", "total"].some(
-      (key) => Number(previousPower?.[key]) !== Number(strategicPowerBreakdown[key]),
+      (key) =>
+        Number(previousPower?.[key]) !== Number(strategicPowerBreakdown[key]),
     );
   const powerVersion = powerChanged
     ? Math.max(0, Number(previousPower?.version) || 0) + 1
     : Math.max(1, Number(previousPower?.version) || 1);
-  const powerUpdatedAt = powerChanged ? now : (previousPower?.updatedAt || now);
+  const powerUpdatedAt = powerChanged ? now : previousPower?.updatedAt || now;
   const vipLevel = Math.max(0, Math.floor(Number(player?.vipLevel) || 0));
   const vipPoints = Math.max(0, Math.floor(Number(player?.vipPoints) || 0));
-  if (powerChanged || player?.vipLevel === undefined || player?.vipPoints === undefined) {
+  if (
+    powerChanged ||
+    player?.vipLevel === undefined ||
+    player?.vipPoints === undefined
+  ) {
     await players.updateOne(
       { _id: playerId },
-      { $set: {
-        vipLevel,
-        vipPoints,
-        strategicPowerSnapshot: {
-          ...strategicPowerBreakdown,
-          version: powerVersion,
-          updatedAt: powerUpdatedAt,
+      {
+        $set: {
+          vipLevel,
+          vipPoints,
+          strategicPowerSnapshot: {
+            ...strategicPowerBreakdown,
+            version: powerVersion,
+            updatedAt: powerUpdatedAt,
+          },
         },
-      } },
+      },
     );
   }
   const attackedTerritoryIds = new Set(
@@ -2025,12 +2105,14 @@ async function buildWorldTerritoriesPayload() {
     const expectedKind = normalizedClaimKind(claim);
     if (!expectedKind || expectedKind === claim.settlementKind) return [];
     claim.settlementKind = expectedKind;
-    return [{
-      updateOne: {
-        filter: { _id: claim._id },
-        update: { $set: { settlementKind: expectedKind } },
+    return [
+      {
+        updateOne: {
+          filter: { _id: claim._id },
+          update: { $set: { settlementKind: expectedKind } },
+        },
       },
-    }];
+    ];
   });
   if (claimKindRepairs.length > 0) {
     await territoryClaims.bulkWrite(claimKindRepairs, { ordered: false });
@@ -2109,7 +2191,9 @@ async function buildWorldTerritoriesPayload() {
         // Display state is derived from the actual claim chain. A coastal
         // territory remains a flag when land-connected; only a disconnected
         // claim (typically reached by sea) is a military district.
-        const ownerClaims = claims.filter((candidate) => candidate.playerId === ownerId);
+        const ownerClaims = claims.filter(
+          (candidate) => candidate.playerId === ownerId,
+        );
         computedKind = isClaimConnectedToCapital(ownerClaims, territory.id)
           ? "flag"
           : "military_district";
@@ -2180,11 +2264,7 @@ function territoryBuildCost(territory) {
         territory.yieldGems * 70,
     ),
     wood: Math.round(130 + areaFactor * 28 + territory.yieldWood * 66),
-    stone: Math.round(
-      125 +
-        areaFactor * 34 +
-        territory.yieldStone * 82,
-    ),
+    stone: Math.round(125 + areaFactor * 34 + territory.yieldStone * 82),
     food: Math.round(80 + areaFactor * 18 + territory.yieldFood * 42),
   });
 }
@@ -2286,11 +2366,12 @@ async function collectPlayerResources(playerId, now = new Date()) {
       0,
       Math.round(productionPerSecond[key] * elapsedSeconds),
     );
-    next[key] = key === "gems"
-      ? Math.floor((current[key] + gained[key]) * 100) / 100
-      : current[key] >= capacity[key]
-        ? Math.floor(current[key])
-        : Math.min(capacity[key], Math.floor(current[key] + gained[key]));
+    next[key] =
+      key === "gems"
+        ? Math.floor((current[key] + gained[key]) * 100) / 100
+        : current[key] >= capacity[key]
+          ? Math.floor(current[key])
+          : Math.min(capacity[key], Math.floor(current[key] + gained[key]));
     gained[key] = Math.max(0, next[key] - Math.floor(current[key]));
   });
   await players.updateOne(
@@ -2420,9 +2501,10 @@ async function buildGameStatePayload(playerId) {
       (battle) =>
         battle.attackerId === playerId ||
         battle.defenderId === playerId ||
-        (Array.isArray(battle.participants) && battle.participants.some(
-          (participant) => participant.playerId === playerId,
-        )),
+        (Array.isArray(battle.participants) &&
+          battle.participants.some(
+            (participant) => participant.playerId === playerId,
+          )),
     );
     const nationStatus = await buildNationStatusSnapshot(
       playerId,
@@ -2466,11 +2548,11 @@ async function buildGameStatePayload(playerId) {
         ? {
             flagColor: player.flagColor ?? "#2f70d7",
             emblem: player.emblem ?? "shield",
-            kingdomArchitectureId:
-              player.kingdomArchitectureId ?? "vietnam",
+            kingdomArchitectureId: player.kingdomArchitectureId ?? "vietnam",
             cityName: player.cityName,
             onboardingState:
-              player.onboardingState ?? (player.cityName ? "needs_claim" : "profile_required"),
+              player.onboardingState ??
+              (player.cityName ? "needs_claim" : "profile_required"),
           }
         : null,
     };
@@ -2585,10 +2667,13 @@ function isNewbieWeek(player: { createdAt?: Date | null }): boolean {
   return Boolean(endsAt && Date.now() < endsAt.getTime());
 }
 
-function shopCatalog(gameConfig, player?: {
-  createdAt?: Date | null;
-  newbieSkinClaimedAt?: Date | null;
-}): ShopProduct[] {
+function shopCatalog(
+  gameConfig,
+  player?: {
+    createdAt?: Date | null;
+    newbieSkinClaimedAt?: Date | null;
+  },
+): ShopProduct[] {
   const testPrice =
     config.SHOP_TEST_MODE && config.NODE_ENV !== "production" ? 1 : null;
   const packAmount = Math.max(
@@ -2607,7 +2692,7 @@ function shopCatalog(gameConfig, player?: {
       description: "Bổ sung đồng đều lương thực và vật liệu vào kho quốc gia.",
       priceGems: newbieWeek
         ? NEWBIE_RESOURCE_PRICE_GEMS
-        : testPrice ?? gameConfig.shopResourcePackPriceGems,
+        : (testPrice ?? gameConfig.shopResourcePackPriceGems),
       testPrice: testPrice !== null,
       resources: {
         food: packAmount,
@@ -2624,7 +2709,7 @@ function shopCatalog(gameConfig, player?: {
       description: "Kho quân nhu lớn dành cho chiến dịch dài ngày.",
       priceGems: newbieWeek
         ? NEWBIE_RESOURCE_PRICE_GEMS
-        : testPrice ?? Math.floor(gameConfig.shopResourcePackPriceGems * 2.5),
+        : (testPrice ?? Math.floor(gameConfig.shopResourcePackPriceGems * 2.5)),
       testPrice: testPrice !== null,
       resources: {
         food: packAmount * 2,
@@ -2678,12 +2763,15 @@ function shopCatalog(gameConfig, player?: {
     },
   ];
 }
-function normalizeShopInventory(value, player?: {
-  newbieSkinExpiresAt?: Date | null;
-  newbieSkinId?: string | null;
-  newbieSkinClaimedAt?: Date | null;
-  newbieFreeProductIds?: string[];
-}) {
+function normalizeShopInventory(
+  value,
+  player?: {
+    newbieSkinExpiresAt?: Date | null;
+    newbieSkinId?: string | null;
+    newbieSkinClaimedAt?: Date | null;
+    newbieFreeProductIds?: string[];
+  },
+) {
   const expiresAt = player?.newbieSkinExpiresAt
     ? new Date(player.newbieSkinExpiresAt)
     : null;
@@ -2693,9 +2781,7 @@ function normalizeShopInventory(value, player?: {
   );
   const ownedSkins = [
     ...new Set(
-      Array.isArray(value?.ownedSkins)
-        ? value.ownedSkins.filter(Boolean)
-        : [],
+      Array.isArray(value?.ownedSkins) ? value.ownedSkins.filter(Boolean) : [],
     ),
   ].filter((skinId) => temporarySkinActive || skinId !== temporarySkinId);
   const equippedCapitalSkin =
@@ -2856,8 +2942,13 @@ async function processArrivedMarches(now = new Date()) {
               getStaticTerritory(march.fromTerritoryId),
               territory,
             ) || "land";
-        const attackerClaims = await territoryClaims.find({ playerId: march.ownerId }).toArray();
-        const settlementKind = settlementKindForClaim(territory, connectionType);
+        const attackerClaims = await territoryClaims
+          .find({ playerId: march.ownerId })
+          .toArray();
+        const settlementKind = settlementKindForClaim(
+          territory,
+          connectionType,
+        );
         await Promise.all([
           territoryClaims.updateOne(
             { territoryId: territory.id },
@@ -3061,7 +3152,8 @@ async function processArrivedMarches(now = new Date()) {
           marchId: march._id,
           playerId: march.ownerId,
           sourceTerritoryId: march.fromTerritoryId,
-          sourceTownId: march.sourceTownId || townIdForTerritory(march.fromTerritoryId),
+          sourceTownId:
+            march.sourceTownId || townIdForTerritory(march.fromTerritoryId),
           infantry: marchInfantry,
           cavalry: marchCavalry,
           artillery: marchArtillery,
@@ -3078,16 +3170,21 @@ async function processArrivedMarches(now = new Date()) {
         const attackerSources = Array.isArray(existingBattle.attackerSources)
           ? existingBattle.attackerSources
           : existingBattle.marchId
-            ? [{
-                marchId: existingBattle.marchId,
-                ownerId: existingBattle.attackerId,
-                fromTerritoryId: existingBattle.fromTerritoryId,
-                infantry: existingBattle.attackerInfantry || 0,
-                cavalry: existingBattle.attackerCavalry || 0,
-                artillery: existingBattle.attackerArtillery || 0,
-                troops: (existingBattle.attackerInfantry || 0) + (existingBattle.attackerCavalry || 0) + (existingBattle.attackerArtillery || 0),
-                power: existingBattle.attackerPower || 0,
-              }]
+            ? [
+                {
+                  marchId: existingBattle.marchId,
+                  ownerId: existingBattle.attackerId,
+                  fromTerritoryId: existingBattle.fromTerritoryId,
+                  infantry: existingBattle.attackerInfantry || 0,
+                  cavalry: existingBattle.attackerCavalry || 0,
+                  artillery: existingBattle.attackerArtillery || 0,
+                  troops:
+                    (existingBattle.attackerInfantry || 0) +
+                    (existingBattle.attackerCavalry || 0) +
+                    (existingBattle.attackerArtillery || 0),
+                  power: existingBattle.attackerPower || 0,
+                },
+              ]
             : [];
         attackerSources.push({
           marchId: march._id,
@@ -3262,34 +3359,38 @@ async function processArrivedMarches(now = new Date()) {
       attackerInfantry,
       attackerCavalry,
       attackerArtillery,
-      attackerSources: [{
-        marchId: march._id,
-        ownerId: march.ownerId,
-        fromTerritoryId: march.fromTerritoryId,
-        infantry: attackerInfantry,
-        cavalry: attackerCavalry,
-        artillery: attackerArtillery,
-        troops: attackerInfantry + attackerCavalry + attackerArtillery,
-        power: attackerPower,
-      }],
-      participants: [{
-        id: `participant:${march._id}`,
-        marchId: march._id,
-        playerId: march.ownerId,
-        sourceTerritoryId: march.fromTerritoryId,
-        sourceTownId: townIdForTerritory(march.fromTerritoryId),
-        infantry: attackerInfantry,
-        cavalry: attackerCavalry,
-        artillery: attackerArtillery,
-        troops: attackerInfantry + attackerCavalry + attackerArtillery,
-        power: attackerPower,
-        maxHp: Math.max(1, attackerPower),
-        currentHp: Math.max(1, attackerPower),
-        status: "engaged" as const,
-        departedAt: new Date(march.startedAt).toISOString(),
-        arrivesAt: new Date(march.arrivesAt).toISOString(),
-        engagedAt: now.toISOString(),
-      }],
+      attackerSources: [
+        {
+          marchId: march._id,
+          ownerId: march.ownerId,
+          fromTerritoryId: march.fromTerritoryId,
+          infantry: attackerInfantry,
+          cavalry: attackerCavalry,
+          artillery: attackerArtillery,
+          troops: attackerInfantry + attackerCavalry + attackerArtillery,
+          power: attackerPower,
+        },
+      ],
+      participants: [
+        {
+          id: `participant:${march._id}`,
+          marchId: march._id,
+          playerId: march.ownerId,
+          sourceTerritoryId: march.fromTerritoryId,
+          sourceTownId: townIdForTerritory(march.fromTerritoryId),
+          infantry: attackerInfantry,
+          cavalry: attackerCavalry,
+          artillery: attackerArtillery,
+          troops: attackerInfantry + attackerCavalry + attackerArtillery,
+          power: attackerPower,
+          maxHp: Math.max(1, attackerPower),
+          currentHp: Math.max(1, attackerPower),
+          status: "engaged" as const,
+          departedAt: new Date(march.startedAt).toISOString(),
+          arrivesAt: new Date(march.arrivesAt).toISOString(),
+          engagedAt: now.toISOString(),
+        },
+      ],
       defenderInfantry,
       defenderCavalry,
       defenderArtillery,
@@ -3363,8 +3464,9 @@ async function processActiveBattles(now = new Date()) {
         (powerByPlayer.get(participant.playerId) || 0) + participant.power,
       );
     });
-    const siegeLeaderId = [...powerByPlayer.entries()]
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || battle.attackerId;
+    const siegeLeaderId =
+      [...powerByPlayer.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      battle.attackerId;
     const leaderParticipant = resolvedParticipants.find(
       (participant) => participant.playerId === siegeLeaderId,
     );
@@ -3372,9 +3474,11 @@ async function processActiveBattles(now = new Date()) {
     if (leaderParticipant) {
       battle.fromTerritoryId = leaderParticipant.sourceTerritoryId;
     }
-    const attackingPlayerIds = [...new Set(
-      resolvedParticipants.map((participant) => participant.playerId),
-    )];
+    const attackingPlayerIds = [
+      ...new Set(
+        resolvedParticipants.map((participant) => participant.playerId),
+      ),
+    ];
     const releasePlayerLocks = await acquirePlayerMutationLocks([
       ...attackingPlayerIds,
       battle.defenderId,
@@ -3527,20 +3631,30 @@ async function processActiveBattles(now = new Date()) {
         const attackerClaims = await territoryClaims
           .find({ playerId: battle.attackerId })
           .toArray();
-        const frontierClaim = connectionType === "land"
-          ? nearestLandFrontierClaim(attackerClaims, territory)
-          : null;
+        const frontierClaim =
+          connectionType === "land"
+            ? nearestLandFrontierClaim(attackerClaims, territory)
+            : null;
         const captureParentTerritoryId =
           frontierClaim?.territory.id ?? battle.fromTerritoryId;
-        const capturedSettlementKind = settlementKindForClaim(territory, connectionType);
+        const capturedSettlementKind = settlementKindForClaim(
+          territory,
+          connectionType,
+        );
         // Gems are premium currency and are never lootable. Update only the
         // four storage resources so this battle snapshot cannot overwrite a
         // newer gem balance from a shop purchase or concurrent sync.
         const attackerStorageUpdate = Object.fromEntries(
-          STORAGE_RESOURCE_KEYS.map((key) => [`resources.${key}`, attackerResources[key]]),
+          STORAGE_RESOURCE_KEYS.map((key) => [
+            `resources.${key}`,
+            attackerResources[key],
+          ]),
         );
         const defenderStorageUpdate = Object.fromEntries(
-          STORAGE_RESOURCE_KEYS.map((key) => [`resources.${key}`, defenderResources[key]]),
+          STORAGE_RESOURCE_KEYS.map((key) => [
+            `resources.${key}`,
+            defenderResources[key],
+          ]),
         );
         await Promise.all([
           territoryClaims.updateOne(
@@ -3607,8 +3721,8 @@ async function processActiveBattles(now = new Date()) {
           battle.defenderId
             ? players.updateOne(
                 { _id: battle.defenderId },
-              {
-                $set: {
+                {
+                  $set: {
                     ...defenderStorageUpdate,
                     lastResourceCollectedAt: now,
                     lastSeenAt: now,
@@ -3617,13 +3731,22 @@ async function processActiveBattles(now = new Date()) {
               )
             : Promise.resolve(),
         ]);
-        const [updatedAttackerPlayer, updatedDefenderPlayer] = await Promise.all([
-          players.findOne({ _id: battle.attackerId }, { projection: { resources: 1 } }),
-          battle.defenderId
-            ? players.findOne({ _id: battle.defenderId }, { projection: { resources: 1 } })
-            : Promise.resolve(null),
-        ]);
-        const attackerResourcesAfterBattle = normalizeResources(updatedAttackerPlayer?.resources);
+        const [updatedAttackerPlayer, updatedDefenderPlayer] =
+          await Promise.all([
+            players.findOne(
+              { _id: battle.attackerId },
+              { projection: { resources: 1 } },
+            ),
+            battle.defenderId
+              ? players.findOne(
+                  { _id: battle.defenderId },
+                  { projection: { resources: 1 } },
+                )
+              : Promise.resolve(null),
+          ]);
+        const attackerResourcesAfterBattle = normalizeResources(
+          updatedAttackerPlayer?.resources,
+        );
         const defenderResourcesAfterBattle = battle.defenderId
           ? normalizeResources(updatedDefenderPlayer?.resources)
           : defenderResources;
@@ -4087,7 +4210,9 @@ async function processCompletedClearings(now = new Date()) {
           rootTerritoryId: clearing.isStarterClaim
             ? territory.id
             : rootTerritoryForNewClaim(
-                await territoryClaims.find({ playerId: clearing.playerId }).toArray(),
+                await territoryClaims
+                  .find({ playerId: clearing.playerId })
+                  .toArray(),
                 clearing.sourceTerritoryId,
                 clearing.connectionType,
                 territory.id,
@@ -4137,8 +4262,7 @@ async function processCompletedClearings(now = new Date()) {
         ownerName: player?.name ?? clearing.playerId,
         ownerFlagColor: player?.flagColor ?? "#2f70d7",
         ownerEmblem: player?.emblem ?? "shield",
-        ownerArchitectureId:
-          player?.kingdomArchitectureId ?? "vietnam",
+        ownerArchitectureId: player?.kingdomArchitectureId ?? "vietnam",
         ownerAllianceTag: alliance?.tag,
         ownerAllianceEmblem: alliance?.emblem,
         settlementKind: settlementKindForClaim(
@@ -4146,11 +4270,15 @@ async function processCompletedClearings(now = new Date()) {
           clearing.connectionType,
           clearing.isStarterClaim,
         ),
-        parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+        parentTerritoryId: clearing.isStarterClaim
+          ? undefined
+          : clearing.sourceTerritoryId,
         rootTerritoryId: clearing.isStarterClaim
           ? territory.id
           : rootTerritoryForNewClaim(
-              await territoryClaims.find({ playerId: clearing.playerId }).toArray(),
+              await territoryClaims
+                .find({ playerId: clearing.playerId })
+                .toArray(),
               clearing.sourceTerritoryId,
               clearing.connectionType,
               territory.id,
@@ -5161,6 +5289,8 @@ export function createApp() {
         kind: "user" as const,
         userId: message.userId,
         userName: message.userName,
+        avatarId: message.avatarId || "emperor",
+        vipLevel: Math.max(0, Math.floor(Number(message.vipLevel) || 0)),
         text: message.text,
         sentAt: message.sentAt.toISOString(),
       })),
@@ -5187,23 +5317,19 @@ export function createApp() {
   app.post("/api/auth/player/register", async (req, res) => {
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message:
-            "Tài khoản (3-40 ký tự) hoặc mật khẩu (8-200 ký tự) không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message:
+          "Tài khoản (3-40 ký tự) hoặc mật khẩu (8-200 ký tự) không hợp lệ",
+      });
     }
     const { username, password, flagColor, emblem, starterLandId } =
       parsed.data;
     if (!verifyAntiBotProof(req, parsed.data)) {
-      return res
-        .status(429)
-        .json({
-          error: "anti_bot_failed",
-          message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
-        });
+      return res.status(429).json({
+        error: "anti_bot_failed",
+        message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
+      });
     }
     if (!enforceAuthAttempt(req, res, "register", username)) return;
     const normalizedUsername = username.trim();
@@ -5243,21 +5369,17 @@ export function createApp() {
   app.post("/api/auth/player/login", async (req, res) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Tài khoản hoặc mật khẩu không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Tài khoản hoặc mật khẩu không hợp lệ",
+      });
     }
     const { username, password } = parsed.data;
     if (!verifyAntiBotProof(req, parsed.data)) {
-      return res
-        .status(429)
-        .json({
-          error: "anti_bot_failed",
-          message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
-        });
+      return res.status(429).json({
+        error: "anti_bot_failed",
+        message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
+      });
     }
     if (!enforceAuthAttempt(req, res, "login", username)) return;
     const id = `player:${username
@@ -5267,21 +5389,17 @@ export function createApp() {
     const { players } = await collections();
     const player = await players.findOne({ _id: id });
     if (!player || !player.passwordHash) {
-      return res
-        .status(401)
-        .json({
-          error: "unauthorized",
-          message: "Sai tài khoản hoặc mật khẩu",
-        });
+      return res.status(401).json({
+        error: "unauthorized",
+        message: "Sai tài khoản hoặc mật khẩu",
+      });
     }
     const isPasswordValid = await bcrypt.compare(password, player.passwordHash);
     if (!isPasswordValid) {
-      return res
-        .status(401)
-        .json({
-          error: "unauthorized",
-          message: "Sai tài khoản hoặc mật khẩu",
-        });
+      return res.status(401).json({
+        error: "unauthorized",
+        message: "Sai tài khoản hoặc mật khẩu",
+      });
     }
     const now = new Date();
     await players.updateOne({ _id: id }, { $set: { lastSeenAt: now } });
@@ -5291,12 +5409,10 @@ export function createApp() {
   app.post("/api/auth/player/guest", async (req, res) => {
     const antiBot = AntiBotProofSchema.safeParse(req.body);
     if (!antiBot.success || !verifyAntiBotProof(req, antiBot.data)) {
-      return res
-        .status(429)
-        .json({
-          error: "anti_bot_failed",
-          message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
-        });
+      return res.status(429).json({
+        error: "anti_bot_failed",
+        message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
+      });
     }
     const name = z
       .string()
@@ -5354,12 +5470,10 @@ export function createApp() {
         unreadCount,
       });
     } catch (e) {
-      res
-        .status(500)
-        .json({
-          ok: false,
-          error: e.message || "Failed to fetch battle reports",
-        });
+      res.status(500).json({
+        ok: false,
+        error: e.message || "Failed to fetch battle reports",
+      });
     }
   });
   app.get("/api/reports/:id", requireAuth, async (req, res) => {
@@ -5481,12 +5595,10 @@ export function createApp() {
       }),
     ]);
     if (!recipient)
-      return res
-        .status(404)
-        .json({
-          error: "recipient_not_found",
-          message: "Không tìm thấy người nhận",
-        });
+      return res.status(404).json({
+        error: "recipient_not_found",
+        message: "Không tìm thấy người nhận",
+      });
     if (recipient._id === senderId)
       return res
         .status(400)
@@ -5617,11 +5729,26 @@ export function createApp() {
   const CityNameSchema = z.string().trim().min(3).max(24);
   app.post("/api/player/city-name/check", requireAuth, async (req, res) => {
     const parsed = CityNameSchema.safeParse(req.body?.cityName);
-    if (!parsed.success) return res.status(400).json({ available: false, message: "Tên thành phải có từ 3 đến 24 ký tự" });
+    if (!parsed.success)
+      return res
+        .status(400)
+        .json({
+          available: false,
+          message: "Tên thành phải có từ 3 đến 24 ký tự",
+        });
     const cityNameKey = normalizeCityName(parsed.data);
     const { players } = await collections();
-    const existing = await players.findOne({ cityNameKey, _id: { $ne: req.user!.id } }, { projection: { _id: 1 } });
-    res.json({ available: !existing, normalizedName: parsed.data.trim(), message: existing ? "Tên Hoàng Thành đã được sử dụng" : "Tên Hoàng Thành có thể sử dụng" });
+    const existing = await players.findOne(
+      { cityNameKey, _id: { $ne: req.user!.id } },
+      { projection: { _id: 1 } },
+    );
+    res.json({
+      available: !existing,
+      normalizedName: parsed.data.trim(),
+      message: existing
+        ? "Tên Hoàng Thành đã được sử dụng"
+        : "Tên Hoàng Thành có thể sử dụng",
+    });
   });
   app.post("/api/player/profile", requireAuth, async (req, res) => {
     if (!enforceActionLimit(req, res, "profile:update", 12, 60_000)) return;
@@ -5676,23 +5803,34 @@ export function createApp() {
       .strict()
       .safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Thông tin cập nhật không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Thông tin cập nhật không hợp lệ",
+      });
     }
-    const { flagColor, emblem, cityName, avatarId, kingdomArchitectureId } = parsed.data;
+    const { flagColor, emblem, cityName, avatarId, kingdomArchitectureId } =
+      parsed.data;
     const { players } = await collections();
     const updateData: any = {};
     if (flagColor) updateData.flagColor = flagColor;
     if (emblem) updateData.emblem = emblem;
     if (cityName) {
-      updateData.cityName = cityName.normalize("NFC").trim().replace(/\s+/g, " ");
+      updateData.cityName = cityName
+        .normalize("NFC")
+        .trim()
+        .replace(/\s+/g, " ");
       updateData.cityNameKey = normalizeCityName(cityName);
-      const existing = await players.findOne({ cityNameKey: updateData.cityNameKey, _id: { $ne: req.user!.id } }, { projection: { _id: 1 } });
-      if (existing) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
+      const existing = await players.findOne(
+        { cityNameKey: updateData.cityNameKey, _id: { $ne: req.user!.id } },
+        { projection: { _id: 1 } },
+      );
+      if (existing)
+        return res
+          .status(409)
+          .json({
+            error: "city_name_taken",
+            message: "Tên Hoàng Thành đã được sử dụng",
+          });
     }
     if (avatarId) updateData.avatarId = avatarId;
     if (kingdomArchitectureId)
@@ -5704,7 +5842,13 @@ export function createApp() {
       try {
         await players.updateOne({ _id: req.user!.id }, { $set: updateData });
       } catch (error: any) {
-        if (error?.code === 11000) return res.status(409).json({ error: "city_name_taken", message: "Tên Hoàng Thành đã được sử dụng" });
+        if (error?.code === 11000)
+          return res
+            .status(409)
+            .json({
+              error: "city_name_taken",
+              message: "Tên Hoàng Thành đã được sử dụng",
+            });
         throw error;
       }
     }
@@ -5714,11 +5858,19 @@ export function createApp() {
     }
     const savedPlayer = await players.findOne(
       { _id: req.user!.id },
-      { projection: { cityName: 1, name: 1, cityNameKey: 1, onboardingState: 1 } },
+      {
+        projection: {
+          cityName: 1,
+          name: 1,
+          cityNameKey: 1,
+          onboardingState: 1,
+        },
+      },
     );
     res.json({
       ok: true,
-      onboardingState: savedPlayer?.onboardingState ?? updateData.onboardingState,
+      onboardingState:
+        savedPlayer?.onboardingState ?? updateData.onboardingState,
       cityName: savedPlayer?.cityName ?? null,
       displayName: savedPlayer?.cityName || savedPlayer?.name || null,
     });
@@ -5765,7 +5917,8 @@ export function createApp() {
     async (req, res) => {
       const playerId = req.user!.id;
       const gameState = await buildGameStatePayload(playerId);
-      const { battleReports, playerMails, players, shopPurchases } = await collections();
+      const { battleReports, playerMails, players, shopPurchases } =
+        await collections();
       const [
         reports,
         inbox,
@@ -5812,7 +5965,10 @@ export function createApp() {
         inbox: inbox.map(toPublicMail),
         sent: sent.map(toPublicMail),
         shopCatalog: shopCatalog(gameConfig, player ?? undefined),
-        shopInventory: normalizeShopInventory(player?.shopInventory, player ?? undefined),
+        shopInventory: normalizeShopInventory(
+          player?.shopInventory,
+          player ?? undefined,
+        ),
         purchasedProductIds: purchases.map((p) => p.productId),
         version,
         serverTime: new Date(version).toISOString(),
@@ -5881,34 +6037,50 @@ export function createApp() {
           const capitalLevel = towns.reduce((highest, town: any) => {
             const kind = town?.kind;
             return kind === "capital" || kind === "sub_capital"
-              ? Math.max(highest, Math.max(1, Number(town?.level ?? town?.lvl) || 1))
+              ? Math.max(
+                  highest,
+                  Math.max(1, Number(town?.level ?? town?.lvl) || 1),
+                )
               : highest;
           }, 0);
           const savedPrestige = Number(player.strategicPowerSnapshot?.total);
           const prestige = Number.isFinite(savedPrestige)
             ? Math.max(0, Math.round(savedPrestige))
-            : Math.max(0, Math.round(totalTroops + towns.length * 100 + capitalLevel * 200));
+            : Math.max(
+                0,
+                Math.round(
+                  totalTroops + towns.length * 100 + capitalLevel * 200,
+                ),
+              );
           return {
             playerId,
             name: String(player.name || player.username || playerId),
-            cityName: String(player.cityName || (towns.find((town: any) => town?.kind === "capital") as any)?.name || "Hoàng Thành"),
+            cityName: String(
+              player.cityName ||
+                (towns.find((town: any) => town?.kind === "capital") as any)
+                  ?.name ||
+                "Hoàng Thành",
+            ),
             flagColor: player.flagColor ?? "#ef4444",
             emblem: player.emblem ?? "shield",
             townCount: towns.length,
             capitalLevel,
             totalTroops,
             prestige,
-            powerUpdatedAt: new Date(player.strategicPowerSnapshot?.updatedAt || player.createdAt || 0).getTime(),
+            powerUpdatedAt: new Date(
+              player.strategicPowerSnapshot?.updatedAt || player.createdAt || 0,
+            ).getTime(),
           };
         })
         .filter(Boolean);
-      leaderboardData.sort((a: any, b: any) =>
-        b.prestige - a.prestige ||
-        b.capitalLevel - a.capitalLevel ||
-        b.townCount - a.townCount ||
-        b.totalTroops - a.totalTroops ||
-        a.powerUpdatedAt - b.powerUpdatedAt ||
-        a.playerId.localeCompare(b.playerId),
+      leaderboardData.sort(
+        (a: any, b: any) =>
+          b.prestige - a.prestige ||
+          b.capitalLevel - a.capitalLevel ||
+          b.townCount - a.townCount ||
+          b.totalTroops - a.totalTroops ||
+          a.powerUpdatedAt - b.powerUpdatedAt ||
+          a.playerId.localeCompare(b.playerId),
       );
       const ranked = leaderboardData.map((entry: any, index) => ({
         rank: index + 1,
@@ -5926,16 +6098,15 @@ export function createApp() {
       res.json({
         ok: true,
         leaderboard: ranked.slice(0, 100),
-        currentPlayer: ranked.find((entry: any) => entry.playerId === req.user!.id) || null,
+        currentPlayer:
+          ranked.find((entry: any) => entry.playerId === req.user!.id) || null,
       });
     } catch (err: any) {
       console.error("Leaderboard error:", err);
-      res
-        .status(500)
-        .json({
-          error: "internal_server_error",
-          message: "Lỗi tải bảng xếp hạng",
-        });
+      res.status(500).json({
+        error: "internal_server_error",
+        message: "Lỗi tải bảng xếp hạng",
+      });
     }
   });
   app.get("/api/shop/catalog", requireAuth, async (req, res) => {
@@ -5950,7 +6121,10 @@ export function createApp() {
   app.get("/api/shop/inventory", requireAuth, async (req, res) => {
     const { players } = await collections();
     const player = await players.findOne({ _id: req.user!.id });
-    const inventory = normalizeShopInventory(player?.shopInventory, player ?? undefined);
+    const inventory = normalizeShopInventory(
+      player?.shopInventory,
+      player ?? undefined,
+    );
     res.json({
       ok: true,
       inventory,
@@ -6044,13 +6218,12 @@ export function createApp() {
         (item) => item.id === parsed.data.productId,
       );
       if (!product)
-        return res
-          .status(404)
-          .json({
-            error: "product_not_found",
-            message: "Sản phẩm không tồn tại",
-          });
-      const productResources = "resources" in product ? product.resources : undefined;
+        return res.status(404).json({
+          error: "product_not_found",
+          message: "Sản phẩm không tồn tại",
+        });
+      const productResources =
+        "resources" in product ? product.resources : undefined;
       const productSkinId = "skinId" in product ? product.skinId : undefined;
       const resourceState = await collectPlayerResources(playerId);
       const currentResources = normalizeResources(resourceState.resources);
@@ -6078,20 +6251,16 @@ export function createApp() {
         ? 0
         : Math.max(0, Math.floor(Number(product.priceGems) || 0));
       if (currentResources.gems < effectivePriceGems) {
-        return res
-          .status(400)
-          .json({
-            error: "insufficient_gems",
-            message: "Không đủ ngọc để mua",
-          });
+        return res.status(400).json({
+          error: "insufficient_gems",
+          message: "Không đủ ngọc để mua",
+        });
       }
       if (productSkinId && inventory.ownedSkins.includes(productSkinId)) {
-        return res
-          .status(409)
-          .json({
-            error: "already_owned",
-            message: "Bạn đã sở hữu ngoại trang này",
-          });
+        return res.status(409).json({
+          error: "already_owned",
+          message: "Bạn đã sở hữu ngoại trang này",
+        });
       }
       const nextResources = { ...currentResources };
       if (productResources) {
@@ -6125,25 +6294,29 @@ export function createApp() {
             newbieSkinExpiresAt: new Date(Date.now() + NEWBIE_WEEK_MS),
             newbieSkinId: productSkinId,
           }
-        : player ?? undefined;
-      const nextInventory: any = normalizeShopInventory({
-        ...inventory,
-        ownedSkins: productSkinId
-          ? [...(inventory.ownedSkins as any[]), productSkinId]
-          : inventory.ownedSkins,
-        equippedCapitalSkin:
-          productSkinId && parsed.data.equipTarget === "capital"
-            ? productSkinId
-            : inventory.equippedCapitalSkin,
-        equippedDistrictSkin:
-          productSkinId && parsed.data.equipTarget === "military_district"
-            ? productSkinId
-            : inventory.equippedDistrictSkin,
-        version: inventory.version + 1,
-      } as any, nextPlayerShopMeta);
-      const nextNewbieFreeProductIds = product.type === "resource_pack" && product.isNewbiePrice
-        ? [...new Set([...(player?.newbieFreeProductIds || []), product.id])]
-        : (player?.newbieFreeProductIds || []);
+        : (player ?? undefined);
+      const nextInventory: any = normalizeShopInventory(
+        {
+          ...inventory,
+          ownedSkins: productSkinId
+            ? [...(inventory.ownedSkins as any[]), productSkinId]
+            : inventory.ownedSkins,
+          equippedCapitalSkin:
+            productSkinId && parsed.data.equipTarget === "capital"
+              ? productSkinId
+              : inventory.equippedCapitalSkin,
+          equippedDistrictSkin:
+            productSkinId && parsed.data.equipTarget === "military_district"
+              ? productSkinId
+              : inventory.equippedDistrictSkin,
+          version: inventory.version + 1,
+        } as any,
+        nextPlayerShopMeta,
+      );
+      const nextNewbieFreeProductIds =
+        product.type === "resource_pack" && product.isNewbiePrice
+          ? [...new Set([...(player?.newbieFreeProductIds || []), product.id])]
+          : player?.newbieFreeProductIds || [];
       const createdAt = new Date();
       const purchaseDoc = {
         _id: `purchase:${playerId}:${createdAt.getTime()}:${randomBytes(4).toString("hex")}`,
@@ -6164,7 +6337,9 @@ export function createApp() {
             ...(newbieSkinTrial
               ? {
                   newbieSkinClaimedAt: createdAt,
-                  newbieSkinExpiresAt: new Date(createdAt.getTime() + NEWBIE_WEEK_MS),
+                  newbieSkinExpiresAt: new Date(
+                    createdAt.getTime() + NEWBIE_WEEK_MS,
+                  ),
                   newbieSkinId: productSkinId,
                 }
               : {}),
@@ -6233,12 +6408,10 @@ export function createApp() {
         player ?? undefined,
       );
       if (!inventory.ownedSkins.includes(parsed.data.skinId)) {
-        return res
-          .status(403)
-          .json({
-            error: "not_owned",
-            message: "Bạn chưa sở hữu ngoại trang này",
-          });
+        return res.status(403).json({
+          error: "not_owned",
+          message: "Bạn chưa sở hữu ngoại trang này",
+        });
       }
       const nextInventory: any = {
         ...inventory,
@@ -6290,33 +6463,27 @@ export function createApp() {
     if (!enforceActionLimit(req, res, "alliance:create", 4, 60_000)) return;
     const parsed = CreateAllianceSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Tên liên minh hoặc TAG không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Tên liên minh hoặc TAG không hợp lệ",
+      });
     }
     const { alliances, players } = await collections();
     const existingMembership = await alliances.findOne({
       memberIds: req.user!.id,
     });
     if (existingMembership) {
-      return res
-        .status(409)
-        .json({
-          error: "already_in_alliance",
-          message: "Bạn đã ở trong một liên minh",
-        });
+      return res.status(409).json({
+        error: "already_in_alliance",
+        message: "Bạn đã ở trong một liên minh",
+      });
     }
     const resourceState = await collectPlayerResources(req.user!.id);
     if (resourceState.resources.gems < ALLIANCE_CREATE_GEMS_COST) {
-      return res
-        .status(409)
-        .json({
-          error: "not_enough_gems",
-          message: `Cần ${ALLIANCE_CREATE_GEMS_COST} kim cương để lập liên minh`,
-        });
+      return res.status(409).json({
+        error: "not_enough_gems",
+        message: `Cần ${ALLIANCE_CREATE_GEMS_COST} kim cương để lập liên minh`,
+      });
     }
     const tag = parsed.data.tag.toUpperCase();
     const id = `alliance:${tag.toLowerCase()}`;
@@ -6372,12 +6539,10 @@ export function createApp() {
       memberIds: req.user!.id,
     });
     if (existingMembership) {
-      return res
-        .status(409)
-        .json({
-          error: "already_in_alliance",
-          message: "Bạn đã ở trong một liên minh",
-        });
+      return res.status(409).json({
+        error: "already_in_alliance",
+        message: "Bạn đã ở trong một liên minh",
+      });
     }
     const alliance = await alliances.findOne({ _id: parsed.data.allianceId });
     if (!alliance) {
@@ -6386,12 +6551,10 @@ export function createApp() {
         .json({ error: "not_found", message: "Không tìm thấy liên minh" });
     }
     if (alliance.memberIds.length >= ALLIANCE_MAX_MEMBERS) {
-      return res
-        .status(409)
-        .json({
-          error: "alliance_full",
-          message: "Liên minh đã đủ thành viên",
-        });
+      return res.status(409).json({
+        error: "alliance_full",
+        message: "Liên minh đã đủ thành viên",
+      });
     }
     await alliances.updateOne(
       { _id: alliance._id },
@@ -6417,12 +6580,10 @@ export function createApp() {
       return res.json(payload);
     }
     if (alliance.leaderId === req.user!.id && alliance.memberIds.length > 1) {
-      return res
-        .status(409)
-        .json({
-          error: "leader_cannot_leave",
-          message: "Minh chủ cần chuyển quyền trước khi rời liên minh",
-        });
+      return res.status(409).json({
+        error: "leader_cannot_leave",
+        message: "Minh chủ cần chuyển quyền trước khi rời liên minh",
+      });
     }
     if (alliance.leaderId === req.user!.id) {
       await alliances.deleteOne({ _id: alliance._id });
@@ -6442,39 +6603,31 @@ export function createApp() {
     if (!enforceActionLimit(req, res, "alliance:aid", 20, 60_000)) return;
     const parsed = SendAllianceAidSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Dữ liệu viện trợ không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Dữ liệu viện trợ không hợp lệ",
+      });
     }
     if (parsed.data.toPlayerId === req.user!.id) {
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Không thể tự viện trợ cho chính mình",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Không thể tự viện trợ cho chính mình",
+      });
     }
     const { alliances, players, allianceAids } = await collections();
     const alliance = await alliances.findOne({ memberIds: req.user!.id });
     if (!alliance || !alliance.memberIds.includes(parsed.data.toPlayerId)) {
-      return res
-        .status(403)
-        .json({
-          error: "not_alliance_member",
-          message: "Người nhận không cùng liên minh",
-        });
+      return res.status(403).json({
+        error: "not_alliance_member",
+        message: "Người nhận không cùng liên minh",
+      });
     }
     const targetPlayer = await players.findOne({ _id: parsed.data.toPlayerId });
     if (!targetPlayer) {
-      return res
-        .status(404)
-        .json({
-          error: "not_found",
-          message: "Không tìm thấy thành viên nhận viện trợ",
-        });
+      return res.status(404).json({
+        error: "not_found",
+        message: "Không tìm thấy thành viên nhận viện trợ",
+      });
     }
     const resources = compactResourceDelta(parsed.data.resources);
     const troops = Math.min(
@@ -6486,12 +6639,10 @@ export function createApp() {
       0,
     );
     if (resourceTotal <= 0 && troops <= 0) {
-      return res
-        .status(400)
-        .json({
-          error: "empty_aid",
-          message: "Cần chọn tài nguyên hoặc lính để viện trợ",
-        });
+      return res.status(400).json({
+        error: "empty_aid",
+        message: "Cần chọn tài nguyên hoặc lính để viện trợ",
+      });
     }
     const troopLogistics = {
       gold: troops,
@@ -6505,12 +6656,10 @@ export function createApp() {
         (key === "gold" ? troopLogistics.gold : 0) +
         (key === "food" ? troopLogistics.food : 0);
       if (amount > nextSender[key]) {
-        return res
-          .status(409)
-          .json({
-            error: "not_enough_resources",
-            message: `Không đủ ${key} để gửi viện trợ`,
-          });
+        return res.status(409).json({
+          error: "not_enough_resources",
+          message: `Không đủ ${key} để gửi viện trợ`,
+        });
       }
       nextSender[key] -= amount;
     }
@@ -6541,12 +6690,10 @@ export function createApp() {
       status: "pending",
     });
     if (!aid) {
-      return res
-        .status(404)
-        .json({
-          error: "not_found",
-          message: "Không tìm thấy viện trợ đang chờ nhận",
-        });
+      return res.status(404).json({
+        error: "not_found",
+        message: "Không tìm thấy viện trợ đang chờ nhận",
+      });
     }
     const resourceState = await collectPlayerResources(req.user!.id);
     const ownedCount = await territoryClaims.countDocuments({
@@ -6594,32 +6741,26 @@ export function createApp() {
         territoryId: territory.id,
       });
       if (claim && claim.playerId !== req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "territory_taken",
-            message: "Lãnh thổ này đã có người chiếm",
-          });
+        return res.status(409).json({
+          error: "territory_taken",
+          message: "Lãnh thổ này đã có người chiếm",
+        });
       }
       if (claim && claim.playerId === req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "already_owned",
-            message:
-              "Bạn đã sở hữu lãnh thổ này, hãy chọn vùng đất hoang khác để xây thành",
-          });
+        return res.status(409).json({
+          error: "already_owned",
+          message:
+            "Bạn đã sở hữu lãnh thổ này, hãy chọn vùng đất hoang khác để xây thành",
+        });
       }
       const existing = await territoryClearings.findOne({
         territoryId: territory.id,
       });
       if (existing && existing.playerId !== req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "already_clearing",
-            message: "Đã có người khác đang xây thành trên lãnh thổ này",
-          });
+        return res.status(409).json({
+          error: "already_clearing",
+          message: "Đã có người khác đang xây thành trên lãnh thổ này",
+        });
       }
       const activeByPlayer = await territoryClearings.findOne({
         playerId: req.user!.id,
@@ -6665,13 +6806,11 @@ export function createApp() {
       if (!isStarterClaim && !existing) {
         const source = nearestExpansionSource(ownedClaimsList, territory);
         if (!source) {
-          return res
-            .status(409)
-            .json({
-              error: "frontier_not_connected",
-              message:
-                "Pháo đài mới phải nối bằng đường bộ hoặc Hải Lộ từ lãnh địa của bạn",
-            });
+          return res.status(409).json({
+            error: "frontier_not_connected",
+            message:
+              "Pháo đài mới phải nối bằng đường bộ hoặc Hải Lộ từ lãnh địa của bạn",
+          });
         }
         sourceTerritoryId = source.territory.id;
         sourceTownId = townIdForTerritory(source.territory.id);
@@ -6797,12 +6936,10 @@ export function createApp() {
               const payload = { ok: true, clearing: toPublicClearing(locked) };
               return res.json(payload);
             }
-            return res
-              .status(409)
-              .json({
-                error: "already_clearing",
-                message: "Đã có người khác đang xây thành trên lãnh thổ này",
-              });
+            return res.status(409).json({
+              error: "already_clearing",
+              message: "Đã có người khác đang xây thành trên lãnh thổ này",
+            });
           }
           throw err;
         }
@@ -6869,20 +7006,16 @@ export function createApp() {
         territoryId: territory.id,
       });
       if (existingClaim && existingClaim.playerId !== req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "territory_taken",
-            message: "Lãnh thổ này đã có người chiếm",
-          });
+        return res.status(409).json({
+          error: "territory_taken",
+          message: "Lãnh thổ này đã có người chiếm",
+        });
       }
       if (existingClaim && existingClaim.playerId === req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "already_owned",
-            message: "Bạn đã sở hữu lãnh thổ này",
-          });
+        return res.status(409).json({
+          error: "already_owned",
+          message: "Bạn đã sở hữu lãnh thổ này",
+        });
       }
       const clearing = await territoryClearings.findOne({
         territoryId: territory.id,
@@ -6890,31 +7023,25 @@ export function createApp() {
       });
       const now = new Date();
       if (!clearing) {
-        return res
-          .status(404)
-          .json({
-            error: "no_active_clearing",
-            message:
-              "Bạn cần bắt đầu xây thành và trả chi phí trước khi hoàn tất",
-          });
+        return res.status(404).json({
+          error: "no_active_clearing",
+          message:
+            "Bạn cần bắt đầu xây thành và trả chi phí trước khi hoàn tất",
+        });
       }
       if (await cancelBrokenRouteClearing(clearing, now)) {
-        return res
-          .status(409)
-          .json({
-            error: "clearing_route_lost",
-            message:
-              "Đường tiếp tế đã bị cắt. Đoàn dân làng và vật tư đã thất lạc.",
-          });
+        return res.status(409).json({
+          error: "clearing_route_lost",
+          message:
+            "Đường tiếp tế đã bị cắt. Đoàn dân làng và vật tư đã thất lạc.",
+        });
       }
       if (clearing.completesAt.getTime() > now.getTime()) {
-        return res
-          .status(409)
-          .json({
-            error: "clearing_not_ready",
-            message: "Xây thành chưa hoàn tất",
-            readyAt: clearing.completesAt.toISOString(),
-          });
+        return res.status(409).json({
+          error: "clearing_not_ready",
+          message: "Xây thành chưa hoàn tất",
+          readyAt: clearing.completesAt.toISOString(),
+        });
       }
       const userClaims = await territoryClaims
         .find({ playerId: req.user!.id })
@@ -6993,12 +7120,13 @@ export function createApp() {
           ownerName: player?.name ?? req.user!.id,
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
-          ownerArchitectureId:
-            player?.kingdomArchitectureId ?? "vietnam",
+          ownerArchitectureId: player?.kingdomArchitectureId ?? "vietnam",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: computedSettlementKind,
-          parentTerritoryId: clearing.isStarterClaim ? undefined : clearing.sourceTerritoryId,
+          parentTerritoryId: clearing.isStarterClaim
+            ? undefined
+            : clearing.sourceTerritoryId,
           rootTerritoryId: clearing.isStarterClaim
             ? territory.id
             : rootTerritoryForNewClaim(
@@ -7047,12 +7175,10 @@ export function createApp() {
       playerId: req.user!.id,
     });
     if (!clearing) {
-      return res
-        .status(404)
-        .json({
-          error: "not_found",
-          message: "Không có lệnh xây thành đang chạy",
-        });
+      return res.status(404).json({
+        error: "not_found",
+        message: "Không có lệnh xây thành đang chạy",
+      });
     }
     const now = new Date();
     if (await cancelBrokenRouteClearing(clearing, now)) {
@@ -7153,20 +7279,16 @@ export function createApp() {
     if (!enforceActionLimit(req, res, "game:march-sources", 80, 60_000)) return;
     const parsed = MarchSourceOptionsSchema.safeParse(req.body);
     if (!parsed.success)
-      return res
-        .status(400)
-        .json({
-          error: "bad_request",
-          message: "Yêu cầu tìm thành xuất quân không hợp lệ",
-        });
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Yêu cầu tìm thành xuất quân không hợp lệ",
+      });
     const target = getStaticTerritory(parsed.data.toTerritoryId);
     if (!target)
-      return res
-        .status(404)
-        .json({
-          error: "not_found",
-          message: "Không tìm thấy lãnh thổ mục tiêu",
-        });
+      return res.status(404).json({
+        error: "not_found",
+        message: "Không tìm thấy lãnh thổ mục tiêu",
+      });
     const { territoryClaims, saves } = await collections();
     const [claims, save, gameSettings] = await Promise.all([
       territoryClaims.find({ playerId: req.user.id }).toArray(),
@@ -7184,9 +7306,10 @@ export function createApp() {
           req.user.id,
           territory,
         );
-        const route = parsed.data.kind === "attack"
-          ? resolvePlayerAttackRoute(claims, territory, target)
-          : resolveAttackRoute(territory, target);
+        const route =
+          parsed.data.kind === "attack"
+            ? resolvePlayerAttackRoute(claims, territory, target)
+            : resolveAttackRoute(territory, target);
         const connected =
           parsed.data.kind === "attack" ||
           isClaimConnectedToCapital(claims, territory.id);
@@ -7258,12 +7381,10 @@ export function createApp() {
     const from = getStaticTerritory(parsed.data.fromTerritoryId);
     const to = getStaticTerritory(parsed.data.toTerritoryId);
     if (!from || !to)
-      return res
-        .status(404)
-        .json({
-          error: "not_found",
-          message: "Không tìm thấy lãnh thổ hành quân",
-        });
+      return res.status(404).json({
+        error: "not_found",
+        message: "Không tìm thấy lãnh thổ hành quân",
+      });
     return withPlayerMutationLock(req.user!.id, async () => {
       const { territoryClaims, marchOrders, players, saves } =
         await collections();
@@ -7284,12 +7405,10 @@ export function createApp() {
         territoryId: from.id,
       });
       if (!sourceClaim || sourceClaim.playerId !== req.user!.id) {
-        return res
-          .status(403)
-          .json({
-            error: "not_owner",
-            message: "Bạn không sở hữu lãnh thổ xuất phát",
-          });
+        return res.status(403).json({
+          error: "not_owner",
+          message: "Bạn không sở hữu lãnh thổ xuất phát",
+        });
       }
       const playerClaims = await territoryClaims
         .find({ playerId: req.user!.id })
@@ -7298,12 +7417,10 @@ export function createApp() {
         parsed.data.kind !== "attack" &&
         !isClaimConnectedToCapital(playerClaims, from.id)
       ) {
-        return res
-          .status(409)
-          .json({
-            error: "isolated_stronghold",
-            message: "Pháo đài xuất phát đã bị cô lập khỏi Hoàng Thành",
-          });
+        return res.status(409).json({
+          error: "isolated_stronghold",
+          message: "Pháo đài xuất phát đã bị cô lập khỏi Hoàng Thành",
+        });
       }
       const gameSettings = await loadGameConfig();
       let forceSeaRoute = false;
@@ -7315,12 +7432,10 @@ export function createApp() {
             : route.reason?.includes("nội địa")
               ? "target_not_coastal"
               : "target_not_on_frontier";
-          return res
-            .status(409)
-            .json({
-              error,
-              message: route.reason || "Không có tuyến tấn công hợp lệ",
-            });
+          return res.status(409).json({
+            error,
+            message: route.reason || "Không có tuyến tấn công hợp lệ",
+          });
         }
         forceSeaRoute = route.routeType === "sea";
       }
@@ -7727,20 +7842,16 @@ export function createApp() {
         await collections();
       const existing = await territoryClaims.findOne({ territoryId: id });
       if (existing && existing.playerId !== req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "territory_taken",
-            message: "Lãnh thổ này đã có người chiếm",
-          });
+        return res.status(409).json({
+          error: "territory_taken",
+          message: "Lãnh thổ này đã có người chiếm",
+        });
       }
       if (existing && existing.playerId === req.user!.id) {
-        return res
-          .status(409)
-          .json({
-            error: "already_owned",
-            message: "Bạn đã sở hữu lãnh thổ này",
-          });
+        return res.status(409).json({
+          error: "already_owned",
+          message: "Bạn đã sở hữu lãnh thổ này",
+        });
       }
       const ownedCount = await territoryClaims.countDocuments({
         playerId: req.user!.id,
@@ -7807,8 +7918,7 @@ export function createApp() {
           ownerName: player?.name ?? req.user!.id,
           ownerFlagColor: player?.flagColor,
           ownerEmblem: player?.emblem,
-          ownerArchitectureId:
-            player?.kingdomArchitectureId ?? "vietnam",
+          ownerArchitectureId: player?.kingdomArchitectureId ?? "vietnam",
           ownerAllianceTag: alliance?.tag,
           ownerAllianceEmblem: alliance?.emblem,
           settlementKind: "capital",
@@ -8133,12 +8243,10 @@ export function createApp() {
       const id = Number(req.params.id);
       const playerId = z.string().min(1).safeParse(req.body?.playerId);
       if (isNaN(id) || !playerId.success) {
-        return res
-          .status(400)
-          .json({
-            error: "bad_request",
-            message: "ID lãnh thổ hoặc playerId không hợp lệ",
-          });
+        return res.status(400).json({
+          error: "bad_request",
+          message: "ID lãnh thổ hoặc playerId không hợp lệ",
+        });
       }
       const { players, territoryClaims } = await collections();
       const player = await players.findOne({ _id: playerId.data });

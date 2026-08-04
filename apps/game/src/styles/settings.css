@@ -1,0 +1,105 @@
+.settings-v2__layout {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 52px;
+  min-height: min(560px, 70vh);
+  color: #ece5d3;
+  background: #09141a;
+}
+
+.settings-v2__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 10px;
+  border-right: 1px solid rgba(197, 154, 66, 0.36);
+  background: linear-gradient(180deg, #111e25, #081118);
+}
+
+.settings-v2__nav button {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #aeb8b8;
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.settings-v2__nav button.active {
+  border-color: #b98b37;
+  color: #f6dda0;
+  background: linear-gradient(90deg, rgba(112, 45, 42, 0.82), rgba(77, 49, 25, 0.5));
+}
+
+.settings-v2__nav img { width: 34px; height: 34px; object-fit: contain; }
+.settings-v2__content { min-height: 0; overflow: auto; padding: 18px; }
+.settings-v2__section { display: grid; gap: 10px; }
+.settings-v2__section header { margin-bottom: 4px; border-bottom: 1px solid rgba(197, 154, 66, 0.32); }
+.settings-v2__section h3 { margin: 0 0 4px; color: #e6c874; font: 800 16px/1.2 Georgia, serif; }
+.settings-v2__section header p { margin: 0 0 12px; color: #89979d; font-size: 11px; }
+
+.settings-v2__row,
+.settings-v2__danger,
+.settings-v2__info {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 13px;
+  border: 1px solid rgba(197, 154, 66, 0.24);
+  border-radius: 8px;
+  background: rgba(14, 27, 34, 0.78);
+}
+
+.settings-v2__row > span,
+.settings-v2__danger > span { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.settings-v2__row small,
+.settings-v2__danger small { color: #89979d; font-size: 10px; }
+.settings-v2__choices { display: flex; gap: 5px; }
+.settings-v2__choices button,
+.settings-v2__info button,
+.settings-v2__danger button,
+.settings-v2__footer button {
+  min-height: 34px;
+  padding: 6px 13px;
+  border: 1px solid #886527;
+  border-radius: 5px;
+  color: #e8d7a7;
+  background: #17252b;
+  cursor: pointer;
+}
+.settings-v2__choices button.active { color: #fff2c8; background: #6e342f; border-color: #d0a149; }
+.settings-v2__info { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; }
+.settings-v2__info > span { color: #93a1a5; }
+.settings-v2__info .is-online { color: #7acb86; }
+.settings-v2__info .is-offline { color: #df8a75; }
+.settings-v2__danger { border-color: rgba(176, 72, 61, 0.36); }
+.settings-v2__danger button { border-color: #8f443c; color: #ffd0c8; background: #4d2524; }
+.settings-v2__hotkeys { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.settings-v2__hotkeys > div { min-height: 55px; display: flex; align-items: center; gap: 10px; padding: 9px; border: 1px solid rgba(197, 154, 66, 0.22); border-radius: 7px; background: rgba(14, 27, 34, 0.72); }
+.settings-v2__hotkeys kbd { min-width: 78px; padding: 6px; border: 1px solid #80612c; border-radius: 4px; color: #f0d58f; background: #101b21; text-align: center; }
+.settings-v2__hotkeys span { color: #aeb8b8; font-size: 11px; }
+.settings-v2__footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 8px 14px; border-top: 1px solid rgba(197, 154, 66, 0.35); background: #071016; }
+.settings-v2__footer span { color: #78878b; font-size: 10px; }
+
+@media (max-width: 700px) {
+  .settings-v2__layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) 48px; min-height: min(620px, 78dvh); }
+  .settings-v2__nav { flex-direction: row; padding: 6px; border-right: 0; border-bottom: 1px solid rgba(197, 154, 66, 0.36); }
+  .settings-v2__nav button { min-width: 0; min-height: 48px; flex: 1; justify-content: center; padding: 4px; }
+  .settings-v2__nav img { width: 27px; height: 27px; }
+  .settings-v2__nav span { display: none; }
+  .settings-v2__content { padding: 10px; }
+  .settings-v2__row, .settings-v2__danger { align-items: flex-start; }
+  .settings-v2__choices { flex-direction: column; }
+  .settings-v2__info { grid-template-columns: 1fr auto; }
+  .settings-v2__info > strong { grid-column: 1; overflow-wrap: anywhere; }
+  .settings-v2__info > button { grid-column: 2; grid-row: 1 / 3; }
+  .settings-v2__hotkeys { grid-template-columns: 1fr; }
+  .settings-v2__footer { grid-column: 1; }
+}
+

@@ -5,6 +5,10 @@ import { ConquestMap } from "./components/ConquestMap";
 import { updateActiveMap } from "./game/api";
 import "./styles/global.css";
 import "./styles/minimap.css";
+import "./styles/chat.css";
+import "./styles/hud-topbar.css";
+import "./styles/settings.css";
+import "./styles/war-reports.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");

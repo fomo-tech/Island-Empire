@@ -1,0 +1,456 @@
+/* Rise-of-Kingdoms HUD layout based on the supplied full-screen reference. */
+html body .game-shell .hud-wrapper .hud-topbar.rok-hud-topbar {
+  position: fixed !important;
+  inset: max(8px, env(safe-area-inset-top)) 14px auto 10px !important;
+  z-index: 1200 !important;
+  width: auto !important;
+  height: 88px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+.rok-ref-profile,
+.rok-ref-resources {
+  pointer-events: auto;
+}
+
+/* Profile: blue ribbon portrait, silver power bar, VIP row and UTC. */
+.rok-ref-profile {
+  --rok-avatar-size: clamp(64px, 5.35vw, 88px);
+  --rok-profile-info-width: clamp(170px, 12vw, 232px);
+  position: relative;
+  width: calc(var(--rok-avatar-size) + var(--rok-profile-info-width) - 4px);
+  height: 88px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.rok-ref-avatar {
+  position: relative;
+  z-index: 5;
+  width: var(--rok-avatar-size);
+  height: calc(var(--rok-avatar-size) * 1.24);
+  flex: 0 0 var(--rok-avatar-size);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+  clip-path: none;
+}
+
+.rok-ref-avatar::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: calc(100% - 14px);
+  aspect-ratio: 1;
+  border: 1px solid #8b6726;
+  border-radius: 50%;
+  background: radial-gradient(circle, #07131d 0 61%, #d6a63f 63% 67%, #4d3512 69%);
+}
+
+.rok-ref-avatar .rok-ref-avatar-portrait {
+  position: relative;
+  z-index: 1;
+  width: calc(var(--rok-avatar-size) - 22px);
+  height: calc(var(--rok-avatar-size) - 22px);
+  align-self: start;
+  margin-top: 9px;
+  object-fit: cover;
+  border: 1px solid #d9b34f;
+  border-radius: 50%;
+  background: #1a3240;
+}
+
+.rok-ref-avatar .rok-ref-avatar-frame {
+  position: absolute;
+  z-index: 3;
+  top: -2px;
+  left: -2px;
+  width: calc(var(--rok-avatar-size) + 4px);
+  height: calc(var(--rok-avatar-size) + 4px);
+  margin: 0;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7));
+}
+
+@media (min-width: 1200px) {
+  /* The legacy collapsed chat must stay at the bottom and never cover profile. */
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
+    top: auto !important;
+    left: 8px !important;
+    right: auto !important;
+    bottom: 8px !important;
+  }
+}
+
+.rok-ref-profile-info {
+  position: relative;
+  z-index: 1;
+  width: var(--rok-profile-info-width);
+  height: 78px;
+  margin-left: -15px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 36px 30px 12px;
+}
+
+.rok-ref-power {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 27px;
+  overflow: hidden;
+  border: 1px solid rgba(205, 158, 61, 0.72);
+  border-radius: 5px 8px 8px 5px;
+  background:
+    linear-gradient(90deg, rgba(34, 48, 54, 0.98), rgba(11, 25, 33, 0.98) 38%, rgba(5, 14, 20, 0.99));
+  color: #f5df9b;
+  font: 900 clamp(20px, 1.6vw, 29px)/36px Arial, sans-serif;
+  text-align: left;
+  text-shadow: 0 1px 2px #000;
+  box-shadow:
+    inset 0 1px rgba(255, 226, 135, 0.13),
+    inset 0 -1px rgba(0, 0, 0, 0.6),
+    0 3px 8px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.rok-ref-power img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+  filter: sepia(1) saturate(0.7) brightness(1.2) drop-shadow(0 1px 1px #000);
+}
+
+.rok-ref-vip {
+  width: max-content;
+  min-width: 116px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 5px 0 23px;
+  border: 1px solid rgba(175, 126, 36, 0.7);
+  border-radius: 4px 7px 7px 4px;
+  background: linear-gradient(90deg, rgba(71, 47, 18, 0.97), rgba(32, 24, 13, 0.98) 50%, rgba(15, 14, 11, 0.99));
+  color: #f4cf58;
+  font: 900 18px/29px Arial, sans-serif;
+  text-shadow: 0 1px 2px #000;
+}
+
+.rok-ref-vip img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+
+.rok-ref-vip span {
+  align-self: stretch;
+  min-width: 23px;
+  display: grid;
+  place-items: center;
+  margin: 0 -5px 0 auto;
+  border-left: 1px solid rgba(211, 166, 69, 0.32);
+  border-radius: 0 6px 6px 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  font: 900 26px/24px Arial, sans-serif;
+}
+
+.rok-ref-time {
+  justify-self: end;
+  padding-right: 4px;
+  color: #d7c998;
+  font: 800 9px/12px Arial, sans-serif;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+
+/* Resources: independent dark translucent pills with oversized icons. */
+.rok-ref-resources {
+  width: min(54vw, 760px);
+  height: 55px;
+}
+
+.rok-ref-resource-strip {
+  width: 100%;
+  height: 55px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(92px, 1fr)) minmax(108px, 1.05fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+.rok-ref-resource-strip .rok-ref-resource,
+.rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+  width: auto !important;
+  min-width: 0 !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 10px 0 48px !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: rgba(22, 25, 18, 0.75) !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35) !important;
+}
+
+.rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-icon {
+  left: -7px !important;
+  width: 52px !important;
+  height: 52px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)) !important;
+}
+
+.rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy {
+  min-width: 0;
+  display: block;
+  line-height: 42px;
+}
+
+.rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy strong {
+  overflow: visible;
+  color: #f4f2e5;
+  font: 800 clamp(15px, 1.25vw, 22px)/42px Arial, sans-serif;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+
+.rok-ref-resource-strip .rok-ref-resource .hud-resource-capacity,
+.rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy small {
+  display: none;
+}
+
+.rok-ref-resource-strip .rok-ref-resource .rok-add-btn {
+  position: absolute !important;
+  right: -4px !important;
+  top: 50% !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  transform: translateY(-50%) !important;
+  border: 2px solid #275a22 !important;
+  border-radius: 4px !important;
+  background: linear-gradient(#68c94f, #319a33) !important;
+  color: white !important;
+  font: 900 25px/28px Arial, sans-serif !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+.rok-ref-resource-strip .rok-ref-resource.res-gems {
+  padding-right: 34px !important;
+}
+
+/* Tablet: preserve the desktop relationship and hide secondary scale first. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  html body .game-shell .hud-wrapper .hud-topbar.rok-hud-topbar {
+    height: 74px !important;
+    inset: max(6px, env(safe-area-inset-top)) 8px auto 8px !important;
+  }
+
+  .rok-ref-profile {
+    --rok-avatar-size: 58px;
+    --rok-profile-info-width: 150px;
+    height: 72px;
+  }
+
+  .rok-ref-profile-info {
+    height: 66px;
+    grid-template-rows: 30px 25px 11px;
+  }
+
+  .rok-ref-power {
+    height: 30px;
+    gap: 6px;
+    padding: 0 8px 0 23px;
+    font-size: 19px;
+    line-height: 30px;
+  }
+
+  .rok-ref-power img { width: 21px; height: 21px; }
+  .rok-ref-vip { min-width: 96px; height: 25px; padding-left: 20px; font-size: 15px; line-height: 25px; }
+  .rok-ref-vip img { width: 23px; height: 23px; }
+  .rok-ref-vip span { font-size: 21px; }
+  .rok-ref-time { font-size: 8px; }
+
+  .rok-ref-resources {
+    width: min(58vw, 590px);
+    height: 46px;
+  }
+
+  .rok-ref-resource-strip {
+    height: 46px;
+    grid-template-columns: repeat(4, minmax(74px, 1fr)) minmax(92px, 1fr);
+    gap: 5px;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource,
+  .rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+    height: 35px !important;
+    min-height: 35px !important;
+    padding-left: 38px !important;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-icon {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy strong {
+    font-size: clamp(12px, 1.45vw, 17px);
+    line-height: 35px;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource .rok-add-btn {
+    width: 26px !important;
+    min-width: 26px !important;
+    height: 26px !important;
+    font-size: 20px !important;
+  }
+
+  html body .game-shell .hud-wrapper section.strategy-chat.hud-interactive.is-collapsed {
+    position: fixed !important;
+    inset: auto auto 88px 8px !important;
+    transform: none !important;
+  }
+}
+
+/* Portrait/mobile: profile first row, resources second row, all five remain visible. */
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-topbar.rok-hud-topbar {
+    inset: max(4px, env(safe-area-inset-top)) 4px auto 4px !important;
+    width: auto !important;
+    height: 94px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 54px 38px !important;
+    gap: 2px !important;
+  }
+
+  .rok-ref-profile {
+    --rok-avatar-size: 52px;
+    --rok-profile-info-width: 128px;
+    grid-column: 1;
+    grid-row: 1;
+    height: 54px;
+  }
+
+  .rok-ref-avatar { padding: 5px; }
+  .rok-ref-avatar::before { top: 3px; left: 4px; width: calc(100% - 8px); border-width: 2px; }
+  .rok-ref-avatar .rok-ref-avatar-portrait { width: calc(var(--rok-avatar-size) - 18px); height: calc(var(--rok-avatar-size) - 18px); margin-top: 7px; border-width: 1px; }
+
+  .rok-ref-profile-info {
+    height: 52px;
+    grid-template-rows: 24px 20px 8px;
+  }
+
+  .rok-ref-power {
+    height: 24px;
+    gap: 5px;
+    padding: 0 7px 0 21px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .rok-ref-power img { width: 18px; height: 18px; }
+  .rok-ref-vip { min-width: 82px; height: 20px; gap: 3px; padding: 0 4px 0 18px; font-size: 12px; line-height: 20px; }
+  .rok-ref-vip img { width: 18px; height: 18px; }
+  .rok-ref-vip span { font-size: 17px; }
+  .rok-ref-time { font-size: 6px; line-height: 8px; }
+
+  .rok-ref-resources {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    height: 38px;
+  }
+
+  .rok-ref-resource-strip {
+    height: 38px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(65px, 1fr);
+    gap: 3px;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource,
+  .rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 2px 0 29px !important;
+    border-radius: 5px !important;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-icon {
+    left: -3px !important;
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy strong {
+    font-size: clamp(9px, 2.55vw, 12px);
+    line-height: 30px;
+  }
+
+  .rok-ref-resource-strip .rok-ref-resource.res-gems { padding-right: 22px !important; }
+  .rok-ref-resource-strip .rok-ref-resource .rok-add-btn {
+    right: -1px !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    border-width: 1px !important;
+    font-size: 16px !important;
+    line-height: 18px !important;
+  }
+}
+
+@media (max-width: 359px) {
+  .rok-ref-resource-strip .rok-ref-resource,
+  .rok-ref-resource-strip .rok-ref-resource:nth-child(n) { padding-left: 24px !important; }
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-icon { width: 28px !important; height: 28px !important; }
+  .rok-ref-resource-strip .rok-ref-resource .hud-resource-entry-copy strong { font-size: 8px; }
+}
+
+@media (min-width: 1200px) {
+  html body .game-shell div.hud-wrapper > .strategy-chat.hud-interactive.is-collapsed {
+    position: fixed !important;
+    inset: auto auto 8px 8px !important;
+    transform: none !important;
+  }
+  html body .game-shell .hud-wrapper div.strategy-chat.hud-interactive.is-collapsed {
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    transform: none !important;
+  }
+  html body .game-shell .hud-wrapper section.strategy-chat.hud-interactive.is-collapsed {
+    position: fixed !important;
+    inset: auto auto 8px 8px !important;
+    transform: none !important;
+  }
+}

@@ -185,38 +185,167 @@
 
 .strategy-chat__message {
   display: grid;
-  grid-template-columns: 35px minmax(0, 1fr);
-  gap: 6px;
-  padding: 4px 3px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 3px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.045);
   font-size: 11px;
   line-height: 1.35;
 }
 
-.strategy-chat__message time {
+.strategy-chat__message-identity {
+  display: flex;
+  justify-content: center;
+  padding-top: 3px;
+}
+
+.strategy-chat__avatar {
+  position: relative;
+  display: block;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
+.strategy-chat__avatar-portrait {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d0a45c;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #192630;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.65);
+}
+
+.strategy-chat__avatar-frame {
+  position: absolute;
+  inset: -4px;
+  width: 42px;
+  height: 42px;
+  pointer-events: none;
+}
+
+.strategy-chat__vip-badge {
+  position: absolute;
+  right: -9px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 20px;
+  color: #fff5c7;
+  font:
+    800 9px/1 Georgia,
+    "Times New Roman",
+    serif;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.strategy-chat__vip-badge img {
+  position: absolute;
+  inset: 0;
+  width: 23px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.strategy-chat__vip-badge b {
+  position: relative;
+  z-index: 1;
+  padding-top: 1px;
+  text-shadow: 0 1px 1px #442b0b;
+}
+
+.strategy-chat__system-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(149, 181, 196, 0.65);
+  border-radius: 4px;
+  background: linear-gradient(
+    145deg,
+    rgba(64, 95, 107, 0.8),
+    rgba(20, 31, 39, 0.9)
+  );
+  box-shadow: inset 0 0 8px rgba(172, 214, 229, 0.16);
+}
+
+.strategy-chat__system-avatar img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.strategy-chat__message-body {
+  min-width: 0;
+  padding: 6px 8px 7px;
+  border: 1px solid rgba(197, 157, 81, 0.34);
+  border-left: 2px solid rgba(197, 157, 81, 0.7);
+  border-radius: 3px 7px 7px 3px;
+  background: linear-gradient(
+    110deg,
+    rgba(47, 34, 24, 0.72),
+    rgba(23, 29, 32, 0.72)
+  );
+}
+
+.strategy-chat__message-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.strategy-chat__message-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f1cf73;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-chat__message-meta span {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid rgba(223, 178, 74, 0.52);
+  border-radius: 2px;
+  color: #f1cc70;
+  background: rgba(121, 76, 23, 0.34);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.strategy-chat__message-meta time {
+  flex: 0 0 auto;
+  margin-left: auto;
   color: #77858d;
   font-size: 9px;
-  padding-top: 2px;
 }
 
-.strategy-chat__message p {
+.strategy-chat__message-body p {
   min-width: 0;
   margin: 0;
-}
-
-.strategy-chat__message strong {
-  margin-right: 6px;
-  color: #e5bd5a;
-  font-weight: 700;
-}
-
-.strategy-chat__message span {
   color: #e4e0d5;
   overflow-wrap: anywhere;
 }
 
 .strategy-chat__message.is-mine {
   background: linear-gradient(90deg, rgba(61, 91, 104, 0.22), transparent);
+}
+
+.strategy-chat__message.is-mine .strategy-chat__message-body {
+  border-color: rgba(102, 161, 177, 0.58);
+  border-left-color: #78b2bd;
+  background: linear-gradient(
+    110deg,
+    rgba(37, 72, 82, 0.72),
+    rgba(20, 31, 35, 0.76)
+  );
 }
 
 .strategy-chat__message--system {
@@ -236,14 +365,31 @@
 .strategy-chat__message--system strong {
   color: #a9c4d2;
 }
+.strategy-chat__message--system .strategy-chat__message-body {
+  border-color: rgba(102, 142, 163, 0.38);
+  border-left-color: #668ea3;
+  background: rgba(42, 68, 78, 0.54);
+}
+.strategy-chat__message--system .strategy-chat__message-meta strong {
+  color: #a9c4d2;
+}
 .strategy-chat__message--system.level-success strong {
   color: #91c594;
+}
+.strategy-chat__message--system.level-success .strategy-chat__message-body {
+  border-left-color: #6da36f;
 }
 .strategy-chat__message--system.level-warning strong {
   color: #deb45f;
 }
+.strategy-chat__message--system.level-warning .strategy-chat__message-body {
+  border-left-color: #c89b45;
+}
 .strategy-chat__message--system.level-battle strong {
   color: #df7168;
+}
+.strategy-chat__message--system.level-battle .strategy-chat__message-body {
+  border-left-color: #b94d46;
 }
 
 .strategy-chat__empty {
@@ -37125,7 +37271,7 @@ html[data-touch="true"] [role="button"] {
    the legacy desktop HUD rules above.
    ======================================================================== */
 @media (min-width: 768px) and (max-width: 1199px),
-       (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
   :root {
     --tablet-top-hud-height: 112px;
     --tablet-bottom-dock-height: 78px;
@@ -37155,9 +37301,15 @@ html[data-touch="true"] [role="button"] {
     grid-template-rows: 64px 46px !important;
     align-items: center !important;
     gap: 0 !important;
-    padding: 0 max(var(--tablet-edge-gap), var(--safe-right)) 0 max(var(--tablet-edge-gap), var(--safe-left)) !important;
+    padding: 0 max(var(--tablet-edge-gap), var(--safe-right)) 0
+      max(var(--tablet-edge-gap), var(--safe-left)) !important;
     border-bottom: 1px solid rgba(202, 156, 65, 0.42) !important;
-    background: linear-gradient(180deg, rgba(4, 12, 17, 0.97), rgba(7, 17, 23, 0.91) 72%, rgba(7, 17, 23, 0.52)) !important;
+    background: linear-gradient(
+      180deg,
+      rgba(4, 12, 17, 0.97),
+      rgba(7, 17, 23, 0.91) 72%,
+      rgba(7, 17, 23, 0.52)
+    ) !important;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
   }
 
@@ -37275,10 +37427,15 @@ html[data-touch="true"] [role="button"] {
   /* The minimap is a 56px affordance until the player expands it. */
   html body .game-shell .hud-wrapper .hud-right-side {
     position: fixed !important;
-    top: calc(var(--tablet-top-hud-height) + var(--safe-top) + var(--tablet-edge-gap)) !important;
+    top: calc(
+      var(--tablet-top-hud-height) + var(--safe-top) + var(--tablet-edge-gap)
+    ) !important;
     right: max(var(--tablet-edge-gap), var(--safe-right)) !important;
     width: min(320px, calc(100vw - 2 * var(--tablet-edge-gap))) !important;
-    max-height: calc(var(--app-height) - var(--tablet-top-hud-height) - var(--tablet-bottom-dock-height) - 2 * var(--tablet-edge-gap)) !important;
+    max-height: calc(
+      var(--app-height) - var(--tablet-top-hud-height) -
+        var(--tablet-bottom-dock-height) - 2 * var(--tablet-edge-gap)
+    ) !important;
     z-index: 1170 !important;
   }
 
@@ -37299,7 +37456,12 @@ html[data-touch="true"] [role="button"] {
     border-radius: 10px !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-minimap-header {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-minimap-header {
     width: 100% !important;
     height: 46px !important;
     min-height: 46px !important;
@@ -37310,25 +37472,60 @@ html[data-touch="true"] [role="button"] {
     place-items: center !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-minimap-title,
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-minimap-coords-display,
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-minimap-canvas-wrapper,
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-main-missions {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-minimap-title,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-minimap-coords-display,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-minimap-canvas-wrapper,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-main-missions {
     display: none !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-minimap-card.collapsed .hud-mini-icon-btn-plus {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card.collapsed
+    .hud-mini-icon-btn-plus {
     width: 42px !important;
     height: 42px !important;
     min-width: 42px !important;
     border-radius: 50% !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-canvas-wrapper {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card:not(.collapsed)
+    .hud-minimap-canvas-wrapper {
     height: clamp(110px, 16vh, 150px) !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-minimap-card:not(.collapsed) .hud-minimap-canvas {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-minimap-card:not(.collapsed)
+    .hud-minimap-canvas {
     height: 100% !important;
   }
 
@@ -37360,8 +37557,14 @@ html[data-touch="true"] [role="button"] {
     overflow: hidden !important;
     z-index: 1220 !important;
     border-radius: 13px !important;
-    background: linear-gradient(180deg, rgba(18, 28, 36, 0.97), rgba(5, 10, 14, 0.98)) !important;
-    box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 225, 144, 0.12) !important;
+    background: linear-gradient(
+      180deg,
+      rgba(18, 28, 36, 0.97),
+      rgba(5, 10, 14, 0.98)
+    ) !important;
+    box-shadow:
+      0 -8px 26px rgba(0, 0, 0, 0.52),
+      inset 0 1px rgba(255, 225, 144, 0.12) !important;
   }
 
   html body .game-shell .hud-wrapper .hud-command-button,
@@ -37392,18 +37595,33 @@ html[data-touch="true"] [role="button"] {
     line-height: 1.1 !important;
   }
 
-  html body .game-shell .hud-wrapper .mobile-army-action { order: 1 !important; }
-  html body .game-shell .hud-wrapper .mobile-town-action { order: 2 !important; }
-  html body .game-shell .hud-wrapper .mobile-map-action { order: 3 !important; }
-  html body .game-shell .hud-wrapper .mobile-conquest-action { order: 4 !important; }
-  html body .game-shell .hud-wrapper .mobile-more-action { order: 5 !important; }
+  html body .game-shell .hud-wrapper .mobile-army-action {
+    order: 1 !important;
+  }
+  html body .game-shell .hud-wrapper .mobile-town-action {
+    order: 2 !important;
+  }
+  html body .game-shell .hud-wrapper .mobile-map-action {
+    order: 3 !important;
+  }
+  html body .game-shell .hud-wrapper .mobile-conquest-action {
+    order: 4 !important;
+  }
+  html body .game-shell .hud-wrapper .mobile-more-action {
+    order: 5 !important;
+  }
 
   html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
     height: 142px !important;
     grid-template-rows: 64px 60px !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded .mobile-secondary-action {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    .mobile-secondary-action {
     display: flex !important;
     height: 58px !important;
     min-height: 58px !important;
@@ -37413,9 +37631,17 @@ html[data-touch="true"] [role="button"] {
   html body .game-shell .hud-wrapper .strategy-chat {
     left: max(var(--tablet-edge-gap), var(--safe-left)) !important;
     right: auto !important;
-    bottom: calc(var(--tablet-bottom-dock-height) + var(--safe-bottom) + 12px) !important;
+    bottom: calc(
+      var(--tablet-bottom-dock-height) + var(--safe-bottom) + 12px
+    ) !important;
     width: min(420px, calc(100vw - 2 * var(--tablet-edge-gap))) !important;
-    height: min(390px, calc(var(--app-height) - var(--tablet-top-hud-height) - var(--tablet-bottom-dock-height) - 3 * var(--tablet-edge-gap))) !important;
+    height: min(
+      390px,
+      calc(
+        var(--app-height) - var(--tablet-top-hud-height) -
+          var(--tablet-bottom-dock-height) - 3 * var(--tablet-edge-gap)
+      )
+    ) !important;
     z-index: 1210 !important;
     border-radius: 11px !important;
   }
@@ -37428,7 +37654,12 @@ html[data-touch="true"] [role="button"] {
     border-radius: 11px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header {
     width: 52px !important;
     height: 50px !important;
   }
@@ -37458,7 +37689,9 @@ html[data-touch="true"] [role="button"] {
   html body .game-shell .hud-wrapper .hud-center-dock-container {
     left: max(90px, var(--tablet-edge-gap)) !important;
     right: max(90px, var(--tablet-edge-gap)) !important;
-    bottom: calc(var(--tablet-bottom-dock-height) + var(--safe-bottom) + 10px) !important;
+    bottom: calc(
+      var(--tablet-bottom-dock-height) + var(--safe-bottom) + 10px
+    ) !important;
     width: auto !important;
     transform: none !important;
     z-index: 1205 !important;
@@ -37491,10 +37724,17 @@ html[data-touch="true"] [role="button"] {
     left: max(8px, var(--safe-left)) !important;
     right: max(8px, var(--safe-right)) !important;
     top: auto !important;
-    bottom: max(calc(var(--v3-dock, 72px) + var(--safe-bottom) + 8px), var(--rt-hud-bottom-inset, 0px)) !important;
+    bottom: max(
+      calc(var(--v3-dock, 72px) + var(--safe-bottom) + 8px),
+      var(--rt-hud-bottom-inset, 0px)
+    ) !important;
     width: auto !important;
     height: min(62dvh, 560px) !important;
-    max-height: calc(var(--app-height, 100dvh) - var(--v3-top-hud, 104px) - max(var(--v3-dock, 72px), var(--rt-hud-bottom-inset, 0px)) - var(--safe-top) - 20px) !important;
+    max-height: calc(
+      var(--app-height, 100dvh) - var(--v3-top-hud, 104px) -
+        max(var(--v3-dock, 72px), var(--rt-hud-bottom-inset, 0px)) -
+        var(--safe-top) - 20px
+    ) !important;
     overflow: visible !important;
     pointer-events: auto !important;
   }
@@ -37587,12 +37827,17 @@ html[data-touch="true"] [role="button"] {
 }
 
 @media (min-width: 768px) and (max-width: 1199px),
-       (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
   .rt-tooltip-container {
     left: auto !important;
     right: max(12px, var(--safe-right)) !important;
-    top: calc(var(--tablet-top-hud-height, 112px) + var(--safe-top) + 12px) !important;
-    bottom: max(calc(var(--tablet-bottom-dock-height, 78px) + var(--safe-bottom) + 12px), var(--rt-hud-bottom-inset, 0px)) !important;
+    top: calc(
+      var(--tablet-top-hud-height, 112px) + var(--safe-top) + 12px
+    ) !important;
+    bottom: max(
+      calc(var(--tablet-bottom-dock-height, 78px) + var(--safe-bottom) + 12px),
+      var(--rt-hud-bottom-inset, 0px)
+    ) !important;
     width: min(390px, calc(100vw - 24px)) !important;
     height: auto !important;
     max-height: none !important;
@@ -37628,7 +37873,7 @@ html[data-touch="true"] [role="button"] {
 
 /* FINAL TOUCH LAYOUT — one safe-area contract for tooltip + ROK-style chat. */
 @media (max-width: 767px),
-       (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
   /* Chat is a sixth compact command in the bottom HUD menu. */
   html body .game-shell .hud-wrapper .hud-command-dock {
     position: fixed !important;
@@ -37636,7 +37881,12 @@ html[data-touch="true"] [role="button"] {
     grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
     position: relative !important;
     inset: auto !important;
     left: auto !important;
@@ -37653,7 +37903,13 @@ html[data-touch="true"] [role="button"] {
     z-index: 3 !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header {
     width: 100% !important;
     height: 62px !important;
     min-height: 62px !important;
@@ -37665,19 +37921,40 @@ html[data-touch="true"] [role="button"] {
     background: transparent !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > img {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > img {
     width: 29px !important;
     height: 29px !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > span {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > span {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     gap: 0 !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header strong {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    strong {
     max-width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -37687,11 +37964,25 @@ html[data-touch="true"] [role="button"] {
     letter-spacing: 0 !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header small {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    small {
     display: none !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > b {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > b {
     position: absolute !important;
     top: 2px !important;
     right: 2px !important;
@@ -37706,11 +37997,22 @@ html[data-touch="true"] [role="button"] {
     font-size: 7px !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__preview {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__preview {
     display: none !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat:not(.is-collapsed) {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat:not(.is-collapsed) {
     position: absolute !important;
     left: 8px !important;
     right: 8px !important;
@@ -37718,21 +38020,37 @@ html[data-touch="true"] [role="button"] {
     bottom: calc(100% + 8px) !important;
     width: auto !important;
     height: min(44dvh, 420px) !important;
-    max-height: calc(var(--app-height, 100dvh) - var(--v3-top-hud, var(--tablet-top-hud-height, 112px)) - var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) - var(--safe-top) - 18px) !important;
+    max-height: calc(
+      var(--app-height, 100dvh) -
+        var(--v3-top-hud, var(--tablet-top-hud-height, 112px)) -
+        var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) -
+        var(--safe-top) - 18px
+    ) !important;
     display: grid !important;
     grid-template-rows: 42px 34px minmax(0, 1fr) 48px !important;
     z-index: 20 !important;
     border-radius: 12px !important;
   }
 
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat:not(.is-collapsed)::after {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat:not(.is-collapsed)::after {
     display: none !important;
   }
 
   html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
     left: max(8px, var(--safe-left)) !important;
     right: max(8px, var(--safe-right)) !important;
-    bottom: max(calc(var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom) + 8px), var(--rt-hud-bottom-inset, 0px)) !important;
+    bottom: max(
+      calc(
+        var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) +
+          var(--safe-bottom) + 8px
+      ),
+      var(--rt-hud-bottom-inset, 0px)
+    ) !important;
     width: auto !important;
     height: 40px !important;
     min-height: 40px !important;
@@ -37741,19 +38059,36 @@ html[data-touch="true"] [role="button"] {
     z-index: 1210 !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header {
     width: 40px !important;
     height: 38px !important;
     min-height: 38px !important;
     padding: 2px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > img {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > img {
     width: 32px !important;
     height: 32px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__header > b {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > b {
     top: -5px !important;
     left: 27px !important;
     min-width: 16px !important;
@@ -37761,20 +38096,37 @@ html[data-touch="true"] [role="button"] {
     font-size: 8px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__preview {
     grid-template-columns: auto minmax(0, 1fr) !important;
     gap: 6px !important;
     padding: 0 8px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview strong {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__preview
+    strong {
     max-width: 90px;
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 9px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed .strategy-chat__preview span {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__preview
+    span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -37785,10 +38137,24 @@ html[data-touch="true"] [role="button"] {
     left: max(8px, var(--safe-left)) !important;
     right: max(8px, var(--safe-right)) !important;
     top: auto !important;
-    bottom: max(calc(var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom) + 8px), var(--rt-hud-bottom-inset, 0px)) !important;
+    bottom: max(
+      calc(
+        var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) +
+          var(--safe-bottom) + 8px
+      ),
+      var(--rt-hud-bottom-inset, 0px)
+    ) !important;
     width: auto !important;
     height: min(44dvh, 420px) !important;
-    max-height: calc(var(--app-height, 100dvh) - var(--v3-top-hud, var(--tablet-top-hud-height, 112px)) - max(var(--v3-dock, var(--tablet-bottom-dock-height, 78px)), var(--rt-hud-bottom-inset, 0px)) - var(--safe-top) - 16px) !important;
+    max-height: calc(
+      var(--app-height, 100dvh) -
+        var(--v3-top-hud, var(--tablet-top-hud-height, 112px)) -
+        max(
+          var(--v3-dock, var(--tablet-bottom-dock-height, 78px)),
+          var(--rt-hud-bottom-inset, 0px)
+        ) -
+        var(--safe-top) - 16px
+    ) !important;
     grid-template-rows: 42px 34px minmax(0, 1fr) 48px !important;
     border-radius: 13px !important;
     z-index: 30010 !important;
@@ -37803,31 +38169,65 @@ html[data-touch="true"] [role="button"] {
     pointer-events: none !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__header {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__header {
     min-height: 42px !important;
     padding: 3px 8px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__header > img {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__header
+    > img {
     width: 30px !important;
     height: 30px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__header strong {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__header
+    strong {
     font-size: 11px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__tabs {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__tabs {
     gap: 3px !important;
     padding: 3px 6px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__tabs button {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__tabs
+    button {
     min-height: 28px !important;
     font-size: 9px !important;
   }
 
-  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed) .strategy-chat__tabs img {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__tabs
+    img {
     width: 19px !important;
     height: 19px !important;
   }
@@ -37837,10 +38237,72 @@ html[data-touch="true"] [role="button"] {
   }
 
   html body .game-shell .hud-wrapper .strategy-chat__message {
-    grid-template-columns: 31px minmax(0, 1fr) !important;
-    gap: 4px !important;
-    padding: 3px 2px !important;
+    grid-template-columns: 33px minmax(0, 1fr) !important;
+    gap: 5px !important;
+    padding: 4px 2px !important;
     font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__message-identity {
+    padding-top: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__avatar {
+    width: 28px !important;
+    height: 28px !important;
+    flex-basis: 28px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__avatar-portrait {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__avatar-frame {
+    width: 35px !important;
+    height: 35px !important;
+    inset: -3px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__vip-badge {
+    right: -8px !important;
+    bottom: -5px !important;
+    width: 20px !important;
+    height: 18px !important;
+    font-size: 8px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__vip-badge img {
+    width: 20px !important;
+    height: 18px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__system-avatar {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__system-avatar img {
+    width: 21px !important;
+    height: 21px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__message-body {
+    padding: 5px 6px 6px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__message-meta {
+    gap: 3px !important;
+    margin-bottom: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__message-meta strong {
+    font-size: 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__message-meta span {
+    padding: 1px 3px !important;
+    font-size: 7px !important;
   }
 
   html body .game-shell .hud-wrapper .strategy-chat__message time {
@@ -37888,7 +38350,11 @@ html[data-touch="true"] [role="button"] {
     margin: 0 !important;
     padding: 8px 12px 10px !important;
     border-top: 1px solid rgba(229, 189, 90, 0.35) !important;
-    background: linear-gradient(180deg, rgba(8, 17, 23, 0.8), rgba(8, 17, 23, 1)) !important;
+    background: linear-gradient(
+      180deg,
+      rgba(8, 17, 23, 0.8),
+      rgba(8, 17, 23, 1)
+    ) !important;
   }
 
   html body .rt-tooltip-action-section .rt-main-action-btn {
@@ -37900,7 +38366,7 @@ html[data-touch="true"] [role="button"] {
 
 /* Tablet landscape has enough width for a single, shorter HUD row. */
 @media (min-width: 768px) and (max-width: 1199px) and (orientation: landscape),
-       (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
   :root {
     --tablet-top-hud-height: 70px;
   }
@@ -37937,7 +38403,9 @@ html[data-touch="true"] [role="button"] {
   }
 
   html body .game-shell .hud-wrapper .hud-right-side {
-    top: calc(var(--tablet-top-hud-height) + var(--safe-top) + var(--tablet-edge-gap)) !important;
+    top: calc(
+      var(--tablet-top-hud-height) + var(--safe-top) + var(--tablet-edge-gap)
+    ) !important;
   }
 }
 
@@ -37967,7 +38435,9 @@ html[data-touch="true"] [role="button"] {
     top: auto !important;
     left: 12px !important;
     right: 12px !important;
-    bottom: calc(var(--mobile-command-height, 68px) + var(--safe-bottom) + 12px) !important;
+    bottom: calc(
+      var(--mobile-command-height, 68px) + var(--safe-bottom) + 12px
+    ) !important;
     width: auto !important;
     max-width: none !important;
     max-height: min(360px, calc(100dvh - 112px)) !important;
@@ -37976,8 +38446,2427 @@ html[data-touch="true"] [role="button"] {
 }
 
 @media (min-width: 768px) and (max-width: 1199px),
-       (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
   .hud-wrapper .hud-resource-entry.is-tooltip-open > .hud-resource-tooltip {
-    max-height: min(360px, calc(100dvh - var(--tablet-top-hud-height, 112px) - 24px)) !important;
+    max-height: min(
+      360px,
+      calc(100dvh - var(--tablet-top-hud-height, 112px) - 24px)
+    ) !important;
+  }
+}
+
+.shop-modal-v2.medieval-modal-container {
+  width: min(1180px, calc(100vw - 32px)) !important;
+  max-width: 1180px !important;
+  height: min(900px, calc(100dvh - 32px)) !important;
+  max-height: calc(100dvh - 32px) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(218, 175, 79, 0.72) !important;
+  border-radius: 16px !important;
+  background: #071116 !important;
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.82),
+    0 0 0 5px rgba(22, 14, 7, 0.72),
+    inset 0 0 0 1px rgba(255, 238, 169, 0.12) !important;
+}
+
+.shop-modal-v2 .medieval-modal-header {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.shop-modal-v2 .medieval-modal-body {
+  height: 100% !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.shop-modal-v2 .medieval-modal-close-btn {
+  top: 12px !important;
+  right: 12px !important;
+  width: 40px !important;
+  height: 40px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid rgba(246, 215, 126, 0.54) !important;
+  border-radius: 8px !important;
+  background: rgba(9, 16, 19, 0.86) !important;
+  color: #f5d77d !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+}
+
+.shop-modal-v2 .medieval-modal-close-btn:hover,
+.shop-modal-v2 .medieval-modal-close-btn:focus-visible {
+  background: #6d241c !important;
+  border-color: #ffe9a4 !important;
+  color: #fff8d9 !important;
+}
+
+.shop-modal-v2__body {
+  display: grid !important;
+  grid-template-columns: minmax(188px, 224px) minmax(0, 1fr) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background:
+    radial-gradient(circle at 12% 0, rgba(184, 135, 45, 0.14), transparent 32%),
+    #071116 !important;
+}
+
+.shop-modal-v2__sidebar {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 18px !important;
+  padding: 22px 14px !important;
+  border-right: 1px solid rgba(190, 149, 69, 0.3) !important;
+  background:
+    linear-gradient(180deg, rgba(26, 18, 9, 0.8), rgba(6, 15, 19, 0.82)),
+    radial-gradient(circle at 50% 32%, rgba(172, 111, 35, 0.2), transparent 48%) !important;
+}
+
+.shop-modal-v2__sidebar .gothic-arched-frame {
+  width: 100% !important;
+  max-width: 190px !important;
+  margin: 0 auto !important;
+}
+
+.shop-modal-v2__main {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  padding: 18px 18px 14px !important;
+}
+
+.shop-modal-v2__hero {
+  flex: 0 0 auto !important;
+  min-height: 104px !important;
+  padding: 18px 66px 22px 20px !important;
+  border: 1px solid rgba(232, 190, 88, 0.72) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    inset 0 0 24px rgba(0, 0, 0, 0.42),
+    0 10px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+.shop-modal-v2 .euro-hero-title {
+  max-width: 600px !important;
+  font-size: clamp(18px, 1.7vw, 24px) !important;
+  letter-spacing: 0.08em !important;
+}
+
+.shop-modal-v2 .euro-hero-subtitle {
+  max-width: 560px !important;
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+}
+
+.shop-modal-v2 .euro-gems-capsule {
+  left: auto !important;
+  right: 18px !important;
+  transform: none !important;
+  padding: 5px 11px !important;
+}
+
+.shop-modal-v2__tabs {
+  flex: 0 0 auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 14px 0 0 !important;
+  padding: 4px !important;
+  border: 1px solid rgba(167, 126, 53, 0.4) !important;
+  border-radius: 8px !important;
+  background: #101c21 !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn {
+  justify-content: center !important;
+  min-width: 0 !important;
+  min-height: 44px !important;
+  padding: 8px 12px !important;
+  border-radius: 5px !important;
+  font-size: 10px !important;
+  white-space: normal !important;
+  text-align: center !important;
+}
+
+.shop-modal-v2__content {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin-top: 10px !important;
+  padding: 12px !important;
+  border: 1px solid rgba(139, 111, 59, 0.34) !important;
+  border-radius: 9px !important;
+  background: rgba(4, 12, 16, 0.72) !important;
+  scrollbar-color: #9b7736 rgba(0, 0, 0, 0.22) !important;
+}
+
+.shop-modal-v2__content .euro-cards-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.shop-modal-v2__content .sk-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.shop-modal-v2__content .rk-card,
+.shop-modal-v2__content .sk-card {
+  min-width: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32) !important;
+}
+
+.shop-modal-v2 .rk-chest-slot,
+.shop-modal-v2 .sk-preview {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  font: inherit !important;
+  color: inherit !important;
+  text-align: left !important;
+}
+
+.shop-modal-v2 .rk-chest-slot:disabled {
+  cursor: default !important;
+  opacity: 0.8 !important;
+}
+
+.shop-modal-v2 .sk-preview {
+  padding: 0 !important;
+}
+
+.shop-modal-v2__footer {
+  flex: 0 0 auto !important;
+  min-height: 42px !important;
+  margin-top: 10px !important;
+}
+
+@media (max-width: 900px) {
+  .shop-modal-v2__body {
+    grid-template-columns: 164px minmax(0, 1fr) !important;
+  }
+
+  .shop-modal-v2__main {
+    padding-inline: 14px !important;
+  }
+
+  .shop-modal-v2__content .sk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2.medieval-modal-container {
+    align-self: end !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: min(94dvh, 900px) !important;
+    max-height: 94dvh !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+  }
+
+  .shop-modal-v2 .medieval-modal-close-btn {
+    top: 9px !important;
+    right: 9px !important;
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .shop-modal-v2__body {
+    display: block !important;
+    height: 100% !important;
+    padding: 8px !important;
+  }
+
+  .shop-modal-v2__sidebar {
+    display: none !important;
+  }
+
+  .shop-modal-v2__main {
+    height: 100% !important;
+    padding: 8px 0 0 !important;
+  }
+
+  .shop-modal-v2__hero {
+    min-height: 88px !important;
+    padding: 13px 58px 18px 12px !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-badge {
+    position: absolute !important;
+    top: 11px !important;
+    right: 58px !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-bubble {
+    display: none !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 210px !important;
+    font-size: 16px !important;
+    line-height: 1.15 !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    display: block !important;
+    max-width: 230px !important;
+    margin-top: 4px !important;
+    font-size: 9px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-capsule {
+    right: 10px !important;
+    bottom: -14px !important;
+    max-width: calc(100% - 20px) !important;
+  }
+
+  .shop-modal-v2 .euro-gems-label {
+    font-size: 8px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-val {
+    font-size: 13px !important;
+  }
+
+  .shop-modal-v2__tabs {
+    gap: 5px !important;
+    margin-top: 12px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn {
+    min-height: 44px !important;
+    padding: 7px 6px !important;
+    gap: 4px !important;
+    font-size: 9px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn img {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .shop-modal-v2__content {
+    margin-top: 8px !important;
+    padding: 8px !important;
+  }
+
+  .shop-modal-v2__content .euro-cards-grid,
+  .shop-modal-v2__content .sk-grid {
+    grid-template-columns: 1fr !important;
+    gap: 9px !important;
+  }
+
+  .shop-modal-v2__content .rk-card {
+    padding: 11px !important;
+  }
+
+  .shop-modal-v2__content .sk-card {
+    display: grid !important;
+    grid-template-columns: 112px minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(40px, auto) !important;
+    gap: 8px 10px !important;
+    padding: 10px !important;
+  }
+
+  .shop-modal-v2__content .sk-preview {
+    grid-row: 1 / span 2 !important;
+    width: 112px !important;
+    height: 154px !important;
+    min-height: 154px !important;
+  }
+
+  .shop-modal-v2__content .sk-info {
+    grid-column: 2 !important;
+    min-width: 0 !important;
+    gap: 5px !important;
+  }
+
+  .shop-modal-v2__content .sk-desc {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+
+  .shop-modal-v2__content .sk-perks {
+    gap: 3px !important;
+    margin: 4px 0 0 !important;
+  }
+
+  .shop-modal-v2__content .sk-perks li {
+    font-size: 8px !important;
+    line-height: 1.15 !important;
+  }
+
+  .shop-modal-v2__content .sk-btn-wrap {
+    grid-column: 2 !important;
+    align-self: end !important;
+  }
+
+  .shop-modal-v2__content .rk-btn,
+  .shop-modal-v2__content .sk-btn {
+    min-height: 42px !important;
+    padding: 8px 10px !important;
+    font-size: 10px !important;
+  }
+
+  .shop-modal-v2__footer {
+    display: none !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .shop-modal-v2__content .sk-card {
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+  }
+
+  .shop-modal-v2__content .sk-preview {
+    width: 92px !important;
+    height: 138px !important;
+    min-height: 138px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 180px !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (min-width: 701px) {
+  .shop-modal-v2.medieval-modal-container {
+    height: auto !important;
+    max-height: calc(100dvh - 40px) !important;
+  }
+
+  .shop-modal-v2 .medieval-modal-body,
+  .shop-modal-v2__body,
+  .shop-modal-v2__main {
+    height: auto !important;
+  }
+
+  .shop-modal-v2__content {
+    flex: 0 1 auto !important;
+    max-height: min(430px, calc(100dvh - 300px)) !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    font-size: 22px !important;
+  }
+
+  .shop-modal-v2 .rk-card {
+    min-height: 250px !important;
+    padding: 14px !important;
+  }
+
+  .shop-modal-v2 .rk-card-top {
+    gap: 14px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-slot {
+    width: 78px !important;
+    height: 78px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-img {
+    width: 66px !important;
+    height: 66px !important;
+  }
+
+  .shop-modal-v2 .rk-card-title {
+    font-size: 15px !important;
+  }
+
+  .shop-modal-v2 .rk-card-desc {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  .shop-modal-v2 .rk-res-name {
+    font-size: 10px !important;
+  }
+
+  .shop-modal-v2 .rk-res-amount {
+    font-size: 14px !important;
+  }
+
+  .shop-modal-v2 .rk-btn {
+    min-height: 44px !important;
+  }
+
+  .shop-modal-v2 .sold-out-overlay {
+    display: none !important;
+  }
+
+  .shop-modal-v2 .rk-card--sold {
+    opacity: 0.82 !important;
+  }
+}
+
+/* ROK-inspired restrained shop palette: bronze accents over a cool war-room base. */
+.shop-modal-v2 {
+  --shop-ink: #10191f;
+  --shop-ink-deep: #0b1217;
+  --shop-panel: #17232a;
+  --shop-panel-soft: #202c31;
+  --shop-bronze: #9b7b45;
+  --shop-bronze-soft: #6f5b3d;
+  --shop-cream: #e2d3b0;
+  --shop-muted: #99a09a;
+}
+
+.shop-modal-v2.medieval-modal-container,
+.shop-modal-v2__body {
+  background: var(--shop-ink) !important;
+  border-color: rgba(155, 123, 69, 0.72) !important;
+}
+
+.shop-modal-v2__body {
+  background:
+    linear-gradient(180deg, rgba(27, 39, 45, 0.72), rgba(9, 16, 21, 0.96)),
+    var(--shop-ink-deep) !important;
+}
+
+.shop-modal-v2__sidebar {
+  border-right-color: rgba(123, 101, 63, 0.38) !important;
+  background:
+    linear-gradient(180deg, rgba(37, 29, 20, 0.72), rgba(12, 21, 26, 0.9)),
+    #141e23 !important;
+}
+
+.shop-modal-v2__hero,
+.shop-modal-v2 .royal-velvet-banner {
+  background:
+    linear-gradient(180deg, rgba(83, 43, 39, 0.88), rgba(44, 26, 25, 0.96)),
+    url("/assets/ui/shop_hero_castle_bg.jpg") center top / cover no-repeat !important;
+  border-color: rgba(160, 126, 70, 0.78) !important;
+  box-shadow:
+    inset 0 0 24px rgba(0, 0, 0, 0.54),
+    0 8px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.shop-modal-v2 .euro-hero-title {
+  color: var(--shop-cream) !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.92) !important;
+}
+
+.shop-modal-v2 .euro-hero-subtitle,
+.shop-modal-v2 .euro-shop-footer {
+  color: var(--shop-muted) !important;
+}
+
+.shop-modal-v2 .euro-crown-icon,
+.shop-modal-v2 .euro-red-gem-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.62)) !important;
+}
+
+.shop-modal-v2 .euro-gems-capsule {
+  background: #151b1e !important;
+  border-color: var(--shop-bronze) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.52) !important;
+}
+
+.shop-modal-v2 .euro-gems-label {
+  color: #b29a67 !important;
+}
+
+.shop-modal-v2 .euro-gems-val {
+  color: var(--shop-cream) !important;
+  text-shadow: none !important;
+}
+
+.shop-modal-v2__tabs {
+  border-color: rgba(126, 106, 73, 0.42) !important;
+  background: #151e23 !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn {
+  background: #202a2f !important;
+  border-color: rgba(111, 91, 61, 0.62) !important;
+  color: #a7a293 !important;
+  box-shadow: none !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn:hover {
+  border-color: #a1844d !important;
+  color: #d8c8a2 !important;
+  transform: none !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn--blue.active,
+.shop-modal-v2__tabs .euro-tab-btn--grey.active {
+  background: #746039 !important;
+  border-color: #aa8a4d !important;
+  color: #f0dfb5 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 239, 188, 0.16) !important;
+}
+
+.shop-modal-v2__content {
+  border-color: rgba(112, 97, 70, 0.38) !important;
+  background: #0e181d !important;
+}
+
+.shop-modal-v2__content .rk-card--blue {
+  background: linear-gradient(145deg, #1c3444, #12242e) !important;
+  border-color: #45677b !important;
+  outline-color: rgba(91, 127, 145, 0.2) !important;
+}
+
+.shop-modal-v2__content .rk-card--gold {
+  background: linear-gradient(145deg, #30291f, #211b15) !important;
+  border-color: #806943 !important;
+  outline-color: rgba(158, 126, 70, 0.2) !important;
+}
+
+.shop-modal-v2__content .rk-card:hover,
+.shop-modal-v2__content .sk-card:hover {
+  transform: none !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38) !important;
+}
+
+.shop-modal-v2 .rk-card-title,
+.shop-modal-v2 .sk-title {
+  color: var(--shop-cream) !important;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.86) !important;
+}
+
+.shop-modal-v2 .rk-card-desc,
+.shop-modal-v2 .sk-desc,
+.shop-modal-v2 .rk-limit {
+  color: #9b9b91 !important;
+}
+
+.shop-modal-v2 .rk-res-cell {
+  background: rgba(8, 14, 18, 0.58) !important;
+  border-color: rgba(115, 101, 74, 0.3) !important;
+}
+
+.shop-modal-v2 .rk-res-cell:hover {
+  background: rgba(28, 32, 31, 0.74) !important;
+  border-color: rgba(154, 126, 73, 0.52) !important;
+}
+
+.shop-modal-v2 .rk-res-name {
+  color: #a8a79d !important;
+}
+
+.shop-modal-v2 .rk-res-amount,
+.shop-modal-v2 .rk-btn-price {
+  color: #d8c795 !important;
+  text-shadow: none !important;
+}
+
+.shop-modal-v2 .rk-btn--green {
+  background: #4b6255 !important;
+  border-color: #728b73 !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.shop-modal-v2 .rk-btn--amber {
+  background: #76532e !important;
+  border-color: #aa8248 !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.shop-modal-v2 .rk-btn--green:hover,
+.shop-modal-v2 .rk-btn--amber:hover {
+  background: #86683b !important;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.42) !important;
+}
+
+.shop-modal-v2 .rk-btn--owned {
+  background: #303a3f !important;
+  border-color: #536068 !important;
+  color: #aab1af !important;
+}
+
+.shop-modal-v2 .rk-badge--sale,
+.shop-modal-v2 .rk-badge--hot,
+.shop-modal-v2 .rk-badge--newbie {
+  background: #4b5149 !important;
+  border-color: #8b805e !important;
+  color: #d8c99e !important;
+  text-shadow: none !important;
+}
+
+.shop-modal-v2 .gothic-arched-frame {
+  border-color: #806944 !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.52) !important;
+}
+
+/* Brighter strategy palette and compact mobile layout. */
+.shop-modal-v2 {
+  --shop-ink: #14242d;
+  --shop-ink-deep: #0d1820;
+  --shop-panel: #20333d;
+  --shop-panel-soft: #2b3d45;
+  --shop-bronze: #c09a58;
+  --shop-bronze-soft: #8c754c;
+  --shop-cream: #f0dfb6;
+  --shop-muted: #b4b6aa;
+}
+
+.shop-modal-v2.medieval-modal-container,
+.shop-modal-v2__body {
+  background-color: var(--shop-ink) !important;
+}
+
+.shop-modal-v2__body {
+  background:
+    linear-gradient(180deg, rgba(34, 55, 65, 0.84), rgba(10, 20, 27, 0.97)),
+    var(--shop-ink-deep) !important;
+}
+
+.shop-modal-v2__hero,
+.shop-modal-v2 .royal-velvet-banner {
+  background:
+    linear-gradient(180deg, rgba(112, 58, 55, 0.9), rgba(58, 34, 35, 0.96)),
+    url("/assets/ui/shop_hero_castle_bg.jpg") center top / cover no-repeat !important;
+  border-color: rgba(206, 164, 86, 0.86) !important;
+}
+
+.shop-modal-v2__tabs {
+  background: #1a2a32 !important;
+  border-color: rgba(167, 132, 71, 0.55) !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn {
+  background: #2a3b43 !important;
+  border-color: rgba(145, 119, 72, 0.74) !important;
+  color: #c0b59a !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn:hover {
+  background: #344b54 !important;
+  border-color: #c09a58 !important;
+  color: #f0dfb6 !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn--blue.active,
+.shop-modal-v2__tabs .euro-tab-btn--grey.active {
+  background: linear-gradient(180deg, #ae884b, #7f643b) !important;
+  border-color: #d4af68 !important;
+  color: #fff1ca !important;
+}
+
+.shop-modal-v2__content {
+  background: #122029 !important;
+  border-color: rgba(137, 116, 77, 0.5) !important;
+}
+
+.shop-modal-v2__content .rk-card--blue {
+  background: linear-gradient(145deg, #285267, #1a3542) !important;
+  border-color: #5c8493 !important;
+}
+
+.shop-modal-v2__content .rk-card--gold {
+  background: linear-gradient(145deg, #493a27, #2c2419) !important;
+  border-color: #a9884f !important;
+}
+
+.shop-modal-v2 .rk-res-cell {
+  background: rgba(18, 30, 36, 0.74) !important;
+  border-color: rgba(154, 132, 83, 0.42) !important;
+}
+
+.shop-modal-v2 .rk-res-cell:hover {
+  background: rgba(51, 64, 65, 0.82) !important;
+  border-color: rgba(205, 166, 88, 0.72) !important;
+}
+
+.shop-modal-v2 .rk-res-name {
+  color: #c0b79e !important;
+}
+
+.shop-modal-v2 .rk-res-amount,
+.shop-modal-v2 .rk-btn-price {
+  color: #f0d998 !important;
+}
+
+.shop-modal-v2 .rk-btn--green {
+  background: linear-gradient(180deg, #638b6d, #42624f) !important;
+  border-color: #9bb78d !important;
+}
+
+.shop-modal-v2 .rk-btn--amber {
+  background: linear-gradient(180deg, #a9783e, #704b2c) !important;
+  border-color: #d1a761 !important;
+}
+
+.shop-modal-v2 .rk-btn--green:hover,
+.shop-modal-v2 .rk-btn--amber:hover {
+  background: linear-gradient(180deg, #789d78, #87633b) !important;
+}
+
+.shop-modal-v2 .shop-resource-icon,
+.shop-modal-v2 .euro-red-gem-icon,
+.shop-modal-v2 .rk-btn-gem,
+.shop-modal-v2 .sk-btn-gem,
+.shop-modal-v2 .euro-btn-gem-icon {
+  object-fit: contain !important;
+  display: block !important;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.58)) !important;
+}
+
+.shop-modal-v2 .shop-resource-icon {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.shop-modal-v2 .euro-red-gem-icon {
+  width: 25px !important;
+  height: 25px !important;
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2.medieval-modal-container {
+    height: min(92dvh, 860px) !important;
+    max-height: calc(100dvh - 8px) !important;
+    width: 100vw !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  .shop-modal-v2__body {
+    padding: 6px !important;
+  }
+
+  .shop-modal-v2__main {
+    padding: 6px 0 env(safe-area-inset-bottom) !important;
+  }
+
+  .shop-modal-v2__hero {
+    min-height: 94px !important;
+    padding: 13px 96px 18px 12px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 180px !important;
+    font-size: 15px !important;
+    line-height: 1.18 !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    max-width: 190px !important;
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+  }
+
+  .shop-modal-v2 .euro-gems-capsule {
+    right: 10px !important;
+    bottom: -13px !important;
+    padding: 5px 9px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn {
+    min-height: 48px !important;
+    padding: 7px 5px !important;
+    line-height: 1.15 !important;
+  }
+
+  .shop-modal-v2__content {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .shop-modal-v2__content .rk-card {
+    padding: 10px !important;
+  }
+
+  .shop-modal-v2__content .rk-card-top {
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding-top: 12px !important;
+  }
+
+  .shop-modal-v2__content .rk-chest-slot {
+    width: 66px !important;
+    height: 66px !important;
+  }
+
+  .shop-modal-v2__content .rk-chest-img {
+    width: 55px !important;
+    height: 55px !important;
+  }
+
+  .shop-modal-v2 .rk-card-title {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  .shop-modal-v2 .rk-card-desc {
+    font-size: 9.5px !important;
+    line-height: 1.3 !important;
+  }
+
+  .shop-modal-v2 .rk-res-icon {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .shop-modal-v2 .rk-res-icon .shop-resource-icon {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .shop-modal-v2 .rk-res-name {
+    font-size: 8px !important;
+  }
+
+  .shop-modal-v2 .rk-res-amount {
+    font-size: 13px !important;
+  }
+
+  .shop-modal-v2 .rk-btn {
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .shop-modal-v2__hero {
+    padding-right: 82px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 158px !important;
+    font-size: 14px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    max-width: 168px !important;
+  }
+
+  .shop-modal-v2__content .sk-card {
+    grid-template-columns: 88px minmax(0, 1fr) !important;
+  }
+
+  .shop-modal-v2__content .sk-preview {
+    width: 88px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+  }
+}
+
+.shop-modal-v2.medieval-modal-container {
+  width: min(1160px, calc(100vw - 24px)) !important;
+  border-radius: 10px !important;
+  border: 2px solid #8b6a39 !important;
+  outline: 1px solid rgba(224, 190, 113, 0.26) !important;
+  outline-offset: -5px !important;
+  background: #0d171d !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.82),
+    0 0 0 5px rgba(35, 23, 13, 0.72),
+    inset 0 0 0 1px rgba(245, 219, 153, 0.14) !important;
+}
+
+.shop-modal-v2 .medieval-modal-close-btn {
+  top: 10px !important;
+  right: 10px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 5px !important;
+  background: linear-gradient(180deg, #4d3022, #281b18) !important;
+  border-color: #b38a4e !important;
+  color: #efd39a !important;
+  font-size: 22px !important;
+  z-index: 12 !important;
+}
+
+.shop-modal-v2__body {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    linear-gradient(135deg, #233842 0%, #102029 48%, #0b151b 100%) !important;
+}
+
+.shop-modal-v2__sidebar {
+  width: 214px !important;
+  padding: 18px 12px !important;
+  background:
+    linear-gradient(180deg, rgba(78, 52, 28, 0.7), rgba(17, 25, 28, 0.95)),
+    #1a2529 !important;
+  border-right: 2px solid rgba(177, 137, 70, 0.56) !important;
+}
+
+.shop-modal-v2__sidebar .merchant-bubble {
+  border-radius: 5px !important;
+  filter: saturate(0.82) !important;
+}
+
+.shop-modal-v2__sidebar .gothic-arched-frame {
+  max-width: 178px !important;
+  border-radius: 5px !important;
+  border-width: 2px !important;
+}
+
+.shop-modal-v2__main {
+  padding: 14px 16px 12px !important;
+}
+
+.shop-modal-v2__hero {
+  min-height: 98px !important;
+  padding: 15px 74px 17px 68px !important;
+  border-radius: 6px !important;
+  border-width: 2px !important;
+  background:
+    linear-gradient(90deg, rgba(63, 35, 28, 0.9), rgba(104, 55, 45, 0.76)),
+    url("/assets/ui/shop_hero_castle_bg.jpg") center / cover no-repeat !important;
+  box-shadow:
+    inset 0 0 25px rgba(17, 8, 5, 0.65),
+    0 5px 12px rgba(0, 0, 0, 0.38) !important;
+}
+
+.shop-modal-v2 .shop-hero-kicker {
+  display: block !important;
+  margin-bottom: 2px !important;
+  color: #d5ad63 !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  letter-spacing: 2px !important;
+  line-height: 1 !important;
+}
+
+.shop-modal-v2 .euro-hero-title {
+  color: #f5e3b4 !important;
+  font-size: clamp(19px, 2vw, 27px) !important;
+  letter-spacing: 0.1em !important;
+  line-height: 1.12 !important;
+}
+
+.shop-modal-v2 .euro-hero-subtitle {
+  color: #d0c0a2 !important;
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+}
+
+.shop-modal-v2 .royal-shield-emblem {
+  left: 18px !important;
+  width: 36px !important;
+  height: 42px !important;
+  filter: saturate(0.72) !important;
+}
+
+.shop-modal-v2 .euro-gems-capsule {
+  right: 18px !important;
+  bottom: -13px !important;
+  min-height: 32px !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  background: linear-gradient(180deg, #26373a, #172326) !important;
+  border: 1px solid #c39a56 !important;
+  box-shadow:
+    0 4px 9px rgba(0, 0, 0, 0.54),
+    inset 0 1px 0 rgba(255, 238, 185, 0.16) !important;
+}
+
+.shop-modal-v2 .euro-gems-label {
+  color: #d8b66f !important;
+  font-size: 8px !important;
+  letter-spacing: 0.08em !important;
+}
+
+.shop-modal-v2 .euro-gems-val {
+  color: #f6e4b3 !important;
+  font-size: 14px !important;
+}
+
+.shop-modal-v2__tabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  margin: 13px 0 0 !important;
+  padding: 4px !important;
+  border-radius: 5px !important;
+  background: #142229 !important;
+  border: 1px solid #6e5a3c !important;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.46) !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn {
+  min-height: 48px !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  padding: 5px 14px !important;
+  border-radius: 3px !important;
+  border: 1px solid transparent !important;
+  background: linear-gradient(180deg, #2a3a40, #1c2a2f) !important;
+  color: #b5aa92 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn.active {
+  background: linear-gradient(180deg, #b18a4d, #76592f) !important;
+  border-color: #e0bc72 !important;
+  color: #fff0c5 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 190, 0.36),
+    0 2px 4px rgba(0, 0, 0, 0.34) !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn img {
+  width: 28px !important;
+  height: 28px !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.62)) !important;
+}
+
+.shop-modal-v2 .shop-tab-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+}
+
+.shop-modal-v2 .shop-tab-copy strong {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.05 !important;
+}
+
+.shop-modal-v2 .shop-tab-copy small {
+  color: #a99d86 !important;
+  font-size: 8px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1 !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn.active .shop-tab-copy small {
+  color: #f2dca7 !important;
+}
+
+.shop-modal-v2__content {
+  margin-top: 9px !important;
+  padding: 10px !important;
+  border-radius: 5px !important;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 2px,
+      transparent 2px,
+      transparent 8px
+    ),
+    #12212a !important;
+  border: 1px solid #536554 !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.42) !important;
+}
+
+.shop-modal-v2__content .euro-cards-grid,
+.shop-modal-v2__content .sk-grid {
+  gap: 10px !important;
+}
+
+.shop-modal-v2__content .rk-card,
+.shop-modal-v2__content .sk-card {
+  border-radius: 5px !important;
+  outline: 1px solid rgba(245, 214, 142, 0.14) !important;
+  outline-offset: -4px !important;
+  box-shadow:
+    0 7px 14px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.14) !important;
+}
+
+.shop-modal-v2__content .rk-card--blue {
+  background:
+    linear-gradient(145deg, rgba(59, 106, 126, 0.94), rgba(25, 52, 65, 0.98)),
+    #1b3e4d !important;
+  border-color: #7199a4 !important;
+}
+
+.shop-modal-v2__content .rk-card--gold {
+  background:
+    linear-gradient(145deg, rgba(109, 82, 43, 0.95), rgba(48, 35, 23, 0.98)),
+    #332518 !important;
+  border-color: #b89a5c !important;
+}
+
+.shop-modal-v2 .rk-card-top {
+  gap: 12px !important;
+  padding-top: 10px !important;
+}
+
+.shop-modal-v2 .rk-chest-slot {
+  width: 74px !important;
+  height: 74px !important;
+  border-radius: 5px !important;
+  background: linear-gradient(145deg, #3d4b46, #141c1d) !important;
+  border: 1px solid #c39a56 !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(12, 15, 14, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.35) !important;
+}
+
+.shop-modal-v2 .rk-chest-img {
+  width: 61px !important;
+  height: 61px !important;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.75)) !important;
+}
+
+.shop-modal-v2 .rk-card-title {
+  color: #f0ddb0 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.04em !important;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.8) !important;
+}
+
+.shop-modal-v2 .rk-card-desc {
+  color: #c0c0ae !important;
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+}
+
+.shop-modal-v2 .rk-res-grid {
+  gap: 5px !important;
+  margin-top: 2px !important;
+}
+
+.shop-modal-v2 .rk-res-cell {
+  min-width: 0 !important;
+  padding: 6px !important;
+  border-radius: 3px !important;
+  background: rgba(8, 19, 24, 0.52) !important;
+  border-color: rgba(190, 159, 91, 0.42) !important;
+}
+
+.shop-modal-v2 .rk-res-icon {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 3px !important;
+  background: #19272a !important;
+  border: 1px solid rgba(220, 188, 116, 0.28) !important;
+}
+
+.shop-modal-v2 .rk-res-icon .shop-resource-icon {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.shop-modal-v2 .rk-res-name {
+  color: #c9bea1 !important;
+  font-size: 8px !important;
+  letter-spacing: 0.06em !important;
+}
+
+.shop-modal-v2 .rk-res-amount {
+  color: #f1d58c !important;
+  font-size: 14px !important;
+}
+
+.shop-modal-v2 .rk-btn-area {
+  margin-top: 5px !important;
+}
+
+.shop-modal-v2 .rk-btn {
+  height: 42px !important;
+  border-radius: 4px !important;
+  border-width: 1px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 3px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.shop-modal-v2 .rk-btn--green {
+  background: linear-gradient(180deg, #70976d, #42644e) !important;
+  border-color: #a8c092 !important;
+}
+
+.shop-modal-v2 .rk-btn--amber {
+  background: linear-gradient(180deg, #b4874a, #79562f) !important;
+  border-color: #e0bd75 !important;
+}
+
+.shop-modal-v2 .rk-btn-price {
+  color: #fff0bf !important;
+  font-size: 18px !important;
+}
+
+.shop-modal-v2 .rk-btn-label {
+  color: rgba(255, 246, 215, 0.82) !important;
+}
+
+.shop-modal-v2 .rk-limit {
+  color: #a9a995 !important;
+  font-size: 8px !important;
+}
+
+.shop-modal-v2 .rk-badge {
+  top: 0 !important;
+  left: 0 !important;
+  padding: 3px 8px !important;
+  border-radius: 4px 0 5px 0 !important;
+  font-size: 8px !important;
+  letter-spacing: 0.08em !important;
+}
+
+.shop-modal-v2 .rk-badge--sale,
+.shop-modal-v2 .rk-badge--newbie {
+  background: #3c6b55 !important;
+  border-color: #91b17e !important;
+  color: #e0efc1 !important;
+}
+
+.shop-modal-v2 .rk-badge--hot {
+  background: #7b4938 !important;
+  border-color: #c68c65 !important;
+  color: #ffe0b1 !important;
+}
+
+.shop-modal-v2__content .sk-card {
+  min-height: 390px !important;
+  padding: 12px !important;
+  gap: 9px !important;
+}
+
+.shop-modal-v2 .sk-preview {
+  border-radius: 4px !important;
+  border-color: #a9864e !important;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.72) !important;
+}
+
+.shop-modal-v2 .sk-preview--gold {
+  background: radial-gradient(
+    circle at 50% 75%,
+    rgba(184, 143, 67, 0.42),
+    #182b31 72%
+  ) !important;
+}
+
+.shop-modal-v2 .sk-preview--fire {
+  background: radial-gradient(
+    circle at 50% 75%,
+    rgba(172, 75, 46, 0.42),
+    #292329 72%
+  ) !important;
+}
+
+.shop-modal-v2 .sk-preview--wind {
+  background: radial-gradient(
+    circle at 50% 75%,
+    rgba(77, 143, 151, 0.4),
+    #19313a 72%
+  ) !important;
+}
+
+.shop-modal-v2 .sk-title {
+  color: #e9d29d !important;
+  font-size: 16px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.82) !important;
+}
+
+.shop-modal-v2 .sk-desc {
+  color: #bebead !important;
+}
+
+.shop-modal-v2 .sk-rarity-tag,
+.shop-modal-v2 .sk-badge {
+  background: #3b4d4c !important;
+  border-color: #8c9b7c !important;
+  color: #e2d8b9 !important;
+  text-shadow: none !important;
+}
+
+.shop-modal-v2 .sk-btn {
+  min-height: 42px !important;
+  border-radius: 4px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 3px 7px rgba(0, 0, 0, 0.34) !important;
+}
+
+.shop-modal-v2 .sk-btn--buy-gold,
+.shop-modal-v2 .sk-btn--buy-fire,
+.shop-modal-v2 .sk-btn--buy-wind,
+.shop-modal-v2 .sk-btn--equip {
+  background: linear-gradient(180deg, #a97f44, #6d4d2e) !important;
+  border-color: #d5ae68 !important;
+}
+
+.shop-modal-v2 .sk-btn--equipped {
+  background: #4c6e58 !important;
+  border-color: #9db888 !important;
+}
+
+.shop-modal-v2 .sk-btn-price {
+  color: #fff0bf !important;
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2.medieval-modal-container {
+    width: 100vw !important;
+    height: min(94dvh, 900px) !important;
+    max-height: calc(100dvh - 4px) !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  .shop-modal-v2__body {
+    padding: 5px !important;
+  }
+
+  .shop-modal-v2__main {
+    padding: 5px 0 env(safe-area-inset-bottom) !important;
+  }
+
+  .shop-modal-v2__hero {
+    min-height: 88px !important;
+    padding: 12px 88px 17px 50px !important;
+    border-radius: 5px !important;
+  }
+
+  .shop-modal-v2 .royal-shield-emblem {
+    left: 10px !important;
+    width: 30px !important;
+    height: 36px !important;
+  }
+
+  .shop-modal-v2 .shop-hero-kicker {
+    font-size: 7px !important;
+    letter-spacing: 1.2px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 190px !important;
+    font-size: 14px !important;
+    letter-spacing: 0.07em !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    max-width: 200px !important;
+    margin-top: 4px !important;
+    font-size: 8px !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-badge {
+    top: 9px !important;
+    right: 48px !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-capsule {
+    right: 8px !important;
+    bottom: -12px !important;
+    min-height: 28px !important;
+    padding: 4px 7px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-label {
+    display: none !important;
+  }
+
+  .shop-modal-v2 .euro-red-gem-icon {
+    width: 21px !important;
+    height: 21px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-val {
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2__tabs {
+    margin-top: 12px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn {
+    min-height: 45px !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 5px 4px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn img {
+    width: 23px !important;
+    height: 23px !important;
+  }
+
+  .shop-modal-v2 .shop-tab-copy strong {
+    font-size: 9px !important;
+  }
+
+  .shop-modal-v2 .shop-tab-copy small {
+    display: none !important;
+  }
+
+  .shop-modal-v2__content {
+    margin-top: 7px !important;
+    padding: 7px !important;
+  }
+
+  .shop-modal-v2__content .euro-cards-grid {
+    gap: 8px !important;
+  }
+
+  .shop-modal-v2__content .rk-card {
+    padding: 9px !important;
+  }
+
+  .shop-modal-v2 .rk-card-top {
+    gap: 8px !important;
+    padding-top: 10px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-slot {
+    width: 60px !important;
+    height: 60px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-img {
+    width: 51px !important;
+    height: 51px !important;
+  }
+
+  .shop-modal-v2 .rk-card-title {
+    font-size: 11px !important;
+  }
+
+  .shop-modal-v2 .rk-card-desc {
+    font-size: 8.5px !important;
+  }
+
+  .shop-modal-v2 .rk-res-grid {
+    gap: 4px !important;
+  }
+
+  .shop-modal-v2 .rk-res-cell {
+    gap: 5px !important;
+    padding: 5px !important;
+  }
+
+  .shop-modal-v2 .rk-res-icon,
+  .shop-modal-v2 .rk-res-icon .shop-resource-icon {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .shop-modal-v2 .rk-res-name {
+    font-size: 7px !important;
+  }
+
+  .shop-modal-v2 .rk-res-amount {
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2 .rk-btn {
+    height: 40px !important;
+  }
+
+  .shop-modal-v2 .rk-btn-price {
+    font-size: 16px !important;
+  }
+
+  .shop-modal-v2__content .sk-card {
+    min-height: 0 !important;
+    grid-template-columns: 104px minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(38px, auto) !important;
+    gap: 7px 9px !important;
+    padding: 9px !important;
+  }
+
+  .shop-modal-v2__content .sk-preview {
+    width: 104px !important;
+    height: 146px !important;
+    min-height: 146px !important;
+  }
+
+  .shop-modal-v2 .sk-title {
+    font-size: 14px !important;
+  }
+
+  .shop-modal-v2 .sk-desc {
+    font-size: 8px !important;
+    line-height: 1.25 !important;
+  }
+
+  .shop-modal-v2 .sk-perks li {
+    font-size: 7.5px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .shop-modal-v2__hero {
+    padding-left: 43px !important;
+    padding-right: 70px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 154px !important;
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    max-width: 158px !important;
+    font-size: 7.5px !important;
+  }
+
+  .shop-modal-v2__content .sk-card {
+    grid-template-columns: 88px minmax(0, 1fr) !important;
+  }
+
+  .shop-modal-v2__content .sk-preview {
+    width: 88px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+  }
+}
+
+.shop-modal-v2.medieval-modal-container {
+  width: min(1040px, calc(100vw - 20px)) !important;
+  max-width: 1040px !important;
+  border-radius: 8px !important;
+  border: 2px solid #8e6a38 !important;
+  outline: 1px solid rgba(237, 201, 123, 0.22) !important;
+  outline-offset: -5px !important;
+  background: #0c171c !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.84),
+    0 0 0 5px rgba(40, 25, 13, 0.74),
+    inset 0 0 0 1px rgba(255, 239, 180, 0.12) !important;
+}
+
+.shop-modal-v2__body {
+  display: block !important;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    linear-gradient(135deg, #223943 0%, #11222a 48%, #0b151b 100%) !important;
+}
+
+.shop-modal-v2__sidebar {
+  display: none !important;
+}
+
+.shop-modal-v2__main {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 12px 14px 10px !important;
+}
+
+.shop-modal-v2__hero {
+  min-height: 86px !important;
+  padding: 13px 194px 13px 84px !important;
+  border-radius: 5px !important;
+  border: 2px solid #b68a49 !important;
+  background:
+    linear-gradient(90deg, rgba(52, 29, 25, 0.94), rgba(108, 57, 47, 0.7)),
+    url("/assets/ui/shop_hero_castle_bg.jpg") center / cover no-repeat !important;
+  box-shadow:
+    inset 0 0 26px rgba(12, 5, 4, 0.62),
+    0 5px 12px rgba(0, 0, 0, 0.38) !important;
+}
+
+.shop-modal-v2 .royal-shield-emblem {
+  display: none !important;
+}
+
+.shop-modal-v2 .mobile-merchant-badge {
+  display: flex !important;
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  width: 58px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: translateY(-50%) !important;
+  border: 0 !important;
+  background: transparent !important;
+  z-index: 4 !important;
+}
+
+.shop-modal-v2 .mobile-merchant-img {
+  width: 58px !important;
+  height: 58px !important;
+  border: 2px solid #d1a45e !important;
+  border-radius: 50% !important;
+  box-shadow:
+    0 0 0 3px rgba(38, 24, 14, 0.72),
+    0 4px 10px rgba(0, 0, 0, 0.65) !important;
+}
+
+.shop-modal-v2 .mobile-merchant-bubble {
+  display: none !important;
+}
+
+.shop-modal-v2 .shop-hero-kicker {
+  margin-bottom: 2px !important;
+  color: #d8af64 !important;
+  font-size: 8px !important;
+  letter-spacing: 0.2em !important;
+}
+
+.shop-modal-v2 .euro-hero-title {
+  color: #f6e3b1 !important;
+  font-size: clamp(23px, 3vw, 32px) !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.86) !important;
+}
+
+.shop-modal-v2 .euro-hero-subtitle {
+  max-width: 360px !important;
+  margin-top: 5px !important;
+  color: #d3c09d !important;
+  font-size: 9px !important;
+  line-height: 1.2 !important;
+}
+
+.shop-modal-v2 .euro-gems-capsule {
+  top: 50% !important;
+  right: 16px !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  min-height: 34px !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  background: linear-gradient(180deg, #293b3e, #17272a) !important;
+  border: 1px solid #c09a55 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 241, 188, 0.18),
+    0 4px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+.shop-modal-v2 .euro-gems-label {
+  color: #d9b66c !important;
+  font-size: 8px !important;
+}
+
+.shop-modal-v2 .euro-gems-val {
+  color: #f7e1aa !important;
+  font-size: 14px !important;
+}
+
+.shop-modal-v2__tabs {
+  margin: 10px 0 0 !important;
+  padding: 3px !important;
+  gap: 3px !important;
+  border-radius: 4px !important;
+  background: #13242a !important;
+  border: 1px solid #6e5937 !important;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.42) !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn {
+  min-height: 44px !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  padding: 4px 14px !important;
+  border-radius: 3px !important;
+  background: linear-gradient(180deg, #293c42, #1c2b30) !important;
+  border: 1px solid transparent !important;
+  color: #b9ad91 !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn.active {
+  background: linear-gradient(180deg, #b28b4d, #73562e) !important;
+  border-color: #e0bd72 !important;
+  color: #fff0c4 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 242, 192, 0.34),
+    0 2px 4px rgba(0, 0, 0, 0.32) !important;
+}
+
+.shop-modal-v2 .shop-tab-copy {
+  gap: 1px !important;
+}
+
+.shop-modal-v2 .shop-tab-copy strong {
+  font-size: 10px !important;
+  letter-spacing: 0.1em !important;
+}
+
+.shop-modal-v2 .shop-tab-copy small {
+  color: #aea187 !important;
+  font-size: 7px !important;
+  letter-spacing: 0.12em !important;
+}
+
+.shop-modal-v2__tabs .euro-tab-btn.active .shop-tab-copy small {
+  color: #f4dba1 !important;
+}
+
+.shop-modal-v2__content {
+  margin-top: 8px !important;
+  padding: 9px !important;
+  border-radius: 4px !important;
+  border: 1px solid #586853 !important;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 2px,
+      transparent 2px,
+      transparent 8px
+    ),
+    #122129 !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.42) !important;
+}
+
+.shop-modal-v2__content .euro-cards-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.shop-modal-v2__content .rk-card {
+  min-height: 300px !important;
+  padding: 11px !important;
+  border-radius: 5px !important;
+  outline: 1px solid rgba(246, 216, 146, 0.15) !important;
+  outline-offset: -4px !important;
+  box-shadow:
+    0 7px 14px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.16) !important;
+}
+
+.shop-modal-v2__content .rk-card--blue {
+  background:
+    linear-gradient(145deg, rgba(57, 111, 132, 0.96), rgba(23, 54, 68, 0.99)),
+    #1b3d4c !important;
+  border-color: #719eaa !important;
+}
+
+.shop-modal-v2__content .rk-card--gold {
+  background:
+    linear-gradient(145deg, rgba(111, 83, 44, 0.96), rgba(49, 36, 23, 0.99)),
+    #332518 !important;
+  border-color: #b99b5c !important;
+}
+
+.shop-modal-v2 .rk-card-top {
+  display: grid !important;
+  grid-template-columns: 86px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding-top: 8px !important;
+}
+
+.shop-modal-v2 .rk-chest-slot {
+  width: 86px !important;
+  height: 86px !important;
+  border-radius: 5px !important;
+  background: linear-gradient(145deg, #3e514c, #152022) !important;
+  border: 1px solid #d0a45e !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(8, 14, 14, 0.54),
+    0 4px 8px rgba(0, 0, 0, 0.38) !important;
+}
+
+.shop-modal-v2 .rk-chest-img {
+  width: 73px !important;
+  height: 73px !important;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.78)) !important;
+}
+
+.shop-modal-v2 .rk-card-title {
+  color: #f2dfad !important;
+  font-size: 15px !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0.04em !important;
+}
+
+.shop-modal-v2 .rk-card-desc {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  color: #c0c1ae !important;
+  font-size: 9px !important;
+  line-height: 1.3 !important;
+}
+
+.shop-modal-v2 .rk-res-grid {
+  gap: 5px !important;
+  margin-top: 7px !important;
+}
+
+.shop-modal-v2 .rk-res-cell {
+  min-width: 0 !important;
+  padding: 5px !important;
+  gap: 5px !important;
+  border-radius: 3px !important;
+  background: rgba(8, 19, 24, 0.54) !important;
+  border-color: rgba(196, 165, 96, 0.42) !important;
+}
+
+.shop-modal-v2 .rk-res-icon,
+.shop-modal-v2 .rk-res-icon .shop-resource-icon {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.shop-modal-v2 .rk-res-icon {
+  border-radius: 3px !important;
+  background: #18272a !important;
+  border: 1px solid rgba(220, 188, 116, 0.3) !important;
+}
+
+.shop-modal-v2 .rk-res-name {
+  color: #c9bea2 !important;
+  font-size: 7px !important;
+  letter-spacing: 0.06em !important;
+}
+
+.shop-modal-v2 .rk-res-amount {
+  color: #f2d68e !important;
+  font-size: 14px !important;
+}
+
+.shop-modal-v2 .rk-btn-area {
+  margin-top: 7px !important;
+}
+
+.shop-modal-v2 .rk-btn {
+  height: 40px !important;
+  border-radius: 4px !important;
+  border-width: 1px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 3px 6px rgba(0, 0, 0, 0.34) !important;
+}
+
+.shop-modal-v2 .rk-btn--green {
+  background: linear-gradient(180deg, #72986d, #45664f) !important;
+  border-color: #aac391 !important;
+}
+
+.shop-modal-v2 .rk-btn--amber {
+  background: linear-gradient(180deg, #b68a4d, #79572f) !important;
+  border-color: #e2bf76 !important;
+}
+
+.shop-modal-v2 .rk-btn-price {
+  color: #fff0bc !important;
+  font-size: 18px !important;
+}
+
+.shop-modal-v2 .rk-btn-label {
+  color: rgba(255, 246, 214, 0.84) !important;
+}
+
+.shop-modal-v2 .rk-limit {
+  margin-top: 2px !important;
+  color: #aeb09c !important;
+  font-size: 7px !important;
+}
+
+.shop-modal-v2 .rk-badge {
+  padding: 3px 8px !important;
+  border-radius: 4px 0 5px 0 !important;
+  font-size: 7px !important;
+  letter-spacing: 0.08em !important;
+}
+
+.shop-modal-v2 .rk-badge--sale,
+.shop-modal-v2 .rk-badge--newbie {
+  background: #3d6d57 !important;
+  border-color: #94b47f !important;
+  color: #e2f0c5 !important;
+}
+
+.shop-modal-v2 .rk-badge--hot {
+  background: #7e4c39 !important;
+  border-color: #cd9168 !important;
+  color: #ffe1b0 !important;
+}
+
+.shop-modal-v2 .rk-card--sold {
+  opacity: 0.72 !important;
+}
+
+.shop-modal-v2 .euro-shop-footer {
+  min-height: 30px !important;
+  margin-top: 8px !important;
+  padding: 5px 10px !important;
+  border-radius: 3px !important;
+  background: #101c22 !important;
+  border-color: #4a5a50 !important;
+  font-size: 8px !important;
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2.medieval-modal-container {
+    width: 100vw !important;
+    height: min(94dvh, 900px) !important;
+    max-height: calc(100dvh - 4px) !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  .shop-modal-v2__body {
+    padding: 4px !important;
+  }
+
+  .shop-modal-v2__main {
+    padding: 4px 0 env(safe-area-inset-bottom) !important;
+  }
+
+  .shop-modal-v2__hero {
+    min-height: 78px !important;
+    padding: 11px 86px 11px 58px !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-badge {
+    left: 9px !important;
+  }
+
+  .shop-modal-v2 .mobile-merchant-img {
+    width: 46px !important;
+    height: 46px !important;
+  }
+
+  .shop-modal-v2 .shop-hero-kicker {
+    font-size: 6px !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 170px !important;
+    font-size: 17px !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    display: block !important;
+    max-width: 170px !important;
+    margin-top: 4px !important;
+    font-size: 7px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-capsule {
+    right: 8px !important;
+    min-height: 28px !important;
+    padding: 4px 6px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-label {
+    display: none !important;
+  }
+
+  .shop-modal-v2 .euro-red-gem-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .shop-modal-v2 .euro-gems-val {
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2__tabs {
+    margin-top: 8px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn {
+    min-height: 43px !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 4px !important;
+  }
+
+  .shop-modal-v2__tabs .euro-tab-btn img {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .shop-modal-v2 .shop-tab-copy strong {
+    font-size: 8px !important;
+  }
+
+  .shop-modal-v2 .shop-tab-copy small {
+    display: none !important;
+  }
+
+  .shop-modal-v2__content {
+    margin-top: 6px !important;
+    padding: 6px !important;
+  }
+
+  .shop-modal-v2__content .euro-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 7px !important;
+  }
+
+  .shop-modal-v2__content .rk-card {
+    min-height: 0 !important;
+    padding: 8px !important;
+  }
+
+  .shop-modal-v2 .rk-card-top {
+    grid-template-columns: 68px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding-top: 8px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-slot {
+    width: 68px !important;
+    height: 68px !important;
+  }
+
+  .shop-modal-v2 .rk-chest-img {
+    width: 57px !important;
+    height: 57px !important;
+  }
+
+  .shop-modal-v2 .rk-card-title {
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2 .rk-card-desc {
+    font-size: 8px !important;
+  }
+
+  .shop-modal-v2 .rk-res-grid {
+    gap: 4px !important;
+    margin-top: 6px !important;
+  }
+
+  .shop-modal-v2 .rk-res-cell {
+    padding: 4px !important;
+  }
+
+  .shop-modal-v2 .rk-res-icon,
+  .shop-modal-v2 .rk-res-icon .shop-resource-icon {
+    width: 29px !important;
+    height: 29px !important;
+  }
+
+  .shop-modal-v2 .rk-res-name {
+    font-size: 6.5px !important;
+  }
+
+  .shop-modal-v2 .rk-res-amount {
+    font-size: 12px !important;
+  }
+
+  .shop-modal-v2 .rk-btn {
+    height: 38px !important;
+  }
+
+  .shop-modal-v2 .euro-shop-footer {
+    display: none !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .shop-modal-v2__hero {
+    padding-left: 52px !important;
+    padding-right: 72px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-title {
+    max-width: 140px !important;
+    font-size: 14px !important;
+  }
+
+  .shop-modal-v2 .euro-hero-subtitle {
+    max-width: 145px !important;
+    font-size: 6.5px !important;
+  }
+}
+
+/* Shop navigation: desktop sidebar, mobile horizontal rail. */
+@media (min-width: 701px) {
+  .shop-modal-v2__hero .mobile-merchant-badge {
+    display: none !important;
+  }
+
+  .shop-modal-v2__body {
+    display: grid !important;
+    grid-template-columns: 184px minmax(0, 1fr) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .shop-modal-v2__sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 14px 10px !important;
+    overflow: hidden !important;
+    background:
+      linear-gradient(180deg, rgba(74, 49, 27, 0.82), rgba(12, 22, 27, 0.97)),
+      #17252a !important;
+    border-right: 2px solid rgba(182, 140, 71, 0.58) !important;
+  }
+
+  .shop-modal-v2__sidebar .merchant-bubble {
+    order: 1 !important;
+    margin: 0 !important;
+  }
+
+  .shop-modal-v2__sidebar .gothic-arched-frame {
+    order: 2 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    flex: 0 1 126px !important;
+    min-height: 0 !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs {
+    order: 3 !important;
+    flex: 0 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    border-radius: 5px !important;
+    background: rgba(8, 17, 21, 0.64) !important;
+    border: 1px solid #6e5937 !important;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.46) !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn {
+    width: 100% !important;
+    min-height: 43px !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+    padding: 5px 8px !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, #2b3d42, #1c2a2f) !important;
+    border: 1px solid transparent !important;
+    color: #bfb196 !important;
+    text-align: left !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn.active {
+    background: linear-gradient(180deg, #b28b4d, #73562e) !important;
+    border-color: #e0bd72 !important;
+    color: #fff0c4 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 242, 192, 0.34),
+      0 2px 5px rgba(0, 0, 0, 0.34) !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn img {
+    width: 25px !important;
+    height: 25px !important;
+    flex: 0 0 25px !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-tab-copy strong {
+    font-size: 10px !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-tab-copy small {
+    font-size: 7px !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  .shop-modal-v2__main {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .shop-modal-v2__main .shop-modal-v2__hero {
+    flex: 0 0 auto !important;
+  }
+
+  .shop-modal-v2__main .shop-modal-v2__content {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2__sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: 0 !important;
+  }
+
+  .shop-modal-v2__sidebar .merchant-bubble,
+  .shop-modal-v2__sidebar .gothic-arched-frame {
+    display: none !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs {
+    display: flex !important;
+    flex-direction: row !important;
+    order: 1 !important;
+    width: 100% !important;
+    margin: 0 0 6px !important;
+    padding: 3px !important;
+    gap: 3px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    border-radius: 4px !important;
+    background: #13242a !important;
+    border: 1px solid #6e5937 !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn {
+    flex: 0 0 112px !important;
+    min-width: 112px !important;
+    min-height: 43px !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 4px 3px !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, #293c42, #1c2b30) !important;
+    border: 1px solid transparent !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn.active {
+    background: linear-gradient(180deg, #b28b4d, #73562e) !important;
+    border-color: #e0bd72 !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-modal-v2__tabs .euro-tab-btn img {
+    width: 22px !important;
+    height: 22px !important;
+    flex: 0 0 22px !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-tab-copy {
+    min-width: 0 !important;
+    align-items: flex-start !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-tab-copy strong {
+    overflow: hidden !important;
+    font-size: 8px !important;
+    letter-spacing: 0.05em !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .shop-modal-v2__sidebar .shop-tab-copy small {
+    display: none !important;
+  }
+
+  .shop-modal-v2__main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .shop-modal-v2__main .shop-modal-v2__content {
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+  }
+}
+
+.shop-modal-v2 .shop-empty-state {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 28px 18px;
+  border: 1px dashed rgba(197, 158, 86, 0.5);
+  background: rgba(8, 17, 21, 0.46);
+  color: #a99d86;
+  text-align: center;
+}
+
+.shop-modal-v2 .shop-empty-state img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  opacity: 0.72;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.7));
+}
+
+.shop-modal-v2 .shop-empty-state strong {
+  color: #e6c985;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.shop-modal-v2 .shop-empty-state span {
+  max-width: 280px;
+  color: #9da59f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2 .shop-empty-state {
+    min-height: 180px;
+    padding: 22px 14px;
+  }
+
+  .shop-modal-v2 .shop-empty-state strong {
+    font-size: 9px;
+  }
+
+  .shop-modal-v2 .shop-empty-state span {
+    font-size: 9px;
   }
 }

@@ -21,6 +21,7 @@ import {
   getServerStatus,
   getWorldTerritories,
   markBattleReportRead,
+  markAllBattleReportsRead,
   markPlayerMailRead,
   sendPlayerMail,
   startClearing,
@@ -48,11 +49,14 @@ import { ShopModal } from "./ShopModal";
 import { ChatInputModal } from "./ChatInputModal";
 import { ChatPanel } from "./ChatPanel";
 import { SettingsModal } from "./SettingsModal";
+import { ProfileHud } from "./hud/ProfileHud";
+import { ResourceHud } from "./hud/ResourceHud";
+import { WarReportListModal } from "./reports/WarReportListModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
 import { MinimapPanel } from "./MinimapPanel";
-import { RESOURCE_ORDER, ResourceHudItem } from "./ResourceDisplay";
+import { RESOURCE_ORDER } from "./ResourceDisplay";
 import { AssetIcon, type IconAssetId } from "./AssetIcon";
 import { useGameStore } from "../store/gameStore";
 import type {
@@ -4162,158 +4166,25 @@ export function GameApp({
           )}
 
           {/* TOP BAR - PIXEL PERFECT RISE OF KINGDOMS (ROK) HUD */}
-          <div
-            style={{
-              position: "fixed",
-              inset: "0 0 auto 0",
-              zIndex: 1000,
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              padding: "8px 12px 0 12px",
-              background: "transparent",
-              border: "none",
-              pointerEvents: "none",
-            }}
-            className="hud-topbar hud-interactive rok-hud-topbar"
-          >
-            {/* TOP-LEFT: ROK PROFILE CARD */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "flex-start",
-                gap: 10,
-                pointerEvents: "auto",
-                position: "relative",
-                background: "transparent",
-                border: "none",
-                boxShadow: "none",
-                padding: 0,
-              }}
-              className="rok-profile-card"
-            >
-              {/* Lightweight raster VIP frame over the selected portrait. */}
-              <div
-                className="hud-vip-avatar"
-                onClick={() => setShowAvatarPicker(true)}
-                title="Thay đổi đại diện"
-              >
-                <div className="hud-vip-avatar-portrait">
-                  <img
-                    src={`/assets/avatars/${selectedAvatarId}.png`}
-                    alt="Player Avatar"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "/assets/avatars/emperor.png";
-                    }}
-                  />
-                </div>
-                <img
-                  className="hud-vip-avatar-frame"
-                  src="/assets/ui/vip-avatar-frame.webp"
-                  alt=""
-                  aria-hidden="true"
-                />
-                <span className="hud-vip-avatar-edit" aria-hidden="true">
-                  ✎
-                </span>
-              </div>
+          <div className="hud-topbar hud-interactive rok-hud-topbar">
+            <ProfileHud
+              avatarId={selectedAvatarId}
+              playerName={nationStatus?.playerName || "Rising Empire"}
+              rank={nationStatus?.rank || "Lãnh Chúa"}
+              power={hudPower}
+              powerLabel={powerTooltip}
+              vipLevel={vipLevel}
+              onOpenProfile={() => openModal("kingdom")}
+              onChangeAvatar={() => setShowAvatarPicker(true)}
+            />
 
-              <div className="hud-profile-details">
-                <button
-                  type="button"
-                  className="hud-profile-ruler-name"
-                  onClick={() => openModal("kingdom")}
-                  title="Mở trạng thái quốc gia"
-                >
-                  {nationStatus?.playerName || "Rising Empire"}
-                </button>
-
-                <div className="hud-profile-metrics-row">
-                  <div
-                    className="hud-profile-stat hud-profile-power-stat"
-                    title={powerTooltip}
-                    onClick={() => openModal("kingdom")}
-                  >
-                    <img
-                      src="/assets/ui/profile-power-emblem.webp"
-                      alt="Uy thế"
-                      className="hud-profile-power-emblem"
-                    />
-                    <span className="hud-profile-stat-copy">
-                      <small>UY THẾ</small>
-                      <strong>{formatResourceVal(Math.round(hudPower))}</strong>
-                    </span>
-                  </div>
-
-                  <div
-                    className="hud-profile-stat hud-profile-vip-stat"
-                    title="VIP 0 · Tính năng đặc quyền sẽ được cập nhật sau"
-                  >
-                    <span className="hud-profile-vip-emblem">
-                      <img src="/assets/ui/profile-vip-shield.webp" alt="VIP" />
-                      <b>{vipLevel}</b>
-                    </span>
-                    <span className="hud-profile-stat-copy hud-profile-vip-label">
-                      <small>ĐẶC QUYỀN</small>
-                      <strong>VIP {vipLevel}</strong>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="hud-profile-upgrade-btn"
-                    disabled
-                    title="Tính năng VIP sẽ được cập nhật sau"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div className="hud-profile-meta-row">
-                  <span>{nationStatus?.rank || "Lãnh Chúa"}</span>
-                  <time>
-                    UTC{" "}
-                    {new Date().toLocaleTimeString("en-GB", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      timeZone: "UTC",
-                    })}
-                  </time>
-                </div>
-              </div>
-            </div>
-
-            {/* TOP-RIGHT: ROK FLOATING RESOURCE BAR & QUICK ACTION BADGES */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-                gap: 6,
-                pointerEvents: "auto",
-              }}
-              className="rok-top-right-group"
-            >
-              {/* Row 1: Floating Resources Belt */}
-              <div className="rok-resources-belt hud-resource-belt-complete">
-                {RESOURCE_ORDER.map((resource) => (
-                  <ResourceHudItem
-                    key={resource}
-                    resource={resource}
-                    value={resources[resource] || 0}
-                    capacity={resourceCapacity(resource)}
-                    ratePerHour={resourceRatePerHour(resource)}
-                    connected={Boolean(serverHud.lastSync || nationStatus)}
-                    onAdd={
-                      resource === "gems" ? () => openModal("shop") : undefined
-                    }
-                  />
-                ))}
-              </div>
-            </div>
+            <ResourceHud
+              resources={resources}
+              capacityFor={resourceCapacity}
+              rateFor={resourceRatePerHour}
+              connected={Boolean(serverHud.lastSync || nationStatus)}
+              onOpenGemShop={() => openModal("shop")}
+            />
           </div>
 
           {/* MAIN HUD BODY */}
@@ -4510,6 +4381,8 @@ export function GameApp({
               <ChatPanel
                 messages={chatMessages}
                 currentUserId={playerId ?? undefined}
+                currentAvatarId={selectedAvatarId}
+                currentVipLevel={vipLevel}
                 online={socketOnline}
                 onSend={(message) => {
                   const sent = sendWorldChat(message);
@@ -5282,122 +5155,36 @@ export function GameApp({
       )}
 
       {(activeModal === "warReport" || activeModal === "war_reports") && (
-        <div className="modal-overlay war-report-overlay">
-          <div className="war-report-modal">
-            <button
-              type="button"
-              className="war-report-close"
-              onClick={closeModal}
-            >
-              ×
-            </button>
-            <div className="war-report-title">
-              <HudIcon name="swords" /> {t("warReportTitle")}
-            </div>
-            <div className="war-report-stats">
-              <div>
-                <span>{t("reports")}</span>
-                <strong>{battleReports.length}</strong>
-              </div>
-              <div>
-                <span>Chưa đọc</span>
-                <strong>{reportUnreadCount}</strong>
-              </div>
-              <div>
-                <span>{t("battles")}</span>
-                <strong>{battleRows.length}</strong>
-              </div>
-              <div>
-                <span>{t("marching")}</span>
-                <strong>{attackRows.length + ownMarchRows.length}</strong>
-              </div>
-            </div>
-            <div className="war-report-list">
-              <div className="war-report-section-title">
-                {t("recentReports")}
-              </div>
-              {recentWarReports.length > 0 ? (
-                recentWarReports.map((report) => {
-                  const isAttacker = report.attackerId === playerId;
-                  const won = report.winnerId === playerId;
-                  const casualty = isAttacker
-                    ? report.attacker?.casualty?.power
-                    : report.defender?.casualty?.power;
-                  return (
-                    <button
-                      type="button"
-                      key={report.id}
-                      className={`war-report-item battle clickable ${report.read ? "" : "unread"}`}
-                      style={{
-                        cursor: "pointer",
-                        borderLeft: `3px solid ${won ? "#22c55e" : "#ef4444"}`,
-                        width: "100%",
-                        textAlign: "left",
-                      }}
-                      onClick={async () => {
-                        if (token && !report.read) {
-                          try {
-                            const result = await markBattleReportRead(
-                              token,
-                              report.id,
-                            );
-                            setReportUnreadCount(result.unreadCount);
-                            setBattleReports((current) =>
-                              current.map((item) =>
-                                item.id === report.id
-                                  ? { ...item, read: true }
-                                  : item,
-                              ),
-                            );
-                          } catch {}
-                        }
-                        closeModal();
-                        setSelectedBattleReport(report);
-                      }}
-                    >
-                      <div className="war-report-item-title">
-                        {won ? "CHIẾN THẮNG" : "THẤT BẠI"} ·{" "}
-                        {report.territoryName}
-                        <span className="war-report-time">
-                          {new Date(report.createdAt).toLocaleString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      <div className="war-report-item-body">
-                        {report.attackerName} giao chiến với{" "}
-                        {report.defenderName}
-                      </div>
-                      <div className="war-report-item-meta">
-                        Tổn thất của bạn: {formatNum(casualty || 0)} · Bấm để
-                        xem chi tiết
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="war-report-empty">{t("noReports")}</div>
-              )}
-              <div className="war-report-section-title">{t("activeNow")}</div>
-              {warReportRows.length > 0 ? (
-                warReportRows.map((row, i) => (
-                  <div
-                    key={`${row.title}-${i}`}
-                    className="war-report-item active"
-                  >
-                    <div className="war-report-item-title">{row.title}</div>
-                    <div className="war-report-item-meta">{row.meta}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="war-report-empty">{t("noActiveWar")}</div>
-              )}
-            </div>
-          </div>
-        </div>
+        <WarReportListModal
+          reports={recentWarReports}
+          currentPlayerId={playerId}
+          unreadCount={reportUnreadCount}
+          activeRows={warReportRows}
+          onClose={closeModal}
+          onMarkAllRead={async () => {
+            if (!token || reportUnreadCount === 0) return;
+            const result = await markAllBattleReportsRead(token);
+            setReportUnreadCount(result.unreadCount);
+            setBattleReports((current) =>
+              current.map((report) => ({ ...report, read: true })),
+            );
+          }}
+          onOpenReport={async (report) => {
+            if (token && !report.read) {
+              try {
+                const result = await markBattleReportRead(token, report.id);
+                setReportUnreadCount(result.unreadCount);
+                setBattleReports((current) =>
+                  current.map((item) =>
+                    item.id === report.id ? { ...item, read: true } : item,
+                  ),
+                );
+              } catch {}
+            }
+            closeModal();
+            setSelectedBattleReport(report);
+          }}
+        />
       )}
 
       {selectedBattleReport && (
@@ -5667,6 +5454,8 @@ export function GameApp({
           onSetLanguage={(lang) => setGameLanguage(lang)}
           onLogout={handleLogout}
           onClose={closeModal}
+          playerId={playerId}
+          online={socketOnline}
         />
       )}
 

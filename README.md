@@ -23,6 +23,15 @@ Mặc định:
 - Admin: `http://127.0.0.1:5174`
 - API: `http://127.0.0.1:4000/api/health`
 
+## Test trên điện thoại cùng mạng LAN
+
+1. Kết nối điện thoại và máy tính vào cùng một Wi-Fi.
+2. Không đặt `VITE_API_URL` hoặc `VITE_WS_URL` về `127.0.0.1` trong `apps/game/.env.local`; để trống để game dùng Vite proxy.
+3. Chạy `npm run dev:server` và `npm run dev:game`.
+4. Mở địa chỉ `Network` mà Vite in ra, thường là `http://<IP-máy-tính>:5173`.
+
+Game sẽ chuyển tiếp `/api` và `/ws` tới backend ở cổng `4000`, nên điện thoại có thể đăng nhập và dùng realtime qua LAN.
+
 ## Bảo mật
 
 - API tắt `x-powered-by`, dùng `helmet`, CORS allowlist, JSON size limit và rate limit.

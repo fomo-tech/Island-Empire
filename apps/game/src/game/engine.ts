@@ -71,6 +71,11 @@ import {
   drawNaturalTerritoryVegetation as drawNaturalTerritoryVegetationLayer,
 } from "./render/vegetationRenderer";
 import {
+  fallbackTerritoryOwnerColor,
+  TERRITORY_OWNER_TINT_ALPHA,
+  territoryTerrainColor,
+} from "./render/territoryVisuals";
+import {
   ensureMinVertices,
   facetedRegionPath,
   organicPath,
@@ -2795,7 +2800,13 @@ export function createIslandEmpireGame(
       return "#ef4444";
     }
     if (ownerCode > 1) {
-      return factions[ownerCode]?.color || "#ef4444";
+      return (
+        (state.regionOwnerIds[regionId]
+          ? fallbackTerritoryOwnerColor(state.regionOwnerIds[regionId])
+          : null) ||
+        factions[ownerCode]?.color ||
+        "#ef4444"
+      );
     }
     return state.newbieFlagColor || "#2563eb";
   }
@@ -3820,50 +3831,7 @@ export function createIslandEmpireGame(
     const biomeId = visualBiomeIndex(r, idx, isIslet);
     const biome = BIOMES[biomeId] || BIOMES[0];
     const seed = r.seed || idx + 1;
-    const colorRoll = hash(seed * 73.17 + idx * 11.9);
-    let territoryColor = biome.a;
-
-    // Wooded/Grass green biomes: Mix terrain colors to look like a premium 2.5D medieval map
-    const isGreenBiome = [0, 4, 5, 6, 7].includes(biomeId);
-    if (!isIslet && isGreenBiome) {
-      // 1. Continuous wave based on coordinates to cluster similar terrain types
-      const zoneWave =
-        Math.sin(r.x * 0.0018) * Math.cos(r.y * 0.0018) +
-        Math.sin(r.x * 0.004 + r.y * 0.002) * 0.35;
-      const zoneValue = (zoneWave + 1.35) / 2.7;
-
-      // 2. Map zones to specific, soft earthy/mossy tones
-      if (zoneValue < 0.22) {
-        // Dry Soil / Dirt Patch (Soft clay/earth tone)
-        territoryColor = colorRoll < 0.5 ? "#786b53" : "#6b5f48";
-      } else if (zoneValue > 0.78) {
-        // Stony / Pebble Ground (Soft mossy slate grey tone)
-        territoryColor = colorRoll < 0.5 ? "#5f6a5c" : "#535e50";
-      } else if (zoneValue >= 0.22 && zoneValue <= 0.36) {
-        // Dried Moss / Savanna Grass (Soft autumn dry herbal tone)
-        territoryColor = "#596638";
-      } else {
-        // Standard green variations
-        territoryColor =
-          colorRoll < 0.35
-            ? biome.b || biome.a
-            : colorRoll > 0.62
-              ? getLighterColor(biome.a, 1.08 + hash(seed * 19.3) * 0.08)
-              : colorRoll > 0.48
-                ? getDarkerColor(biome.a, 0.82 + hash(seed * 7.1) * 0.08)
-                : biome.a;
-      }
-    } else {
-      // Normal biomes (Snow, Desert, Volcanic)
-      territoryColor =
-        colorRoll < 0.25
-          ? biome.b || biome.a
-          : colorRoll > 0.78
-            ? getLighterColor(biome.a, 1.08 + hash(seed * 19.3) * 0.12)
-            : colorRoll > 0.56
-              ? getDarkerColor(biome.a, 0.82 + hash(seed * 7.1) * 0.12)
-              : biome.a;
-    }
+    const territoryColor = territoryTerrainColor(biome);
     const scale = isIslet ? 0.82 : 0.995;
 
     // Use the exact same baseRx/baseRy as getSharedRegionPolygon for perfect coastal alignment
@@ -4306,19 +4274,7 @@ export function createIslandEmpireGame(
           ctx.save();
           ctx.globalAlpha = isIslet || isCoastal ? 1 : 0.95;
           const landInflated = inflatePolygon(displayLand, 3, r.x, r.y);
-          const gradRadius = Math.max(rx, ry) * 1.35;
-          const topoGrad = ctx.createRadialGradient(
-            r.x,
-            r.y,
-            4,
-            r.x,
-            r.y,
-            gradRadius,
-          );
-          topoGrad.addColorStop(0, getLighterColor(territoryColor, 1.22));
-          topoGrad.addColorStop(0.55, territoryColor);
-          topoGrad.addColorStop(1, getDarkerColor(territoryColor, 0.72));
-          fillSmoothPath(landInflated, topoGrad);
+          fillSmoothPath(landInflated, territoryColor);
           strokeSmoothPath(landInflated, territoryColor, 4.2);
           ctx.restore();
 
@@ -4407,23 +4363,11 @@ export function createIslandEmpireGame(
         ctx.globalAlpha = 0.35 + Math.sin(state.tick * 4) * 0.06;
         fillSmoothPath(targetPoly, flagColor);
         ctx.restore();
-      } else if (rel === "own") {
+      } else if (ownerCode > 0) {
         ctx.save();
-        ctx.globalAlpha = 0.3 + Math.sin(state.tick * 3) * 0.03;
-        const ownedLand = inflatePolygon(displayLand, 4, r.x, r.y);
-        fillSmoothPath(ownedLand, flagColor);
-        ctx.restore();
-      } else if (rel === "ally") {
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        const allyLand = inflatePolygon(displayLand, 3, r.x, r.y);
-        fillSmoothPath(allyLand, flagColor);
-        ctx.restore();
-      } else if (rel === "enemy" && ownerCode > 1) {
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        const enemyLand = inflatePolygon(displayLand, 3, r.x, r.y);
-        fillSmoothPath(enemyLand, flagColor);
+        ctx.globalAlpha = TERRITORY_OWNER_TINT_ALPHA;
+        const claimedLand = inflatePolygon(displayLand, 3, r.x, r.y);
+        fillSmoothPath(claimedLand, flagColor);
         ctx.restore();
       }
 

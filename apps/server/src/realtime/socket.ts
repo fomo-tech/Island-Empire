@@ -33,9 +33,18 @@ const MAX_WS_HANDSHAKES_PER_IP_PER_MINUTE = 20;
 const MAX_WORLD_CHAT_MESSAGES_PER_WINDOW = 3;
 const WORLD_CHAT_WINDOW_MS = 12_000;
 
-function clientIp(req: { headers: Record<string, any>; socket: { remoteAddress?: string } }) {
-  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0]?.trim();
-  return (config.TRUST_PROXY ? forwarded : undefined) || req.socket.remoteAddress || "unknown";
+function clientIp(req: {
+  headers: Record<string, any>;
+  socket: { remoteAddress?: string };
+}) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")[0]
+    ?.trim();
+  return (
+    (config.TRUST_PROXY ? forwarded : undefined) ||
+    req.socket.remoteAddress ||
+    "unknown"
+  );
 }
 
 function isLoopback(ip: string): boolean {
@@ -60,7 +69,11 @@ function allowHandshake(ip: string) {
   return true;
 }
 
-function incrementConnection(map: Map<string, number>, key: string, limit: number) {
+function incrementConnection(
+  map: Map<string, number>,
+  key: string,
+  limit: number,
+) {
   if (map === ipConnectionCounts && isLoopback(key)) return true;
   const next = (map.get(key) || 0) + 1;
   if (next > limit) return false;
@@ -136,17 +149,28 @@ export function attachRealtime(server: Server) {
       socket.close(1013, "handshake_rate_limited");
       return;
     }
-    const url = new URL(req.url ?? "/ws", `http://${req.headers.host ?? "127.0.0.1"}`);
+    const url = new URL(
+      req.url ?? "/ws",
+      `http://${req.headers.host ?? "127.0.0.1"}`,
+    );
     const user = authenticate(url);
     if (!user) {
       socket.close(1008, "unauthorized");
       return;
     }
-    if (!incrementConnection(ipConnectionCounts, ip, MAX_WS_CONNECTIONS_PER_IP)) {
+    if (
+      !incrementConnection(ipConnectionCounts, ip, MAX_WS_CONNECTIONS_PER_IP)
+    ) {
       socket.close(1013, "too_many_connections");
       return;
     }
-    if (!incrementConnection(userConnectionCounts, user.id, MAX_WS_CONNECTIONS_PER_USER)) {
+    if (
+      !incrementConnection(
+        userConnectionCounts,
+        user.id,
+        MAX_WS_CONNECTIONS_PER_USER,
+      )
+    ) {
       decrementConnection(ipConnectionCounts, ip);
       socket.close(1013, "too_many_user_connections");
       return;
@@ -169,7 +193,13 @@ export function attachRealtime(server: Server) {
     };
     clients.add(client);
 
-    send(client, [{ type: "hello", playerId: user.id, serverTime: new Date().toISOString() }]);
+    send(client, [
+      {
+        type: "hello",
+        playerId: user.id,
+        serverTime: new Date().toISOString(),
+      },
+    ]);
 
     socket.on("pong", () => {
       client.alive = true;
@@ -194,26 +224,37 @@ export function attachRealtime(server: Server) {
           return;
         }
         if (message?.type === "user_chat") {
-          const text = typeof message.text === "string" ? message.text.trim().replace(/\s+/g, " ") : "";
-          if (!text || text.length > 200 || client.user.role !== "player") return;
+          const text =
+            typeof message.text === "string"
+              ? message.text.trim().replace(/\s+/g, " ")
+              : "";
+          if (!text || text.length > 200 || client.user.role !== "player")
+            return;
           if (/https?:\/\/|www\./i.test(text)) return;
-          if (text === client.lastChatText && now - client.lastChatAt < 4_000) return;
+          if (text === client.lastChatText && now - client.lastChatAt < 4_000)
+            return;
           if (now - client.worldChatWindowAt >= WORLD_CHAT_WINDOW_MS) {
             client.worldChatWindowAt = now;
             client.worldChatCount = 0;
           }
-          if (client.worldChatCount >= MAX_WORLD_CHAT_MESSAGES_PER_WINDOW) return;
+          if (client.worldChatCount >= MAX_WORLD_CHAT_MESSAGES_PER_WINDOW)
+            return;
           client.worldChatCount += 1;
           client.lastChatText = text;
           client.lastChatAt = now;
           const { players, chatMessages } = await collections();
-          const player = await players.findOne({ _id: client.user.id }, { projection: { name: 1 } });
+          const player = await players.findOne(
+            { _id: client.user.id },
+            { projection: { name: 1, avatarId: 1, vipLevel: 1 } },
+          );
           const sentAt = new Date();
           const chatMessage = {
             id: randomUUID(),
             kind: "user" as const,
             userId: client.user.id,
             userName: player?.name || "Người chơi",
+            avatarId: player?.avatarId || "emperor",
+            vipLevel: Math.max(0, Math.floor(Number(player?.vipLevel) || 0)),
             text,
             sentAt: sentAt.toISOString(),
           };
@@ -222,6 +263,8 @@ export function attachRealtime(server: Server) {
             kind: chatMessage.kind,
             userId: chatMessage.userId,
             userName: chatMessage.userName,
+            avatarId: chatMessage.avatarId,
+            vipLevel: chatMessage.vipLevel,
             text: chatMessage.text,
             sentAt,
             expiresAt: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000),
@@ -261,7 +304,11 @@ export function publishRealtime(event: RealtimeEvent, room = "world") {
 }
 
 export function realtimeStats() {
-  return { clients: clients.size, ipBuckets: ipConnectionCounts.size, userBuckets: userConnectionCounts.size };
+  return {
+    clients: clients.size,
+    ipBuckets: ipConnectionCounts.size,
+    userBuckets: userConnectionCounts.size,
+  };
 }
 
 export function connectedPlayerIds() {

@@ -1,7 +1,8 @@
 export type ResourceKey = "gold" | "wood" | "stone" | "food" | "gems";
 export type LegacyResourceKey = "iron" | "coal" | "sulfur";
 
-export type ResourceBag = Record<ResourceKey, number> & Partial<Record<LegacyResourceKey, number>>;
+export type ResourceBag = Record<ResourceKey, number> &
+  Partial<Record<LegacyResourceKey, number>>;
 
 export type GameConfig = {
   maxBattleDuration: number;
@@ -127,7 +128,12 @@ export type TownSnapshot = {
   trainingSpecialty?: "infantry" | "cavalry" | "artillery";
   nextTroopRecoveryAt?: string;
   troopRecoverySeconds?: number;
-  troopRecoveryBlockedReason?: "full" | "resources" | "battle" | "isolated" | null;
+  troopRecoveryBlockedReason?:
+    | "full"
+    | "resources"
+    | "battle"
+    | "isolated"
+    | null;
   recoveryCost?: Partial<ResourceBag>;
 };
 
@@ -149,7 +155,11 @@ export type NationTownStatus = {
 };
 
 export type NationStatusAlert = {
-  code: "under_attack" | "building" | "storage_near_full" | "population_near_full";
+  code:
+    | "under_attack"
+    | "building"
+    | "storage_near_full"
+    | "population_near_full";
   count: number;
   severity: "info" | "warning" | "danger";
 };
@@ -258,10 +268,10 @@ export type ShopProduct = {
   resources?: Partial<ResourceBag>;
   skinId?: string;
   skinTarget?: "capital" | "military_district";
-  isNewbiePrice?: boolean;          // true nếu giá tân thủ đặc biệt
-  newbiePriceExpiresAt?: string;    // ISO timestamp hết hạn giá tân thủ
-  isNewbieFree?: boolean;            // skin thử miễn phí trong tuần đầu
-  newbieFreeExpiresAt?: string;      // ISO timestamp hết hạn ưu đãi
+  isNewbiePrice?: boolean; // true nếu giá tân thủ đặc biệt
+  newbiePriceExpiresAt?: string; // ISO timestamp hết hạn giá tân thủ
+  isNewbieFree?: boolean; // skin thử miễn phí trong tuần đầu
+  newbieFreeExpiresAt?: string; // ISO timestamp hết hạn ưu đãi
 };
 
 export type ShopInventory = {
@@ -269,7 +279,7 @@ export type ShopInventory = {
   equippedCapitalSkin: string | null;
   equippedDistrictSkin: string | null;
   version: number;
-  newbieSkinExpiresAt?: string | null;   // skin tân thủ hết hạn lúc nào
+  newbieSkinExpiresAt?: string | null; // skin tân thủ hết hạn lúc nào
   newbieSkinId?: string | null;
   newbieSkinClaimedAt?: string | null;
   newbieFreeProductIds?: string[];
@@ -299,7 +309,7 @@ export type PlayerSyncResult = {
   purchasedProductIds?: string[];
   version: number;
   serverTime: string;
-  newbieWelcomeClaimed?: boolean;   // true nếu vừa được cấp gói chào mừng lần đầu
+  newbieWelcomeClaimed?: boolean; // true nếu vừa được cấp gói chào mừng lần đầu
 };
 
 export type SaveSnapshot = {
@@ -344,7 +354,12 @@ export type TerritoryInfo = {
   ownerArchitectureId?: string;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
-  settlementKind?: "capital" | "sub_capital" | "military" | "military_district" | "flag";
+  settlementKind?:
+    | "capital"
+    | "sub_capital"
+    | "military"
+    | "military_district"
+    | "flag";
   parentTerritoryId?: number;
   rootTerritoryId?: number;
   equippedCapitalSkin?: string | null;
@@ -353,19 +368,19 @@ export type TerritoryInfo = {
   connectionType?: "land" | "sea";
   isolated?: boolean;
   // Computed game balance fields
-  clearingSeconds: number;   // time to clear (khai hoang)
-  yieldGold: number;         // gold per second when owned
-  yieldWood: number;         // wood per second when owned
-  yieldStone: number;        // stone per second when owned
-  yieldFood: number;         // food per second when owned
-  yieldIron?: number;        // legacy save compatibility
-  yieldCoal?: number;        // legacy save compatibility
-  yieldSulfur?: number;      // legacy save compatibility
-  yieldGems: number;         // gems per second when owned
+  clearingSeconds: number; // time to clear (khai hoang)
+  yieldGold: number; // gold per second when owned
+  yieldWood: number; // wood per second when owned
+  yieldStone: number; // stone per second when owned
+  yieldFood: number; // food per second when owned
+  yieldIron?: number; // legacy save compatibility
+  yieldCoal?: number; // legacy save compatibility
+  yieldSulfur?: number; // legacy save compatibility
+  yieldGems: number; // gems per second when owned
   resourceQuality?: number;
   hasGemMine?: boolean;
   renderColor?: string;
-  primaryResource: string;   // dominant resource label
+  primaryResource: string; // dominant resource label
   specialResources?: string[]; // strategic unlocks: horse pasture, harbor, etc.
   trainingSpecialty?: "infantry" | "cavalry" | "artillery";
 };
@@ -524,7 +539,11 @@ export type GameStateResult = {
     emblem: string;
     kingdomArchitectureId?: string;
     cityName?: string;
-    onboardingState?: "profile_required" | "needs_claim" | "claiming" | "settled";
+    onboardingState?:
+      | "profile_required"
+      | "needs_claim"
+      | "claiming"
+      | "settled";
   } | null;
   nationStatus?: NationStatusSnapshot;
 };
@@ -549,6 +568,8 @@ export type UserChatMessage = {
   kind: "user";
   userId: string;
   userName: string;
+  avatarId?: string;
+  vipLevel?: number;
   text: string;
   sentAt: string;
 };
@@ -584,13 +605,32 @@ export type RealtimeEvent =
       reason?: string;
     }
   | { type: "territory_clearing_started"; clearing: ActiveClearing }
-  | { type: "territory_clearing_cancelled"; territoryId: number; playerId: string }
+  | {
+      type: "territory_clearing_cancelled";
+      territoryId: number;
+      playerId: string;
+    }
   | { type: "territory_claimed"; territory: TerritoryInfo }
   | { type: "march_created"; march: MarchOrder; sourceTown?: any }
-  | { type: "march_removed"; marchId: string; territoryId?: number; reason?: string }
+  | {
+      type: "march_removed";
+      marchId: string;
+      territoryId?: number;
+      reason?: string;
+    }
   | { type: "battle_started"; battle: ActiveBattle; consumedMarchId?: string }
-  | { type: "battle_state_updated"; battles: ActiveBattle[]; serverTime: string }
-  | { type: "battle_resolved"; battleId?: string; territory?: TerritoryInfo; winner?: "attacker" | "defender"; report?: any }
+  | {
+      type: "battle_state_updated";
+      battles: ActiveBattle[];
+      serverTime: string;
+    }
+  | {
+      type: "battle_resolved";
+      battleId?: string;
+      territory?: TerritoryInfo;
+      winner?: "attacker" | "defender";
+      report?: any;
+    }
   | {
       type: "troop_recovery_updated";
       playerId: string;
@@ -611,17 +651,80 @@ export type RealtimeEvent =
       }>;
       serverTime: string;
     }
-  | { type: "battle_report_created"; report: BattleReport; unreadCount: number; version: number; serverTime: string }
-  | { type: "battle_report_read"; reportId?: string; unreadCount: number; version: number; serverTime: string }
-  | { type: "mail_received"; mail: PlayerMail; unreadCount: number; version: number; serverTime: string }
-  | { type: "mail_read"; mailId?: string; unreadCount: number; version: number; serverTime: string }
-  | { type: "shop_purchase_completed"; purchase: ShopPurchase; inventory: ShopInventory; resources: ResourceBag; version: number; serverTime: string }
-  | { type: "shop_inventory_updated"; inventory: ShopInventory; version: number; serverTime: string }
-  | { type: "territory_skin_updated"; ownerId: string; skinId: string; target: "capital" | "military_district"; equippedCapitalSkin: string | null; equippedDistrictSkin: string | null; skinVersion: number; serverTime: string }
-  | { type: "nation_state_updated"; state: NationStatusSnapshot; version: number; serverTime: string }
-  | { type: "army_state_updated"; state: ArmyStateSnapshot; version: number; serverTime: string }
-  | { type: "player_eliminated"; playerId: string; reason: "capital_captured" | "all_towns_captured" }
-  | { type: "territories_pruned"; playerId: string; prunedTerritoryIds: number[] }
+  | {
+      type: "battle_report_created";
+      report: BattleReport;
+      unreadCount: number;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "battle_report_read";
+      reportId?: string;
+      unreadCount: number;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "mail_received";
+      mail: PlayerMail;
+      unreadCount: number;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "mail_read";
+      mailId?: string;
+      unreadCount: number;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "shop_purchase_completed";
+      purchase: ShopPurchase;
+      inventory: ShopInventory;
+      resources: ResourceBag;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "shop_inventory_updated";
+      inventory: ShopInventory;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "territory_skin_updated";
+      ownerId: string;
+      skinId: string;
+      target: "capital" | "military_district";
+      equippedCapitalSkin: string | null;
+      equippedDistrictSkin: string | null;
+      skinVersion: number;
+      serverTime: string;
+    }
+  | {
+      type: "nation_state_updated";
+      state: NationStatusSnapshot;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "army_state_updated";
+      state: ArmyStateSnapshot;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "player_eliminated";
+      playerId: string;
+      reason: "capital_captured" | "all_towns_captured";
+    }
+  | {
+      type: "territories_pruned";
+      playerId: string;
+      prunedTerritoryIds: number[];
+    }
   | { type: "world_state_hint"; reason: "reconnect" | "server_resync" }
   | { type: "resync_required"; reason: "event_backlog" | "event_gap" };
 
@@ -698,12 +801,12 @@ export interface BaseTerritory {
 }
 
 function mulberry32(a: number) {
-  return function() {
-    let t = a += 0x6D2B79F5;
+  return function () {
+    let t = (a += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  }
+  };
 }
 
 export function generateWorldTerritories(): BaseTerritory[] {
@@ -1051,7 +1154,7 @@ export function generateWorldTerritories(): BaseTerritory[] {
     { x: 4700, y: 6050, rx: 190, ry: 135, biome: 4, seed: 463 },
     { x: 4900, y: 5950, rx: 200, ry: 142, biome: 5, seed: 464 },
     { x: 4600, y: 6300, rx: 195, ry: 138, biome: 4, seed: 465 },
-    { x: 4800, y: 6350, rx: 190, ry: 135, biome: 5, seed: 466 }
+    { x: 4800, y: 6350, rx: 190, ry: 135, biome: 5, seed: 466 },
   ];
 
   const baseIslets = [
@@ -1154,7 +1257,7 @@ export function generateWorldTerritories(): BaseTerritory[] {
     { x: 4800, y: 4900, rx: 56, ry: 42, biome: 7, seed: 561 },
     { x: 7600, y: 3400, rx: 54, ry: 40, biome: 5, seed: 562 },
     { x: 6300, y: 5900, rx: 58, ry: 44, biome: 3, seed: 563 },
-    { x: 2700, y: 5700, rx: 52, ry: 38, biome: 4, seed: 564 }
+    { x: 2700, y: 5700, rx: 52, ry: 38, biome: 4, seed: 564 },
   ];
 
   // Add regions to territories
@@ -1168,7 +1271,7 @@ export function generateWorldTerritories(): BaseTerritory[] {
       ry: r.ry,
       biome: r.biome,
       seed: r.seed,
-      isIslet: false
+      isIslet: false,
     });
   });
 
@@ -1176,26 +1279,26 @@ export function generateWorldTerritories(): BaseTerritory[] {
 
   const centers = [
     // 16 Vị trí Châu Lục phân bố so le tự do, tự nhiên (phá vỡ ma trận 4x4)
-    { cx: 2800,  cy: 1800,  name: "BẮC ĐẨU BĂNG ĐẢO" },
-    { cx: 9800,  cy: 1500,  name: "THIÊN LONG TÍCH ĐẠI LỤC" },
-    { cx: 16800, cy: 2100,  name: "VƯƠNG QUỐC PHA LÊ" },
-    { cx: 22200, cy: 3800,  name: "THƯỢNG CỔ ĐẢO" },
+    { cx: 2800, cy: 1800, name: "BẮC ĐẨU BĂNG ĐẢO" },
+    { cx: 9800, cy: 1500, name: "THIÊN LONG TÍCH ĐẠI LỤC" },
+    { cx: 16800, cy: 2100, name: "VƯƠNG QUỐC PHA LÊ" },
+    { cx: 22200, cy: 3800, name: "THƯỢNG CỔ ĐẢO" },
 
-    { cx: 4800,  cy: 5400,  name: "HOÀNG KIM THỔ" },
-    { cx: 12500, cy: 6200,  name: "THÁI BÌNH ĐẠI LỤC" },
-    { cx: 19500, cy: 7500,  name: "BẠCH HỔ LỤC ĐỊA" },
+    { cx: 4800, cy: 5400, name: "HOÀNG KIM THỔ" },
+    { cx: 12500, cy: 6200, name: "THÁI BÌNH ĐẠI LỤC" },
+    { cx: 19500, cy: 7500, name: "BẠCH HỔ LỤC ĐỊA" },
 
-    { cx: 2100,  cy: 9800,  name: "LINH QUY ĐẢO" },
-    { cx: 8200,  cy: 10800, name: "ĐÔNG HẢI LONG CUNG" },
+    { cx: 2100, cy: 9800, name: "LINH QUY ĐẢO" },
+    { cx: 8200, cy: 10800, name: "ĐÔNG HẢI LONG CUNG" },
     { cx: 15200, cy: 11500, name: "SAN HÔ ĐẠI LỤC" },
     { cx: 21800, cy: 11800, name: "VẠN AN ĐẢO" },
 
-    { cx: 4200,  cy: 14800, name: "TỬ PHONG ĐẢO" },
+    { cx: 4200, cy: 14800, name: "TỬ PHONG ĐẢO" },
     { cx: 10800, cy: 15800, name: "HỎA LONG MA THỔ" },
     { cx: 17200, cy: 15200, name: "KỲ LÂN BĂNG SƠN" },
     { cx: 22500, cy: 16200, name: "CHU TƯỚC ĐẢO" },
 
-    { cx: 12000, cy: 8800,  name: "TRUNG NGUYÊN THƯỢNG CỔ" },
+    { cx: 12000, cy: 8800, name: "TRUNG NGUYÊN THƯỢNG CỔ" },
   ];
 
   const totalAutoRegions = 4550;
@@ -1208,11 +1311,18 @@ export function generateWorldTerritories(): BaseTerritory[] {
     let themeBiome = 0; // Default to Grass (0)
     if (center.name.includes("BĂNG")) {
       themeBiome = 2; // Băng Tuyết (Snow)
-    } else if (center.name.includes("HỎA") || center.name.includes("CHU TƯỚC")) {
+    } else if (
+      center.name.includes("HỎA") ||
+      center.name.includes("CHU TƯỚC")
+    ) {
       themeBiome = 3; // Hỏa Sơn (Volcanic)
     } else if (center.name.includes("SA MẠC")) {
       themeBiome = 1; // Sa Mạc (Desert)
-    } else if (center.name.includes("PHA LÊ") || center.name.includes("LONG CUNG") || center.name.includes("SAN HÔ")) {
+    } else if (
+      center.name.includes("PHA LÊ") ||
+      center.name.includes("LONG CUNG") ||
+      center.name.includes("SAN HÔ")
+    ) {
       themeBiome = 4; // Lục Lam (Ngọc bích/San hô/Crystal)
     } else if (center.name.includes("HOÀNG KIM")) {
       themeBiome = 5; // Vàng Cam (Cam đất)
@@ -1226,10 +1336,10 @@ export function generateWorldTerritories(): BaseTerritory[] {
     // Kích thước & Tỷ lệ Dài/Ngắn khác biệt hoàn toàn cho từng Châu Lục (Xóa bỏ cảm giác trùng khuôn)
     const sizePresets = [
       { rx: 2500, ry: 1900 }, // 0: Siêu đại lục khổng lồ rộng lớn
-      { rx: 2700, ry: 950 },  // 1: Dải lục địa dẹt dài ngang (Horizontal Belt)
+      { rx: 2700, ry: 950 }, // 1: Dải lục địa dẹt dài ngang (Horizontal Belt)
       { rx: 1250, ry: 1250 }, // 2: Lục địa vừa tròn nhỏ gọn (Compact Isle)
       { rx: 1000, ry: 2400 }, // 3: Lục địa dải dài đứng (Vertical Spine)
-      { rx: 1400, ry: 980 },  // 4: Lục địa vương quốc nhỏ (Small Realm)
+      { rx: 1400, ry: 980 }, // 4: Lục địa vương quốc nhỏ (Small Realm)
       { rx: 2300, ry: 1650 }, // 5: Đại lục rộng lớn uốn cong (Grand Curved Mainland)
       { rx: 2800, ry: 1100 }, // 6: Dải đại lục bờ biển dài (Long Coastal Belt)
       { rx: 1100, ry: 2150 }, // 7: Châu lục cao dẹt đứng (Tall Southern Realm)
@@ -1248,7 +1358,7 @@ export function generateWorldTerritories(): BaseTerritory[] {
     for (let rRow = -maxRows; rRow <= maxRows; rRow++) {
       for (let rCol = -maxCols; rCol <= maxCols; rCol++) {
         // Hàng lẻ dịch sang ngang nửa bước stepX để tạo lưới tổ ong 6 cạnh
-        const rowOffset = (Math.abs(rRow) % 2 === 1) ? stepX * 0.5 : 0;
+        const rowOffset = Math.abs(rRow) % 2 === 1 ? stepX * 0.5 : 0;
         const relX = rCol * stepX + rowOffset;
         const relY = rRow * stepY;
 
@@ -1256,9 +1366,9 @@ export function generateWorldTerritories(): BaseTerritory[] {
         const normDist = Math.hypot(relX / maxRadiusX, relY / maxRadiusY);
 
         // Biến dạng Bán đảo Lớn (Big Peninsulas) & Bán đảo Nhỏ (Small Peninsulas/Capes) tự nhiên
-        const bigPeninsula   = Math.cos(angle * 3.0 + cIdx * 1.6) * 0.35; // 2-3 bán đảo lớn vươn xa
+        const bigPeninsula = Math.cos(angle * 3.0 + cIdx * 1.6) * 0.35; // 2-3 bán đảo lớn vươn xa
         const smallPeninsula = Math.sin(angle * 7.0 + cIdx * 2.7) * 0.18; // 4-6 bán đảo nhỏ & mũi đất
-        const bayCarving     = Math.sin(angle * 2.0 - cIdx * 0.9) * -0.15; // Vịnh ăn sâu giữa các bán đảo
+        const bayCarving = Math.sin(angle * 2.0 - cIdx * 0.9) * -0.15; // Vịnh ăn sâu giữa các bán đảo
 
         const peninsulaSpurs = bigPeninsula + smallPeninsula + bayCarving;
 
@@ -1269,11 +1379,13 @@ export function generateWorldTerritories(): BaseTerritory[] {
         if (contType === 0) {
           // 1. Bán đảo Vuốt Rồng Móc (Hooked Claw Peninsula)
           const claw = Math.cos(angle * 1.8 + normDist * 2.5 + cIdx) * 0.48;
-          const bay  = Math.sin(angle * 3.5 - cIdx) * -0.22;
-          wave = 0.90 + claw + bay;
+          const bay = Math.sin(angle * 3.5 - cIdx) * -0.22;
+          wave = 0.9 + claw + bay;
         } else if (contType === 1) {
           // 2. Bán đảo 3 Chạc Đinh Ba (Trident 3-Pronged Peninsula)
-          const trident = Math.cos(angle * 3.0 + cIdx * 1.5) * 0.45 + Math.sin(angle * 6.0) * 0.15;
+          const trident =
+            Math.cos(angle * 3.0 + cIdx * 1.5) * 0.45 +
+            Math.sin(angle * 6.0) * 0.15;
           wave = 0.88 + trident;
         } else if (contType === 2) {
           // 3. Bán đảo Dải Kim Ngạc Thuôn Dài (Elongated Spine Peninsula)
@@ -1288,16 +1400,21 @@ export function generateWorldTerritories(): BaseTerritory[] {
           wave = 0.92 + horn + gulf;
         } else if (contType === 4) {
           // 5. Bán đảo Sừng Đôi Kẹp Vịnh (Double Horn Parallel Peninsula)
-          const doubleHorn = Math.abs(Math.cos(angle * 2.0 + cIdx * 1.3)) * 0.48;
-          const fjordCut   = Math.sin(angle * 4.0) * 0.18;
+          const doubleHorn =
+            Math.abs(Math.cos(angle * 2.0 + cIdx * 1.3)) * 0.48;
+          const fjordCut = Math.sin(angle * 4.0) * 0.18;
           wave = 0.78 + doubleHorn + fjordCut;
         } else if (contType === 5) {
           // 6. Bán đảo Đầu Búa Chữ T (Hammerhead T-Spur Peninsula)
-          const hammer = Math.cos(angle * 2.0 + cIdx * 0.9) * 0.40 + Math.cos(angle * 4.0 + 1.2) * 0.22;
+          const hammer =
+            Math.cos(angle * 2.0 + cIdx * 0.9) * 0.4 +
+            Math.cos(angle * 4.0 + 1.2) * 0.22;
           wave = 0.85 + hammer;
         } else if (contType === 6) {
           // 7. Bán đảo Fjord Răng Cưa Xẻ Rãnh (Jagged Fjord Coast Peninsula)
-          const fjords = Math.sin(angle * 6.0 + cIdx * 2.2) * 0.38 + Math.cos(angle * 9.0) * 0.16;
+          const fjords =
+            Math.sin(angle * 6.0 + cIdx * 2.2) * 0.38 +
+            Math.cos(angle * 9.0) * 0.16;
           wave = 0.95 + fjords;
         } else {
           // 8. Bán đảo Vành Nhẫn Vịnh Nội Địa (Ring Atoll Gulf Peninsula)
@@ -1328,11 +1445,13 @@ export function generateWorldTerritories(): BaseTerritory[] {
 
         territories.push({
           id: nextRegionId++,
-          x, y,
-          rx, ry,
+          x,
+          y,
+          rx,
+          ry,
           biome,
           seed,
-          isIslet: false
+          isIslet: false,
         });
       }
     }
@@ -1341,14 +1460,20 @@ export function generateWorldTerritories(): BaseTerritory[] {
   // Islets start after all mainland regions
   let nextIsletId = nextRegionId;
 
-  const isOverlap = (px: number, py: number, prx: number, pry: number, bufferScale: number = 1.0): boolean => {
+  const isOverlap = (
+    px: number,
+    py: number,
+    prx: number,
+    pry: number,
+    bufferScale: number = 1.0,
+  ): boolean => {
     const prMax = Math.max(prx, pry);
     for (let j = 0; j < territories.length; j++) {
       const r = territories[j];
       const dx = px - r.x;
       const dy = py - r.y;
       const dist = Math.hypot(dx, dy);
-      
+
       const rMax = Math.max(r.rx, r.ry);
       const baseBuffer = r.isIslet ? 200 : 130;
       const buffer = baseBuffer * bufferScale;
@@ -1365,27 +1490,36 @@ export function generateWorldTerritories(): BaseTerritory[] {
     // 4 đến 5 cụm quần đảo gom lại với nhau xung quanh mỗi đại lục
     const numClusters = 4 + (cIdx % 2);
     for (let cl = 0; cl < numClusters; cl++) {
-      const clusterAngle = (cl / numClusters) * Math.PI * 2 + (cIdx * 1.3);
+      const clusterAngle = (cl / numClusters) * Math.PI * 2 + cIdx * 1.3;
       // Khoảng cách cụm quần đảo cách rìa bờ biển ~1900-2400px
       const distFromCoast = 2050 + ((cl * 7) % 5) * 120;
-      const clusterCenterX = Math.round(center.cx + Math.cos(clusterAngle) * distFromCoast);
-      const clusterCenterY = Math.round(center.cy + Math.sin(clusterAngle) * distFromCoast * 0.75);
+      const clusterCenterX = Math.round(
+        center.cx + Math.cos(clusterAngle) * distFromCoast,
+      );
+      const clusterCenterY = Math.round(
+        center.cy + Math.sin(clusterAngle) * distFromCoast * 0.75,
+      );
 
       // Mỗi cụm gom từ 5 đến 8 đảo đứng sát nhau tạo thành quần đảo sinh động
       const islandsInCluster = 5 + (cl % 4);
       for (let i = 0; i < islandsInCluster; i++) {
-        const islandAngle = (i / islandsInCluster) * Math.PI * 2 + (random() * 0.25);
-        const islandDist = 160 + (i * 95) + (random() * 40);
+        const islandAngle =
+          (i / islandsInCluster) * Math.PI * 2 + random() * 0.25;
+        const islandDist = 160 + i * 95 + random() * 40;
 
-        const x = Math.round(clusterCenterX + Math.cos(islandAngle) * islandDist);
-        const y = Math.round(clusterCenterY + Math.sin(islandAngle) * islandDist * 0.78);
+        const x = Math.round(
+          clusterCenterX + Math.cos(islandAngle) * islandDist,
+        );
+        const y = Math.round(
+          clusterCenterY + Math.sin(islandAngle) * islandDist * 0.78,
+        );
 
         // Đảm bảo nằm trong giới hạn bản đồ
         if (x < 350 || x > 23650 || y < 350 || y > 17650) continue;
 
         // 50% số đảo trong từng cụm quần đảo là vùng lãnh thổ có thể chiếm đóng
-        const makeTerritory = (i % 2 === 0);
-        const baseR = makeTerritory ? (110 + random() * 45) : (45 + random() * 25);
+        const makeTerritory = i % 2 === 0;
+        const baseR = makeTerritory ? 110 + random() * 45 : 45 + random() * 25;
         const rx = Math.round(baseR);
         const ry = Math.round(rx * 0.78);
 
@@ -1396,11 +1530,13 @@ export function generateWorldTerritories(): BaseTerritory[] {
 
         territories.push({
           id: nextIsletId++,
-          x, y,
-          rx, ry,
+          x,
+          y,
+          rx,
+          ry,
           biome,
           seed,
-          isIslet: !makeTerritory
+          isIslet: !makeTerritory,
         });
       }
     }
@@ -1410,7 +1546,9 @@ export function generateWorldTerritories(): BaseTerritory[] {
   // Phát tia ra 5 hướng xung quanh ô, nếu không có ô đất kề nào trong vùng scanRadius
   // thì hướng đó là "biển mở". Nếu có >= 2 hướng biển mở thì ô là ven biển.
   // (Giống logic engine nhưng dùng danh sách territories thay vì regionAtCoords)
-  const mainlandTerritories = territories.filter((t) => !t.isIslet && !t.isWater);
+  const mainlandTerritories = territories.filter(
+    (t) => !t.isIslet && !t.isWater,
+  );
 
   // Xây spatial grid để tra cứu nhanh ô kề
   const GRID_CELL = 600;
@@ -1448,7 +1586,8 @@ export function generateWorldTerritories(): BaseTerritory[] {
     return false;
   }
 
-  const outwardAngle = (t: BaseTerritory) => Math.atan2(t.y - 9000, t.x - 12000); // hướng từ tâm bản đồ ra ngoài
+  const outwardAngle = (t: BaseTerritory) =>
+    Math.atan2(t.y - 9000, t.x - 12000); // hướng từ tâm bản đồ ra ngoài
 
   mainlandTerritories.forEach((t) => {
     const baseAngle = outwardAngle(t);
@@ -1459,9 +1598,8 @@ export function generateWorldTerritories(): BaseTerritory[] {
       if (!hasLandNeighborAt(t, angle)) openSeaCount++;
     }
     // Ô có >= 2 hướng không có đất kề = ven biển thực sự
-    t.coastal = (openSeaCount >= 2);
+    t.coastal = openSeaCount >= 2;
   });
-
 
   return territories;
 }
@@ -1477,7 +1615,9 @@ export function generateConquestTerritories(): BaseTerritory[] {
   // Generate 1000 connected spacious territories (~2x larger size)
   for (let row = -14; row <= 13; row++) {
     for (let col = -18; col <= 17; col++) {
-      const px = Math.round(centerX + col * 135 + (row & 1 ? 67 : 0) + (random() - 0.5) * 20);
+      const px = Math.round(
+        centerX + col * 135 + (row & 1 ? 67 : 0) + (random() - 0.5) * 20,
+      );
       const py = Math.round(centerY + row * 105 + (random() - 0.5) * 16);
 
       // Check rectangular continent bounding box
@@ -1505,15 +1645,58 @@ export function generateConquestTerritories(): BaseTerritory[] {
 
   // Mountain Pass Corridors (Cửa Ải 8, 5, 4, 6, 7)
   [
-    [2500, 560], [3500, 560], [1040, 1300], [960, 2600], [4640, 1300], [4640, 2700], [2100, 3540], [3500, 3540], // Pass 8
-    [1600, 1100], [2400, 1040], [3960, 1100], [1500, 2900], [1760, 3100], [3700, 3100], // Pass 5
-    [1240, 1460], [1240, 1760], [3200, 880], [3440, 880], [4040, 2200], [4040, 2500], [2040, 3240], [2300, 3240], // Pass 4
-    [1640, 1560], [2100, 1440], [2800, 1300], [3700, 1440], [3960, 1760], [3900, 2160], [1640, 2200], [1840, 2500], [2160, 2700], [3360, 2700], // Pass 6
-    [2800, 1720], [3120, 1800], [3280, 2100], [3120, 2400], [2800, 2480], [2480, 2400], [2320, 2100], [2480, 1800], // Pass 7 Ring
-  ].forEach(([x, y], index) => territories.push({
-    id: id++, x, y, rx: 135, ry: 104,
-    biome: 5, seed: 8000 + index, isIslet: false,
-  }));
+    [2500, 560],
+    [3500, 560],
+    [1040, 1300],
+    [960, 2600],
+    [4640, 1300],
+    [4640, 2700],
+    [2100, 3540],
+    [3500, 3540], // Pass 8
+    [1600, 1100],
+    [2400, 1040],
+    [3960, 1100],
+    [1500, 2900],
+    [1760, 3100],
+    [3700, 3100], // Pass 5
+    [1240, 1460],
+    [1240, 1760],
+    [3200, 880],
+    [3440, 880],
+    [4040, 2200],
+    [4040, 2500],
+    [2040, 3240],
+    [2300, 3240], // Pass 4
+    [1640, 1560],
+    [2100, 1440],
+    [2800, 1300],
+    [3700, 1440],
+    [3960, 1760],
+    [3900, 2160],
+    [1640, 2200],
+    [1840, 2500],
+    [2160, 2700],
+    [3360, 2700], // Pass 6
+    [2800, 1720],
+    [3120, 1800],
+    [3280, 2100],
+    [3120, 2400],
+    [2800, 2480],
+    [2480, 2400],
+    [2320, 2100],
+    [2480, 1800], // Pass 7 Ring
+  ].forEach(([x, y], index) =>
+    territories.push({
+      id: id++,
+      x,
+      y,
+      rx: 135,
+      ry: 104,
+      biome: 5,
+      seed: 8000 + index,
+      isIslet: false,
+    }),
+  );
 
   return territories;
 }

@@ -6,6 +6,7 @@ import {
   iconDragonShield,
   iconVsBadge,
 } from "./BattleReportAssets";
+import { BattleTroopComparison } from "./reports/BattleTroopComparison";
 
 export interface BattleReportData {
   _id?: string;
@@ -200,6 +201,13 @@ export function BattleReportModal({
             />
           </div>
         </div>
+
+        <BattleTroopComparison
+          attackerInitial={attInitialTotal}
+          attackerSurvivors={attSurvivorsTotal}
+          defenderInitial={defInitialTotal}
+          defenderSurvivors={defSurvivorsTotal}
+        />
 
         {/* Section Divider Title */}
         <div className="br-table-section-title">
@@ -497,7 +505,7 @@ export function BattleReportModal({
             <div className="br-loot-grid">
               {(loot.gold || 0) > 0 && (
                 <div className="br-loot-card">
-                  <span>🌾 Lúa mì</span>
+                  <span>🪙 Vàng</span>
                   <strong>+{(loot.gold || 0).toLocaleString()}</strong>
                 </div>
               )}

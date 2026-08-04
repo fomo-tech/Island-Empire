@@ -1,598 +1,193 @@
-import React, { useState } from "react";
-import { MedievalModal } from "./MedievalModal";
+import { useEffect, useState } from "react";
 import { ConfirmModal } from "./ConfirmModal";
-import {
-  EuroSettingsIcon,
-  EuroAudioIcon,
-  EuroDisplayIcon,
-  EuroShieldIcon,
-  EuroScrollIcon,
-  EuroMusicIcon,
-  EuroGlobeIcon,
-  EuroFlagVI,
-  EuroFlagEN,
-  EuroInfoIcon,
-} from "./EuroIcons";
+import { MedievalModal } from "./MedievalModal";
 
-const SettingsSwitch = ({
+type SettingsTab = "display" | "account" | "controls";
+
+interface SettingsModalProps {
+  language: "vi" | "en";
+  onSetLanguage: (language: "vi" | "en") => void;
+  onLogout?: () => void;
+  onClose: () => void;
+  playerId?: string | null;
+  online: boolean;
+}
+
+const TUTORIAL_STORAGE_KEYS = [
+  "island_empire_onboarding_pending",
+  "island_empire_tutorial_completed",
+  "island_empire_hide_tutorial",
+  "island_empire_onboarding_claim",
+  "island_empire_camera_v1",
+  "island_empire_builder_region_id",
+];
+
+function SettingsSwitch({
   active,
+  label,
   onChange,
 }: {
   active: boolean;
+  label: string;
   onChange: () => void;
-}) => {
+}) {
   return (
     <button
       type="button"
       className={`settings-switch ${active ? "active" : ""}`}
       onClick={onChange}
+      aria-label={label}
       aria-pressed={active}
     >
       <span className="settings-switch-thumb" />
     </button>
   );
-};
-
-interface SettingsModalProps {
-  language: "vi" | "en";
-  onSetLanguage: (lang: "vi" | "en") => void;
-  onLogout?: () => void;
-  onClose: () => void;
 }
+
 export function SettingsModal({
   language,
   onSetLanguage,
   onLogout,
   onClose,
+  playerId,
+  online,
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<
-    "audio" | "display" | "account" | "info"
-  >("audio");
-  const [confirmAction, setConfirmAction] = useState<
-    "logout" | "resetTutorial" | null
-  >(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("display");
+  const [confirmAction, setConfirmAction] = useState<"logout" | "resetTutorial" | null>(null);
+  const [hideAssets, setHideAssets] = useState(
+    () => localStorage.getItem("island_empire_hide_assets") === "true",
+  );
+  const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [copied, setCopied] = useState(false);
 
-  // Audio settings state
-  const [bgmVolume, setBgmVolume] = useState<number>(80);
-  const [sfxVolume, setSfxVolume] = useState<number>(90);
-  const [bgmMuted, setBgmMuted] = useState<boolean>(false);
-  const [sfxMuted, setSfxMuted] = useState<boolean>(false);
+  useEffect(() => {
+    const updateFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, []);
 
-  // Graphics & Display state
-  const [graphicsQuality, setGraphicsQuality] = useState<
-    "low" | "medium" | "high"
-  >("high");
-  const [targetFps, setTargetFps] = useState<30 | 60>(60);
-  const [fogOfWarEffect, setFogOfWarEffect] = useState<boolean>(true);
-  const [screenWarAlerts, setScreenWarAlerts] = useState<boolean>(true);
-
-  // Success toast message
-  const [showSavedToast, setShowSavedToast] = useState<boolean>(false);
-
-  const handleSave = () => {
-    setShowSavedToast(true);
-    setTimeout(() => {
-      setShowSavedToast(false);
-      onClose();
-    }, 600);
+  const toggleAssets = () => {
+    const next = !hideAssets;
+    const toggle = (window as Window & {
+      toggleHideTerritoryAssets?: (forceValue?: boolean) => boolean;
+    }).toggleHideTerritoryAssets;
+    if (!toggle) return;
+    toggle(next);
+    setHideAssets(next);
   };
 
-  const playerId =
-    localStorage.getItem("island_empire_playerId") || "PLAYER-#92815";
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  };
+
+  const copyPlayerId = async () => {
+    if (!playerId) return;
+    await navigator.clipboard.writeText(playerId);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
 
   return (
     <>
       <MedievalModal
         title="CÀI ĐẶT HỆ THỐNG"
-        subtitle="ĐẾ QUỐC PHỤC HƯNG · MÁY CHỦ S1"
+        subtitle="Chỉ hiển thị các chức năng đang hoạt động"
         onClose={onClose}
         width="92vw"
-        maxWidth="780px"
-        className="settings-medieval-modal"
+        maxWidth="820px"
+        className="settings-medieval-modal settings-v2"
       >
-        <div className="euro-shop-modal-body settings-euro-body">
-          {/* 3D Metallic Navigation Tabs */}
-          <nav className="euro-shop-tabs settings-modal-tabs">
-            <button
-              type="button"
-              className={`euro-tab-btn ${activeTab === "audio" ? "active" : ""}`}
-              onClick={() => setActiveTab("audio")}
-            >
-              <img
-                src="/assets/icons/icon_settings_audio.png"
-                alt="Âm thanh"
-                className="euro-tab-png-icon"
-              />
-              <span>ÂM THANH</span>
-            </button>
-            <button
-              type="button"
-              className={`euro-tab-btn ${activeTab === "display" ? "active" : ""}`}
-              onClick={() => setActiveTab("display")}
-            >
-              <img
-                src="/assets/icons/icon_settings_display.png"
-                alt="Hiển thị"
-                className="euro-tab-png-icon"
-              />
+        <div className="settings-v2__layout">
+          <nav className="settings-v2__nav" aria-label="Nhóm cài đặt">
+            <button type="button" className={activeTab === "display" ? "active" : ""} onClick={() => setActiveTab("display")}>
+              <img src="/assets/icons/icon_settings_display.png" alt="" />
               <span>HIỂN THỊ</span>
             </button>
-            <button
-              type="button"
-              className={`euro-tab-btn ${activeTab === "account" ? "active" : ""}`}
-              onClick={() => setActiveTab("account")}
-            >
-              <img
-                src="/assets/icons/icon_settings_account.png"
-                alt="Tài khoản"
-                className="euro-tab-png-icon"
-              />
+            <button type="button" className={activeTab === "account" ? "active" : ""} onClick={() => setActiveTab("account")}>
+              <img src="/assets/icons/icon_settings_account.png" alt="" />
               <span>TÀI KHOẢN</span>
             </button>
-            <button
-              type="button"
-              className={`euro-tab-btn ${activeTab === "info" ? "active" : ""}`}
-              onClick={() => setActiveTab("info")}
-            >
-              <img
-                src="/assets/icons/icon_settings_info.png"
-                alt="Phím tắt"
-                className="euro-tab-png-icon"
-              />
-              <span>PHÍM TẮT</span>
+            <button type="button" className={activeTab === "controls" ? "active" : ""} onClick={() => setActiveTab("controls")}>
+              <img src="/assets/icons/icon_settings_info.png" alt="" />
+              <span>ĐIỀU KHIỂN</span>
             </button>
           </nav>
 
-          {/* Tab Content Container */}
-          <div className="settings-tab-container">
-            {/* TAB 1: AUDIO */}
-            {activeTab === "audio" && (
-              <div className="settings-tab-content">
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <img
-                      src="/assets/icons/icon_settings_audio.png"
-                      alt="Audio"
-                      className="euro-header-png-icon"
-                    />
-                    NHẠC NỀN & HIỆU ỨNG ÂM THANH
-                  </h3>
-
-                  {/* BGM Volume */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Nhạc Nền Vương Quốc (BGM)
-                      </span>
-                      <span className="settings-subtext">
-                        Âm lượng bản nhạc giao hưởng hùng đùa
-                      </span>
-                    </div>
-                    <div className="settings-input-group">
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          opacity: bgmMuted ? 0.35 : 0.85,
-                        }}
-                      >
-                        <EuroMusicIcon size={18} />
-                      </span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={bgmMuted ? 0 : bgmVolume}
-                        onChange={(e) => {
-                          setBgmVolume(Number(e.target.value));
-                          if (bgmMuted) setBgmMuted(false);
-                        }}
-                        className="settings-slider"
-                      />
-                      <span className="settings-val-text">
-                        {bgmMuted ? "Mute" : `${bgmVolume}%`}
-                      </span>
-                      <SettingsSwitch
-                        active={!bgmMuted}
-                        onChange={() => setBgmMuted(!bgmMuted)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* SFX Volume */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Hiệu Ứng Chiến Đấu & Nâng Cấp (SFX)
-                      </span>
-                      <span className="settings-subtext">
-                        Âm thanh hành quân, giao tranh, binh khí
-                      </span>
-                    </div>
-                    <div className="settings-input-group">
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          opacity: sfxMuted ? 0.35 : 0.85,
-                        }}
-                      >
-                        <EuroAudioIcon size={18} />
-                      </span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={sfxMuted ? 0 : sfxVolume}
-                        onChange={(e) => {
-                          setSfxVolume(Number(e.target.value));
-                          if (sfxMuted) setSfxMuted(false);
-                        }}
-                        className="settings-slider"
-                      />
-                      <span className="settings-val-text">
-                        {sfxMuted ? "Mute" : `${sfxVolume}%`}
-                      </span>
-                      <SettingsSwitch
-                        active={!sfxMuted}
-                        onChange={() => setSfxMuted(!sfxMuted)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: DISPLAY & LANGUAGE */}
+          <div className="settings-v2__content">
             {activeTab === "display" && (
-              <div className="settings-tab-content">
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <EuroGlobeIcon size={20} /> NGÔN NGỮ HỆ THỐNG
-                  </h3>
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">Ngôn Ngữ Giao Diện</span>
-                      <span className="settings-subtext">
-                        Chuyển đổi Tiếng Việt hoặc English
-                      </span>
-                    </div>
-                    <div className="settings-pill-group">
-                      <button
-                        type="button"
-                        className={`settings-pill-btn ${language === "vi" ? "selected" : ""}`}
-                        onClick={() => onSetLanguage("vi")}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <EuroFlagVI /> Tiếng Việt
-                      </button>
-                      <button
-                        type="button"
-                        className={`settings-pill-btn ${language === "en" ? "selected" : ""}`}
-                        onClick={() => onSetLanguage("en")}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <EuroFlagEN /> English
-                      </button>
-                    </div>
+              <section className="settings-v2__section">
+                <header><h3>HIỂN THỊ BẢN ĐỒ</h3><p>Các thay đổi được áp dụng ngay lập tức.</p></header>
+                <div className="settings-v2__row">
+                  <span><strong>Ngôn ngữ giao diện</strong><small>Tiếng Việt hoặc English</small></span>
+                  <div className="settings-v2__choices">
+                    <button type="button" className={language === "vi" ? "active" : ""} onClick={() => onSetLanguage("vi")}>Tiếng Việt</button>
+                    <button type="button" className={language === "en" ? "active" : ""} onClick={() => onSetLanguage("en")}>English</button>
                   </div>
                 </div>
-
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <img
-                      src="/assets/icons/icon_settings_display.png"
-                      alt="Display"
-                      className="euro-header-png-icon"
-                    />
-                    ĐỒ HỌA & HIỆU ỨNG BẢN ĐỒ
-                  </h3>
-
-                  {/* Graphics Quality */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">Chất Lượng Đồ Họa</span>
-                      <span className="settings-subtext">
-                        Độ chi tiết lãnh thổ Hex & sương mù
-                      </span>
-                    </div>
-                    <div className="settings-pill-group">
-                      {(["low", "medium", "high"] as const).map((q) => (
-                        <button
-                          key={q}
-                          type="button"
-                          className={`settings-pill-btn ${graphicsQuality === q ? "selected" : ""}`}
-                          onClick={() => setGraphicsQuality(q)}
-                        >
-                          {q === "low"
-                            ? "Thấp"
-                            : q === "medium"
-                              ? "Cân Bằng"
-                              : "Cao"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Target FPS */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Tốc Độ Khung Hình (FPS)
-                      </span>
-                      <span className="settings-subtext">
-                        Tối ưu độ mượt của camera di chuyển
-                      </span>
-                    </div>
-                    <div className="settings-pill-group">
-                      <button
-                        type="button"
-                        className={`settings-pill-btn ${targetFps === 30 ? "selected" : ""}`}
-                        onClick={() => setTargetFps(30)}
-                      >
-                        30 FPS
-                      </button>
-                      <button
-                        type="button"
-                        className={`settings-pill-btn ${targetFps === 60 ? "selected" : ""}`}
-                        onClick={() => setTargetFps(60)}
-                      >
-                        60 FPS (Mượt)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Fog of war effect */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Sương Mù Chiến Tranh (Fog of War)
-                      </span>
-                      <span className="settings-subtext">
-                        Ẩn các vùng đất chưa do thám
-                      </span>
-                    </div>
-                    <SettingsSwitch
-                      active={fogOfWarEffect}
-                      onChange={() => setFogOfWarEffect(!fogOfWarEffect)}
-                    />
-                  </div>
-
-                  {/* Hide Territory Assets / Performance mode toggle */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Ẩn Assets Lãnh Thổ (Phím 'H')
-                      </span>
-                      <span className="settings-subtext">
-                        Ẩn cây cối, quặng & thú để tăng FPS
-                      </span>
-                    </div>
-                    <SettingsSwitch
-                      active={
-                        localStorage.getItem("island_empire_hide_assets") ===
-                        "true"
-                      }
-                      onChange={() => {
-                        if ((window as any).toggleHideTerritoryAssets) {
-                          (window as any).toggleHideTerritoryAssets();
-                          setFogOfWarEffect((prev) => prev);
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {/* Screen War Alerts */}
-                  <div className="settings-control-row">
-                    <div className="settings-label-block">
-                      <span className="settings-label">
-                        Cảnh Báo Tấn Công Nổi Màn Hình
-                      </span>
-                      <span className="settings-subtext">
-                        Tự động báo hiệu khi kẻ địch tới gần
-                      </span>
-                    </div>
-                    <SettingsSwitch
-                      active={screenWarAlerts}
-                      onChange={() => setScreenWarAlerts(!screenWarAlerts)}
-                    />
-                  </div>
+                <div className="settings-v2__row">
+                  <span><strong>Ẩn cây cối và địa vật</strong><small>Giảm chi tiết bản đồ để tăng hiệu năng · phím H</small></span>
+                  <SettingsSwitch active={hideAssets} label="Ẩn cây cối và địa vật" onChange={toggleAssets} />
                 </div>
-              </div>
+                <div className="settings-v2__row">
+                  <span><strong>Toàn màn hình</strong><small>Có thể bật/tắt nhanh bằng phím F</small></span>
+                  <SettingsSwitch active={fullscreen} label="Chế độ toàn màn hình" onChange={() => void toggleFullscreen()} />
+                </div>
+              </section>
             )}
 
-            {/* TAB 3: ACCOUNT & SERVER */}
             {activeTab === "account" && (
-              <div className="settings-tab-content">
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <img
-                      src="/assets/icons/icon_settings_account.png"
-                      alt="Account"
-                      className="euro-header-png-icon"
-                    />
-                    TÀI KHOẢN & MÁY CHỦ KẾT NỐI
-                  </h3>
-
-                  <div className="settings-info-box">
-                    <div className="settings-info-line">
-                      <span>Mã ID Người Chơi:</span>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <strong className="text-gold">{playerId}</strong>
-                        <button
-                          type="button"
-                          className="settings-copy-btn"
-                          onClick={() => {
-                            navigator.clipboard.writeText(playerId);
-                            alert("Đã sao chép ID người chơi vào bộ nhớ tạm!");
-                          }}
-                        >
-                          Sao chép
-                        </button>
-                      </span>
-                    </div>
-                    <div className="settings-info-line">
-                      <span>Máy Chủ Đang Kết Nối:</span>
-                      <strong className="text-green">
-                        S1 - ĐẠI LỤC ELDORIA (250 Online)
-                      </strong>
-                    </div>
-                    <div className="settings-info-line">
-                      <span>Trạng Thái Đồng Bộ:</span>
-                      <strong className="text-green">
-                        Realtime Socket Ready
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="settings-control-row danger-zone">
-                    <div className="settings-label-block">
-                      <span className="settings-label text-danger">
-                        Đăng Xuất Tài Khoản
-                      </span>
-                      <span className="settings-subtext">
-                        Thoát tài khoản hiện tại về màn hình chính
-                      </span>
-                    </div>
-                    {onLogout && (
-                      <button
-                        type="button"
-                        className="settings-danger-btn"
-                        onClick={() => setConfirmAction("logout")}
-                      >
-                        Đăng Xuất
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="settings-control-row danger-zone">
-                    <div className="settings-label-block">
-                      <span className="settings-label text-danger">
-                        Đặt Lại Dữ Liệu Tân Thủ
-                      </span>
-                      <span className="settings-subtext">
-                        Xóa bộ nhớ đệm vị trí camera và cài đặt
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="settings-danger-btn"
-                      onClick={() => setConfirmAction("resetTutorial")}
-                    >
-                      Cài Lại Tân Thủ
-                    </button>
-                  </div>
+              <section className="settings-v2__section">
+                <header><h3>TÀI KHOẢN VÀ KẾT NỐI</h3><p>Thông tin lấy trực tiếp từ phiên chơi hiện tại.</p></header>
+                <div className="settings-v2__info">
+                  <span>Mã người chơi</span>
+                  <strong>{playerId || "Chưa xác định"}</strong>
+                  <button type="button" disabled={!playerId} onClick={() => void copyPlayerId()}>{copied ? "Đã sao chép" : "Sao chép"}</button>
                 </div>
-              </div>
+                <div className="settings-v2__info">
+                  <span>Kết nối realtime</span>
+                  <strong className={online ? "is-online" : "is-offline"}>{online ? "Đã kết nối" : "Đang kết nối lại"}</strong>
+                </div>
+                <div className="settings-v2__danger">
+                  <span><strong>Đặt lại hướng dẫn</strong><small>Chỉ xóa tiến trình hướng dẫn và vị trí camera; không xóa đăng nhập.</small></span>
+                  <button type="button" onClick={() => setConfirmAction("resetTutorial")}>Đặt lại</button>
+                </div>
+                {onLogout && (
+                  <div className="settings-v2__danger">
+                    <span><strong>Đăng xuất</strong><small>Quay về màn hình đăng nhập.</small></span>
+                    <button type="button" onClick={() => setConfirmAction("logout")}>Đăng xuất</button>
+                  </div>
+                )}
+              </section>
             )}
 
-            {/* TAB 4: GAME INFO */}
-            {activeTab === "info" && (
-              <div className="settings-tab-content">
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <img
-                      src="/assets/icons/icon_settings_info.png"
-                      alt="Info"
-                      className="euro-header-png-icon"
-                    />
-                    BẢNG PHÍM TẮT ĐIỀU KHIỂN
-                  </h3>
-
-                  <div className="settings-hotkeys-grid">
-                    <div className="hotkey-item">
-                      <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>
-                      <span>Di chuyển Camera trên Bản đồ Hex</span>
-                    </div>
-                    <div className="hotkey-item">
-                      <kbd>Cuộn Chuột</kbd>
-                      <span>Phóng to / Thu nhỏ Thế giới</span>
-                    </div>
-                    <div className="hotkey-item">
-                      <kbd>Click Chuột Trái</kbd>
-                      <span>Chọn Lãnh thổ / Thành trì / Đội quân</span>
-                    </div>
-                    <div className="hotkey-item">
-                      <kbd>Esc</kbd>
-                      <span>Đóng Cửa sổ / Bảng Quản lý</span>
-                    </div>
-                  </div>
+            {activeTab === "controls" && (
+              <section className="settings-v2__section">
+                <header><h3>ĐIỀU KHIỂN ĐANG HỖ TRỢ</h3><p>Danh sách được đối chiếu với handler hiện có trong engine.</p></header>
+                <div className="settings-v2__hotkeys">
+                  <div><kbd>Chuột trái</kbd><span>Chọn lãnh thổ, thành trì hoặc quân đội</span></div>
+                  <div><kbd>Kéo bản đồ</kbd><span>Di chuyển camera</span></div>
+                  <div><kbd>Cuộn chuột</kbd><span>Phóng to hoặc thu nhỏ</span></div>
+                  <div><kbd>Esc</kbd><span>Bỏ chọn mục hiện tại</span></div>
+                  <div><kbd>F</kbd><span>Bật hoặc tắt toàn màn hình</span></div>
+                  <div><kbd>H</kbd><span>Ẩn hoặc hiện cây cối và địa vật</span></div>
+                  <div><kbd>0</kbd><span>Đưa camera về trung tâm thế giới</span></div>
                 </div>
-
-                <div className="settings-group-card">
-                  <h3 className="settings-group-title">
-                    <EuroInfoIcon size={20} /> THÔNG TIN PHIÊN BẢN
-                  </h3>
-                  <div className="settings-info-box">
-                    <div className="settings-info-line">
-                      <span>Tên Game:</span>
-                      <strong>Hex Rivals RTS · hexrivals.com</strong>
-                    </div>
-                    <div className="settings-info-line">
-                      <span>Phiên Bản:</span>
-                      <strong className="text-gold">v1.2.0 (Build 2026)</strong>
-                    </div>
-                    <div className="settings-info-line">
-                      <span>Bản Quyền:</span>
-                      <span>© 2026 hexrivals.com. All rights reserved.</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </section>
             )}
           </div>
 
-          {/* Modal Footer Bar */}
-          <div className="settings-modal-actions">
-            {showSavedToast && (
-              <span className="settings-saved-toast">
-                ✓ Đã lưu cài đặt thành công!
-              </span>
-            )}
-            <div className="settings-footer-buttons">
-              <button
-                type="button"
-                className="euro-emerald-btn"
-                onClick={handleSave}
-              >
-                LƯU CÀI ĐẶT
-              </button>
-              <button
-                type="button"
-                className="euro-btn-equip"
-                onClick={onClose}
-                style={{ width: 140 }}
-              >
-                ĐÓNG
-              </button>
-            </div>
-          </div>
+          <footer className="settings-v2__footer">
+            <span>Mọi thay đổi được áp dụng ngay</span>
+            <button type="button" onClick={onClose}>ĐÓNG</button>
+          </footer>
         </div>
       </MedievalModal>
+
       {confirmAction && (
         <ConfirmModal
-          title={
-            confirmAction === "logout"
-              ? "ĐĂNG XUẤT TÀI KHOẢN"
-              : "ĐẶT LẠI HƯỚNG DẪN"
-          }
-          message={
-            confirmAction === "logout"
-              ? "Bạn có chắc chắn muốn rời khỏi vương quốc hiện tại không?"
-              : "Toàn bộ hướng dẫn tân thủ, vị trí camera và cài đặt cục bộ sẽ được xóa. Hành động này không thể hoàn tác."
-          }
+          title={confirmAction === "logout" ? "ĐĂNG XUẤT" : "ĐẶT LẠI HƯỚNG DẪN"}
+          message={confirmAction === "logout" ? "Bạn có chắc muốn đăng xuất khỏi tài khoản hiện tại?" : "Tiến trình hướng dẫn và vị trí camera sẽ được đặt lại. Dữ liệu đăng nhập vẫn được giữ nguyên."}
           confirmLabel={confirmAction === "logout" ? "ĐĂNG XUẤT" : "ĐẶT LẠI"}
           icon={confirmAction === "logout" ? "settingsAccount" : "settingsInfo"}
           tone="danger"
@@ -604,7 +199,7 @@ export function SettingsModal({
               onLogout?.();
               return;
             }
-            localStorage.clear();
+            TUTORIAL_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
             window.location.reload();
           }}
         />

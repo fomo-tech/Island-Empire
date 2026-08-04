@@ -44,6 +44,7 @@ export function ResourceHudItem({
   ratePerHour,
   connected,
   onAdd,
+  className,
 }: {
   resource: ResourceKey;
   value: number;
@@ -51,6 +52,7 @@ export function ResourceHudItem({
   ratePerHour: number;
   connected: boolean;
   onAdd?: () => void;
+  className?: string;
 }) {
   const entryRef = useRef<HTMLDivElement | null>(null);
   const [tooltipOpen, setTooltipOpen] = useState(false);
@@ -129,13 +131,16 @@ export function ResourceHudItem({
       aria-expanded={tooltipOpen}
       aria-controls={`resource-tooltip-${resource}`}
       aria-label={`${meta.label}: ${exact(value)}${isPremium ? "" : ` trên ${exact(capacity)}`}`}
-      className={`hud-resource-entry res-${resource}${full ? " is-full" : nearFull ? " is-near-full" : ""}${tooltipOpen ? " is-tooltip-open" : ""}`}
+      className={`hud-resource-entry res-${resource}${className ? ` ${className}` : ""}${full ? " is-full" : nearFull ? " is-near-full" : ""}${tooltipOpen ? " is-tooltip-open" : ""}`}
       onClick={toggleTooltip}
       onKeyDown={handleEntryKeyDown}
     >
       <ResourceIcon resource={resource} className="hud-resource-entry-icon" />
       <span className="hud-resource-entry-copy">
-        <strong>{isPremium ? compact(value) : `${compact(value)}/${compact(capacity)}`}</strong>
+        <strong>
+          <span className="hud-resource-current-value">{compact(value)}</span>
+          {!isPremium && <span className="hud-resource-capacity">/{compact(capacity)}</span>}
+        </strong>
         <small>{ratePerHour > 0 ? `+${compact(ratePerHour)}/h` : isPremium ? "Đặc biệt" : "0/h"}</small>
       </span>
       {onAdd && <button type="button" className="hud-res-add-btn rok-add-btn" onClick={(event) => { event.stopPropagation(); onAdd(); }} aria-label={`Mua ${meta.label}`}>+</button>}

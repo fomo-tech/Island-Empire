@@ -1,0 +1,642 @@
+/*
+ * Desktop chat layer
+ *
+ * The quick-command nav is intentionally hidden on large screens because the
+ * desktop HUD uses the right-side event rail. Chat still belongs to that nav
+ * for the mobile/tablet layout, so keep the component in the same DOM tree
+ * and turn the nav into a transparent positioning shell on desktop.
+ */
+@media (min-width: 1200px) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    inset: auto !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+    /* Keep the fixed child above the map/HUD while the shell itself is transparent. */
+    z-index: 1300 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .hud-command-button {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat {
+    position: fixed !important;
+    left: max(112px, var(--safe-left, 0px)) !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: max(88px, calc(72px + var(--safe-bottom, 0px))) !important;
+    width: min(382px, calc(100vw - 136px)) !important;
+    height: min(278px, calc(100dvh - 150px)) !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: 48px 38px minmax(0, 1fr) 46px !important;
+    overflow: hidden !important;
+    z-index: 1300 !important;
+    pointer-events: auto !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    width: min(300px, calc(100vw - 136px)) !important;
+    height: 48px !important;
+    display: block !important;
+  }
+}
+
+/* ROK-style landscape HUD: a compact chat feed shares the bottom command rail. */
+@media (min-width: 768px) and (orientation: landscape) {
+  html body .game-shell .hud-wrapper .rok-event-badges-row {
+    position: fixed !important;
+    left: auto !important;
+    right: 0 !important;
+    bottom: max(6px, var(--safe-bottom, 0px)) !important;
+    transform: none !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 9px !important;
+    padding: 5px 14px 4px 10px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    pointer-events: auto !important;
+    z-index: 1301 !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-event-badges-row .rok-badge-item {
+    flex: 0 0 52px !important;
+    gap: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-event-badges-row .rok-badge-subtext {
+    font-size: 9px !important;
+    letter-spacing: 0.2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-capital-shortcut {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    inset: auto 0 max(6px, var(--safe-bottom, 0px)) !important;
+    width: 100% !important;
+    height: 82px !important;
+    min-height: 82px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    padding: 4px max(8px, var(--safe-right, 0px)) 4px
+      max(8px, var(--safe-left, 0px)) !important;
+    overflow: visible !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(5, 12, 16, 0.12) 48%,
+      rgba(5, 12, 16, 0.72) 100%
+    ) !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+    z-index: 1300 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .hud-command-button {
+    order: 2 !important;
+    flex: 0 0 clamp(58px, 5.8vw, 76px) !important;
+    width: clamp(58px, 5.8vw, 76px) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    padding: 3px 2px !important;
+    gap: 2px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .hud-command-button {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button
+    img {
+    width: clamp(44px, 4.6vw, 58px) !important;
+    height: clamp(44px, 4.6vw, 58px) !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button
+    span {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #f1ead8 !important;
+    font-size: clamp(8px, 0.8vw, 10px) !important;
+    font-weight: 800 !important;
+    line-height: 1.05 !important;
+    text-overflow: ellipsis !important;
+    text-shadow: 0 2px 3px #000 !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    order: 1 !important;
+    position: relative !important;
+    inset: auto !important;
+    width: auto !important;
+    width: min(52vw, 660px) !important;
+    max-width: min(52vw, 660px) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    flex: 1 1 0 !important;
+    margin-right: auto !important;
+    display: grid !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: linear-gradient(
+      90deg,
+      rgba(5, 13, 18, 0.84) 0%,
+      rgba(5, 13, 18, 0.48) 42%,
+      transparent 100%
+    ) !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+    z-index: 1301 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed::before {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header {
+    width: 58px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 3px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: radial-gradient(
+      circle at 50% 40%,
+      rgba(48, 71, 78, 0.9),
+      rgba(5, 14, 19, 0.9) 72%
+    ) !important;
+    filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > img {
+    width: 52px !important;
+    height: 52px !important;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > span {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > b {
+    position: absolute !important;
+    top: 5px !important;
+    left: 43px !important;
+    min-width: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    color: #fff7df !important;
+    background: #bc3834 !important;
+    font-size: 9px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat.is-collapsed
+    .strategy-chat__preview {
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 10px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-left: 1px solid rgba(223, 181, 78, 0.3) !important;
+    background: linear-gradient(
+      90deg,
+      rgba(7, 14, 18, 0.7),
+      rgba(7, 14, 18, 0.24) 72%,
+      transparent
+    ) !important;
+    text-align: left !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-lines {
+    display: grid !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line {
+    display: flex !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #f1eee4 !important;
+    font-size: clamp(10px, 1vw, 13px) !important;
+    line-height: 1.15 !important;
+    text-shadow: 0 1px 2px #000 !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line::before {
+    content: "" !important;
+    width: 5px !important;
+    height: 5px !important;
+    flex: 0 0 5px !important;
+    margin: 0 6px 0 1px !important;
+    border: 1px solid rgba(241, 207, 115, 0.8) !important;
+    border-radius: 50% !important;
+    background: #c08b35 !important;
+    box-shadow: 0 0 6px rgba(226, 171, 65, 0.7) !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:nth-child(1) {
+    opacity: 0.58 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:nth-child(2) {
+    opacity: 0.78 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:last-child {
+    opacity: 1 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line strong {
+    flex: 0 0 auto !important;
+    max-width: 42% !important;
+    overflow: hidden !important;
+    margin-right: 4px !important;
+    color: #fff5cc !important;
+    font-size: inherit !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line > span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    color: #e7e5df !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat:not(.is-collapsed) {
+    position: absolute !important;
+    left: max(8px, var(--safe-left, 0px)) !important;
+    right: max(8px, var(--safe-right, 0px)) !important;
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    width: auto !important;
+    max-width: none !important;
+    height: min(58dvh, 430px) !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: 48px 38px minmax(0, 1fr) 48px !important;
+    border: 1px solid #9b743a !important;
+    border-radius: 10px !important;
+    background: linear-gradient(
+      180deg,
+      rgba(18, 28, 38, 0.98),
+      rgba(8, 14, 20, 0.98)
+    ) !important;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.7) !important;
+    z-index: 1302 !important;
+  }
+}
+
+/* Landscape collapsed feed: match the compact top-left ROK chat strip. */
+@media (min-width: 768px) and (orientation: landscape) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(620px, calc(100vw - 16px)) !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    display: block !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    pointer-events: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    width: min(620px, calc(100vw - 16px)) !important;
+    max-width: none !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    order: initial !important;
+    flex: none !important;
+    margin: 0 !important;
+    display: grid !important;
+    grid-template-columns: 104px minmax(0, 1fr) !important;
+    grid-template-rows: 96px !important;
+    align-items: stretch !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header {
+    position: relative !important;
+    width: 104px !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    padding: 4px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: radial-gradient(
+      circle,
+      rgba(39, 96, 126, 0.76) 0%,
+      rgba(7, 34, 49, 0.76) 62%,
+      rgba(4, 13, 19, 0.38) 72%,
+      transparent 73%
+    ) !important;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 5px !important;
+    z-index: -1 !important;
+    border: 2px solid rgba(231, 190, 83, 0.9) !important;
+    border-radius: 50% !important;
+    box-shadow:
+      0 0 0 2px rgba(75, 37, 14, 0.88),
+      inset 0 0 0 1px rgba(255, 239, 158, 0.48) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header::after {
+    content: "" !important;
+    position: absolute !important;
+    right: -19px !important;
+    top: 35px !important;
+    width: 38px !important;
+    height: 27px !important;
+    border: 3px solid #fff !important;
+    border-radius: 6px !important;
+    background:
+      linear-gradient(#fff, #fff) 7px 6px / 18px 2px no-repeat,
+      linear-gradient(#fff, #fff) 7px 12px / 13px 2px no-repeat,
+      linear-gradient(#fff, #fff) 7px 18px / 18px 2px no-repeat,
+      rgba(8, 14, 17, 0.92) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > img {
+    width: 82px !important;
+    height: 82px !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.72)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > span {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__header
+    > b {
+    position: absolute !important;
+    top: 5px !important;
+    right: -28px !important;
+    left: auto !important;
+    min-width: 19px !important;
+    width: 19px !important;
+    height: 19px !important;
+    border: 2px solid #f8e9bb !important;
+    border-radius: 50% !important;
+    color: #fff !important;
+    background: #bd3837 !important;
+    font-size: 9px !important;
+    z-index: 2 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .strategy-chat__preview {
+    min-width: 0 !important;
+    height: 96px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 10px 0 14px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: linear-gradient(
+      90deg,
+      rgba(4, 15, 20, 0.16),
+      rgba(4, 15, 20, 0.04) 72%,
+      transparent
+    ) !important;
+    text-align: left !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-lines {
+    display: grid !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 2px !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line {
+    display: flex !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #f5f3e8 !important;
+    font-size: clamp(12px, 1.05vw, 16px) !important;
+    font-weight: 600 !important;
+    line-height: 1.16 !important;
+    text-shadow: 0 2px 3px #000 !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line::before {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:nth-child(1) {
+    opacity: 0.72 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:nth-child(2) {
+    opacity: 0.88 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line:last-child {
+    opacity: 1 !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line strong {
+    flex: 0 0 auto !important;
+    max-width: 42% !important;
+    overflow: hidden !important;
+    margin-right: 5px !important;
+    color: #fff8d9 !important;
+    font-size: inherit !important;
+    font-weight: 800 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .game-shell .hud-wrapper .strategy-chat__preview-line > span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    color: #f1f0eb !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat:not(.is-collapsed) {
+    position: fixed !important;
+    left: max(10px, var(--safe-left, 0px)) !important;
+    right: auto !important;
+    top: 114px !important;
+    bottom: auto !important;
+    width: min(430px, calc(100vw - 20px)) !important;
+    max-width: calc(100vw - 20px) !important;
+    height: min(58dvh, 430px) !important;
+    min-height: 0 !important;
+  }
+}

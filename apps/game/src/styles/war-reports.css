@@ -1,0 +1,48 @@
+.war-report-v2__overlay { position: fixed; inset: 0; z-index: 30020; display: grid; place-items: center; padding: 14px; background: rgba(2, 7, 10, 0.76); }
+.war-report-v2 { width: min(980px, 96vw); height: min(690px, 92dvh); display: grid; grid-template-rows: 72px 76px 48px minmax(0, 1fr); overflow: hidden; border: 2px solid #a77b31; border-radius: 12px; color: #e9e3d2; background: linear-gradient(150deg, #14232b, #071118 65%); box-shadow: 0 24px 70px rgba(0,0,0,.72); }
+.war-report-v2__header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid rgba(192,148,59,.44); background: linear-gradient(90deg, rgba(112,42,39,.68), rgba(13,25,31,.95)); }
+.war-report-v2__header > img { width: 48px; height: 48px; object-fit: contain; }
+.war-report-v2__header > span { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.war-report-v2__header strong { color: #f0d17d; font: 800 20px/1.1 Georgia, serif; }
+.war-report-v2__header small { color: #96a4a7; }
+.war-report-v2__header button { width: 42px; height: 42px; border: 1px solid #b98b37; border-radius: 50%; color: #f3db9d; background: #0a171d; font-size: 24px; cursor: pointer; }
+.war-report-v2__summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 14px; }
+.war-report-v2__summary > div { display: grid; place-items: center; padding: 7px; border: 1px solid rgba(181,139,55,.35); border-radius: 7px; background: rgba(13,25,31,.76); }
+.war-report-v2__summary span { color: #8f9da1; font-size: 10px; }
+.war-report-v2__summary strong { color: #ecd18a; font-size: 21px; }
+.war-report-v2__summary .win { color: #79c886; } .war-report-v2__summary .loss { color: #dc766b; }
+.war-report-v2__filters { display: flex; align-items: center; gap: 5px; padding: 5px 14px; border-block: 1px solid rgba(181,139,55,.25); background: rgba(3,10,14,.48); }
+.war-report-v2__filters button { min-height: 32px; padding: 5px 12px; border: 1px solid rgba(181,139,55,.3); border-radius: 5px; color: #aab4b4; background: #101d23; cursor: pointer; }
+.war-report-v2__filters button.active { color: #f6dda0; border-color: #c7983f; background: #61312e; }
+.war-report-v2__filters .mark-all { margin-left: auto; }
+.war-report-v2__body { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 290px; }
+.war-report-v2__history, .war-report-v2__active { min-height: 0; display: grid; grid-template-rows: 42px minmax(0, 1fr); padding: 0 12px 12px; }
+.war-report-v2__active { border-left: 1px solid rgba(181,139,55,.28); overflow: auto; align-content: start; }
+.war-report-v2__history h3, .war-report-v2__active h3 { margin: 0; display: flex; align-items: center; color: #d8bc72; font: 800 12px/1 Georgia, serif; }
+.war-report-v2__list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 7px; }
+.war-report-v2__row { position: relative; min-height: 72px; display: grid; grid-template-columns: 58px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid rgba(181,139,55,.26); border-left: 4px solid #708087; border-radius: 7px; color: inherit; background: rgba(14,27,34,.78); text-align: left; cursor: pointer; }
+.war-report-v2__row.is-win { border-left-color: #5fa66a; } .war-report-v2__row.is-loss { border-left-color: #bb5148; }
+.war-report-v2__row.is-unread { background: linear-gradient(90deg, rgba(104,50,43,.36), rgba(14,27,34,.9)); }
+.war-report-v2__result { color: #d9c17f; font-weight: 900; }
+.war-report-v2__row.is-win .war-report-v2__result { color: #79c886; } .war-report-v2__row.is-loss .war-report-v2__result { color: #dc766b; }
+.war-report-v2__row-copy { min-width: 0; display: grid; gap: 3px; }
+.war-report-v2__row-copy strong, .war-report-v2__row-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.war-report-v2__row-copy small { color: #a7b1b1; } .war-report-v2__row-copy em { color: #d08b7d; font-size: 10px; font-style: normal; }
+.war-report-v2__row time { color: #7f8d91; font-size: 9px; }
+.war-report-v2__row > i { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #e6bd55; box-shadow: 0 0 8px #e6bd55; }
+.war-report-v2__active article { display: grid; gap: 5px; margin-bottom: 7px; padding: 10px; border: 1px solid rgba(181,139,55,.25); border-radius: 7px; background: rgba(14,27,34,.7); }
+.war-report-v2__active article strong { color: #e5cf96; font-size: 11px; } .war-report-v2__active article span { color: #92a0a3; font-size: 10px; line-height: 1.35; }
+.war-report-v2__empty { padding: 24px 10px; color: #7f8d91; text-align: center; }
+@media (max-width: 767px) { .war-report-v2 { width: 100%; height: min(780px, 96dvh); grid-template-rows: 62px 62px 84px minmax(0,1fr); } .war-report-v2__header strong { font-size: 15px; } .war-report-v2__summary { padding: 6px; gap: 4px; } .war-report-v2__summary span { font-size: 8px; } .war-report-v2__summary strong { font-size: 16px; } .war-report-v2__filters { flex-wrap: wrap; padding: 6px; } .war-report-v2__filters button { flex: 1; padding-inline: 5px; font-size: 9px; } .war-report-v2__filters .mark-all { flex-basis: 100%; } .war-report-v2__body { grid-template-columns: 1fr; } .war-report-v2__active { display: none; } .war-report-v2__row { grid-template-columns: 48px minmax(0,1fr); } .war-report-v2__row time { position: absolute; right: 10px; bottom: 8px; } }
+
+.battle-comparison { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 14px; margin: 0 22px 12px; padding: 10px 12px; border: 1px solid rgba(193,150,61,.38); border-radius: 8px; background: rgba(6,15,20,.82); }
+.battle-comparison__side { min-width: 0; display: grid; gap: 5px; }
+.battle-comparison__side span { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.battle-comparison__side strong { color: #f0dcaa; font-size: 16px; }
+.battle-comparison__side small, .battle-comparison__side em { color: #87969a; font-size: 9px; font-style: normal; }
+.battle-comparison__side > i { height: 8px; overflow: hidden; border-radius: 5px; background: #16242a; }
+.battle-comparison__side > i > b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#357eb7,#6dc1df); }
+.battle-comparison__side.defender > i > b { margin-left: auto; background: linear-gradient(90deg,#d27062,#a83e39); }
+.battle-comparison__side.defender { text-align: right; }
+.battle-comparison__center { color: #d7b861; font: 800 10px/1 Georgia,serif; text-align: center; }
+@media (max-width: 700px) { .battle-comparison { grid-template-columns: 1fr; margin-inline: 10px; } .battle-comparison__center { grid-row: 1; } }
