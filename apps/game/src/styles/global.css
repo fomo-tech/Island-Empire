@@ -32476,6 +32476,106 @@ html[data-touch="true"] button,html[data-touch="true"] [role="button"]{-webkit-t
 /* FINAL TOUCH LAYOUT — one safe-area contract for tooltip + ROK-style chat. */
 @media (max-width: 767px),
        (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  /* Chat is a sixth compact command in the bottom HUD menu. */
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    position: fixed !important;
+    overflow: visible !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    grid-column: auto !important;
+    grid-row: 1 !important;
+    border-radius: 8px !important;
+    z-index: 3 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header {
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    padding: 3px 2px !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > img {
+    width: 29px !important;
+    height: 29px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > span {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header strong {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    color: #d2d9d6 !important;
+    font-size: 7px !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header small {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__header > b {
+    position: absolute !important;
+    top: 2px !important;
+    right: 2px !important;
+    left: auto !important;
+    min-width: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    color: #fff4d7 !important;
+    background: #a33f3d !important;
+    font-size: 7px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed .strategy-chat__preview {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat:not(.is-collapsed) {
+    position: absolute !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    width: auto !important;
+    height: min(44dvh, 420px) !important;
+    max-height: calc(var(--app-height, 100dvh) - var(--v3-top-hud, var(--tablet-top-hud-height, 112px)) - var(--v3-dock, var(--tablet-bottom-dock-height, 78px)) - var(--safe-top) - 18px) !important;
+    display: grid !important;
+    grid-template-rows: 42px 34px minmax(0, 1fr) 48px !important;
+    z-index: 20 !important;
+    border-radius: 12px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat:not(.is-collapsed)::after {
+    display: none !important;
+  }
+
   html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
     left: max(8px, var(--safe-left)) !important;
     right: max(8px, var(--safe-right)) !important;

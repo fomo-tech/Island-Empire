@@ -4280,6 +4280,16 @@ export function GameApp({
                 <img src="/assets/icons/icon_bag.png" alt="" />
                 <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
               </button>
+              <ChatPanel
+                messages={chatMessages}
+                currentUserId={playerId ?? undefined}
+                online={socketOnline}
+                onSend={(message) => {
+                  const sent = sendWorldChat(message);
+                  if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+                  return sent;
+                }}
+              />
             </nav>
           )}
 
@@ -4297,18 +4307,6 @@ export function GameApp({
               </b>
             </button>
           )}
-
-          {/* BOTTOM SECTION - CHAT PANEL & QUEUES */}
-          <ChatPanel
-            messages={chatMessages}
-            currentUserId={playerId ?? undefined}
-            online={socketOnline}
-            onSend={(message) => {
-              const sent = sendWorldChat(message);
-              if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
-              return sent;
-            }}
-          />
 
           {/* Bottom-Right Navigation Menu Dock */}
           <div className="rok-event-badges-row hud-interactive">
