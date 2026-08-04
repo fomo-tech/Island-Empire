@@ -14,10 +14,10 @@ export const ICON_ASSETS = {
   gold: "/assets/icons/resource_gold_european.png",
   coal: "/assets/icons/resource_coal_european.png",
   sulfur: "/assets/icons/resource_sulfur_european.png",
-  troopInfantry: "/assets/icons/icon_troop_infantry_shield.png",
-  troopCavalry: "/assets/icons/icon_troop_cavalry_horse.png",
-  troopArtillery: "/assets/icons/icon_troop_artillery_cannon.png",
-  troopTotal: "/assets/icons/icon_troop_total_helmet.png",
+  troopInfantry: "/assets/icon-troops/sprite_01.webp",
+  troopTotal: "/assets/icon-troops/sprite_02.webp",
+  troopCavalry: "/assets/icon-troops/sprite_03.webp",
+  troopArtillery: "/assets/icon-troops/sprite_04.webp",
   castle: "/assets/icons/icon_tower.png",
   city: "/assets/icons/icon_map.png",
   army: "/assets/icons/icon_military.png",
@@ -36,6 +36,9 @@ export const ICON_ASSETS = {
   battleVs: "/assets/icons/icon_battle_vs.png",
   attacker: "/assets/icons/icon_attacker_lion_shield.png",
   defender: "/assets/icons/icon_defender_dragon_shield.png",
+  attackButton: "/assets/icons/icons-button/attack.png",
+  buildButton: "/assets/icons/icons-button/build.png",
+  manageButton: "/assets/icons/icons-button/manage.png",
   bag: "/assets/icons/icon_bag.png",
   guild: "/assets/icons/icon_guild.png",
   mail: "/assets/icons/icon_mail.png",
@@ -55,10 +58,16 @@ type AssetIconProps = {
   active?: boolean;
 };
 
-export function AssetIcon({ asset, size = 20, className, style, alt = "", active = true }: AssetIconProps) {
-  const src = asset in ICON_ASSETS
-    ? ICON_ASSETS[asset as IconAssetId]
-    : asset;
+export function AssetIcon({
+  asset,
+  size = 20,
+  className,
+  style,
+  alt = "",
+  active = true,
+}: AssetIconProps) {
+  const src = asset in ICON_ASSETS ? ICON_ASSETS[asset as IconAssetId] : asset;
+
   return (
     <img
       src={src}
@@ -81,4 +90,3 @@ export function AssetIcon({ asset, size = 20, className, style, alt = "", active
     />
   );
 }
-

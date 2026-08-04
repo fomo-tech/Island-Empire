@@ -35,6 +35,7 @@ import {
 } from "../game/i18n";
 import { LoginScreen } from "./LoginScreen";
 import { MedievalModal } from "./MedievalModal";
+import { ConfirmModal } from "./ConfirmModal";
 import { TerritoryTooltip } from "./TerritoryTooltip";
 import { NewbieOnboardingModal } from "./NewbieOnboardingModal";
 import { KingdomCreationModal } from "./KingdomCreationModal";
@@ -68,6 +69,10 @@ const PLAYER_ID_KEY = "island_empire_playerId";
 const CLAIM_KEY = "island_empire_onboarding_claim";
 const ONBOARDING_KEY = "island_empire_onboarding_pending";
 let didApplyNewbieReset = false;
+
+type MailConfirmAction =
+  | { kind: "delete"; mail: PlayerMail; tab: "inbox" | "sent" }
+  | { kind: "clearAll"; tab: "inbox" | "sent" };
 
 type HudIconName =
   | "scroll"
@@ -115,17 +120,54 @@ type HudIconName =
 
 function HudIcon({ name }: { name: HudIconName }) {
   const rasterIcons: Partial<Record<HudIconName, IconAssetId>> = {
-    food: "food", wood: "wood", stone: "stone", iron: "iron", gems: "gems", gold: "gold",
-    scroll: "scroll", chart: "chart", swords: "army", shield: "defender", helmet: "troopTotal",
-    castle: "castle", map: "map", mail: "mail", bag: "bag", crown: "crown", globe: "map",
-    info: "info", search: "search", target: "army", gear: "settings", book: "scroll",
-    gift: "chest", pin: "map", chat: "guild", anchor: "map", clock: "settingsInfo",
-    pickaxe: "army", hammer: "army", flask: "settingsInfo", handshake: "guild", banner: "crown",
+    food: "food",
+    wood: "wood",
+    stone: "stone",
+    iron: "iron",
+    gems: "gems",
+    gold: "gold",
+    scroll: "scroll",
+    chart: "chart",
+    swords: "army",
+    shield: "defender",
+    helmet: "troopTotal",
+    castle: "castle",
+    map: "map",
+    mail: "mail",
+    bag: "bag",
+    crown: "crown",
+    globe: "map",
+    info: "info",
+    search: "search",
+    target: "army",
+    gear: "settings",
+    book: "scroll",
+    gift: "chest",
+    pin: "map",
+    chat: "guild",
+    anchor: "map",
+    clock: "settingsInfo",
+    pickaxe: "army",
+    hammer: "army",
+    flask: "settingsInfo",
+    handshake: "guild",
+    banner: "crown",
   };
   const rasterAsset = rasterIcons[name];
-  if (rasterAsset) return <AssetIcon asset={rasterAsset} size={24} className="hud-icon" />;
-  if (name === "minus") return <span className="hud-icon hud-icon-text" aria-hidden="true">−</span>;
-  if (name === "chevronUp") return <span className="hud-icon hud-icon-text" aria-hidden="true">⌃</span>;
+  if (rasterAsset)
+    return <AssetIcon asset={rasterAsset} size={24} className="hud-icon" />;
+  if (name === "minus")
+    return (
+      <span className="hud-icon hud-icon-text" aria-hidden="true">
+        −
+      </span>
+    );
+  if (name === "chevronUp")
+    return (
+      <span className="hud-icon hud-icon-text" aria-hidden="true">
+        ⌃
+      </span>
+    );
   if (name === "diamonds") {
     return <AssetIcon asset="gems" size={24} className="hud-icon" />;
   }
@@ -844,7 +886,9 @@ function StatusIconLeaf() {
 }
 
 function StatusIconShield() {
-  return <AssetIcon asset="defender" size={18} className="vector-status-icon" />;
+  return (
+    <AssetIcon asset="defender" size={18} className="vector-status-icon" />
+  );
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -858,7 +902,9 @@ function StatusIconShield() {
 }
 
 function StatusIconBlood() {
-  return <AssetIcon asset="attacker" size={18} className="vector-status-icon" />;
+  return (
+    <AssetIcon asset="attacker" size={18} className="vector-status-icon" />
+  );
   return (
     <svg viewBox="0 0 24 24" className="vector-status-icon">
       <path
@@ -1491,8 +1537,12 @@ export function GameApp({
   const setShopCatalog = useGameStore((state) => state.setShopCatalog);
   const shopInventory = useGameStore((state) => state.shopInventory);
   const setShopInventory = useGameStore((state) => state.setShopInventory);
-  const purchasedProductIds = useGameStore((state) => state.purchasedProductIds);
-  const setPurchasedProductIds = useGameStore((state) => state.setPurchasedProductIds);
+  const purchasedProductIds = useGameStore(
+    (state) => state.purchasedProductIds,
+  );
+  const setPurchasedProductIds = useGameStore(
+    (state) => state.setPurchasedProductIds,
+  );
   const syncVersion = useGameStore((state) => state.syncVersion);
   const setSyncVersion = useGameStore((state) => state.setSyncVersion);
   const serverTownsById = useGameStore((state) => state.townsById);
@@ -1515,7 +1565,9 @@ export function GameApp({
     "CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH",
   );
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
-  const [serverOnboardingState, setServerOnboardingState] = useState<string | null>(null);
+  const [serverOnboardingState, setServerOnboardingState] = useState<
+    string | null
+  >(null);
   const tutorialServerConfirmedRef = useRef(false);
   function applyResourceSnapshot(snapshot: {
     resources?: Partial<ResourceBag>;
@@ -1597,7 +1649,9 @@ export function GameApp({
   const [selectedTown, setSelectedTown] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [newbiePhase, setNewbiePhase] = useState<string>("none");
-  const [serverHealth, setServerHealth] = useState<"checking" | "online" | "offline">("checking");
+  const [serverHealth, setServerHealth] = useState<
+    "checking" | "online" | "offline"
+  >("checking");
   const [showHealthNotice, setShowHealthNotice] = useState(true);
   const [newbieSelectedRegion, setNewbieSelectedRegion] = useState<
     number | null
@@ -1616,6 +1670,8 @@ export function GameApp({
   const [mailTab, setMailTab] = useState<"inbox" | "sent">("inbox");
   const [mailDetail, setMailDetail] = useState<PlayerMail | null>(null);
   const [mailBusyId, setMailBusyId] = useState<string | null>(null);
+  const [mailConfirmAction, setMailConfirmAction] =
+    useState<MailConfirmAction | null>(null);
   const [initialSyncReady, setInitialSyncReady] = useState(false);
   const [realtimeToasts, setRealtimeToasts] = useState<
     Array<{ id: string; title: string; body: string; report?: BattleReport }>
@@ -1717,16 +1773,22 @@ export function GameApp({
     [],
   );
 
-  const addSystemLine = useCallback((message: string, level: "info" | "success" | "warning" | "battle" = "info") => {
-    const next: ChatMessage = {
-      id: createClientId("chat"),
-      kind: "system",
-      level,
-      text: message,
-      sentAt: new Date().toISOString(),
-    };
-    setChatMessages((prev) => [...prev, next].slice(-150));
-  }, []);
+  const addSystemLine = useCallback(
+    (
+      message: string,
+      level: "info" | "success" | "warning" | "battle" = "info",
+    ) => {
+      const next: ChatMessage = {
+        id: createClientId("chat"),
+        kind: "system",
+        level,
+        text: message,
+        sentAt: new Date().toISOString(),
+      };
+      setChatMessages((prev) => [...prev, next].slice(-150));
+    },
+    [],
+  );
 
   const pushRealtimeToast = useCallback(
     (toast: {
@@ -1778,12 +1840,15 @@ export function GameApp({
     }
   };
 
-  const deleteMailItem = async (mail: PlayerMail) => {
+  const deleteMailItem = async (
+    mail: PlayerMail,
+    tab: "inbox" | "sent" = mailTab,
+  ) => {
     if (!token || mailBusyId) return;
     setMailBusyId(mail.id);
     try {
       await deletePlayerMail(token, mail.id);
-      if (mailTab === "inbox") {
+      if (tab === "inbox") {
         setInbox((current) => current.filter((item) => item.id !== mail.id));
         if (!mail.readAt) {
           setMailUnreadCount((count) => Math.max(0, count - 1));
@@ -1799,20 +1864,11 @@ export function GameApp({
     }
   };
 
-  const clearAllMail = async () => {
+  const clearAllMail = async (tab: "inbox" | "sent") => {
     if (!token) return;
-    const list = mailTab === "inbox" ? inbox : sentMail;
-    if (list.length === 0) return;
-    if (
-      !window.confirm(
-        "Xoá toàn bộ thư trong mục này? Hành động không thể hoàn tác.",
-      )
-    ) {
-      return;
-    }
     try {
-      await clearPlayerMail(token, mailTab);
-      if (mailTab === "inbox") {
+      await clearPlayerMail(token, tab);
+      if (tab === "inbox") {
         setInbox([]);
         setMailUnreadCount(0);
       } else {
@@ -1821,6 +1877,14 @@ export function GameApp({
       setMailDetail(null);
     } catch (error: any) {
       showGameError(error?.message || "Không thể xoá thư");
+    }
+  };
+
+  const requestClearAllMail = () => {
+    if (!token) return;
+    const list = mailTab === "inbox" ? inbox : sentMail;
+    if (list.length > 0) {
+      setMailConfirmAction({ kind: "clearAll", tab: mailTab });
     }
   };
 
@@ -1856,7 +1920,10 @@ export function GameApp({
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch("/api/health", { signal: controller.signal, cache: "no-store" });
+        const response = await fetch("/api/health", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
         if (!cancelled) setServerHealth(response.ok ? "online" : "offline");
       } catch {
         if (!cancelled) setServerHealth("offline");
@@ -1865,7 +1932,9 @@ export function GameApp({
       }
     };
     checkHealth();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -2180,12 +2249,14 @@ export function GameApp({
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
             settlementKind: territory.settlementKind,
-            parentTerritoryId: territory.parentTerritoryId === undefined
-              ? undefined
-              : serverToEngineTerritoryId(territory.parentTerritoryId),
-            rootTerritoryId: territory.rootTerritoryId === undefined
-              ? undefined
-              : serverToEngineTerritoryId(territory.rootTerritoryId),
+            parentTerritoryId:
+              territory.parentTerritoryId === undefined
+                ? undefined
+                : serverToEngineTerritoryId(territory.parentTerritoryId),
+            rootTerritoryId:
+              territory.rootTerritoryId === undefined
+                ? undefined
+                : serverToEngineTerritoryId(territory.rootTerritoryId),
             connectionType: territory.connectionType,
           }));
           engineRef.current?.handleAction("applyGameState", {
@@ -2247,7 +2318,9 @@ export function GameApp({
             localStorage.getItem("island_empire_hide_tutorial") !== "true"
           ) {
             tutorialServerConfirmedRef.current = true;
-            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: true,
+            });
             setShowTutorial(true);
           }
           setWorldActivity({
@@ -2299,9 +2372,9 @@ export function GameApp({
           );
           const kingdomProfileComplete = Boolean(
             world.playerProfile?.cityName &&
-              world.playerProfile?.flagColor &&
-              world.playerProfile?.kingdomArchitectureId &&
-              world.playerProfile?.onboardingState !== "profile_required",
+            world.playerProfile?.flagColor &&
+            world.playerProfile?.kingdomArchitectureId &&
+            world.playerProfile?.onboardingState !== "profile_required",
           );
           setKingdomProfileReady(kingdomProfileComplete);
           const serverControlsNewbie =
@@ -2312,7 +2385,11 @@ export function GameApp({
             localStorage.removeItem(ONBOARDING_KEY);
             setShowKingdomCreation(false);
             setNewbiePhase("none");
-          } else if (serverControlsNewbie && !hasOwnedTerritory && !hasOwnClearing) {
+          } else if (
+            serverControlsNewbie &&
+            !hasOwnedTerritory &&
+            !hasOwnClearing
+          ) {
             localStorage.setItem(ONBOARDING_KEY, "1");
             setKingdomCreationRegion(null);
             if (!kingdomProfileComplete) {
@@ -2421,7 +2498,11 @@ export function GameApp({
     (cityName: string) =>
       token
         ? checkCityName(token, cityName)
-        : Promise.resolve({ available: false, normalizedName: cityName, message: "Chưa kết nối server" }),
+        : Promise.resolve({
+            available: false,
+            normalizedName: cityName,
+            message: "Chưa kết nối server",
+          }),
     [token],
   );
 
@@ -2436,7 +2517,8 @@ export function GameApp({
       (event) => {
         if (event.type === "chat_message") {
           setChatMessages((prev) => {
-            if (prev.some((message) => message.id === event.message.id)) return prev;
+            if (prev.some((message) => message.id === event.message.id))
+              return prev;
             return [...prev, event.message].slice(-150);
           });
           return;
@@ -2583,8 +2665,7 @@ export function GameApp({
                     : (event.territory.ownerName ?? "Đối thủ"),
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
-                  ownerArchitectureId:
-                    event.territory.ownerArchitectureId,
+                  ownerArchitectureId: event.territory.ownerArchitectureId,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                 },
@@ -2637,7 +2718,9 @@ export function GameApp({
             // The guide is unlocked only by the server's committed claim event.
             tutorialServerConfirmedRef.current = true;
             setServerOnboardingState("settled");
-            engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+            engineRef.current?.handleAction("setUiOverlayActive", {
+              active: true,
+            });
             setShowTutorial(true);
           }
           addWarReport({
@@ -2676,8 +2759,18 @@ export function GameApp({
                 ownerAllianceTag: event.territory.ownerAllianceTag,
                 ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                 settlementKind: event.territory.settlementKind,
-                parentTerritoryId: event.territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.parentTerritoryId),
-                rootTerritoryId: event.territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.rootTerritoryId),
+                parentTerritoryId:
+                  event.territory.parentTerritoryId === undefined
+                    ? undefined
+                    : serverToEngineTerritoryId(
+                        event.territory.parentTerritoryId,
+                      ),
+                rootTerritoryId:
+                  event.territory.rootTerritoryId === undefined
+                    ? undefined
+                    : serverToEngineTerritoryId(
+                        event.territory.rootTerritoryId,
+                      ),
                 connectionType: event.territory.connectionType,
                 equippedCapitalSkin: event.territory.equippedCapitalSkin,
                 equippedDistrictSkin: event.territory.equippedDistrictSkin,
@@ -2916,13 +3009,22 @@ export function GameApp({
                     : (event.territory.ownerName ?? "Đối thủ"),
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
-                  ownerArchitectureId:
-                    event.territory.ownerArchitectureId,
+                  ownerArchitectureId: event.territory.ownerArchitectureId,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
                   settlementKind: event.territory.settlementKind,
-                  parentTerritoryId: event.territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.parentTerritoryId),
-                  rootTerritoryId: event.territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(event.territory.rootTerritoryId),
+                  parentTerritoryId:
+                    event.territory.parentTerritoryId === undefined
+                      ? undefined
+                      : serverToEngineTerritoryId(
+                          event.territory.parentTerritoryId,
+                        ),
+                  rootTerritoryId:
+                    event.territory.rootTerritoryId === undefined
+                      ? undefined
+                      : serverToEngineTerritoryId(
+                          event.territory.rootTerritoryId,
+                        ),
                   connectionType: event.territory.connectionType,
                   equippedCapitalSkin: event.territory.equippedCapitalSkin,
                   equippedDistrictSkin: event.territory.equippedDistrictSkin,
@@ -2993,9 +3095,10 @@ export function GameApp({
             },
           });
           engineRef.current?.handleAction("setToast", {
-            message: event.reason === "capital_captured"
-              ? "HOÀNG THÀNH THẤT THỦ. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ"
-              : "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ",
+            message:
+              event.reason === "capital_captured"
+                ? "HOÀNG THÀNH THẤT THỦ. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ"
+                : "BẠN ĐÃ MẤT HẾT THÀNH. CHỌN ĐẤT HOANG ĐỂ TÁI LẬP MIỄN PHÍ",
           });
           addPrivateReportMail(
             "Vương quốc thất thủ",
@@ -3300,8 +3403,14 @@ export function GameApp({
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
       settlementKind: territory.settlementKind,
-      parentTerritoryId: territory.parentTerritoryId === undefined ? undefined : serverToEngineTerritoryId(territory.parentTerritoryId),
-      rootTerritoryId: territory.rootTerritoryId === undefined ? undefined : serverToEngineTerritoryId(territory.rootTerritoryId),
+      parentTerritoryId:
+        territory.parentTerritoryId === undefined
+          ? undefined
+          : serverToEngineTerritoryId(territory.parentTerritoryId),
+      rootTerritoryId:
+        territory.rootTerritoryId === undefined
+          ? undefined
+          : serverToEngineTerritoryId(territory.rootTerritoryId),
       connectionType: territory.connectionType,
     }));
     engineRef.current?.handleAction("applyGameState", {
@@ -3467,7 +3576,6 @@ export function GameApp({
     run(1);
   }
 
-
   if (!isAuthenticated && !token) {
     return <LoginScreen onSuccess={handleLoginSuccess} />;
   }
@@ -3534,7 +3642,8 @@ export function GameApp({
     ? serverHud.ownedTerritories
     : localOwnedTowns.length;
   const hudTotalTerritories = serverHud.totalTerritories || 75;
-  const hudPower = nationStatus?.strategicPower ?? serverHud.strategicPower ?? 0;
+  const hudPower =
+    nationStatus?.strategicPower ?? serverHud.strategicPower ?? 0;
   const vipLevel = nationStatus?.vipLevel ?? 0;
   const powerBreakdown = nationStatus?.strategicPowerBreakdown;
   const powerTooltip = powerBreakdown
@@ -3586,15 +3695,25 @@ export function GameApp({
     ) as any;
     const rawKind = town?.kind || territory?.settlementKind;
     const engineState = engineRef.current?.getState?.();
-    const isCapital = engineState?.capitalTerritoryIds?.has(id) || rawKind === "capital";
+    const isCapital =
+      engineState?.capitalTerritoryIds?.has(id) || rawKind === "capital";
     const isSubCapital = rawKind === "sub_capital";
-    const isHarbor = territory && (territory.isIslet || territory.specialResources?.includes("Bến tàu tự nhiên") || territory.connectionType === "sea");
-    const kind = isCapital ? "capital" : isSubCapital ? "sub_capital" : isHarbor ? "military_district" : "flag";
+    const isHarbor =
+      territory &&
+      (territory.isIslet ||
+        territory.specialResources?.includes("Bến tàu tự nhiên") ||
+        territory.connectionType === "sea");
+    const kind = isCapital
+      ? "capital"
+      : isSubCapital
+        ? "sub_capital"
+        : isHarbor
+          ? "military_district"
+          : "flag";
 
     if (kind === "capital") return `Hoàng Thành #${id + 1}`;
     if (kind === "sub_capital") return `Thành trì #${id + 1}`;
-    if (kind === "military_district")
-      return `Pháo đài #${id + 1}`;
+    if (kind === "military_district") return `Pháo đài #${id + 1}`;
     return territoryLabel(id);
   };
   const battleTimeLeft = (battle: any) => {
@@ -3607,9 +3726,14 @@ export function GameApp({
   worldActivity.battles.forEach((battle: any) => {
     const territoryId = Number(battle.regionId);
     if (!Number.isFinite(territoryId)) return;
-    const isLocalAttacker = battle.attackerId === playerId ||
-      (Array.isArray(battle.participants) && battle.participants.some((participant: any) =>
-        participant.playerId === playerId && participant.status === "engaged"));
+    const isLocalAttacker =
+      battle.attackerId === playerId ||
+      (Array.isArray(battle.participants) &&
+        battle.participants.some(
+          (participant: any) =>
+            participant.playerId === playerId &&
+            participant.status === "engaged",
+        ));
     if (battle.defenderId === playerId) {
       trackedBattleTerritories.add(territoryId);
       battlefieldActivities.push({
@@ -3671,7 +3795,7 @@ export function GameApp({
           : `Quân đang di chuyển đến ${activityTerritoryLabel(territoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
       icon: isAttack
-        ? "/assets/icons/icon_troop_total_helmet.png"
+        ? "/assets/icon-troops/sprite_02.webp"
         : "/assets/icons/icon_military.png",
       tone: isAttack ? "warning" : "active",
       priority: isAttack ? 2 : 3,
@@ -3814,7 +3938,9 @@ export function GameApp({
   return (
     <main
       className={`game-shell${isMobileLandscape ? " mobile-forced-landscape" : ""}`}
-      data-selection={selectedRegion ? "territory" : selectedTown ? "town" : "none"}
+      data-selection={
+        selectedRegion ? "territory" : selectedTown ? "town" : "none"
+      }
     >
       {runtimeError && (
         <div
@@ -3886,7 +4012,9 @@ export function GameApp({
           <div className="game-loading-bottom-dock">
             <div className="game-loading-tip-line">
               <span className="tip-tag">{t("loadingTipLabel")}</span>{" "}
-              <span className={`tip-content-text ${isTipFading ? "fade-out" : "fade-in"}`}>
+              <span
+                className={`tip-content-text ${isTipFading ? "fade-out" : "fade-in"}`}
+              >
                 {LOADING_TIPS[currentTipIndex][language === "vi" ? "vi" : "en"]}
               </span>
             </div>
@@ -4108,7 +4236,12 @@ export function GameApp({
                 <div className="hud-profile-meta-row">
                   <span>{nationStatus?.rank || "Lãnh Chúa"}</span>
                   <time>
-                    UTC {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}
+                    UTC{" "}
+                    {new Date().toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "UTC",
+                    })}
                   </time>
                 </div>
               </div>
@@ -4135,13 +4268,14 @@ export function GameApp({
                     capacity={resourceCapacity(resource)}
                     ratePerHour={resourceRatePerHour(resource)}
                     connected={Boolean(serverHud.lastSync || nationStatus)}
-                    onAdd={resource === "gems" ? () => openModal("shop") : undefined}
+                    onAdd={
+                      resource === "gems" ? () => openModal("shop") : undefined
+                    }
                   />
                 ))}
               </div>
-
-              </div>
             </div>
+          </div>
 
           {/* MAIN HUD BODY */}
           <div className="hud-main">
@@ -4281,7 +4415,9 @@ export function GameApp({
             <button
               type="button"
               className={`mobile-battlefield-alert battlefield-${visibleBattlefieldActivities[0].tone} hud-interactive`}
-              onClick={() => focusBattlefieldActivity(visibleBattlefieldActivities[0])}
+              onClick={() =>
+                focusBattlefieldActivity(visibleBattlefieldActivities[0])
+              }
               disabled={!visibleBattlefieldActivities[0].focus}
               aria-label={`Định vị ${visibleBattlefieldActivities[0].title.toLowerCase()}`}
             >
@@ -4290,7 +4426,11 @@ export function GameApp({
                 <b>{visibleBattlefieldActivities[0].title}</b>
                 <small>{visibleBattlefieldActivities[0].meta}</small>
               </span>
-              <img className="mobile-battlefield-locate" src="/assets/icons/icon_search_european.png" alt="" />
+              <img
+                className="mobile-battlefield-locate"
+                src="/assets/icons/icon_search_european.png"
+                alt=""
+              />
             </button>
           )}
 
@@ -4399,7 +4539,8 @@ export function GameApp({
             online={socketOnline}
             onSend={(message) => {
               const sent = sendWorldChat(message);
-              if (!sent) showGameError("Chat đang mất kết nối, vui lòng thử lại");
+              if (!sent)
+                showGameError("Chat đang mất kết nối, vui lòng thử lại");
               return sent;
             }}
           />
@@ -4493,12 +4634,18 @@ export function GameApp({
                   className="rok-badge-img"
                 />
                 {shopCatalog.filter(
-                  (product) => product.type === "resource_pack" && !purchasedProductIds.includes(product.id)
+                  (product) =>
+                    product.type === "resource_pack" &&
+                    !purchasedProductIds.includes(product.id),
                 ).length > 0 && (
                   <b className="rok-badge-notif">
-                    {shopCatalog.filter(
-                      (product) => product.type === "resource_pack" && !purchasedProductIds.includes(product.id)
-                    ).length}
+                    {
+                      shopCatalog.filter(
+                        (product) =>
+                          product.type === "resource_pack" &&
+                          !purchasedProductIds.includes(product.id),
+                      ).length
+                    }
                   </b>
                 )}
               </div>
@@ -4737,52 +4884,52 @@ export function GameApp({
       )}
 
       {showKingdomCreation && engineRef.current && (
-          <KingdomCreationModal
-            required
-            defaultCityName="Vương Quốc Tân Lập"
-            territoryName="Chưa chọn lãnh thổ"
-            checkName={checkKingdomName}
-            onClose={() => undefined}
+        <KingdomCreationModal
+          required
+          defaultCityName="Vương Quốc Tân Lập"
+          territoryName="Chưa chọn lãnh thổ"
+          checkName={checkKingdomName}
+          onClose={() => undefined}
           onConfirm={async (flagColor, emblem, cityName, architectureId) => {
-              if (!token) {
-                showGameError(
-                  "Chưa kết nối server, không thể thành lập vương quốc",
-                );
-                return;
-              }
-              engineRef.current?.handleAction("setToast", {
-                message: "ĐANG GỬI SẮC LỆNH THÀNH LẬP VƯƠNG QUỐC",
-              });
-              try {
-                await updatePlayerProfile(
-                  token,
-                  flagColor,
-                  emblem,
-                  cityName,
-                  architectureId,
-                );
-                engineRef.current?.startNewbieOnboarding(
-                  flagColor,
-                  emblem,
-                  cityName,
-                  architectureId,
-                );
-                engineRef.current?.cancelNewbieOnboarding();
-                setKingdomProfileReady(true);
-                setShowKingdomCreation(false);
-                setNewbiePhase("select_land");
-                setKingdomCreationRegion(null);
-                addSystemLine(
-                  `VƯƠNG QUỐC ${cityName.toUpperCase()} ĐÃ THÀNH LẬP · HÃY CHỌN LÃNH THỔ ĐỂ DỰNG THÀNH`,
-                );
-              } catch (err: any) {
-                showGameError(
-                  err.message || "Không thể thành lập vương quốc tân thủ",
-                );
-              }
-            }}
-          />
-        )}
+            if (!token) {
+              showGameError(
+                "Chưa kết nối server, không thể thành lập vương quốc",
+              );
+              return;
+            }
+            engineRef.current?.handleAction("setToast", {
+              message: "ĐANG GỬI SẮC LỆNH THÀNH LẬP VƯƠNG QUỐC",
+            });
+            try {
+              await updatePlayerProfile(
+                token,
+                flagColor,
+                emblem,
+                cityName,
+                architectureId,
+              );
+              engineRef.current?.startNewbieOnboarding(
+                flagColor,
+                emblem,
+                cityName,
+                architectureId,
+              );
+              engineRef.current?.cancelNewbieOnboarding();
+              setKingdomProfileReady(true);
+              setShowKingdomCreation(false);
+              setNewbiePhase("select_land");
+              setKingdomCreationRegion(null);
+              addSystemLine(
+                `VƯƠNG QUỐC ${cityName.toUpperCase()} ĐÃ THÀNH LẬP · HÃY CHỌN LÃNH THỔ ĐỂ DỰNG THÀNH`,
+              );
+            } catch (err: any) {
+              showGameError(
+                err.message || "Không thể thành lập vương quốc tân thủ",
+              );
+            }
+          }}
+        />
+      )}
 
       {deployTarget && deploySourceTown && engineRef.current && (
         <TroopDeploymentModal
@@ -4794,7 +4941,9 @@ export function GameApp({
           isAttack={deployTarget.isAttack}
           battleSide={deployTarget.battleSide}
           targetBattleActive={Boolean(
-            engineRef.current.getActiveBattleForRegion?.(deployTarget.targetRegionId),
+            engineRef.current.getActiveBattleForRegion?.(
+              deployTarget.targetRegionId,
+            ),
           )}
           gameConfig={(engineRef.current as any).getConfig?.()}
           errorMessage={deployError}
@@ -4845,9 +4994,11 @@ export function GameApp({
             const selectedServerSource = marchSourceOptions?.find(
               (option) =>
                 option.townId === deploySourceTown.id ||
-                option.territoryId === engineToServerTerritoryId(
-                  engineRef.current?.getTownRegionId?.(deploySourceTown) ?? -1,
-                ),
+                option.territoryId ===
+                  engineToServerTerritoryId(
+                    engineRef.current?.getTownRegionId?.(deploySourceTown) ??
+                      -1,
+                  ),
             );
             if (deployTarget.isAttack) {
               if (!selectedServerSource?.valid) {
@@ -5353,7 +5504,7 @@ export function GameApp({
                   <button
                     type="button"
                     className="mail-clear-all-btn"
-                    onClick={clearAllMail}
+                    onClick={requestClearAllMail}
                     disabled={
                       (mailTab === "inbox" ? inbox : sentMail).length === 0
                     }
@@ -5391,7 +5542,13 @@ export function GameApp({
                     <button
                       type="button"
                       className="mail-item-delete-btn"
-                      onClick={() => deleteMailItem(mailDetail)}
+                      onClick={() =>
+                        setMailConfirmAction({
+                          kind: "delete",
+                          mail: mailDetail,
+                          tab: mailTab,
+                        })
+                      }
                       disabled={mailBusyId === mailDetail.id}
                     >
                       XOÁ THƯ NÀY
@@ -5456,7 +5613,13 @@ export function GameApp({
                           <button
                             type="button"
                             className="mail-item-delete-btn mail-item-delete-icon"
-                            onClick={() => deleteMailItem(mail)}
+                            onClick={() =>
+                              setMailConfirmAction({
+                                kind: "delete",
+                                mail,
+                                tab: mailTab,
+                              })
+                            }
                             disabled={mailBusyId === mail.id}
                             title="Xoá thư"
                           >
@@ -5475,6 +5638,36 @@ export function GameApp({
             </div>
           </div>
         </div>
+      )}
+
+      {mailConfirmAction && (
+        <ConfirmModal
+          title={
+            mailConfirmAction.kind === "clearAll"
+              ? "XÓA TOÀN BỘ THƯ"
+              : "XÁC NHẬN XÓA THƯ"
+          }
+          message={
+            mailConfirmAction.kind === "clearAll"
+              ? "Toàn bộ thư trong mục hiện tại sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác."
+              : `Thư “${mailConfirmAction.mail.title || "THƯ KHÔNG TIÊU ĐỀ"}” sẽ bị xóa vĩnh viễn.`
+          }
+          confirmLabel={
+            mailConfirmAction.kind === "clearAll" ? "XÓA TẤT CẢ" : "XÓA THƯ"
+          }
+          icon="mail"
+          tone="danger"
+          onClose={() => setMailConfirmAction(null)}
+          onConfirm={async () => {
+            const action = mailConfirmAction;
+            if (action.kind === "clearAll") {
+              await clearAllMail(action.tab);
+            } else {
+              await deleteMailItem(action.mail, action.tab);
+            }
+            setMailConfirmAction(null);
+          }}
+        />
       )}
 
       {activeModal === "settings" && (
@@ -5500,15 +5693,19 @@ export function GameApp({
       )}
 
       {realtimeToasts.length > 0 && (
-        <div className="realtime-toast-stack" aria-live="polite" aria-label="Thông báo">
+        <div
+          className="realtime-toast-stack"
+          aria-live="polite"
+          aria-label="Thông báo"
+        >
           {realtimeToasts.map((toast) => {
             const typeClass = toast.report
               ? "realtime-toast--battle"
               : toast.id.startsWith("mail-")
-              ? "realtime-toast--info"
-              : toast.id.startsWith("shop-")
-              ? "realtime-toast--success"
-              : "";
+                ? "realtime-toast--info"
+                : toast.id.startsWith("shop-")
+                  ? "realtime-toast--success"
+                  : "";
             return (
               <button
                 type="button"
@@ -5541,7 +5738,9 @@ export function GameApp({
               >
                 <strong>{toast.title}</strong>
                 <span>{toast.body}</span>
-                <span className="toast-close-icon" aria-hidden="true">×</span>
+                <span className="toast-close-icon" aria-hidden="true">
+                  ×
+                </span>
               </button>
             );
           })}
@@ -5551,11 +5750,24 @@ export function GameApp({
       {showHealthNotice && serverHealth !== "checking" && (
         <div className={`server-health-notice ${serverHealth}`} role="status">
           <span className="server-health-dot" aria-hidden="true" />
-          <span>{serverHealth === "online" ? "Máy chủ đã kết nối" : "Không thể kết nối máy chủ"}</span>
+          <span>
+            {serverHealth === "online"
+              ? "Máy chủ đã kết nối"
+              : "Không thể kết nối máy chủ"}
+          </span>
           {serverHealth === "offline" && (
-            <button type="button" onClick={() => window.location.reload()}>Thử lại</button>
+            <button type="button" onClick={() => window.location.reload()}>
+              Thử lại
+            </button>
           )}
-          <button type="button" className="server-health-close" aria-label="Đóng" onClick={() => setShowHealthNotice(false)}>×</button>
+          <button
+            type="button"
+            className="server-health-close"
+            aria-label="Đóng"
+            onClick={() => setShowHealthNotice(false)}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -5612,7 +5824,7 @@ export function GameApp({
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
-                          "Authorization": `Bearer ${token}`,
+                          Authorization: `Bearer ${token}`,
                         },
                         body: JSON.stringify({ avatarId: av.id }),
                       });
