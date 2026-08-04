@@ -40,3 +40,11 @@ npm run build
 ## Realtime và hiệu suất
 
 Kiến trúc command, worker nền, socket, chỉ tiêu độ trễ và kế hoạch mở rộng nhiều server được ghi tại [`docs/REALTIME_PERFORMANCE.md`](docs/REALTIME_PERFORMANCE.md).
+
+## Tài liệu game engine
+
+Kiến trúc đầy đủ, action pipeline, simulation loop và hướng dẫn mở rộng game engine được ghi tại [`docs/GAME_ENGINE_ARCHITECTURE.md`](docs/GAME_ENGINE_ARCHITECTURE.md).
+
+## Refactor an toan
+
+Quy trinh refactor theo slice nho, quality gate bat buoc, PR checklist va rollback plan duoc ghi tai [`docs/REFACTOR_SAFE_ROLLOUT.md`](docs/REFACTOR_SAFE_ROLLOUT.md).
