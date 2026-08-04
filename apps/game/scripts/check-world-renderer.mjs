@@ -106,7 +106,9 @@ rejectCalls("Bản đồ thành trì", castles, [
 if (!castles.includes("drawKingdomBuildingSprite(")) {
   throw new Error("Thành trì chưa dùng asset vuông có pivot");
 }
-if (!castles.includes("? 270") || !castles.includes("? 170") || !castles.includes(": 105")) {
+if (!source.includes("const MAINLAND_CAPITAL_RENDER_SIZE = 240")
+  || !source.includes("const ISLET_DISTRICT_RENDER_SIZE = 170")
+  || !castles.includes("standardTerritoryBuildingSize(")) {
   throw new Error("Kích thước Hoàng Thành, Quân Khu và trụ cờ chưa được chuẩn hóa");
 }
 if (!castles.includes("const x = r.x;") || !castles.includes("const y = r.y;")) {
@@ -145,9 +147,9 @@ rejectCalls("Quân hành quân", troops, [
   "drawLegacyPixelArtillery(",
   "drawPixelInfantry(",
 ]);
-if (!troops.includes('drawMedievalUnitSprite("infantry"')
-  || !troops.includes('drawMedievalUnitSprite("cavalry"')
-  || !troops.includes('drawMedievalUnitSprite("artillery"')) {
+const requiredTroopKinds = ["infantry", "cavalry", "artillery"];
+if (!requiredTroopKinds.every((kind) =>
+  new RegExp(`drawMedievalUnitSprite\\(\\s*"${kind}"`).test(troops))) {
   throw new Error("Quân hành quân chưa dùng đủ atlas bộ binh, kỵ binh và pháo binh");
 }
 if (!source.includes("nationUnitSheet")

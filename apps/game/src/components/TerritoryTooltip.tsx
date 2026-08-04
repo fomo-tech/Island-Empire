@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   ActiveBattle,
@@ -219,6 +219,37 @@ export function TerritoryTooltip({
   const [selectedYield, setSelectedYield] = useState<string | null>(null);
   const [confirmCancelClearing, setConfirmCancelClearing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [hudBottomInset, setHudBottomInset] = useState(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const dock = document.querySelector<HTMLElement>(".hud-command-dock");
+
+    const measureDock = () => {
+      if (!dock || getComputedStyle(dock).display === "none") {
+        setHudBottomInset(0);
+        return;
+      }
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const dockTop = dock.getBoundingClientRect().top;
+      setHudBottomInset(Math.max(0, Math.ceil(viewportHeight - dockTop + 8)));
+    };
+
+    measureDock();
+    const resizeObserver = dock ? new ResizeObserver(measureDock) : null;
+    if (dock) resizeObserver?.observe(dock);
+    const mutationObserver = dock ? new MutationObserver(measureDock) : null;
+    if (dock) mutationObserver?.observe(dock, { attributes: true, attributeFilter: ["class", "style"] });
+    window.addEventListener("resize", measureDock);
+    window.visualViewport?.addEventListener("resize", measureDock);
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      window.removeEventListener("resize", measureDock);
+      window.visualViewport?.removeEventListener("resize", measureDock);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -228,9 +259,9 @@ export function TerritoryTooltip({
   }, []);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: PointerEvent) {
       if (confirmCancelClearing) return;
-      const cardElement = document.querySelector(".rt-tooltip-card");
+      const cardElement = cardRef.current;
       const arrowPointer = document.querySelector(".rt-tooltip-arrow-pointer");
 
       // If clicking outside the tooltip box, close it smoothly
@@ -243,14 +274,20 @@ export function TerritoryTooltip({
       }
     }
 
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose?.();
+    }
+
     // Register listener after a micro delay to avoid capturing the activation click
     const registerTimer = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("pointerdown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }, 100);
 
     return () => {
       clearTimeout(registerTimer);
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [confirmCancelClearing, onClose]);
 
@@ -1031,9 +1068,10 @@ export function TerritoryTooltip({
         zIndex: 99999,
         pointerEvents: "none",
         overflow: "visible",
-      }}
+        "--rt-hud-bottom-inset": `${hudBottomInset}px`,
+      } as React.CSSProperties}
     >
-      {/* CSS pointer keeps the tooltip lightweight and avoids inline vector filters. */}
+      {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
       <div
         className={`rt-tooltip-arrow-pointer ${positionClass}`}
         style={{ top: `${arrowOffsetY}px` }}
@@ -1042,7 +1080,11 @@ export function TerritoryTooltip({
         <span className="rt-tooltip-arrow-css" />
       </div>
       <div
+        ref={cardRef}
         className="rt-tooltip-card rt-territory-active"
+        role="dialog"
+        aria-modal="false"
+        aria-label={isIslet ? `Thông tin đảo nhỏ ${id + 1}` : `Thông tin lãnh thổ ${id + 1}`}
         style={{ pointerEvents: "auto" }}
       >
         {/* Header */}
@@ -1098,11 +1140,7 @@ export function TerritoryTooltip({
           </div>
         </div>
 
-        {/* Primary actions stay directly under the header so they are always
-            visible; informational sections below may scroll independently. */}
-        <div className="rt-primary-actions" style={{ width: "100%" }}>
-          {renderActionButtons()}
-        </div>
+        <div className="rt-tooltip-scroll">
 
         {/* Section Divider */}
         <div className="rt-section-divider">
@@ -1396,6 +1434,12 @@ export function TerritoryTooltip({
             )}
           </>
         )}
+        </div>
+
+        {/* Action Button Section */}
+        <div className="rt-tooltip-action-section">
+          {renderActionButtons()}
+        </div>
       </div>
     </div>
   );

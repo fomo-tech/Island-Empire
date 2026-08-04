@@ -2052,21 +2052,22 @@ export function createIslandEmpireGame(
     return Math.max(minSize, Math.min(preferredSize, widthLimit, heightLimit));
   }
 
-  // A building's footprint is a property of its settlement type, never of
-  // ownership.  Keeping this in one place prevents the local-player branch
-  // from silently rendering a larger sprite than the same enemy building.
-  function preferredTerritoryBuildingSize(buildingType: KingdomBuildingType) {
-    switch (buildingType) {
-      case "capital":
-        return 270;
-      case "fortress":
-      case "district":
-        return 170;
-      case "flag":
-        return 105;
-      default:
-        return 118;
-    }
+  // Capital buildings use a visual scale shared by every mainland nation.
+  // Island territories are military districts and intentionally use their own
+  // smaller scale; neither size depends on the polygon area of the territory.
+  const MAINLAND_CAPITAL_RENDER_SIZE = 240;
+  const ISLET_DISTRICT_RENDER_SIZE = 170;
+
+  function standardTerritoryBuildingSize(
+    r: any,
+    buildingType: KingdomBuildingType,
+    isIslet = false,
+  ) {
+    if (buildingType === "capital") return MAINLAND_CAPITAL_RENDER_SIZE;
+    if (buildingType === "district" && isIslet) return ISLET_DISTRICT_RENDER_SIZE;
+    const preferredSize =
+      buildingType === "district" || buildingType === "fortress" ? 170 : 105;
+    return territoryBuildingSize(r, buildingType, preferredSize);
   }
 
   function territoryBuildingAnchor(
@@ -8827,6 +8828,7 @@ export function createIslandEmpireGame(
         ? explicitRegionId
         : regionAtCoords(t.x, t.y);
     const castleLand = castleRegionId >= 0 ? landById(castleRegionId) : null;
+    const isIslet = Boolean(castleLand?.isIslet);
     const drawX = castleLand ? castleLand.x : t.x;
     const drawY = castleLand ? castleLand.y : t.y;
 
@@ -8880,21 +8882,20 @@ export function createIslandEmpireGame(
       regionId >= 0 && state.capitalTerritoryIds.has(regionId);
     const serverConfirmedCapitalTown = state.capitalTownIds.has(Number(t.id));
     const isCapitalSettlement =
-      serverConfirmedCapital ||
-      serverConfirmedCapitalTown ||
-      settlementKind === "capital";
-    const isSubCapital = settlementKind === "sub_capital";
+      !isIslet &&
+      (serverConfirmedCapital ||
+        serverConfirmedCapitalTown ||
+        settlementKind === "capital");
+    const isSubCapital = !isIslet && settlementKind === "sub_capital";
     const connectionType =
       regionId >= 0 ? state.regionConnectionTypes[regionId] : undefined;
-    const castleSpecials =
-      regionId >= 0 ? territorySpecialResources(regionId) : [];
-    // The server's settlementKind is authoritative. Coastal/islet geometry or
-    // a harbor resource alone must not turn a land-connected territory into a
-    // military district.
+    // Islands and territories whose confirmed connection requires the sea are
+    // military districts. A natural harbor on land is not enough by itself.
     const isMilitaryDistrict =
-      !isCapitalSettlement &&
-      !isSubCapital &&
-      settlementKind === "military_district";
+      isIslet ||
+      (!isCapitalSettlement &&
+        !isSubCapital &&
+        (settlementKind === "military_district" || connectionType === "sea"));
     const isTerritoryFlag =
       !isCapitalSettlement && !isSubCapital && !isMilitaryDistrict;
 
@@ -8947,7 +8948,11 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const size = preferredTerritoryBuildingSize(buildingType);
+    const size = standardTerritoryBuildingSize(
+      castleLand || {},
+      buildingType,
+      isIslet,
+    );
     const buildingAnchor = territoryBuildingAnchor(
       drawX,
       drawY,
@@ -12070,17 +12075,16 @@ export function createIslandEmpireGame(
               state.regionOwnerArchitectureIds[regionId],
             )
           : "vietnam";
-      const constructionType: KingdomBuildingType = timing?.isStarterClaim
+      const constructionType: KingdomBuildingType = timing?.isStarterClaim && !r.isIslet
         ? "capital"
-        : timing?.connectionType === "sea"
+        : r.isIslet || timing?.connectionType === "sea"
           ? "district"
           : "flag";
-      const constructionSize =
-        constructionType === "capital"
-          ? 190
-          : constructionType === "district"
-            ? 158
-            : 118;
+      const constructionSize = constructionType === "capital"
+        ? MAINLAND_CAPITAL_RENDER_SIZE
+        : constructionType === "district"
+          ? (r.isIslet ? ISLET_DISTRICT_RENDER_SIZE : 158)
+          : 118;
       ctx.save();
       ctx.globalAlpha = 0.42 + buildP * 0.58;
       drawKingdomBuildingSprite(
@@ -12675,16 +12679,22 @@ export function createIslandEmpireGame(
         (town: any) =>
           town.regionId === regionId || town.territoryId === regionId,
       );
+    const isIslet = Boolean(r.isIslet);
     const serverConfirmedCapital =
       state.capitalTerritoryIds.has(regionId) ||
       (playerTown && state.capitalTownIds.has(Number(playerTown.id)));
-    const isCapital = serverConfirmedCapital || settlementKind === "capital";
-    const isSubCapital = settlementKind === "sub_capital";
+    const isCapital =
+      !isIslet && (serverConfirmedCapital || settlementKind === "capital");
+    const isSubCapital = !isIslet && settlementKind === "sub_capital";
 
-    // Use the server classification. A coastal tile/harbor is still a flag
-    // when it is land-connected to the capital.
+    const connectionType = state.regionConnectionTypes[regionId];
+    // Server classification wins, while islands and confirmed sea-connected
+    // territories are always represented as military districts.
     const isMilitaryDistrict =
-      !isCapital && !isSubCapital && settlementKind === "military_district";
+      isIslet ||
+      (!isCapital &&
+        !isSubCapital &&
+        (settlementKind === "military_district" || connectionType === "sea"));
     const rawEmblem =
       ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
     const emblem = resolveCastleEmblem(ownerName, regionId, rawEmblem);
@@ -12720,19 +12730,10 @@ export function createIslandEmpireGame(
         : isMilitaryDistrict
           ? "district"
           : "flag";
-    const preferredCastleSize =
-      buildingType === "capital"
-        ? 270
-        : buildingType === "fortress" || buildingType === "district"
-          ? 170
-          : buildingType === "flag"
-            ? 105
-            : 118;
-    // Renderer contract keeps the canonical flag fallback documented as : 105.
-    const castleSize = territoryBuildingSize(
+    const castleSize = standardTerritoryBuildingSize(
       r,
       buildingType,
-      preferredCastleSize,
+      isIslet,
     );
     const buildingAnchor = territoryBuildingAnchor(
       x,
