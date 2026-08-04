@@ -122,6 +122,18 @@ export function createIslandEmpireGame(
 
   let minimapCtx = minimapCanvas?.getContext("2d");
 
+  const {
+    updateCachedRect,
+    pointer,
+    registerRectInvalidation,
+    unregisterRectInvalidation,
+  } = createPointerHelpers({
+    canvas,
+    WRef: () => W,
+    HRef: () => H,
+  });
+  registerRectInvalidation();
+
   let destroyed = false;
   let raf = 0;
 
@@ -154,6 +166,19 @@ export function createIslandEmpireGame(
     ctx.imageSmoothingEnabled = false;
     clearAllRegionCache();
   }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch((error) => {
+        console.log(error);
+      });
+    } else {
+      document.exitFullscreen?.().catch((error) => {
+        console.log(error);
+      });
+    }
+  }
+
   window.addEventListener("resize", resizeCanvas);
 
   const TAU = Math.PI * 2;
@@ -174,8 +199,94 @@ export function createIslandEmpireGame(
   const islets = allGenerated.filter((t) => t.isIslet);
   const regionSpatialBuckets = buildRegionSpatialBuckets(regions);
   const landQueryBuckets = buildLandQueryBuckets(allGenerated);
+  const allLandsById = new Map<number, any>();
+  allGenerated.forEach((region: any) => allLandsById.set(region.id, region));
+
+  function landById(id: number) {
+    return allLandsById.get(Number(id)) || null;
+  }
 
   const state = createInitialState(FIXED_FAR_ZOOM);
+
+  function timingElapsedSeconds(startedAt: any, endsAt: any) {
+    const start = new Date(startedAt).getTime();
+    const end = new Date(endsAt).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return { elapsed: 0, duration: 1 };
+    }
+    return {
+      elapsed: Math.max(0, (Date.now() - start) / 1000),
+      duration: Math.max(1, (end - start) / 1000),
+    };
+  }
+
+  function initTerritoryArrays() {
+    const total = regions.length + islets.length;
+    for (let i = 0; i < total; i++) {
+      if (state.regionOwnership[i] === undefined) state.regionOwnership[i] = 0;
+      if (state.regionClearing[i] === undefined) state.regionClearing[i] = 0;
+    }
+    towns.forEach((town: any) => {
+      if (town.regionId === undefined) {
+        town.regionId =
+          town.id >= 9000 ? town.id - 9000 : regionAtCoords(town.x, town.y);
+      }
+    });
+  }
+
+  function load() {}
+
+  function save() {}
+
+  let cachedWorldBounds: any = null;
+
+  function worldContentBounds() {
+    if (cachedWorldBounds) return cachedWorldBounds;
+    if (!allGenerated.length) {
+      return { minX: 0, minY: 0, maxX: 1600, maxY: 1400, cx: 800, cy: 700 };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    allGenerated.forEach((region: any) => {
+      const rx = region.rx || region.r || 120;
+      const ry = region.ry || (region.r || 120) * 0.78;
+      minX = Math.min(minX, region.x - rx - 220);
+      minY = Math.min(minY, region.y - ry - 220);
+      maxX = Math.max(maxX, region.x + rx + 220);
+      maxY = Math.max(maxY, region.y + ry + 220);
+    });
+    const bounds = {
+      minX: Math.max(0, minX),
+      minY: Math.max(0, minY),
+      maxX,
+      maxY,
+      cx: (Math.max(0, minX) + maxX) / 2,
+      cy: (Math.max(0, minY) + maxY) / 2,
+    };
+    cachedWorldBounds = bounds;
+    return bounds;
+  }
+
+  function centerCameraOnWorldContent() {
+    const bounds = worldContentBounds();
+    const farZoom = getDefaultFarZoom();
+    state.zoom = farZoom;
+    state.targetZoom = farZoom;
+    state.panX = W / 2 - bounds.cx * state.zoom - (1 - state.zoom) * W * 0.48;
+    state.panY = H / 2 - bounds.cy * state.zoom - (1 - state.zoom) * H * 0.48;
+    state.targetPanX = null;
+    state.targetPanY = null;
+    clampPan();
+  }
+
+  function panCameraTo(x: number, y: number) {
+    state.targetPanX =
+      W / 2 - x * state.zoom - (1 - state.zoom) * W * 0.48;
+    state.targetPanY =
+      H / 2 - y * state.zoom - (1 - state.zoom) * H * 0.48;
+  }
 
   const {
     townAt,
@@ -1142,104 +1253,6 @@ export function createIslandEmpireGame(
       strokePath(isletBeach, "#92400e", 1.8);
       fillPath(makeOffset(r, id, true, 4), biome.b);
     });
-  }
-
-  const darkerColorCache = new Map<string, string>();
-  const lighterColorCache = new Map<string, string>();
-
-  function getDarkerColor(hex: string, factor = 0.6): string {
-    if (!hex || typeof hex !== "string") return "#1e3a8a";
-    const cacheKey = `${hex}:${factor}`;
-    const cached = darkerColorCache.get(cacheKey);
-    if (cached) return cached;
-    const clean = hex.replace("#", "");
-    const fullHex =
-      clean.length === 3
-        ? clean
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : clean;
-    let r = parseInt(fullHex.slice(0, 2), 16) || 0;
-    let g = parseInt(fullHex.slice(2, 4), 16) || 0;
-    let b = parseInt(fullHex.slice(4, 6), 16) || 0;
-    r = Math.max(0, Math.min(255, Math.floor(r * factor)));
-    g = Math.max(0, Math.min(255, Math.floor(g * factor)));
-    b = Math.max(0, Math.min(255, Math.floor(b * factor)));
-    const result = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    darkerColorCache.set(cacheKey, result);
-    return result;
-  }
-
-  function getLighterColor(hex: string, factor = 1.3): string {
-    if (!hex || typeof hex !== "string") return "#60a5fa";
-    const cacheKey = `${hex}:${factor}`;
-    const cached = lighterColorCache.get(cacheKey);
-    if (cached) return cached;
-    const clean = hex.replace("#", "");
-    const fullHex =
-      clean.length === 3
-        ? clean
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : clean;
-    let r = parseInt(fullHex.slice(0, 2), 16) || 0;
-    let g = parseInt(fullHex.slice(2, 4), 16) || 0;
-    let b = parseInt(fullHex.slice(4, 6), 16) || 0;
-    r = Math.max(0, Math.min(255, Math.floor(r * factor)));
-    g = Math.max(0, Math.min(255, Math.floor(g * factor)));
-    b = Math.max(0, Math.min(255, Math.floor(b * factor)));
-    const result = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    lighterColorCache.set(cacheKey, result);
-    return result;
-  }
-
-  function getRegionFlagColor(regionId: number): string {
-    if (regionId < 0) return state.newbieFlagColor || "#2563eb";
-    const ownerCode = derivedRegionOwnership(regionId);
-    if (ownerCode === 1) {
-      return (
-        state.newbieFlagColor ||
-        state.regionOwnerFlagColors[regionId] ||
-        "#2563eb"
-      );
-    }
-    if (state.regionOwnerFlagColors[regionId]) {
-      return state.regionOwnerFlagColors[regionId];
-    }
-    const timing = state.activeClearingTimings?.[regionId];
-    if (timing?.ownerFlagColor) {
-      return timing.ownerFlagColor;
-    }
-    if (timing?.playerId && timing.playerId === state.localPlayerId) {
-      return state.newbieFlagColor || "#2563eb";
-    }
-
-    const isClearing =
-      state.regionInProgress === regionId ||
-      Boolean(state.activeClearingTimings?.[regionId]) ||
-      (state.regionClearing[regionId] > 0 &&
-        state.regionClearing[regionId] < 1) ||
-      state.regionOwnerNames[regionId] === "ÄANG KHAI HOANG";
-
-    const isLocalClearing =
-      isClearing &&
-      (state.regionInProgress === regionId ||
-        state.regionOwnerIds[regionId] === state.localPlayerId ||
-        state.activeClearingTimings?.[regionId]?.playerId ===
-          state.localPlayerId);
-
-    if (isLocalClearing) {
-      return state.newbieFlagColor || "#2563eb";
-    }
-    if (isClearing) {
-      return "#ef4444";
-    }
-    if (ownerCode > 1) {
-      return factions[ownerCode]?.color || "#ef4444";
-    }
-    return state.newbieFlagColor || "#2563eb";
   }
 
   function drawRegionTerrain(
@@ -2621,6 +2634,263 @@ export function createIslandEmpireGame(
     }
   }
 
+  function drawDecoration(_vp?: any) {
+    return;
+  }
+
+  function drawVoyages(vp?: any) {
+    const pointAt = (
+      points: Array<{ x: number; y: number }>,
+      progress: number,
+    ) => {
+      if (points.length < 2) return points[0] || { x: 0, y: 0 };
+      const lengths = [0];
+      let total = 0;
+      for (let i = 1; i < points.length; i++) {
+        total += Math.hypot(
+          points[i].x - points[i - 1].x,
+          points[i].y - points[i - 1].y,
+        );
+        lengths.push(total);
+      }
+      if (total <= 0) return points[0];
+      const target = Math.max(0, Math.min(1, progress)) * total;
+      for (let i = 1; i < points.length; i++) {
+        if (target > lengths[i]) continue;
+        const segment = lengths[i] - lengths[i - 1] || 1;
+        const t = (target - lengths[i - 1]) / segment;
+        return {
+          x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+          y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
+        };
+      }
+      return points[points.length - 1];
+    };
+
+    state.voyages.forEach((voyage: any) => {
+      const points = [
+        voyage.from,
+        ...(voyage.usesShip && Array.isArray(voyage.seaPath)
+          ? [voyage.sourcePort, ...voyage.seaPath, voyage.targetPort]
+          : []),
+        voyage.to,
+      ].filter(
+        (point) => Number.isFinite(point?.x) && Number.isFinite(point?.y),
+      );
+      if (points.length < 2) return;
+      const first = points[0];
+      const last = points[points.length - 1];
+      if (
+        vp &&
+        !isPointInViewport(
+          (first.x + last.x) / 2,
+          (first.y + last.y) / 2,
+          vp,
+          260,
+        )
+      ) {
+        return;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.strokeStyle = voyage.owner === 0 ? "#facc15" : "#fb7185";
+      ctx.lineWidth = voyage.usesShip ? 3 : 2;
+      ctx.setLineDash(voyage.usesShip ? [12, 8] : [7, 7]);
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+      ctx.stroke();
+      ctx.restore();
+
+      const progress = Number.isFinite(voyage.displayProgress)
+        ? voyage.displayProgress
+        : voyage.t / Math.max(0.001, voyage.duration || 1);
+      const position = pointAt(points, progress);
+      const sprite = voyage.usesShip ? "harbor" : "horse";
+      const drawn = drawMedievalWorldSprite(
+        sprite,
+        position.x,
+        position.y,
+        voyage.usesShip ? 56 : 48,
+      );
+      if (!drawn) {
+        ctx.save();
+        ctx.fillStyle = voyage.owner === 0 ? "#facc15" : "#fb7185";
+        ctx.beginPath();
+        ctx.arc(position.x, position.y - 6, voyage.usesShip ? 8 : 6, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+    });
+  }
+
+  function drawSettlerForRegion(regionId: number) {
+    const r = landById(regionId);
+    if (!r) return;
+    const timing = state.activeClearingTimings?.[regionId] || {};
+    const travel =
+      state.settlerTravel?.targetRegionId === regionId
+        ? state.settlerTravel
+        : null;
+    const originX = Number.isFinite(travel?.originX)
+      ? travel.originX
+      : r.x - Math.min(100, Math.max(42, (r.rx || 100) * 0.4));
+    const originY = Number.isFinite(travel?.originY)
+      ? travel.originY
+      : r.y + Math.min(62, Math.max(24, (r.ry || 80) * 0.18));
+    const now = Date.now();
+    const startMs = timing.startedAt
+      ? new Date(timing.startedAt).getTime()
+      : now;
+    const arrivesMs = timing.arrivesAt
+      ? new Date(timing.arrivesAt).getTime()
+      : startMs;
+    const inTravel = Boolean(travel?.active) || now < arrivesMs;
+    const travelProgress = travel?.returning
+      ? 1 - Math.max(0, Math.min(1, travel.returnProgress || 0))
+      : inTravel
+        ? Math.max(
+            0,
+            Math.min(1, (now - startMs) / Math.max(1000, arrivesMs - startMs)),
+          )
+        : 1;
+    const x = originX + (r.x - originX) * travelProgress;
+    const y = originY + (r.y - originY) * travelProgress;
+
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 7]);
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(r.x, r.y);
+    ctx.stroke();
+    ctx.restore();
+
+    if (!inTravel) {
+      const architecture = normalizeKingdomArchitecture(
+        state.newbieArchitectureId || "vietnam",
+      );
+      const buildingType = timing.isStarterClaim ? "capital" : "flag";
+      const size = buildingType === "capital" ? 190 : 118;
+      drawKingdomBuildingSprite(architecture, buildingType, r.x, r.y, size);
+    }
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8, 14, 4, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = state.newbieFlagColor || "#2563eb";
+    ctx.fillRect(x - 6, y - 26, 12, 22);
+    ctx.fillStyle = "#f8fafc";
+    ctx.fillRect(x + 6, y - 26, 19, 10);
+    ctx.restore();
+  }
+
+  function drawTerritoryCastle(
+    regionId: number,
+    ownerCode: number,
+    ownerName?: string,
+  ) {
+    const r = landById(regionId);
+    if (!r || isConquestLayout) return;
+    const settlementKind = state.regionSettlementKinds[regionId];
+    const buildingType =
+      settlementKind === "capital"
+        ? "capital"
+        : settlementKind === "sub_capital"
+          ? "fortress"
+          : settlementKind === "military" ||
+              settlementKind === "military_district"
+            ? "district"
+            : "flag";
+    const preferredSize =
+      buildingType === "capital"
+        ? 270
+        : buildingType === "fortress" || buildingType === "district"
+          ? 170
+          : 105;
+    const emblem =
+      ownerCode === 1 ? state.newbieEmblem : state.regionOwnerEmblems[regionId];
+    const architecture = normalizeKingdomArchitecture(
+      ownerCode === 1
+        ? state.newbieArchitectureId
+        : state.regionOwnerArchitectureIds[regionId] ||
+            kingdomArchitectureFromEmblem(emblem || "crown"),
+    );
+    const skinId =
+      ownerCode === 1
+        ? buildingType === "capital"
+          ? state.equippedCapitalSkin
+          : state.equippedDistrictSkin
+        : buildingType === "capital"
+          ? state.regionOwnerCapitalSkins[regionId]
+          : state.regionOwnerDistrictSkins[regionId];
+    const size = territoryBuildingSize(r, buildingType, preferredSize);
+    const anchor = territoryBuildingAnchor(
+      r.x,
+      r.y,
+      architecture,
+      buildingType,
+      size,
+      skinId,
+    );
+    drawKingdomBuildingSprite(
+      architecture,
+      buildingType,
+      anchor.x,
+      anchor.y,
+      size,
+      skinId,
+    );
+    const label = String(
+      ownerName || (ownerCode === 1 ? state.localPlayerName : "PLAYER"),
+    ).slice(0, 18);
+    text(
+      label,
+      anchor.x,
+      anchor.y + size * 0.34,
+      Math.max(11, Math.min(16, state.zoom * 18)),
+      getRegionFlagColor(regionId),
+      "center",
+    );
+  }
+
+  function drawClaimedTerritoryMarkers(
+    vp?: any,
+    visibleTerritories?: Array<[any, number]>,
+  ) {
+    if (isConquestLayout) return;
+    const candidates =
+      visibleTerritories ||
+      Object.keys(state.regionOwnership).map(
+        (key) => [landById(Number(key)), Number(key)] as [any, number],
+      );
+    candidates.forEach(([land, regionId]) => {
+      if (!land || !derivedRegionOwnership(regionId)) return;
+      if (vp && !isPointInViewport(land.x, land.y, vp, 350)) return;
+      drawTerritoryCastle(
+        regionId,
+        derivedRegionOwnership(regionId),
+        state.regionOwnerNames[regionId],
+      );
+    });
+  }
+
+  function getNewbieShieldRemainingMs() {
+    return Math.max(0, Number(state.newbieShieldUntil || 0) - Date.now());
+  }
+
+  function formatShieldTimer(ms: number) {
+    const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
   let isFastPanningFromInput = () => Boolean(state.drag);
   let applyCameraInertiaStep = () => {};
   let shouldIgnoreCanvasClick = (_p: { x: number; y: number }) => false;
@@ -2864,6 +3134,13 @@ export function createIslandEmpireGame(
           frameTownByRegion.set(regionId, town);
       }
     });
+  }
+
+  function battleTargetRegionId(battle: any) {
+    const raw =
+      battle?.regionId ?? battle?.targetTerritoryId ?? battle?.toTerritoryId;
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : -1;
   }
 
   let frameBattleIndexReady = false;
@@ -3441,6 +3718,20 @@ export function createIslandEmpireGame(
     resolveAttack(t);
   }
 
+  function continentOfTown(t: any) {
+    if (t?.continent) return t.continent;
+    let nearest: { name: string; distance: number } | null = null;
+    for (const continent of megaContinents) {
+      const nx = (t.x - continent.x) / continent.rx;
+      const ny = (t.y - continent.y) / continent.ry;
+      const distance = nx * nx + ny * ny;
+      if (distance <= 1.35 && (!nearest || distance < nearest.distance)) {
+        nearest = { name: continent.name, distance };
+      }
+    }
+    return nearest?.name || "island";
+  }
+
   function resolveAttack(t) {
     toast("Káº¾T QUáº¢ CHIáº¾N Äáº¤U PHáº¢I ÄÆ¯á»¢C SERVER XÃC NHáº¬N");
   }
@@ -3763,6 +4054,61 @@ export function createIslandEmpireGame(
     return true;
   }
 
+  function settlerOriginForRegion(regionId: number) {
+    const region = landById(regionId);
+    if (!region) {
+      return {
+        originTownId: null,
+        originX: 0,
+        originY: 0,
+        fromCamp: true,
+      };
+    }
+
+    const builderRegionId = Number(state.builderRegionId);
+    let originTown = towns.find(
+      (town: any) =>
+        town.owner === 0 &&
+        Number.isFinite(builderRegionId) &&
+        (Number(town.id) === builderRegionId ||
+          Number(town.regionId) === builderRegionId),
+    );
+
+    if (!originTown) {
+      let nearestDistance = Infinity;
+      towns.forEach((town: any) => {
+        if (town.owner !== 0) return;
+        const distance = Math.hypot(town.x - region.x, town.y - region.y);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          originTown = town;
+        }
+      });
+    }
+
+    if (originTown) {
+      return {
+        originTownId: originTown.id,
+        originX: originTown.x,
+        originY: originTown.y,
+        fromCamp: false,
+      };
+    }
+
+    const originX =
+      region.x -
+      Math.min(120, Math.max(45, (region.rx || region.r || 100) * 0.42));
+    const originY =
+      region.y +
+      Math.min(70, Math.max(24, (region.ry || region.r || 80) * 0.18));
+    return {
+      originTownId: null,
+      originX,
+      originY,
+      fromCamp: true,
+    };
+  }
+
   const {
     applyBackendClearing,
     applyBackendMarch,
@@ -3948,24 +4294,6 @@ export function createIslandEmpireGame(
     derivedRegionOwnership,
   });
 
-  const { destroy } = createEngineLifecycleHelper({
-    setDestroyed: (value: boolean) => {
-      destroyed = value;
-    },
-    saveCamera,
-    clearAllRegionCache,
-    resizeCanvas,
-    flushCameraOnPageHide,
-    unregisterRectInvalidation,
-    unregisterCanvasGestureInput,
-    canvas,
-    onCanvasClick,
-    unregisterKeyboardShortcuts,
-    cleanupMinimapWindowListeners,
-    unbindMinimapMouseDown,
-    rafRef: () => raf,
-  });
-
   const { handleAction } = createEngineActionDispatcher({
     handlePreludeAction,
     handleApplyGameStateAction,
@@ -3995,6 +4323,11 @@ export function createIslandEmpireGame(
     return getDynamicButtons().find(
       (b) => x >= b.x && y >= b.y && x <= b.x + b.w && y <= b.y + b.h,
     );
+  }
+
+  function gearAt(x, y) {
+    const gearX = W - 62 - 12;
+    return x >= gearX && y >= 12 && x <= gearX + 62 && y <= 66;
   }
 
   function setZoom(value) {
@@ -4033,6 +4366,74 @@ export function createIslandEmpireGame(
     if (minPanY > maxPanY) state.panY = (minPanY + maxPanY) / 2;
     else state.panY = Math.max(minPanY, Math.min(maxPanY, state.panY));
   }
+
+  const { handleCanvasClickAt } = createCanvasClickActionHelpers({
+    state,
+    HRef: () => H,
+    onLayoutAction,
+    gearAt,
+    toggleFullscreen,
+    buttonAt,
+    handleButton,
+    townAt,
+    regionAt,
+    derivedRegionOwnership,
+    landById,
+    panCameraTo,
+    toast,
+  });
+
+  const onCanvasClick = (event: MouseEvent) => {
+    const p = pointer(event);
+    if (shouldIgnoreCanvasClick(p)) return;
+    handleCanvasClickAt(p);
+  };
+
+  const {
+    registerCanvasGestureInput,
+    unregisterCanvasGestureInput,
+    shouldIgnoreCanvasClick: shouldIgnoreCanvasClickFromInput,
+    isFastPanning: isFastPanningFromCanvas,
+    applyCameraInertiaStep: applyCameraInertiaStepFromInput,
+  } = createCanvasGestureInputHelpers({
+    canvas,
+    state,
+    pointer,
+    updateCachedRect,
+    buttonAt,
+    gearAt,
+    townAt,
+    screenToMap,
+    getMinZoom,
+    getMaxZoom,
+    WRef: () => W,
+    HRef: () => H,
+    clampPan,
+    saveCamera,
+  });
+  isFastPanningFromInput = () => isFastPanningFromCanvas(minimapDragging);
+  applyCameraInertiaStep = () => applyCameraInertiaStepFromInput();
+  shouldIgnoreCanvasClick = shouldIgnoreCanvasClickFromInput;
+  registerCanvasGestureInput();
+  canvas.addEventListener("click", onCanvasClick);
+
+  const { destroy } = createEngineLifecycleHelper({
+    setDestroyed: (value: boolean) => {
+      destroyed = value;
+    },
+    saveCamera,
+    clearAllRegionCache,
+    resizeCanvas,
+    flushCameraOnPageHide,
+    unregisterRectInvalidation,
+    unregisterCanvasGestureInput,
+    canvas,
+    onCanvasClick,
+    unregisterKeyboardShortcuts,
+    cleanupMinimapWindowListeners,
+    unbindMinimapMouseDown,
+    rafRef: () => raf,
+  });
 
   const { sim, hasActiveAnimations } = createEngineSimulationHelpers({
     state,
