@@ -1,0 +1,23 @@
+{
+  "name": "island-empire-pixel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev:game",
+    "dev:game": "npm --prefix apps/game run dev",
+    "dev:admin": "npm --prefix apps/admin run dev",
+    "dev:server": "npm --prefix apps/server run dev",
+    "install:all": "npm install && npm --prefix packages/shared install && npm --prefix apps/game install && npm --prefix apps/admin install && npm --prefix apps/server install",
+    "build": "npm --prefix packages/shared run build && npm --prefix apps/game run build && npm --prefix apps/admin run build && npm --prefix apps/server run build",
+    "typecheck": "npm --prefix packages/shared run typecheck && npm --prefix apps/game run typecheck && npm --prefix apps/admin run typecheck && npm --prefix apps/server run typecheck",
+    "lint": "npm run typecheck"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
