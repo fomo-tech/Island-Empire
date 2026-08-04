@@ -44,45 +44,10 @@ import {
   type MapPoint,
 } from "./engine/geometry";
 import { hash } from "./engine/random";
+import { getDarkerColor, getLighterColor } from "./engine/color";
+import type { CachedRegion, GameEngineHandle } from "./engine/contracts";
+export type { GameEngineHandle } from "./engine/contracts";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
-export type GameEngineHandle = {
-  destroy: () => void;
-  getState: () => any;
-  getTowns: () => any[];
-  getRegions: () => any[];
-  getIslets: () => any[];
-  mapToScreen: (x: number, y: number) => { x: number; y: number };
-  getRegionOwnership: (id: number) => number;
-  getSourceTown: () => any;
-  getPlayerOwnedTowns: () => any[];
-  getTownRegionId: (town: any) => number;
-  getRegion: (id: number) => any;
-  getRegionCenter: (id: number) => { x: number; y: number } | null;
-  getTerritorySpecialResources: (id: number) => string[];
-  getActiveBattleForRegion: (id: number) => any;
-  canBuildStronghold: (regionId: number) => boolean;
-  getExpansionConnectionType: (regionId: number) => "land" | "sea" | null;
-  getExpansionSourceRegionsForTarget: (regionId: number) => number[];
-  isPlayerOwnedTown: (town: any) => boolean;
-  getMarchRouteStatus: (
-    sourceTown: any,
-    targetRegionId: number,
-  ) => { ok: boolean; message: string; requiresShip: boolean };
-  sendChat: (msg: string) => void;
-  handleAction: (id: string, payload?: any) => any;
-  startNewbieOnboarding: (
-    flagColor: string,
-    emblem: string,
-    cityName?: string,
-    architectureId?: string,
-  ) => void;
-  cancelNewbieOnboarding: () => void;
-  selectNewbieLand: (regionId: number) => void;
-  setHideTerritoryAssets: (hide: boolean) => void;
-  isHidingTerritoryAssets: () => boolean;
-  toggleHideTerritoryAssets: (forceValue?: boolean) => boolean;
-};
-
 export function createIslandEmpireGame(
   canvas: HTMLCanvasElement,
   onUpdate?: (state: any, towns: any[]) => void,
@@ -122,17 +87,6 @@ export function createIslandEmpireGame(
       cancelNewbieOnboarding: () => {},
     };
 
-  interface CachedRegion {
-    canvas: HTMLCanvasElement;
-    assetsCanvas?: HTMLCanvasElement | null;
-    minX: number;
-    minY: number;
-    width: number;
-    height: number;
-    hasTown: boolean;
-    hasOwner: boolean;
-    zoomTier: number;
-  }
   const regionPass2Cache = new Map<number, CachedRegion>();
   const isletPass1Cache = new Map<number, CachedRegion>();
 
@@ -3407,57 +3361,6 @@ export function createIslandEmpireGame(
       strokePath(isletBeach, "#92400e", 1.8);
       fillPath(makeOffset(r, id, true, 4), biome.b);
     });
-  }
-
-  const darkerColorCache = new Map<string, string>();
-  const lighterColorCache = new Map<string, string>();
-
-  function getDarkerColor(hex: string, factor = 0.6): string {
-    if (!hex || typeof hex !== "string") return "#1e3a8a";
-    const cacheKey = `${hex}:${factor}`;
-    const cached = darkerColorCache.get(cacheKey);
-    if (cached) return cached;
-    const clean = hex.replace("#", "");
-    const fullHex =
-      clean.length === 3
-        ? clean
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : clean;
-    let r = parseInt(fullHex.slice(0, 2), 16) || 0;
-    let g = parseInt(fullHex.slice(2, 4), 16) || 0;
-    let b = parseInt(fullHex.slice(4, 6), 16) || 0;
-    r = Math.max(0, Math.min(255, Math.floor(r * factor)));
-    g = Math.max(0, Math.min(255, Math.floor(g * factor)));
-    b = Math.max(0, Math.min(255, Math.floor(b * factor)));
-    const result = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    darkerColorCache.set(cacheKey, result);
-    return result;
-  }
-
-  function getLighterColor(hex: string, factor = 1.3): string {
-    if (!hex || typeof hex !== "string") return "#60a5fa";
-    const cacheKey = `${hex}:${factor}`;
-    const cached = lighterColorCache.get(cacheKey);
-    if (cached) return cached;
-    const clean = hex.replace("#", "");
-    const fullHex =
-      clean.length === 3
-        ? clean
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : clean;
-    let r = parseInt(fullHex.slice(0, 2), 16) || 0;
-    let g = parseInt(fullHex.slice(2, 4), 16) || 0;
-    let b = parseInt(fullHex.slice(4, 6), 16) || 0;
-    r = Math.max(0, Math.min(255, Math.floor(r * factor)));
-    g = Math.max(0, Math.min(255, Math.floor(g * factor)));
-    b = Math.max(0, Math.min(255, Math.floor(b * factor)));
-    const result = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    lighterColorCache.set(cacheKey, result);
-    return result;
   }
 
   function getRegionFlagColor(regionId: number): string {
