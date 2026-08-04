@@ -60,6 +60,19 @@ import {
 } from "./engine/worldPalette";
 import { drawOcean as drawOceanLayer } from "./render/oceanRenderer";
 import type { RenderContext } from "./render/renderContext";
+import {
+  fillPath as fillPathLayer,
+  fillSmoothPath as fillSmoothPathLayer,
+  strokePath as strokePathLayer,
+  strokeSmoothPath as strokeSmoothPathLayer,
+} from "./render/pathRenderer";
+import {
+  ensureMinVertices,
+  facetedRegionPath,
+  organicPath,
+  subdividePolygon,
+  warpPoint,
+} from "./engine/worldGeometry";
 // Generated from demo/js/game.js so the main app matches the demo map exactly.
 export function createIslandEmpireGame(
   canvas: HTMLCanvasElement,
@@ -113,6 +126,18 @@ export function createIslandEmpireGame(
   }
   clearAllRegionCache();
   ctx.imageSmoothingEnabled = false;
+
+  // Keep the existing terrain call sites stable while the renderer layer
+  // receives the Canvas context explicitly. These adapters are temporary and
+  // will disappear when terrainRenderer.ts owns the full layer boundary.
+  const fillPath = (points: any, color: any) =>
+    fillPathLayer(ctx, points, color);
+  const fillSmoothPath = (points: any, color: any) =>
+    fillSmoothPathLayer(ctx, points, color);
+  const strokePath = (points: any, color: any, lineWidth: number) =>
+    strokePathLayer(ctx, points, color, lineWidth);
+  const strokeSmoothPath = (points: any, color: any, lineWidth: number) =>
+    strokeSmoothPathLayer(ctx, points, color, lineWidth);
 
   const nationUnitSheet = new Image();
   nationUnitSheet.decoding = "async";
@@ -2354,133 +2379,6 @@ export function createIslandEmpireGame(
     ctx.restore();
   }
 
-  function hexCellPath(
-    cx: number,
-    cy: number,
-    radius: number,
-  ): Array<[number, number]> {
-    const pts: Array<[number, number]> = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 6;
-      const px = Math.round((cx + radius * Math.cos(angle)) * 2) / 2;
-      const py = Math.round((cy + radius * Math.sin(angle) * 0.82) * 2) / 2;
-      pts.push([px, py]);
-    }
-    return pts;
-  }
-
-  function facetedRegionPath(
-    cx: number,
-    cy: number,
-    rx: number,
-    ry: number,
-    seed: number,
-  ) {
-    const style = Math.floor(hash(seed * 137) * 8);
-    const numVertices = 18 + Math.floor(hash(seed * 43) * 14); // 18 to 32 base vertices (nhiều góc cạnh phong phú!)
-    const stretchAngle = hash(seed * 223) * TAU;
-    const stretchAmount = 0.2 + hash(seed * 311) * 0.3;
-
-    const pts: Array<[number, number]> = [];
-    for (let i = 0; i < numVertices; i++) {
-      const baseAngle = (i / numVertices) * TAU - Math.PI / 6;
-      const anglePerturb = (hash(seed * 71 + i * 19) - 0.5) * 0.42;
-      const angle = baseAngle + anglePerturb;
-
-      let radiusMult = 0.78 + hash(seed * 113 + i * 29) * 0.44;
-
-      if (style === 1) {
-        // Style 1: Ô thuôn dài nghiêng góc (Elongated Fjord/Peninsula)
-        const align = Math.cos(angle - stretchAngle);
-        radiusMult += align * stretchAmount;
-      } else if (style === 2) {
-        // Style 2: Ô viền uốn lượn phồng 4-6 thùy (Multi-Lobe Organic Polygon)
-        radiusMult +=
-          Math.sin(angle * 4.0 + seed * 0.8) * 0.24 +
-          Math.cos(angle * 7.0 - seed * 0.3) * 0.12;
-      } else if (style === 3) {
-        // Style 3: Ô hình chêm / mũi giáo chiến thuật (Tactical Spearhead / Wedge)
-        const wedge = Math.cos(angle * 2.5 + seed * 1.3) * 0.28;
-        radiusMult += wedge;
-      } else if (style === 4) {
-        // Style 4: Ô đa góc vuông khối kiên cố (Blocky Bastion Shield)
-        const squareMod = Math.abs(Math.sin(angle * 2.5 + seed)) * 0.22 - 0.11;
-        radiusMult += squareMod;
-      } else if (style === 5) {
-        // Style 5: Ô gờ núi răng cưa nhiều nấc (Serrated Mountainous Ridge)
-        const serrated =
-          (i % 2 === 0 ? 0.18 : -0.12) + Math.sin(angle * 5.5) * 0.15;
-        radiusMult += serrated;
-      } else if (style === 6) {
-        // Style 6: Ô hình bán nguyệt / cong khuyết (Crescent Moon Region)
-        const crescent = Math.cos(angle * 1.5 + seed) * 0.32;
-        radiusMult += crescent;
-      } else if (style === 7) {
-        // Style 7: Ô đa giác tự do 24-32 góc sắc nét (High-Facet Tactical Realm)
-        const microFacet = Math.sin(angle * 8.0 + seed * 2.1) * 0.16;
-        radiusMult += microFacet;
-      }
-
-      const px = Math.round((cx + Math.cos(angle) * rx * radiusMult) * 2) / 2;
-      const py = Math.round((cy + Math.sin(angle) * ry * radiusMult) * 2) / 2;
-      pts.push([px, py]);
-    }
-    return pts;
-  }
-
-  // Đảm bảo polygon có tối thiểu minV đỉnh bằng cách chèn điểm giữa các cạnh dài nhất
-  function ensureMinVertices(
-    pts: Array<[number, number]>,
-    minV: number,
-  ): Array<[number, number]> {
-    if (pts.length >= minV) return pts;
-    let result = [...pts];
-    while (result.length < minV) {
-      let maxLen = 0;
-      let maxIdx = 0;
-      for (let i = 0; i < result.length; i++) {
-        const next = result[(i + 1) % result.length];
-        const len = Math.hypot(next[0] - result[i][0], next[1] - result[i][1]);
-        if (len > maxLen) {
-          maxLen = len;
-          maxIdx = i;
-        }
-      }
-      const p1 = result[maxIdx];
-      const p2 = result[(maxIdx + 1) % result.length];
-      const mid: [number, number] = [
-        Math.round((p1[0] + p2[0]) / 2),
-        Math.round((p1[1] + p2[1]) / 2),
-      ];
-      result.splice(maxIdx + 1, 0, mid);
-    }
-    return result;
-  }
-
-  function organicPath(
-    cx: number,
-    cy: number,
-    rx: number,
-    ry: number,
-    seed: number,
-  ) {
-    const pts: Array<[number, number]> = [];
-    const count = 24;
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * TAU;
-      const chip = hash(seed * 97 + i * 13) * 0.1 - 0.05;
-      const wave =
-        1 +
-        Math.sin(a * 5 + seed * 1.7) * 0.08 +
-        Math.cos(a * 9 - seed * 0.5) * 0.05 +
-        chip;
-      const x = Math.round((cx + Math.cos(a) * rx * wave) * 2) / 2;
-      const y = Math.round((cy + Math.sin(a) * ry * wave) * 2) / 2;
-      pts.push([x, y]);
-    }
-    return pts;
-  }
-
   function isSharedInlandVertex(px: number, py: number, r: any): boolean {
     if (!r || r.isIslet) return false;
     const key = `${r.id}_${Math.round(px)}_${Math.round(py)}`;
@@ -2501,46 +2399,6 @@ export function createIslandEmpireGame(
     }
     sharedInlandVertexCache.set(key, false);
     return false;
-  }
-
-  function warpPoint(x: number, y: number): [number, number] {
-    const scale1 = 0.015;
-    const scale2 = 0.035;
-    // Multi-frequency sine/cos waves for natural, river-like organic boundary lines
-    const dx =
-      Math.sin(x * scale1 + y * scale1) * 8 +
-      Math.cos(x * scale2 - y * scale2) * 3.5;
-    const dy =
-      Math.cos(x * scale1 - y * scale1) * 8 +
-      Math.sin(x * scale2 + y * scale2) * 3.5;
-    return [Math.round((x + dx) * 2) / 2, Math.round((y + dy) * 2) / 2];
-  }
-
-  function subdividePolygon(
-    poly: Array<[number, number]>,
-    maxSegLength = 20,
-  ): Array<[number, number]> {
-    const result: Array<[number, number]> = [];
-    const n = poly.length;
-    for (let i = 0; i < n; i++) {
-      const p1 = poly[i];
-      const p2 = poly[(i + 1) % n];
-      result.push(p1);
-      const dx = p2[0] - p1[0];
-      const dy = p2[1] - p1[1];
-      const dist = Math.hypot(dx, dy);
-      if (dist > maxSegLength) {
-        const numSegments = Math.ceil(dist / maxSegLength);
-        for (let j = 1; j < numSegments; j++) {
-          const t = j / numSegments;
-          result.push([
-            Math.round((p1[0] + dx * t) * 2) / 2,
-            Math.round((p1[1] + dy * t) * 2) / 2,
-          ]);
-        }
-      }
-    }
-    return result;
   }
 
   function softenCoastalTerritoryEdges(
@@ -2806,18 +2664,6 @@ export function createIslandEmpireGame(
     return cached;
   }
 
-  function fillPath(points, color) {
-    if (!points || points.length === 0) return;
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-
   // Phình rộng polygon ra ngoài `amount` pixel so với tâm (cx, cy)
   // Dùng để lấp kín gap sub-pixel giữa các ô kề nhau
   function inflatePolygon(
@@ -2898,69 +2744,6 @@ export function createIslandEmpireGame(
     return smoothed;
   }
 
-  function traceSmoothPath(points: Array<[number, number]>) {
-    if (!points || points.length === 0) return;
-    ctx.beginPath();
-    if (points.length < 3) {
-      ctx.moveTo(points[0][0], points[0][1]);
-      for (let i = 1; i < points.length; i++)
-        ctx.lineTo(points[i][0], points[i][1]);
-      return;
-    }
-    const last = points[points.length - 1];
-    const first = points[0];
-    ctx.moveTo((last[0] + first[0]) / 2, (last[1] + first[1]) / 2);
-    for (let i = 0; i < points.length; i++) {
-      const current = points[i];
-      const next = points[(i + 1) % points.length];
-      ctx.quadraticCurveTo(
-        current[0],
-        current[1],
-        (current[0] + next[0]) / 2,
-        (current[1] + next[1]) / 2,
-      );
-    }
-    ctx.closePath();
-  }
-
-  function fillSmoothPath(points: Array<[number, number]>, color: any) {
-    if (!points || points.length === 0) return;
-    traceSmoothPath(points);
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-
-  function strokeSmoothPath(
-    points: Array<[number, number]>,
-    strokeStyle: any,
-    lineWidth: number,
-  ) {
-    if (!points || points.length === 0) return;
-    ctx.save();
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    traceSmoothPath(points);
-    ctx.strokeStyle = strokeStyle;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function strokePath(points, strokeStyle, lineWidth) {
-    if (!points || points.length === 0) return;
-    ctx.beginPath();
-    ctx.lineJoin = "round";
-    ctx.miterLimit = 2.0;
-    ctx.lineCap = "round";
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = strokeStyle;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-  }
 
   function drawStrategyContinentLayer(
     visibleRegions: Array<[any, number]>,
