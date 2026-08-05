@@ -1560,13 +1560,23 @@ export function createIslandEmpireGame(
       !crowdedRenderMode &&
       !isFastPanning()
     ) {
-      drawKingdomBuildingEffect(normalized, x, y, size);
+      drawKingdomBuildingEffect(
+        normalized,
+        buildingType,
+        x,
+        y,
+        size,
+        skinId,
+      );
     }
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
     const drawHeight = size;
     const drawWidth = buildingType === "flag"
       ? frame.premium
-        ? size
+        // The premium atlas uses a square transparent cell around a tall
+        // banner. Give the banner its intended readable width; using the
+        // old 418/627 ratio made the already narrow artwork collapse.
+        ? size * 1.12
         : size * (frame.sw / frame.sh)
       : size;
     ctx.save();
@@ -1604,7 +1614,7 @@ export function createIslandEmpireGame(
     const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
     const drawWidth = buildingType === "flag"
       ? frame.premium
-        ? size
+        ? size * 1.12
         : size * (frame.sw / frame.sh)
       : size;
     return {
@@ -1615,9 +1625,11 @@ export function createIslandEmpireGame(
 
   function drawKingdomBuildingEffect(
     architectureId: string,
+    buildingType: KingdomBuildingType,
     x: number,
     y: number,
     size: number,
+    skinId: string | null = null,
   ) {
     const pulse = 0.68 + Math.sin(state.tick * 2.4) * 0.12;
     const colors: Record<string, [string, string]> = {
@@ -1631,12 +1643,18 @@ export function createIslandEmpireGame(
       rome: ["#991b1b", "#f59e0b"],
     };
     const [accent, highlight] = colors[architectureId] || colors.vietnam;
+    const skinEffect = territorySkinEffect(skinId);
+    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
+    // `y` is the sprite anchor, not the ground contact point. Derive the
+    // actual foot from the same pivot used by drawImage so every building
+    // type (capital, district, flag) shares one physical baseline.
+    const groundY = y + size * (1 - layout.pivotY);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = 0.23 * pulse;
     ctx.fillStyle = accent;
     ctx.beginPath();
-    ctx.ellipse(x, y - size * 0.12, size * 0.43, size * 0.12, 0, 0, TAU);
+    ctx.ellipse(x, groundY, size * 0.43, size * 0.12, 0, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 0.72;
     for (let i = 0; i < 5; i++) {
@@ -1647,6 +1665,44 @@ export function createIslandEmpireGame(
       ctx.beginPath();
       ctx.arc(px, py, Math.max(1.3, size * 0.009), 0, TAU);
       ctx.fill();
+    }
+
+    if (skinEffect) {
+      const skinPulse = 0.72 + Math.sin(state.tick * 2.8) * 0.16;
+      const ringY = groundY + Math.max(2, size * 0.018);
+      const ringGradient = ctx.createRadialGradient(
+        x,
+        ringY,
+        size * 0.08,
+        x,
+        ringY,
+        size * 0.58,
+      );
+      ringGradient.addColorStop(0, "rgba(255,255,255,0)");
+      ringGradient.addColorStop(
+        0.72,
+        skinEffect.glow.replace(
+          /,\s*[\d.]+\)$/,
+          `, ${0.18 * skinPulse})`,
+        ),
+      );
+      ringGradient.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.globalAlpha = 0.82;
+      ctx.fillStyle = ringGradient;
+      ctx.beginPath();
+      ctx.ellipse(x, ringY, size * 0.58, size * 0.17, 0, 0, TAU);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.62 + skinPulse * 0.18;
+      ctx.shadowColor = skinEffect.glow;
+      ctx.shadowBlur = size * 0.07;
+      ctx.strokeStyle = skinEffect.border;
+      ctx.lineWidth = Math.max(1.5, size * 0.012);
+      ctx.setLineDash([size * 0.055, size * 0.035]);
+      ctx.lineDashOffset = -state.tick * size * 0.035;
+      ctx.beginPath();
+      ctx.ellipse(x, ringY, size * 0.48, size * 0.12, 0, 0, TAU);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -4357,10 +4413,19 @@ export function createIslandEmpireGame(
       state.regionOwnerNames[idx],
     );
     const flagColor = getRegionFlagColor(idx);
+    const settlementKindForEffect = state.regionSettlementKinds[idx];
+    const usesDistrictSkin =
+      Boolean(r.isIslet) ||
+      settlementKindForEffect === "military_district" ||
+      state.regionConnectionTypes[idx] === "sea";
     const ownerSkinId =
       ownerCode === 1
-        ? state.equippedCapitalSkin
-        : state.regionOwnerCapitalSkins[idx];
+        ? usesDistrictSkin
+          ? state.equippedDistrictSkin
+          : state.equippedCapitalSkin
+        : usesDistrictSkin
+          ? state.regionOwnerDistrictSkins[idx]
+          : state.regionOwnerCapitalSkins[idx];
     const skinTerritoryEffect = territorySkinEffect(ownerSkinId);
 
     // Fill overlay based on state (Seamless inflation to hide internal grid seams)
@@ -4385,6 +4450,43 @@ export function createIslandEmpireGame(
           skinTerritoryEffect?.fill ?? flagColor,
         );
         ctx.restore();
+
+        if (skinTerritoryEffect && !fastRenderMode && !crowdedRenderMode) {
+          // A low-contrast moving sheen makes the skin feel alive without
+          // painting over trees, roads, or resource markers.
+          ctx.save();
+          traceSmoothPath(displayLand);
+          ctx.clip();
+          const pulse = 0.72 + Math.sin(state.tick * 2.2 + idx) * 0.16;
+          const sheen = ctx.createRadialGradient(
+            r.x - rx * 0.28,
+            r.y - ry * 0.22,
+            4,
+            r.x,
+            r.y,
+            Math.max(rx, ry) * 1.28,
+          );
+          sheen.addColorStop(0, `rgba(255,255,255,${0.1 * pulse})`);
+          sheen.addColorStop(0.45, "rgba(255,255,255,0.025)");
+          sheen.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.globalCompositeOperation = "screen";
+          ctx.fillStyle = sheen;
+          ctx.fillRect(r.x - rx * 1.4, r.y - ry * 1.4, rx * 2.8, ry * 2.8);
+
+          const sweep = ((state.tick * 18 + idx * 31) % (rx * 5)) - rx * 2.5;
+          const sweepGradient = ctx.createLinearGradient(
+            r.x + sweep - rx * 0.16,
+            r.y - ry,
+            r.x + sweep + rx * 0.16,
+            r.y + ry,
+          );
+          sweepGradient.addColorStop(0, "rgba(255,255,255,0)");
+          sweepGradient.addColorStop(0.5, `rgba(255,255,255,${0.055 * pulse})`);
+          sweepGradient.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = sweepGradient;
+          ctx.fillRect(r.x - rx * 1.4, r.y - ry * 1.4, rx * 2.8, ry * 2.8);
+          ctx.restore();
+        }
       }
 
       const expansionState = expansionTargetState(idx);
@@ -10266,9 +10368,53 @@ export function createIslandEmpireGame(
     ctx.lineWidth = 1.1 * scale;
     ctx.setLineDash([5 * scale, 4 * scale]);
     ctx.beginPath();
-    ctx.ellipse(x, y + 8 * scale, 28 * scale, 12 * scale, 0, 0, TAU);
+    // `y` is already the calculated ground contact point. Adding a fixed
+    // offset here was the source of the visible gap under capitals and flags.
+    ctx.ellipse(x, y, 28 * scale, 12 * scale, 0, 0, TAU);
     ctx.stroke();
     ctx.restore();
+  }
+
+  function territoryGroundPoint(
+    regionId: number,
+    fallback: { x: number; y: number },
+  ) {
+    const region = landById(Number(regionId));
+    if (!region) return fallback;
+
+    const settlementKind = state.regionSettlementKinds[regionId];
+    const isIslet = Boolean(region.isIslet);
+    const playerTown =
+      frameTownByRegion.get(regionId) ||
+      towns.find(
+        (town: any) =>
+          town.regionId === regionId || town.territoryId === regionId,
+      );
+    const confirmedCapital =
+      state.capitalTerritoryIds.has(regionId) ||
+      (playerTown && state.capitalTownIds.has(Number(playerTown.id)));
+    const isCapital =
+      !isIslet && (confirmedCapital || settlementKind === "capital");
+    const isSubCapital = !isIslet && settlementKind === "sub_capital";
+    const isDistrict =
+      isIslet ||
+      (!isCapital &&
+        !isSubCapital &&
+        (settlementKind === "military_district" ||
+          state.regionConnectionTypes[regionId] === "sea"));
+    const buildingType: KingdomBuildingType = isCapital
+      ? "capital"
+      : isSubCapital
+        ? "fortress"
+        : isDistrict
+          ? "district"
+          : "flag";
+    const size = standardTerritoryBuildingSize(region, buildingType, isIslet);
+    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
+    return {
+      x: region.x,
+      y: region.y + size * (1 - layout.pivotY) + Math.max(3, size * 0.025),
+    };
   }
 
   function battleSourcePoint(
@@ -10474,9 +10620,13 @@ export function createIslandEmpireGame(
         }
         const sourceColor =
           state.regionOwnerFlagColors?.[source.sourceTerritoryId] || "#e1b34f";
+        const pulsePoint = territoryGroundPoint(
+          source.sourceTerritoryId,
+          source.point,
+        );
         drawBattleSourcePulse(
-          source.point.x,
-          source.point.y,
+          pulsePoint.x,
+          pulsePoint.y,
           source.sourceTerritoryId,
           sourceColor,
         );
@@ -10494,6 +10644,7 @@ export function createIslandEmpireGame(
       renderedTargets.add(targetRegionId);
       const attColor = factions[battle.attackerOwner ?? 1]?.color || "#b84c3e";
       const visualScale = siegeVisualScale();
+      const targetGround = territoryGroundPoint(targetRegionId, targetPoint);
       const pulse = Math.sin(state.tick * 3.2) * 0.09 + 0.64;
       ctx.save();
       ctx.globalAlpha = pulse;
@@ -10501,7 +10652,15 @@ export function createIslandEmpireGame(
       ctx.lineWidth = 1.6 * visualScale;
       ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.ellipse(toX, toY + 9, 54 * visualScale, 27 * visualScale, 0, 0, TAU);
+      ctx.ellipse(
+        targetGround.x,
+        targetGround.y,
+        54 * visualScale,
+        27 * visualScale,
+        0,
+        0,
+        TAU,
+      );
       ctx.stroke();
       ctx.restore();
 
@@ -15785,15 +15944,22 @@ export function createIslandEmpireGame(
               territory.specialResources;
           else delete state.regionSpecialResources[territory.id];
 
-          if (territory.equippedCapitalSkin)
-            state.regionOwnerCapitalSkins[territory.id] =
-              territory.equippedCapitalSkin;
-          else delete state.regionOwnerCapitalSkins[territory.id];
+          // Ownership events are sometimes partial (for example after a
+          // battle). Preserve a known skin when the event does not carry skin
+          // fields; an explicit null still means the player unequipped it.
+          if (Object.prototype.hasOwnProperty.call(territory, "equippedCapitalSkin")) {
+            if (territory.equippedCapitalSkin)
+              state.regionOwnerCapitalSkins[territory.id] =
+                territory.equippedCapitalSkin;
+            else delete state.regionOwnerCapitalSkins[territory.id];
+          }
 
-          if (territory.equippedDistrictSkin)
-            state.regionOwnerDistrictSkins[territory.id] =
-              territory.equippedDistrictSkin;
-          else delete state.regionOwnerDistrictSkins[territory.id];
+          if (Object.prototype.hasOwnProperty.call(territory, "equippedDistrictSkin")) {
+            if (territory.equippedDistrictSkin)
+              state.regionOwnerDistrictSkins[territory.id] =
+                territory.equippedDistrictSkin;
+            else delete state.regionOwnerDistrictSkins[territory.id];
+          }
         });
         syncTownOwnersForRegions(touchedRegionIds);
         cancelClearingIfTargetTaken(touchedRegionIds);

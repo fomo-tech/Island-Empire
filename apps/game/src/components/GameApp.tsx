@@ -3447,6 +3447,8 @@ export function GameApp({
       ownerArchitectureId: territory.ownerArchitectureId,
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
+      equippedCapitalSkin: territory.equippedCapitalSkin ?? null,
+      equippedDistrictSkin: territory.equippedDistrictSkin ?? null,
       settlementKind: territory.settlementKind,
       parentTerritoryId:
         territory.parentTerritoryId === undefined
@@ -5007,6 +5009,8 @@ export function GameApp({
                       ownerArchitectureId: territory.ownerArchitectureId,
                       ownerAllianceTag: territory.ownerAllianceTag,
                       ownerAllianceEmblem: territory.ownerAllianceEmblem,
+                      equippedCapitalSkin: territory.equippedCapitalSkin ?? null,
+                      equippedDistrictSkin: territory.equippedDistrictSkin ?? null,
                     }));
                     engineRef.current?.handleAction("applyWorldOwnership", {
                       territories,
