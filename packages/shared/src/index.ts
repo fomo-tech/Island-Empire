@@ -237,8 +237,10 @@ export type BattleReport = {
   territoryName: string;
   attackerId: string;
   attackerName: string;
+  attackerCityName?: string;
   defenderId: string | null;
   defenderName: string;
+  defenderCityName?: string;
   winnerId: string;
   isAttackerWin: boolean;
   attacker: any;
@@ -262,7 +264,7 @@ export type PlayerMail = {
 
 export type ShopProduct = {
   id: string;
-  type: "resource_pack" | "skin";
+  type: "resource_pack" | "skin" | "profile_cosmetic";
   name: string;
   description: string;
   priceGems: number;
@@ -270,16 +272,32 @@ export type ShopProduct = {
   resources?: Partial<ResourceBag>;
   skinId?: string;
   skinTarget?: "capital" | "military_district";
+  profileCosmeticKind?: "avatar" | "avatar_frame";
+  avatarId?: string;
+  avatarFrameId?: string;
   isNewbiePrice?: boolean; // true nếu giá tân thủ đặc biệt
   newbiePriceExpiresAt?: string; // ISO timestamp hết hạn giá tân thủ
   isNewbieFree?: boolean; // skin thử miễn phí trong tuần đầu
   newbieFreeExpiresAt?: string; // ISO timestamp hết hạn ưu đãi
 };
 
+export type ShopGemPack = {
+  id: string;
+  sku: string;
+  name: string;
+  gems: number;
+  bonusGems: number;
+  priceLabel: string;
+  enabled: boolean;
+};
+
 export type ShopInventory = {
   ownedSkins: string[];
   equippedCapitalSkin: string | null;
   equippedDistrictSkin: string | null;
+  ownedAvatars: string[];
+  ownedAvatarFrames: string[];
+  equippedAvatarFrameId: string | null;
   version: number;
   newbieSkinExpiresAt?: string | null; // skin tân thủ hết hạn lúc nào
   newbieSkinId?: string | null;
@@ -310,6 +328,8 @@ export type ShopPurchase = {
   priceGems: number;
   grantedResources?: Partial<ResourceBag>;
   grantedSkinId?: string;
+  grantedAvatarId?: string;
+  grantedAvatarFrameId?: string;
   createdAt: string;
 };
 
@@ -324,6 +344,7 @@ export type PlayerSyncResult = {
   inbox: PlayerMail[];
   sent: PlayerMail[];
   shopCatalog: ShopProduct[];
+  gemPacks?: ShopGemPack[];
   shopInventory: ShopInventory;
   purchasedProductIds?: string[];
   version: number;
@@ -371,6 +392,8 @@ export type TerritoryInfo = {
   ownerFlagColor?: string;
   ownerEmblem?: string;
   ownerArchitectureId?: string;
+  ownerAvatarId?: string;
+  ownerVipLevel?: number;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
   settlementKind?:
@@ -554,9 +577,12 @@ export type GameStateResult = {
   resourceUpdatedAt: string;
   newbieShieldUntil?: string | null;
   playerProfile?: {
+    name?: string;
     flagColor: string;
     emblem: string;
     kingdomArchitectureId?: string;
+    avatarId?: string;
+    vipLevel?: number;
     cityName?: string;
     onboardingState?:
       | "profile_required"

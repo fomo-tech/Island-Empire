@@ -8,6 +8,11 @@ export type VegetationRendererDeps = {
   drawTerritoryVegetationSprite: (...args: any[]) => void;
 };
 
+export type VegetationRenderMode = {
+  hideAssets?: boolean;
+  lightweight?: boolean;
+};
+
 export function drawNaturalTerritoryVegetation(
   deps: VegetationRendererDeps,
   region: any,
@@ -18,7 +23,13 @@ export function drawNaturalTerritoryVegetation(
 ) {
   const hasTown = deps.hasTown(Number(region.id));
   const vegetationDensity = hash(seed * 83 + region.id * 29);
-  if (!hasTown && vegetationDensity > 0.7) return;
+  const farZoom = deps.zoom < 0.38;
+  const ultraFarZoom = deps.zoom < 0.22;
+  // Far zoom uses one representative sprite per territory instead of
+  // removing vegetation entirely. This keeps the map legible during zoom-out
+  // without paying for the full diorama cluster.
+  const farZoomKeepRate = ultraFarZoom ? 0.58 : 0.88;
+  if (!hasTown && vegetationDensity > (farZoom ? farZoomKeepRate : 0.7)) return;
 
   const atlas = deps.getAtlas();
   if (!atlas.complete || !atlas.naturalWidth) return;
@@ -67,8 +78,11 @@ export function drawNaturalTerritoryVegetation(
     const cx = region.x + Math.cos(angle) * rx * radius;
     const cy = region.y + Math.sin(angle) * ry * radius * 0.82;
     const useMedievalCluster = hash(clusterSeed * 7.17) < 0.42;
-    const itemCount =
-      deps.zoom < 0.52 ? 1 : 1 + Math.floor(hash(clusterSeed * 3.19) * 2);
+    const itemCount = farZoom
+      ? 1
+      : deps.zoom < 0.52
+        ? 1
+        : 1 + Math.floor(hash(clusterSeed * 3.19) * 2);
 
     for (let item = 0; item < itemCount; item++) {
       const itemSeed = clusterSeed * 5.31 + item * 47;
@@ -127,4 +141,28 @@ export function drawNaturalTerritoryVegetation(
       );
     }
   });
+}
+
+/**
+ * Owns the zoom/pan LOD decision for territory vegetation. The world engine
+ * only needs to know whether the expensive diorama pass should continue.
+ */
+export function renderTerritoryVegetation(
+  deps: VegetationRendererDeps,
+  region: any,
+  seed: number,
+  rx: number,
+  ry: number,
+  biome: number,
+  mode: VegetationRenderMode = {},
+) {
+  if (mode.hideAssets) return "hidden" as const;
+
+  const farZoom = deps.zoom < 0.28;
+  const lightweight = Boolean(mode.lightweight) || farZoom;
+  drawNaturalTerritoryVegetation(deps, region, seed, rx, ry, biome);
+
+  // At far zoom or while the camera is moving, the representative vegetation
+  // is the complete layer for this territory. Do not build the full diorama.
+  return lightweight ? ("complete" as const) : ("continue" as const);
 }

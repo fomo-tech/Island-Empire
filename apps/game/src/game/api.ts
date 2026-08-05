@@ -10,6 +10,7 @@ import type {
   ShopInventory,
   ShopProduct,
   ShopPurchase,
+  ShopGemPack,
   NewbieSkinTrialState,
   BattleReport,
   PlayerMail,
@@ -308,11 +309,35 @@ export function purchaseShopProduct(
   purchase: ShopPurchase;
   inventory: ShopInventory;
   resources: ResourceBag;
+  vipLevel?: number;
+  vipPoints?: number;
 }> {
   return request("/api/shop/purchase", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ productId, requestId, equipTarget }),
+  });
+}
+
+export function getShopGemPacks(token: string): Promise<{
+  ok: true;
+  packs: ShopGemPack[];
+  paymentConfigured: boolean;
+}> {
+  return request("/api/shop/gem-packs", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function claimShopGemPack(
+  token: string,
+  sku: string,
+  requestId: string,
+): Promise<{ ok: true; resources: ResourceBag; gemsGranted: number }> {
+  return request("/api/shop/gem-packs/claim", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ sku, requestId }),
   });
 }
 

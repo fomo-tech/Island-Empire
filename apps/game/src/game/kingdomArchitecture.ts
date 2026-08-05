@@ -13,27 +13,9 @@ export type KingdomBuildingType = "capital" | "fortress" | "district" | "flag" |
 export const KINGDOM_PREMIUM_SHEET = "/assets/kingdoms/skins/kingdom-skin-bundles.webp?v=bundles-v1";
 export const NATION_BUILDING_SHEET = "/assets/kingdoms/nations/nations_8_buildings.webp?v=nations-v2";
 export const NATION_FLAG_SHEET = "/assets/kingdoms/nation_flags_atlas.webp?v=flags-v2";
-export const NATION_UNIT_SHEET = "/assets/units/medieval/nation_units_8.webp?v=units-v7";
 export const KINGDOM_SPRITE_CELL = 512;
 export const NATION_FLAG_CELL_WIDTH = 418;
 export const NATION_FLAG_CELL_HEIGHT = 627;
-export const NATION_UNIT_CELL = 96;
-export const NATION_UNIT_BLOCK = 384;
-export const NATION_UNIT_FRAME_COUNTS = {
-  infantry: 6,
-  cavalry: 8,
-  artillery: 6,
-  builder: 6,
-  ship: 6,
-} as const;
-export const NATION_UNIT_COLUMN_OFFSETS = {
-  infantry: 0,
-  cavalry: 12,
-  artillery: 28,
-  builder: 40,
-  ship: 52,
-  builderAction: 64,
-} as const;
 
 const BUILDING_VISUAL_CENTERS = {
   capital: [
@@ -70,6 +52,57 @@ export const KINGDOM_BUILDING_LAYOUT: Record<KingdomBuildingType, {
   district: { pivotX: 0.5, pivotY: 0.94, safeWidth: 0.92, safeHeight: 0.76 },
   flag: { pivotX: 0.5, pivotY: 0.965, safeWidth: 0.74, safeHeight: 0.92 },
   construction: { pivotX: 0.5, pivotY: 0.94, safeWidth: 0.92, safeHeight: 0.76 },
+};
+
+export type KingdomBuildingVisualMetrics = {
+  /** Sprite-space coordinates (0..1) used for ground/portrait placement. */
+  footX: number;
+  footY: number;
+  roofX: number;
+  roofY: number;
+  footprintWidth: number;
+  footprintHeight: number;
+};
+
+const PREMIUM_BUILDING_METRICS: Record<
+  "capital" | "district" | "flag",
+  KingdomBuildingVisualMetrics
+> = {
+  capital: {
+    footX: 0.5,
+    // Premium capital artwork ends around 79% of its square atlas cell.
+    // The remaining transparent pixels must not be treated as its ground.
+    footY: 0.79,
+    roofX: 0.5,
+    roofY: 0.065,
+    footprintWidth: 0.82,
+    footprintHeight: 0.105,
+  },
+  district: {
+    footX: 0.5,
+    // Districts are shorter inside the shared 512px cell.
+    footY: 0.60,
+    roofX: 0.5,
+    roofY: 0.12,
+    footprintWidth: 0.78,
+    footprintHeight: 0.095,
+  },
+  flag: {
+    footX: 0.5,
+    footY: 0.98,
+    roofX: 0.5,
+    roofY: 0.06,
+    footprintWidth: 0.4,
+    footprintHeight: 0.1,
+  },
+};
+
+const DEFAULT_BUILDING_METRICS: Record<KingdomBuildingType, KingdomBuildingVisualMetrics> = {
+  capital: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.08, footprintWidth: 0.78, footprintHeight: 0.18 },
+  fortress: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.1, footprintWidth: 0.76, footprintHeight: 0.17 },
+  district: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.12, footprintWidth: 0.74, footprintHeight: 0.16 },
+  flag: { footX: 0.5, footY: 0.97, roofX: 0.5, roofY: 0.08, footprintWidth: 0.42, footprintHeight: 0.1 },
+  construction: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.1, footprintWidth: 0.76, footprintHeight: 0.17 },
 };
 
 export const KINGDOM_ARCHITECTURES: Array<{
@@ -127,6 +160,23 @@ export function kingdomBuildingVisualCenter(
       : BUILDING_VISUAL_CENTERS.district;
   const [x, y] = centers[index] || [0.5, 0.5];
   return { x, y };
+}
+
+export function kingdomBuildingVisualMetrics(
+  architectureId: string | null | undefined,
+  buildingType: KingdomBuildingType,
+  skinId?: string | null,
+): KingdomBuildingVisualMetrics {
+  const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
+  if (
+    frame.premium &&
+    (buildingType === "capital" ||
+      buildingType === "district" ||
+      buildingType === "flag")
+  ) {
+    return PREMIUM_BUILDING_METRICS[buildingType];
+  }
+  return DEFAULT_BUILDING_METRICS[buildingType];
 }
 
 export function kingdomArchitectureFromEmblem(emblem?: string | null): KingdomArchitectureId {

@@ -74,7 +74,10 @@ const initialServerHud: ServerHudState = {
 };
 
 function normalizeTownSnapshot(town: any) {
-  const level = Math.max(1, Math.floor(Number(town?.lvl ?? town?.level ?? 1) || 1));
+  const level = Math.max(
+    1,
+    Math.floor(Number(town?.lvl ?? town?.level ?? 1) || 1),
+  );
   return {
     ...town,
     level,
@@ -83,7 +86,11 @@ function normalizeTownSnapshot(town: any) {
 }
 
 function indexTowns(towns: any[]) {
-  return Object.fromEntries(towns.map((town) => [Number(town.id), town]).filter(([id]) => Number.isFinite(id)));
+  return Object.fromEntries(
+    towns
+      .map((town) => [Number(town.id), town])
+      .filter(([id]) => Number.isFinite(id)),
+  );
 }
 
 function resolve<T>(next: Updater<T>, prev: T): T {
@@ -124,7 +131,9 @@ type GameStore = {
   setSyncVersion: (next: Updater<number>) => void;
   setTowns: (next: Updater<any[]>) => void;
   upsertTown: (town: any) => void;
-  enqueueAction: (action: Omit<PendingGameAction, "createdAt" | "status">) => void;
+  enqueueAction: (
+    action: Omit<PendingGameAction, "createdAt" | "status">,
+  ) => void;
   confirmAction: (id: string) => void;
   rollbackAction: (id: string) => void;
   resetGameStore: () => void;
@@ -142,72 +151,116 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   sentMail: [],
   mailUnreadCount: 0,
   shopCatalog: [],
-  shopInventory: { ownedSkins: [], equippedCapitalSkin: null, equippedDistrictSkin: null, version: 0 },
+  shopInventory: {
+    ownedSkins: [],
+    equippedCapitalSkin: null,
+    equippedDistrictSkin: null,
+    ownedAvatars: [],
+    ownedAvatarFrames: ["vip"],
+    equippedAvatarFrameId: "vip",
+    version: 0,
+  },
   purchasedProductIds: [],
   syncVersion: 0,
   towns: [],
   townsById: {},
   pendingActions: [],
-  setResources: (next) => set((state) => ({ resources: resolve(next, state.resources) })),
-  setWorldActivity: (next) => set((state) => ({ worldActivity: resolve(next, state.worldActivity) })),
-  setServerHud: (next) => set((state) => ({ serverHud: resolve(next, state.serverHud) })),
-  setNationStatus: (next) => set((state) => ({ nationStatus: resolve(next, state.nationStatus) })),
-  setArmyState: (next) => set((state) => ({ armyState: resolve(next, state.armyState) })),
-  setBattleReports: (next) => set((state) => ({ battleReports: resolve(next, state.battleReports) })),
-  setReportUnreadCount: (next) => set((state) => ({ reportUnreadCount: resolve(next, state.reportUnreadCount) })),
+  setResources: (next) =>
+    set((state) => ({ resources: resolve(next, state.resources) })),
+  setWorldActivity: (next) =>
+    set((state) => ({ worldActivity: resolve(next, state.worldActivity) })),
+  setServerHud: (next) =>
+    set((state) => ({ serverHud: resolve(next, state.serverHud) })),
+  setNationStatus: (next) =>
+    set((state) => ({ nationStatus: resolve(next, state.nationStatus) })),
+  setArmyState: (next) =>
+    set((state) => ({ armyState: resolve(next, state.armyState) })),
+  setBattleReports: (next) =>
+    set((state) => ({ battleReports: resolve(next, state.battleReports) })),
+  setReportUnreadCount: (next) =>
+    set((state) => ({
+      reportUnreadCount: resolve(next, state.reportUnreadCount),
+    })),
   setInbox: (next) => set((state) => ({ inbox: resolve(next, state.inbox) })),
-  setSentMail: (next) => set((state) => ({ sentMail: resolve(next, state.sentMail) })),
-  setMailUnreadCount: (next) => set((state) => ({ mailUnreadCount: resolve(next, state.mailUnreadCount) })),
-  setShopCatalog: (next) => set((state) => ({ shopCatalog: resolve(next, state.shopCatalog) })),
-  setShopInventory: (next) => set((state) => ({ shopInventory: resolve(next, state.shopInventory) })),
-  setPurchasedProductIds: (next) => set((state) => ({ purchasedProductIds: resolve(next, state.purchasedProductIds) })),
-  setSyncVersion: (next) => set((state) => ({ syncVersion: resolve(next, state.syncVersion) })),
-  setTowns: (next) => set((state) => {
-    const towns = resolve(next, state.towns).map(normalizeTownSnapshot);
-    return { towns, townsById: indexTowns(towns) };
-  }),
-  upsertTown: (town) => set((state) => {
-    if (!town || !Number.isFinite(Number(town.id))) return state;
-    const normalized = normalizeTownSnapshot(town);
-    const towns = [
-      ...state.towns.filter((item) => Number(item.id) !== Number(normalized.id)),
-      normalized,
-    ];
-    return { towns, townsById: indexTowns(towns) };
-  }),
-  enqueueAction: (action) => set((state) => ({
-    pendingActions: [
-      ...state.pendingActions.filter((item) => item.id !== action.id),
-      { ...action, status: "pending", createdAt: Date.now() },
-    ],
-  })),
-  confirmAction: (id) => set((state) => ({
-    pendingActions: state.pendingActions.map((item) => item.id === id ? { ...item, status: "confirmed" } : item),
-  })),
+  setSentMail: (next) =>
+    set((state) => ({ sentMail: resolve(next, state.sentMail) })),
+  setMailUnreadCount: (next) =>
+    set((state) => ({ mailUnreadCount: resolve(next, state.mailUnreadCount) })),
+  setShopCatalog: (next) =>
+    set((state) => ({ shopCatalog: resolve(next, state.shopCatalog) })),
+  setShopInventory: (next) =>
+    set((state) => ({ shopInventory: resolve(next, state.shopInventory) })),
+  setPurchasedProductIds: (next) =>
+    set((state) => ({
+      purchasedProductIds: resolve(next, state.purchasedProductIds),
+    })),
+  setSyncVersion: (next) =>
+    set((state) => ({ syncVersion: resolve(next, state.syncVersion) })),
+  setTowns: (next) =>
+    set((state) => {
+      const towns = resolve(next, state.towns).map(normalizeTownSnapshot);
+      return { towns, townsById: indexTowns(towns) };
+    }),
+  upsertTown: (town) =>
+    set((state) => {
+      if (!town || !Number.isFinite(Number(town.id))) return state;
+      const normalized = normalizeTownSnapshot(town);
+      const towns = [
+        ...state.towns.filter(
+          (item) => Number(item.id) !== Number(normalized.id),
+        ),
+        normalized,
+      ];
+      return { towns, townsById: indexTowns(towns) };
+    }),
+  enqueueAction: (action) =>
+    set((state) => ({
+      pendingActions: [
+        ...state.pendingActions.filter((item) => item.id !== action.id),
+        { ...action, status: "pending", createdAt: Date.now() },
+      ],
+    })),
+  confirmAction: (id) =>
+    set((state) => ({
+      pendingActions: state.pendingActions.map((item) =>
+        item.id === id ? { ...item, status: "confirmed" } : item,
+      ),
+    })),
   rollbackAction: (id) => {
     const action = get().pendingActions.find((item) => item.id === id);
     action?.rollback?.();
     set((state) => ({
-      pendingActions: state.pendingActions.map((item) => item.id === id ? { ...item, status: "rolled_back" } : item),
+      pendingActions: state.pendingActions.map((item) =>
+        item.id === id ? { ...item, status: "rolled_back" } : item,
+      ),
     }));
   },
-  resetGameStore: () => set({
-    resources: initialResources,
-    worldActivity: initialWorldActivity,
-    serverHud: initialServerHud,
-    nationStatus: null,
-    armyState: null,
-    battleReports: [],
-    reportUnreadCount: 0,
-    inbox: [],
-    sentMail: [],
-    mailUnreadCount: 0,
-    shopCatalog: [],
-    shopInventory: { ownedSkins: [], equippedCapitalSkin: null, equippedDistrictSkin: null, version: 0 },
-    purchasedProductIds: [],
-    syncVersion: 0,
-    towns: [],
-    townsById: {},
-    pendingActions: [],
-  }),
+  resetGameStore: () =>
+    set({
+      resources: initialResources,
+      worldActivity: initialWorldActivity,
+      serverHud: initialServerHud,
+      nationStatus: null,
+      armyState: null,
+      battleReports: [],
+      reportUnreadCount: 0,
+      inbox: [],
+      sentMail: [],
+      mailUnreadCount: 0,
+      shopCatalog: [],
+      shopInventory: {
+        ownedSkins: [],
+        equippedCapitalSkin: null,
+        equippedDistrictSkin: null,
+        ownedAvatars: [],
+        ownedAvatarFrames: ["vip"],
+        equippedAvatarFrameId: "vip",
+        version: 0,
+      },
+      purchasedProductIds: [],
+      syncVersion: 0,
+      towns: [],
+      townsById: {},
+      pendingActions: [],
+    }),
 }));

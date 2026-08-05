@@ -36,6 +36,9 @@ export type PlayerDocument = {
     ownedSkins: string[];
     equippedCapitalSkin: string | null;
     equippedDistrictSkin: string | null;
+    ownedAvatars?: string[];
+    ownedAvatarFrames?: string[];
+    equippedAvatarFrameId?: string | null;
     version: number;
   };
   role: "player" | "admin";
@@ -164,8 +167,10 @@ export type BattleReportDocument = {
   territoryName: string;
   attackerId: string;
   attackerName: string;
+  attackerCityName?: string;
   defenderId: string | null;
   defenderName: string;
+  defenderCityName?: string;
   winnerId: string;
   isAttackerWin: boolean;
   attacker: {
@@ -233,9 +238,38 @@ export type ShopPurchaseDocument = {
   playerId: string;
   productId: string;
   requestId: string;
+  productType?: "resource_pack" | "skin" | "profile_cosmetic";
   priceGems: number;
   grantedResources?: Partial<ResourceBag>;
   grantedSkinId?: string;
+  grantedAvatarId?: string;
+  grantedAvatarFrameId?: string;
+  createdAt: Date;
+};
+
+export type GemTransactionDocument = {
+  _id: string;
+  playerId: string;
+  amount: number;
+  reason:
+    | "gem_pack"
+    | "gem_mine"
+    | "newbie_reward"
+    | "shop_purchase"
+    | "event_reward"
+    | "refund";
+  referenceId?: string;
+  balanceBefore: number;
+  balanceAfter: number;
+  createdAt: Date;
+};
+
+export type VipPointTransactionDocument = {
+  _id: string;
+  playerId: string;
+  points: number;
+  productId?: string;
+  purchaseId?: string;
   createdAt: Date;
 };
 
@@ -271,6 +305,10 @@ export async function collections() {
     battleReports: db.collection<BattleReportDocument>("battle_reports"),
     playerMails: db.collection<PlayerMailDocument>("player_mails"),
     shopPurchases: db.collection<ShopPurchaseDocument>("shop_purchases"),
+    gemTransactions: db.collection<GemTransactionDocument>("gem_transactions"),
+    vipPointTransactions: db.collection<VipPointTransactionDocument>(
+      "vip_point_transactions",
+    ),
     cosmeticAudits: db.collection<CosmeticAuditDocument>("cosmetic_audits"),
     chatMessages: db.collection<ChatMessageDocument>("chat_messages"),
   };
@@ -289,6 +327,8 @@ export async function ensureIndexes() {
     battleReports,
     playerMails,
     shopPurchases,
+    gemTransactions,
+    vipPointTransactions,
     cosmeticAudits,
     chatMessages,
   } = await collections();
@@ -348,6 +388,9 @@ export async function ensureIndexes() {
     playerMails.createIndex({ senderId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, requestId: 1 }, { unique: true }),
     shopPurchases.createIndex({ playerId: 1, createdAt: -1 }),
+    gemTransactions.createIndex({ playerId: 1, createdAt: -1 }),
+    gemTransactions.createIndex({ playerId: 1, referenceId: 1 }),
+    vipPointTransactions.createIndex({ playerId: 1, createdAt: -1 }),
     cosmeticAudits.createIndex({ playerId: 1, createdAt: -1 }),
     cosmeticAudits.createIndex({ event: 1, createdAt: -1 }),
     chatMessages.createIndex({ sentAt: -1 }),

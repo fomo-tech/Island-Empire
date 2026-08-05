@@ -30,41 +30,85 @@ export function WarReportListModal({
 }: WarReportListModalProps) {
   const [filter, setFilter] = useState<ReportFilter>("all");
   const filteredReports = useMemo(
-    () => reports.filter((report) => {
-      const won = report.winnerId === currentPlayerId;
-      if (filter === "win") return won;
-      if (filter === "loss") return !won;
-      if (filter === "unread") return !report.read;
-      return true;
-    }),
+    () =>
+      reports.filter((report) => {
+        const won = report.winnerId === currentPlayerId;
+        if (filter === "win") return won;
+        if (filter === "loss") return !won;
+        if (filter === "unread") return !report.read;
+        return true;
+      }),
     [reports, filter, currentPlayerId],
   );
 
-  const winCount = reports.filter((report) => report.winnerId === currentPlayerId).length;
+  const winCount = reports.filter(
+    (report) => report.winnerId === currentPlayerId,
+  ).length;
 
   return (
     <div className="war-report-v2__overlay" onMouseDown={onClose}>
-      <section className="war-report-v2" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="war-report-v2"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="war-report-v2__header">
-          <img src="/assets/icons/icon_report.png" alt="" />
-          <span><strong>CHIẾN BÁO VƯƠNG QUỐC</strong><small>Lịch sử giao tranh và hoạt động đang diễn ra</small></span>
-          <button type="button" onClick={onClose} aria-label="Đóng">×</button>
+          <img src="/assets/icons/menu/report.png" alt="" />
+          <span>
+            <strong>CHIẾN BÁO VƯƠNG QUỐC</strong>
+            <small>Lịch sử giao tranh và hoạt động đang diễn ra</small>
+          </span>
+          <button type="button" onClick={onClose} aria-label="Đóng">
+            <img
+              src="/assets/icons/menu/close.png"
+              width="22"
+              height="22"
+              alt=""
+            />
+          </button>
         </header>
 
         <div className="war-report-v2__summary">
-          <div><span>Tổng báo cáo</span><strong>{reports.length}</strong></div>
-          <div><span>Chiến thắng</span><strong className="win">{winCount}</strong></div>
-          <div><span>Thất bại</span><strong className="loss">{reports.length - winCount}</strong></div>
-          <div><span>Chưa đọc</span><strong>{unreadCount}</strong></div>
+          <div>
+            <span>Tổng báo cáo</span>
+            <strong>{reports.length}</strong>
+          </div>
+          <div>
+            <span>Chiến thắng</span>
+            <strong className="win">{winCount}</strong>
+          </div>
+          <div>
+            <span>Thất bại</span>
+            <strong className="loss">{reports.length - winCount}</strong>
+          </div>
+          <div>
+            <span>Chưa đọc</span>
+            <strong>{unreadCount}</strong>
+          </div>
         </div>
 
         <nav className="war-report-v2__filters" aria-label="Lọc chiến báo">
           {(["all", "win", "loss", "unread"] as const).map((item) => (
-            <button key={item} type="button" className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>
-              {item === "all" ? "Tất cả" : item === "win" ? "Chiến thắng" : item === "loss" ? "Thất bại" : `Chưa đọc (${unreadCount})`}
+            <button
+              key={item}
+              type="button"
+              className={filter === item ? "active" : ""}
+              onClick={() => setFilter(item)}
+            >
+              {item === "all"
+                ? "Tất cả"
+                : item === "win"
+                  ? "Chiến thắng"
+                  : item === "loss"
+                    ? "Thất bại"
+                    : `Chưa đọc (${unreadCount})`}
             </button>
           ))}
-          <button type="button" className="mark-all" disabled={unreadCount === 0} onClick={() => void onMarkAllRead()}>
+          <button
+            type="button"
+            className="mark-all"
+            disabled={unreadCount === 0}
+            onClick={() => void onMarkAllRead()}
+          >
             Đánh dấu đã đọc
           </button>
         </nav>
@@ -77,7 +121,9 @@ export function WarReportListModal({
                 const won = report.winnerId === currentPlayerId;
                 const isAttacker = report.attackerId === currentPlayerId;
                 const ownSide = isAttacker ? report.attacker : report.defender;
-                const opponent = isAttacker ? report.defenderName : report.attackerName;
+                const opponent = isAttacker
+                  ? report.defenderName
+                  : report.attackerName;
                 return (
                   <button
                     type="button"
@@ -85,31 +131,64 @@ export function WarReportListModal({
                     key={report.id}
                     onClick={() => void onOpenReport(report)}
                   >
-                    <span className="war-report-v2__result">{won ? "THẮNG" : "THUA"}</span>
-                    <span className="war-report-v2__row-copy">
-                      <strong>{report.territoryName || `Lãnh thổ #${report.regionId + 1}`}</strong>
-                      <small>Đối thủ: {opponent || "Không xác định"}</small>
-                      <em>Tổn thất: {formatNumber(ownSide?.casualty?.power)}</em>
+                    <span className="war-report-v2__result">
+                      <img
+                        src={
+                          won
+                            ? "/assets/report/win.png"
+                            : "/assets/report/lose.png"
+                        }
+                        alt=""
+                        className="war-report-v2__result-icon"
+                      />
+                      <span>{won ? "THẮNG" : "THUA"}</span>
                     </span>
-                    <time>{new Date(report.createdAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</time>
+                    <span className="war-report-v2__row-copy">
+                      <strong>
+                        {report.territoryName ||
+                          `Lãnh thổ #${report.regionId + 1}`}
+                      </strong>
+                      <small>Đối thủ: {opponent || "Không xác định"}</small>
+                      <em>
+                        Tổn thất: {formatNumber(ownSide?.casualty?.power)}
+                      </em>
+                    </span>
+                    <time>
+                      {new Date(report.createdAt).toLocaleString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                      })}
+                    </time>
                     {!report.read && <i aria-label="Chưa đọc" />}
                   </button>
                 );
               })}
-              {filteredReports.length === 0 && <div className="war-report-v2__empty">Không có chiến báo phù hợp.</div>}
+              {filteredReports.length === 0 && (
+                <div className="war-report-v2__empty">
+                  Không có chiến báo phù hợp.
+                </div>
+              )}
             </div>
           </div>
 
           <aside className="war-report-v2__active">
             <h3>ĐANG DIỄN RA</h3>
             {activeRows.map((row, index) => (
-              <article key={`${row.title}-${index}`}><strong>{row.title}</strong><span>{row.meta}</span></article>
+              <article key={`${row.title}-${index}`}>
+                <strong>{row.title}</strong>
+                <span>{row.meta}</span>
+              </article>
             ))}
-            {activeRows.length === 0 && <div className="war-report-v2__empty">Biên cương đang yên ổn.</div>}
+            {activeRows.length === 0 && (
+              <div className="war-report-v2__empty">
+                Biên cương đang yên ổn.
+              </div>
+            )}
           </aside>
         </div>
       </section>
     </div>
   );
 }
-

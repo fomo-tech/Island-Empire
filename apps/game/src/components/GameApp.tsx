@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { createIslandEmpireGame, type GameEngineHandle } from "../game/engine";
+import { classifySettlement } from "../game/settlementClassification";
 import {
   cancelClearing,
   createClientId,
@@ -16,10 +17,12 @@ import {
   deletePlayerMail,
   getMarchSourceOptions,
   getGameConfig,
+  getShopGemPacks,
   getChatHistory,
   getPlayerSync,
   getServerStatus,
   getWorldTerritories,
+  claimShopGemPack,
   markBattleReportRead,
   markAllBattleReportsRead,
   markPlayerMailRead,
@@ -66,6 +69,7 @@ import type {
   PlayerSyncResult,
   ResourceBag,
   ChatMessage,
+  ShopGemPack,
 } from "@island/shared";
 
 const CAMERA_KEY = "island_empire_camera_v1";
@@ -1549,6 +1553,9 @@ export function GameApp({
   const setPurchasedProductIds = useGameStore(
     (state) => state.setPurchasedProductIds,
   );
+  const [shopGemPacks, setShopGemPacks] = useState<ShopGemPack[]>([]);
+  const [gemPackPaymentConfigured, setGemPackPaymentConfigured] =
+    useState(false);
   const syncVersion = useGameStore((state) => state.syncVersion);
   const setSyncVersion = useGameStore((state) => state.setSyncVersion);
   const serverTownsById = useGameStore((state) => state.townsById);
@@ -1713,6 +1720,25 @@ export function GameApp({
     MarchSourceOption[] | null
   >(null);
   const [activeModal, setActiveModal] = useState<string>("none");
+  useEffect(() => {
+    if (activeModal !== "shop" || !token) return;
+    let cancelled = false;
+    void getShopGemPacks(token)
+      .then((result) => {
+        if (cancelled) return;
+        setShopGemPacks(result.packs || []);
+        setGemPackPaymentConfigured(Boolean(result.paymentConfigured));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShopGemPacks([]);
+          setGemPackPaymentConfigured(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModal, token]);
   const [selectedBattleReport, setSelectedBattleReport] =
     useState<BattleReportData | null>(null);
   const [mobileMenu, setMobileMenu] = useState<"none" | "left" | "right">(
@@ -2105,6 +2131,7 @@ export function GameApp({
                         ownerAllianceTag: result.territory.ownerAllianceTag,
                         ownerAllianceEmblem:
                           result.territory.ownerAllianceEmblem,
+                        specialResources: result.territory.specialResources,
                       },
                     ],
                   });
@@ -2275,8 +2302,11 @@ export function GameApp({
             ownerFlagColor: territory.ownerFlagColor,
             ownerEmblem: territory.ownerEmblem,
             ownerArchitectureId: territory.ownerArchitectureId,
+            ownerAvatarId: territory.ownerAvatarId,
+            ownerVipLevel: territory.ownerVipLevel,
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
+            specialResources: territory.specialResources,
             equippedCapitalSkin: territory.equippedCapitalSkin ?? null,
             equippedDistrictSkin: territory.equippedDistrictSkin ?? null,
             settlementKind: territory.settlementKind,
@@ -2697,8 +2727,11 @@ export function GameApp({
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
                   ownerArchitectureId: event.territory.ownerArchitectureId,
+                  ownerAvatarId: event.territory.ownerAvatarId,
+                  ownerVipLevel: event.territory.ownerVipLevel,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                  specialResources: event.territory.specialResources,
                 },
               ],
             });
@@ -2787,8 +2820,11 @@ export function GameApp({
                 ownerFlagColor: event.territory.ownerFlagColor,
                 ownerEmblem: event.territory.ownerEmblem,
                 ownerArchitectureId: event.territory.ownerArchitectureId,
+                ownerAvatarId: event.territory.ownerAvatarId,
+                ownerVipLevel: event.territory.ownerVipLevel,
                 ownerAllianceTag: event.territory.ownerAllianceTag,
                 ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                specialResources: event.territory.specialResources,
                 settlementKind: event.territory.settlementKind,
                 parentTerritoryId:
                   event.territory.parentTerritoryId === undefined
@@ -3041,8 +3077,11 @@ export function GameApp({
                   ownerFlagColor: event.territory.ownerFlagColor,
                   ownerEmblem: event.territory.ownerEmblem,
                   ownerArchitectureId: event.territory.ownerArchitectureId,
+                  ownerAvatarId: event.territory.ownerAvatarId,
+                  ownerVipLevel: event.territory.ownerVipLevel,
                   ownerAllianceTag: event.territory.ownerAllianceTag,
                   ownerAllianceEmblem: event.territory.ownerAllianceEmblem,
+                  specialResources: event.territory.specialResources,
                   settlementKind: event.territory.settlementKind,
                   parentTerritoryId:
                     event.territory.parentTerritoryId === undefined
@@ -3445,8 +3484,11 @@ export function GameApp({
       ownerFlagColor: territory.ownerFlagColor,
       ownerEmblem: territory.ownerEmblem,
       ownerArchitectureId: territory.ownerArchitectureId,
+      ownerAvatarId: territory.ownerAvatarId,
+      ownerVipLevel: territory.ownerVipLevel,
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
+      specialResources: territory.specialResources,
       equippedCapitalSkin: territory.equippedCapitalSkin ?? null,
       equippedDistrictSkin: territory.equippedDistrictSkin ?? null,
       settlementKind: territory.settlementKind,
@@ -3770,6 +3812,74 @@ export function GameApp({
   const battlefieldActivities: BattlefieldActivityItem[] = [];
   const trackedBattleTerritories = new Set<number>();
 
+  const getBattlefieldTroopIcon = (
+    activityData: any,
+    fallback: string = "/assets/icon-troops/sprite_01.webp",
+  ) => {
+    if (!activityData) return fallback;
+    const typeStr = String(
+      activityData.troopType ||
+        activityData.unitType ||
+        activityData.kind ||
+        activityData.title ||
+        "",
+    ).toLowerCase();
+
+    if (
+      typeStr.includes("infantry") ||
+      typeStr.includes("bộ binh") ||
+      typeStr.includes("bo_binh")
+    ) {
+      return "/assets/icon-troops/sprite_01.webp"; // Bộ binh
+    }
+    if (
+      typeStr.includes("engineer") ||
+      typeStr.includes("công binh") ||
+      typeStr.includes("cong_binh") ||
+      typeStr.includes("siege") ||
+      typeStr.includes("thợ xây") ||
+      typeStr.includes("pháo đài") ||
+      typeStr.includes("clearing")
+    ) {
+      return "/assets/icon-troops/sprite_02.webp"; // Công binh
+    }
+    if (
+      typeStr.includes("cavalry") ||
+      typeStr.includes("kị binh") ||
+      typeStr.includes("ki_binh")
+    ) {
+      return "/assets/icon-troops/sprite_03.webp"; // Kị binh
+    }
+    if (
+      typeStr.includes("artillery") ||
+      typeStr.includes("pháo binh") ||
+      typeStr.includes("phao_binh") ||
+      typeStr.includes("archer") ||
+      typeStr.includes("cung thủ")
+    ) {
+      return "/assets/icon-troops/sprite_04.webp"; // Pháo binh
+    }
+
+    const inf = Number(
+      activityData.infantry || activityData.infantryCount || 0,
+    );
+    const cav = Number(activityData.cavalry || activityData.cavalryCount || 0);
+    const art = Number(
+      activityData.artillery || activityData.artilleryCount || 0,
+    );
+    const sg = Number(
+      activityData.siege || activityData.engineer || activityData.builders || 0,
+    );
+    const max = Math.max(inf, cav, art, sg);
+    if (max > 0) {
+      if (max === inf) return "/assets/icon-troops/sprite_01.webp"; // Bộ binh
+      if (max === sg) return "/assets/icon-troops/sprite_02.webp"; // Công binh
+      if (max === cav) return "/assets/icon-troops/sprite_03.webp"; // Kị binh
+      if (max === art) return "/assets/icon-troops/sprite_04.webp"; // Pháo binh
+    }
+    return fallback;
+  };
+
   worldActivity.battles.forEach((battle: any) => {
     const territoryId = Number(battle.regionId);
     if (!Number.isFinite(territoryId)) return;
@@ -3787,7 +3897,10 @@ export function GameApp({
         id: `defend-${battle.id || territoryId}`,
         title: `${activityTerritoryLabel(territoryId)} đang bị công thành`,
         meta: `Địch ${formatNum(battle.attackerPower || battle.attPower || 0)} · còn ${battleTimeLeft(battle)}`,
-        icon: "/assets/icons/icon_defender_dragon_shield.png",
+        icon: getBattlefieldTroopIcon(
+          battle,
+          "/assets/icons/icon_defender_dragon_shield.png",
+        ),
         tone: "danger",
         priority: 0,
         territoryId,
@@ -3799,7 +3912,10 @@ export function GameApp({
         id: `attack-${battle.id || territoryId}`,
         title: `Quân ta đang công ${activityTerritoryLabel(territoryId)}`,
         meta: `Công ${formatNum(battle.attackerPower || battle.attPower || 0)} · còn ${battleTimeLeft(battle)}`,
-        icon: "/assets/icons/icon_attacker_lion_shield.png",
+        icon: getBattlefieldTroopIcon(
+          battle,
+          "/assets/icons/icon_attacker_lion_shield.png",
+        ),
         tone: "active",
         priority: 1,
         territoryId,
@@ -3822,7 +3938,10 @@ export function GameApp({
         id: `incoming-${marchId || territoryId}`,
         title: `Quân địch đang tiến đến ${activityTerritoryLabel(territoryId)}`,
         meta: `${formatNum(march.troops || 0)} quân · tới sau ${formatTimeLeft(march.arrivesAt)}`,
-        icon: "/assets/icons/icon_defender_dragon_shield.png",
+        icon: getBattlefieldTroopIcon(
+          march,
+          "/assets/icons/icon_defender_dragon_shield.png",
+        ),
         tone: "danger",
         priority: 0,
         territoryId,
@@ -3841,9 +3960,12 @@ export function GameApp({
           ? `Tiếp viện đang đến ${activityTerritoryLabel(territoryId)}`
           : `Quân đang di chuyển đến ${activityTerritoryLabel(territoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
-      icon: isAttack
-        ? "/assets/icon-troops/sprite_02.webp"
-        : "/assets/icons/icon_military.png",
+      icon: getBattlefieldTroopIcon(
+        march,
+        isAttack
+          ? "/assets/icon-troops/sprite_01.webp"
+          : "/assets/icon-troops/sprite_03.webp",
+      ),
       tone: isAttack ? "warning" : "active",
       priority: isAttack ? 2 : 3,
       territoryId,
@@ -3863,12 +3985,12 @@ export function GameApp({
       battlefieldActivities.push({
         id: `clearing-${territoryId}`,
         title: isTravelling
-          ? `Thợ xây đang đến ${activityTerritoryLabel(territoryId)}`
-          : `Đang dựng pháo đài tại ${activityTerritoryLabel(territoryId)}`,
+          ? `Công binh đang đến ${activityTerritoryLabel(territoryId)}`
+          : `Công binh đang dựng pháo đài tại ${activityTerritoryLabel(territoryId)}`,
         meta: isTravelling
           ? `Đến nơi sau ${formatTimeLeft(clearing.arrivesAt)}`
           : `Hoàn tất sau ${formatTimeLeft(clearing.completesAt)}`,
-        icon: "/assets/icons/icon_tower.png",
+        icon: "/assets/icon-troops/sprite_02.webp",
         tone: "building",
         priority: 4,
         territoryId,
@@ -3903,7 +4025,7 @@ export function GameApp({
           {
             id: "frontier-calm",
             title: "Biên cương yên ổn",
-            meta: "Không có hành quân hay giao tranh",
+            meta: "Thành trì an toàn · Quân đội sẵn sàng",
             icon: "/assets/icons/icon_tower.png",
             tone: "calm" as const,
             priority: 9,
@@ -4173,6 +4295,7 @@ export function GameApp({
           <div className="hud-topbar hud-interactive rok-hud-topbar">
             <ProfileHud
               avatarId={selectedAvatarId}
+              avatarFrameId={shopInventory.equippedAvatarFrameId}
               playerName={nationStatus?.playerName || "Rising Empire"}
               rank={nationStatus?.rank || "Lãnh Chúa"}
               power={hudPower}
@@ -4312,7 +4435,7 @@ export function GameApp({
                 className="hud-command-button mobile-main-action mobile-army-action"
                 onClick={() => openModal("army")}
               >
-                <img src="/assets/icons/icon_military.png" alt="" />
+                <img src="/assets/icons/menu/troop.png" alt="" />
                 <span>Quân đội</span>
               </button>
               <button
@@ -4320,7 +4443,7 @@ export function GameApp({
                 className="hud-command-button mobile-main-action mobile-town-action"
                 onClick={() => openModal("kingdom")}
               >
-                <img src="/assets/icons/icon_tower.png" alt="" />
+                <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
                 <span>Thành trì</span>
               </button>
               <button
@@ -4328,15 +4451,19 @@ export function GameApp({
                 className="hud-command-button mobile-secondary-action"
                 onClick={() => openModal("treasure")}
               >
-                <img src="/assets/icons/icon_bag.png" alt="" />
+                <img src="/assets/icons/menu/store.png" alt="" />
                 <span>Kho báu</span>
               </button>
               <button
                 type="button"
-                className="hud-command-button mobile-main-action mobile-map-action primary active"
-                onClick={() => handleAction("map")}
+                className="hud-command-button mobile-main-action mobile-map-action"
+                onClick={() => {
+                  setMinimapCollapsed(false);
+                  setMobileActionsExpanded(false);
+                  handleAction("map");
+                }}
               >
-                <img src="/assets/icons/icon_map.png" alt="" />
+                <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
                 <span>Bản đồ</span>
               </button>
               <button
@@ -4344,7 +4471,7 @@ export function GameApp({
                 className="hud-command-button mobile-main-action mobile-conquest-action"
                 onClick={onOpenConquest}
               >
-                <img src="/assets/icons/icon_tower.png" alt="" />
+                <img src="/assets/icons/menu/troop.png" alt="" />
                 <span>Chinh phạt</span>
               </button>
               <button
@@ -4352,7 +4479,7 @@ export function GameApp({
                 className={`hud-command-button mobile-secondary-action ${activeModal === "warReport" ? "active" : ""}`}
                 onClick={() => openModal("warReport")}
               >
-                <img src="/assets/icons/icon_report.png" alt="" />
+                <img src="/assets/icons/menu/report.png" alt="" />
                 <span>Chiến báo</span>
                 {reportUnreadCount > 0 && (
                   <b className="hud-command-badge">
@@ -4365,7 +4492,7 @@ export function GameApp({
                 className={`hud-command-button mobile-secondary-action ${activeModal === "mail" ? "active" : ""}`}
                 onClick={() => openModal("mail")}
               >
-                <img src="/assets/icons/icon_mail.png" alt="" />
+                <img src="/assets/icons/menu/letter.png" alt="" />
                 <span>Thư tín</span>
                 {unreadMailCount > 0 && (
                   <b className="hud-command-badge">
@@ -4375,12 +4502,35 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button mobile-main-action mobile-more-action ${mobileActionsExpanded ? "active" : ""}`}
-                aria-expanded={mobileActionsExpanded}
-                onClick={() => setMobileActionsExpanded((value) => !value)}
+                className="hud-command-button mobile-secondary-action"
+                onClick={() => openModal("treasure")}
               >
-                <img src="/assets/icons/icon_bag.png" alt="" />
-                <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
+                <img src="/assets/icons/menu/envent.png" alt="" />
+                <span>Sự kiện</span>
+              </button>
+              <button
+                type="button"
+                className={`hud-command-button mobile-secondary-action ${activeModal === "shop" ? "active" : ""}`}
+                onClick={() => openModal("shop")}
+              >
+                <img src="/assets/icons/menu/store.png" alt="" />
+                <span>Cửa hàng</span>
+              </button>
+              <button
+                type="button"
+                className={`hud-command-button mobile-secondary-action ${activeModal === "ranking" ? "active" : ""}`}
+                onClick={() => openModal("ranking")}
+              >
+                <img src="/assets/icons/menu/rank.png" alt="" />
+                <span>BXH</span>
+              </button>
+              <button
+                type="button"
+                className={`hud-command-button mobile-secondary-action ${activeModal === "settings" ? "active" : ""}`}
+                onClick={() => openModal("settings")}
+              >
+                <img src="/assets/icons/menu/setting.png" alt="" />
+                <span>Cài đặt</span>
               </button>
               <ChatPanel
                 messages={chatMessages}
@@ -4388,6 +4538,7 @@ export function GameApp({
                 currentAvatarId={selectedAvatarId}
                 currentVipLevel={vipLevel}
                 online={socketOnline}
+                mobileActionsExpanded={mobileActionsExpanded}
                 onSend={(message) => {
                   const sent = sendWorldChat(message);
                   if (!sent)
@@ -4395,6 +4546,18 @@ export function GameApp({
                   return sent;
                 }}
               />
+              <button
+                type="button"
+                className={`hud-command-button mobile-main-action mobile-more-action ${mobileActionsExpanded ? "active" : ""}`}
+                aria-expanded={mobileActionsExpanded}
+                onClick={() => setMobileActionsExpanded((value) => !value)}
+              >
+                <img
+                  src={`/assets/icons/menu/${mobileActionsExpanded ? "close" : "more"}.png`}
+                  alt=""
+                />
+                <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
+              </button>
             </nav>
           )}
 
@@ -4405,7 +4568,7 @@ export function GameApp({
               onClick={() => openModal("kingdom")}
               title="Mở Thành chính"
             >
-              <img src="/assets/icons/icon_tower.png" alt="" />
+              <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
               <span>Thành chính</span>
               <b>
                 <img src="/assets/icons/icon_collapse_european.png" alt="" />
@@ -4423,7 +4586,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-event">
                 <img
-                  src="/assets/icons/icon_event.png"
+                  src="/assets/icons/menu/envent.png"
                   alt="Sự kiện"
                   className="rok-badge-img"
                 />
@@ -4439,7 +4602,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-army">
                 <img
-                  src="/assets/icons/icon_military.png"
+                  src="/assets/icons/menu/troop.png"
                   alt="Quân đội"
                   className="rok-badge-img"
                 />
@@ -4455,7 +4618,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-war">
                 <img
-                  src="/assets/icons/icon_report.png"
+                  src="/assets/icons/menu/report.png"
                   alt="Chiến báo"
                   className="rok-badge-img"
                 />
@@ -4476,7 +4639,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-mail">
                 <img
-                  src="/assets/icons/icon_mail.png"
+                  src="/assets/icons/menu/letter.png"
                   alt="Mail"
                   className="rok-badge-img"
                 />
@@ -4497,7 +4660,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-shop">
                 <img
-                  src="/assets/icons/icon_shop.png"
+                  src="/assets/icons/menu/store.png"
                   alt="Cửa hàng"
                   className="rok-badge-img"
                 />
@@ -4528,7 +4691,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-ranking">
                 <img
-                  src="/assets/icons/icon_gold_crown.png"
+                  src="/assets/icons/menu/rank.png"
                   alt="Bảng xếp hạng"
                   className="rok-badge-img"
                 />
@@ -4544,7 +4707,7 @@ export function GameApp({
             >
               <div className="rok-badge-icon-wrap rok-badge-settings">
                 <img
-                  src="/assets/icons/icon_settings_european.png"
+                  src="/assets/icons/menu/setting.png"
                   alt="Settings"
                   className="rok-badge-img"
                 />
@@ -4814,6 +4977,30 @@ export function GameApp({
             ),
           )}
           gameConfig={(engineRef.current as any).getConfig?.()}
+          architectureId={
+            (engineRef.current as any).getState?.()?.newbieArchitectureId ||
+            "vietnam"
+          }
+          getTownBuildingType={(town) => {
+            const state = engineRef.current?.getState?.();
+            const regionId = engineRef.current?.getTownRegionId?.(town) ?? -1;
+            const kind =
+              town?.settlementKind || state?.regionSettlementKinds?.[regionId];
+            const settlement = classifySettlement({
+              isIslet: engineRef.current?.getRegion?.(regionId)?.isIslet,
+              settlementKind: kind,
+              connectionType: state?.regionConnectionTypes?.[regionId],
+              capitalTerritoryConfirmed:
+                state?.capitalTerritoryIds?.has(regionId),
+              capitalTownConfirmed: state?.capitalTownIds?.has(
+                Number(town?.id),
+              ),
+            });
+            return settlement.buildingType === "fortress" ||
+              settlement.buildingType === "construction"
+              ? "district"
+              : settlement.buildingType;
+          }}
           errorMessage={deployError}
           getTownRegionId={(town) =>
             engineRef.current?.getTownRegionId?.(town) ?? -1
@@ -5007,10 +5194,15 @@ export function GameApp({
                       ownerFlagColor: territory.ownerFlagColor,
                       ownerEmblem: territory.ownerEmblem,
                       ownerArchitectureId: territory.ownerArchitectureId,
+                      ownerAvatarId: territory.ownerAvatarId,
+                      ownerVipLevel: territory.ownerVipLevel,
                       ownerAllianceTag: territory.ownerAllianceTag,
                       ownerAllianceEmblem: territory.ownerAllianceEmblem,
-                      equippedCapitalSkin: territory.equippedCapitalSkin ?? null,
-                      equippedDistrictSkin: territory.equippedDistrictSkin ?? null,
+                      specialResources: territory.specialResources,
+                      equippedCapitalSkin:
+                        territory.equippedCapitalSkin ?? null,
+                      equippedDistrictSkin:
+                        territory.equippedDistrictSkin ?? null,
                     }));
                     engineRef.current?.handleAction("applyWorldOwnership", {
                       territories,
@@ -5114,6 +5306,8 @@ export function GameApp({
           token={token || ""}
           resources={resources}
           catalog={shopCatalog}
+          gemPacks={shopGemPacks}
+          gemPackPaymentConfigured={gemPackPaymentConfigured}
           inventory={shopInventory}
           purchasedProductIds={purchasedProductIds}
           onResources={(next) => {
@@ -5128,6 +5322,37 @@ export function GameApp({
           }}
           onPurchaseCompleted={(productId) => {
             setPurchasedProductIds((prev) => [...prev, productId]);
+          }}
+          currentAvatarId={selectedAvatarId}
+          onProfileCosmeticEquipped={({ avatarId }) => {
+            if (!avatarId) return;
+            setSelectedAvatarId(avatarId);
+            localStorage.setItem("island_empire_avatar", avatarId);
+          }}
+          onVipProgress={(level, points) => {
+            setNationStatus((previous) =>
+              previous
+                ? { ...previous, vipLevel: level, vipPoints: points }
+                : previous,
+            );
+          }}
+          onClaimGemPack={async (sku) => {
+            const result = await claimShopGemPack(
+              token || "",
+              sku,
+              createClientId("gem-pack"),
+            );
+            applyResourceSnapshot({ resources: result.resources });
+            engineRef.current?.handleAction("syncResources", {
+              resources: result.resources,
+            });
+            const message = `Đã nhận ${result.gemsGranted.toLocaleString()} Gem`;
+            addSystemLine(message.toUpperCase());
+            pushRealtimeToast({
+              id: `gem-pack-${Date.now()}`,
+              title: "NẠP GEM",
+              body: message,
+            });
           }}
           onNotify={(message) => {
             addSystemLine(message.toUpperCase());

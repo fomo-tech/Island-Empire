@@ -1,47 +1,291 @@
-/* Collapsed chat HUD only. Expanded chat remains owned by chat.css. */
+/* Collapsed chat HUD & Full Chat Window ROK Style */
 
-@media (min-width: 768px) {
-  html body .game-shell .hud-wrapper .hud-command-dock {
+/* Lock body completely when chat panel is open to stop mobile virtual keyboard jitter & window bouncing */
+html body.chat-panel-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
+/* Final mobile command states: Chat and More are the only closed controls.
+ * Opening More hides the PC-style Chat preview and reveals the full menu. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock:not(.is-expanded) {
     position: fixed !important;
-    inset: auto auto 0 0 !important;
-    width: min(430px, calc(100vw - 16px)) !important;
-    height: 78px !important;
-    min-height: 78px !important;
+    inset: auto max(6px, var(--safe-right, 0px))
+      max(6px, var(--safe-bottom, 0px)) auto !important;
+    width: 72px !important;
+    min-width: 72px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    display: grid !important;
+    grid-template-columns: 72px !important;
+    grid-template-rows: 68px !important;
+    gap: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    pointer-events: none !important;
-    z-index: 1300 !important;
-  }
-
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
-    position: relative !important;
-    inset: auto !important;
-    width: min(430px, calc(100vw - 16px)) !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    margin: 6px 0 0 !important;
-    display: block !important;
+    transform: none !important;
     overflow: visible !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-    pointer-events: auto !important;
+    z-index: 1300 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button.mobile-more-action {
+    display: flex !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 72px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto !important;
+    left: max(8px, var(--safe-left, 0px)) !important;
+    right: auto !important;
+    bottom: calc(
+      var(--v3-dock, 68px) + var(--safe-bottom, 0px) + 8px
+    ) !important;
+    width: min(340px, calc(100vw - 96px)) !important;
+    max-width: calc(100vw - 96px) !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: block !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    z-index: 1305 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    position: fixed !important;
+    inset: auto max(5px, var(--safe-right, 0px))
+      max(5px, var(--safe-bottom, 0px)) max(5px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    height: 130px !important;
+    min-height: 130px !important;
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px 58px !important;
+    gap: 3px !important;
+    padding: 4px !important;
+    transform: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-main-action {
+    display: flex !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action {
+    display: flex !important;
+    grid-row: 2 !important;
+    height: 58px !important;
+    min-height: 58px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-army-action {
+    grid-column: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-town-action {
+    grid-column: 2 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-map-action {
+    grid-column: 3 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-conquest-action {
+    grid-column: 4 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-more-action {
+    grid-column: 5 !important;
   }
 }
 
+/* High specificity overrides for COLLAPSED state (Small, compact, pretty & fitted) */
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed,
+html
+  body
+  .game-shell
+  .hud-wrapper
+  .hud-command-dock
+  > .strategy-chat.is-collapsed,
+html
+  body
+  .game-shell
+  .hud-wrapper
+  .hud-command-dock
+  > .strategy-chat.is-collapsed.is-collapsed {
+  position: fixed !important;
+  inset: auto auto max(12px, var(--safe-bottom, 0px))
+    max(12px, var(--safe-left, 0px)) !important;
+  width: min(420px, calc(100vw - 24px)) !important;
+  max-width: 420px !important;
+  height: 56px !important;
+  min-height: 56px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  overflow: visible !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  z-index: 1305 !important;
+  pointer-events: auto !important;
+}
+
+html body .game-shell .hud-wrapper .strategy-chat.is-collapsed::before,
+html
+  body
+  .game-shell
+  .hud-wrapper
+  .hud-command-dock
+  > .strategy-chat.is-collapsed.is-collapsed::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* High specificity overrides for EXPANDED FULL CHAT WINDOW (Desktop) */
+html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed),
+html
+  body
+  .game-shell
+  .hud-wrapper
+  .hud-command-dock
+  > .strategy-chat:not(.is-collapsed) {
+  position: fixed !important;
+  left: max(16px, var(--safe-left, 0px)) !important;
+  bottom: max(16px, var(--safe-bottom, 0px)) !important;
+  width: min(480px, calc(100vw - 32px)) !important;
+  height: min(440px, calc(100dvh - 100px)) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(207, 168, 80, 0.6) !important;
+  background: linear-gradient(
+    160deg,
+    rgba(14, 24, 34, 0.98),
+    rgba(6, 12, 18, 0.96)
+  ) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.8),
+    inset 0 1px rgba(255, 224, 131, 0.2) !important;
+  z-index: 99999 !important; /* Extremely high z-index */
+}
+
+/* Component Container (Collapsed state) */
 .collapsed-chat {
-  --chat-gold: #d9ad50;
+  --chat-gold: #cfa850;
+  --chat-bg-fade: linear-gradient(
+    90deg,
+    rgba(10, 18, 26, 0.85) 0%,
+    rgba(10, 18, 26, 0.5) 60%,
+    rgba(10, 18, 26, 0) 100%
+  );
+
   position: relative;
   width: 100%;
-  height: 72px;
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  height: 56px;
+  display: flex;
   align-items: center;
   isolation: isolate;
+  user-select: none;
+  pointer-events: auto;
 }
 
 .collapsed-chat button {
@@ -49,188 +293,1385 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
+  outline: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
 }
 
+/* Left Badge (Circular Map Emblem - Small, pretty, fitted) */
 .collapsed-chat__badge {
-  position: relative;
-  z-index: 2;
-  width: 76px;
-  height: 72px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 54px;
+  height: 54px;
   display: grid;
   place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.72));
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.7));
 }
 
 .collapsed-chat__badge-ring {
-  width: 66px;
-  height: 66px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
-  border: 2px solid #e5c269;
+  border: 2px solid var(--chat-gold);
   border-radius: 50%;
-  background: radial-gradient(circle at 45% 38%, #315c70, #102b38 68%);
-  box-shadow: 0 0 0 3px #553818, inset 0 0 0 2px rgba(255, 238, 153, 0.36);
+  background: radial-gradient(circle at 45% 38%, #255169, #0a1f2c 70%);
+  box-shadow:
+    0 0 0 1.5px rgba(35, 18, 5, 0.95),
+    inset 0 0 8px rgba(207, 168, 80, 0.45);
 }
 
 .collapsed-chat__badge-ring > img {
-  width: 54px;
-  height: 54px;
+  width: 34px;
+  height: 34px;
   display: block;
   object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
 }
 
-.collapsed-chat__feed {
+/* Text Feed Box (Sleek pill-shaped strip, fitted directly next to badge) */
+.collapsed-chat button.collapsed-chat__feed {
   position: relative;
   z-index: 1;
-  left: -18px;
-  width: calc(100% + 18px);
-  min-width: 0;
-  height: 64px;
-  display: grid;
-  align-content: center;
-  gap: 2px;
-  padding: 5px 11px 5px 32px;
+  width: 100%;
+  height: 60px !important;
+  margin-top: auto;
+  margin-bottom: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Perfectly center the 3 rows vertically */
+  gap: 1.5px;
+  padding: 1px 16px 1px 64px !important; /* Fitted offset directly after badge (54px + 10px gap) */
   overflow: hidden;
-  border: 1px solid rgba(210, 169, 77, 0.68);
-  border-left-color: rgba(210, 169, 77, 0.3);
-  border-radius: 0 10px 10px 0;
-  background: linear-gradient(100deg, rgba(13, 34, 41, 0.94), rgba(5, 17, 23, 0.83) 78%, rgba(5, 17, 23, 0.38));
-  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.44);
+  border: none !important;
+  border-radius: 23px 0 0 23px !important; /* Pill left corners tucking behind badge */
+  background: var(--chat-bg-fade) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
   text-align: left;
 }
 
-.collapsed-chat__feed::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 45%);
-}
-
+/* Message lines layout - Compact, clean Sans-serif text */
 .collapsed-chat__row {
   min-width: 0;
-  height: 17px;
+  height: 13.5px;
+  line-height: 13.5px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   overflow: hidden;
-  color: #e7e8e3;
-  font: 600 11px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif;
-  text-shadow: 0 1px 2px #000;
+  color: #ffffff;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.95);
   white-space: nowrap;
 }
 
-.collapsed-chat__avatar {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
-  margin-right: 5px;
-  overflow: hidden;
-  border: 1px solid #c99a3e;
-  border-radius: 50%;
-  background: #17313b;
-}
-
-.collapsed-chat__avatar.is-mine {
-  border-color: #5bd5f0;
-  box-shadow: 0 0 3px rgba(62, 201, 235, 0.8);
-}
-
-.collapsed-chat__avatar--system {
-  border-color: #84aeb8;
-  border-radius: 4px;
-}
-
-.collapsed-chat__avatar img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
+/* Bold white player name */
 .collapsed-chat__row strong {
-  max-width: 34%;
   flex: 0 0 auto;
-  margin-right: 5px;
+  max-width: 45%;
+  margin-right: 4px;
   overflow: hidden;
-  color: #f5d995;
-  font-weight: 800;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .collapsed-chat__row strong::after {
   content: ":";
+  margin-left: 1px;
 }
 
+/* Message text - default white, cyan for system messages */
 .collapsed-chat__message {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  color: #ecebe6;
+  font-size: 11px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.collapsed-chat__empty {
-  color: #c8d0cf;
-  font: italic 600 12px/1.2 Georgia, serif;
+/* Color share/system message in light cyan like the city layout message in ROK */
+.collapsed-chat__row:first-child .collapsed-chat__message {
+  color: #00ffd2;
 }
 
+/* Empty state message */
+.collapsed-chat__empty {
+  color: #cfdcdb;
+  font:
+    italic 600 11px/1.2 Georgia,
+    serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* ==========================================================================
+ * 4. RESPONSIVE COMPONENT ADJUSTMENTS (Mobile Full-Width Drawer & Keyboard Fix)
+ * ========================================================================== */
+
 @media (max-width: 767px) {
-  html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed {
+  /* HIDE TOPBAR & RESOURCE BAR ON MOBILE WHEN CHAT IS OPEN TO PREVENT OVERLAP */
+  body.chat-panel-open .hud-topbar,
+  body.chat-panel-open .rok-hud-topbar,
+  body.chat-panel-open .rok-ref-profile,
+  body.chat-panel-open .rok-ref-resources,
+  body.chat-panel-open .hud-topbar > * {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Collapsed preview HUD on mobile */
+  html body .game-shell .hud-wrapper .strategy-chat.is-collapsed,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed.is-collapsed {
+    inset: auto max(8px, var(--safe-right, 0px))
+      calc(var(--mobile-command-height, 78px) + var(--safe-bottom, 0px) + 8px)
+      max(8px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    height: 52px !important;
+    min-height: 52px !important;
+  }
+
+  /* OPEN CHAT ON MOBILE: Full-screen drawer with GPU hardware acceleration & zero jitter */
+  html body .game-shell .hud-wrapper .strategy-chat:not(.is-collapsed),
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat:not(.is-collapsed) {
     position: fixed !important;
-    inset: auto max(8px, var(--safe-right, 0px)) calc(var(--mobile-command-height, var(--tablet-bottom-dock-height, 78px)) + var(--safe-bottom, 0px) + 8px) max(8px, var(--safe-left, 0px)) !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #08121c !important; /* Solid dark background */
+    z-index: 99999 !important;
+    overflow: hidden !important;
+    touch-action: pan-y;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    overscroll-behavior: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .strategy-chat:not(.is-collapsed)
+    .strategy-chat__header {
+    margin-top: max(0px, var(--safe-top, 0px)) !important;
+  }
+
+  .collapsed-chat {
+    height: 52px;
+  }
+
+  .collapsed-chat__badge {
+    width: 48px;
+    height: 48px;
+  }
+
+  .collapsed-chat__badge-ring {
+    width: 42px;
+    height: 42px;
+  }
+
+  .collapsed-chat__badge-ring > img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .collapsed-chat button.collapsed-chat__feed {
+    height: 40px !important;
+    border-radius: 20px 0 0 20px !important;
+    padding: 1px 12px 1px 58px !important;
+  }
+
+  .collapsed-chat__row {
+    height: 13px;
+    line-height: 13px;
+    font-size: 10px;
+  }
+
+  .collapsed-chat__row strong,
+  .collapsed-chat__message {
+    font-size: 10px;
+  }
+
+  .collapsed-chat__row:nth-child(n + 3) {
+    display: none; /* Show max 2 rows on mobile screens */
+  }
+}
+
+/* The collapsed chat is a command-dock item on mobile, not a floating feed. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px 58px !important;
+    height: 130px !important;
+    min-height: 130px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock > .hud-command-button {
+    border: 0 !important;
+    border-right: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    grid-column: 6 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    z-index: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__feed {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    filter: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring {
+    width: 32px !important;
+    height: 32px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring
+    > img {
+    width: 32px !important;
+    height: 32px !important;
+    object-fit: contain !important;
+    filter: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__label {
+    display: block !important;
+    color: #cbd2cf !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__unread {
+    position: absolute !important;
+    top: 2px !important;
+    right: 3px !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 14px !important;
+    min-width: 14px !important;
+    height: 14px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #c0392b !important;
+    color: #fff !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-army-action {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-town-action {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-map-action {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-conquest-action {
+    grid-column: 4 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-more-action {
+    grid-column: 5 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-secondary-action {
+    grid-row: 2 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action {
+    grid-row: 2 !important;
+  }
+}
+
+/* Mobile has a PC-style chat preview on the closed dock and a chat command
+ * inside the More menu once the command list is expanded. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock:not(.is-expanded) {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto !important;
+    left: max(8px, var(--safe-left, 0px)) !important;
+    right: auto !important;
+    bottom: calc(
+      var(--v3-dock, 68px) + var(--safe-bottom, 0px) + 8px
+    ) !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: block !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    z-index: 1305 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    width: 100% !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: flex !important;
+    overflow: visible !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    inset-inline: auto !important;
+    transform: translateY(-50%) !important;
+    width: 54px !important;
+    height: 54px !important;
+    display: grid !important;
+    place-items: center !important;
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.7)) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring {
+    width: 46px !important;
+    height: 46px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: radial-gradient(
+      circle at 45% 38%,
+      #255169,
+      #0a1f2c 70%
+    ) !important;
+    box-shadow: inset 0 0 8px rgba(207, 168, 80, 0.45) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring
+    > img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__label {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__feed {
+    position: relative !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    padding: 1px 12px 1px 64px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 28px 0 0 28px !important;
+    background: linear-gradient(
+      90deg,
+      rgba(10, 18, 26, 0.9),
+      rgba(10, 18, 26, 0.58) 72%,
+      transparent
+    ) !important;
+    box-shadow: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px 58px !important;
+    height: 130px !important;
+    min-height: 130px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    grid-column: 6 !important;
+    grid-row: 1 !important;
     width: auto !important;
     height: 62px !important;
     min-height: 62px !important;
-    overflow: visible !important;
+    display: block !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button {
+    position: relative !important;
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    padding: 4px 1px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #cbd2cf !important;
+    font: inherit !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > img {
+    width: 32px !important;
+    height: 32px !important;
+    object-fit: contain !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > span {
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    .collapsed-chat__unread {
+    position: absolute !important;
+    top: 2px !important;
+    right: 3px !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 15px !important;
+    min-width: 15px !important;
+    height: 15px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #c0392b !important;
+    color: #fff !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+  }
+}
+
+/* Final mobile state contract: closed shows only Chat and More. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock:not(.is-expanded) {
+    position: fixed !important;
+    inset: auto max(6px, var(--safe-right, 0px))
+      max(6px, var(--safe-bottom, 0px)) auto !important;
+    width: 72px !important;
+    min-width: 72px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    display: grid !important;
+    grid-template-columns: 72px !important;
+    grid-template-rows: 68px !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button.mobile-more-action {
+    display: flex !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 72px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed {
+    position: fixed !important;
+    inset: auto !important;
+    left: max(8px, var(--safe-left, 0px)) !important;
+    right: auto !important;
+    bottom: calc(
+      var(--v3-dock, 68px) + var(--safe-bottom, 0px) + 8px
+    ) !important;
+    width: min(340px, calc(100vw - 96px)) !important;
+    max-width: calc(100vw - 96px) !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: block !important;
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     z-index: 1305 !important;
   }
 
-  .collapsed-chat {
-    height: 62px;
-    grid-template-columns: 58px minmax(0, 1fr);
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    position: fixed !important;
+    inset: auto max(5px, var(--safe-right, 0px))
+      max(5px, var(--safe-bottom, 0px)) max(5px, var(--safe-left, 0px)) !important;
+    width: auto !important;
+    height: 130px !important;
+    min-height: 130px !important;
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px 58px !important;
+    gap: 3px !important;
+    padding: 4px !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
-  .collapsed-chat__badge {
-    width: 58px;
-    height: 58px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    display: none !important;
   }
 
-  .collapsed-chat__badge-ring {
-    width: 52px;
-    height: 52px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-main-action {
+    display: flex !important;
+    grid-row: 1 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
-  .collapsed-chat__badge-ring > img {
-    width: 42px;
-    height: 42px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action {
+    display: flex !important;
+    grid-row: 2 !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
-  .collapsed-chat__feed {
-    left: -14px;
-    width: calc(100% + 14px);
-    height: 58px;
-    gap: 4px;
-    padding: 5px 8px 5px 25px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-army-action {
+    grid-column: 1 !important;
   }
 
-  .collapsed-chat__row {
-    height: 20px;
-    font-size: 10px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-town-action {
+    grid-column: 2 !important;
   }
 
-  .collapsed-chat__row:nth-child(n + 3) {
-    display: none;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-map-action {
+    grid-column: 3 !important;
   }
 
-  .collapsed-chat__avatar {
-    width: 18px;
-    height: 18px;
-    flex-basis: 18px;
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-conquest-action {
+    grid-column: 4 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-more-action {
+    grid-column: 5 !important;
+  }
+}
+
+/* Expanded menu finish: Chat joins the first row only while More is open. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    position: relative !important;
+    inset: auto !important;
+    grid-column: 6 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: block !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button {
+    position: relative !important;
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    padding: 3px 1px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #d3d8d5 !important;
+    font: inherit !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > img {
+    width: 30px !important;
+    height: 30px !important;
+    object-fit: contain !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > span {
+    font-size: 8px !important;
+    font-weight: 850 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    .collapsed-chat__unread {
+    position: absolute !important;
+    top: 2px !important;
+    right: 3px !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 15px !important;
+    min-width: 15px !important;
+    height: 15px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #c0392b !important;
+    color: #fff !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-main-action,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action:nth-child(3) {
+    grid-column: 7 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-more-action {
+    grid-column: 7 !important;
+    grid-row: 2 !important;
+    background: transparent !important;
+    color: #ffe0a1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .hud-command-button.mobile-map-action {
+    transform: none !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Closed controls share the same baseline and visual weight. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed {
+    bottom: max(6px, var(--safe-bottom, 0px)) !important;
+    width: min(340px, calc(100vw - 96px)) !important;
+    height: 68px !important;
+    min-height: 68px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    height: 68px !important;
+    min-height: 68px !important;
+    align-items: center !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge {
+    top: 50% !important;
+    width: 64px !important;
+    height: 68px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring
+    > img,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring
+    img {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__feed {
+    height: 68px !important;
+    min-height: 68px !important;
+    padding-left: 72px !important;
+    border-radius: 34px 0 0 34px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button.mobile-more-action {
+    height: 68px !important;
+    min-height: 68px !important;
+    justify-content: center !important;
+    gap: 2px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock:not(.is-expanded)
+    > .hud-command-button.mobile-more-action
+    img {
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
+
+/* Keep every expanded-menu cell identical, including the Chat wrapper. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 62px 58px !important;
+    grid-auto-flow: row !important;
+    gap: 2px !important;
+    padding: 3px !important;
+    box-sizing: border-box !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button {
+    height: 62px !important;
+    min-height: 62px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 38px 13px !important;
+    align-content: center !important;
+    justify-items: center !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 2px 0 !important;
+    transform: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button
+    img,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > img {
+    display: block !important;
+    width: 36px !important;
+    height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button
+    > span,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button
+    > span {
+    display: block !important;
+    width: 100% !important;
+    height: 13px !important;
+    overflow: hidden !important;
+    font-size: 8px !important;
+    line-height: 13px !important;
+    text-align: center !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-army-action {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-town-action {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-map-action {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-conquest-action {
+    grid-column: 4 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed {
+    grid-column: 5 !important;
+    grid-row: 1 !important;
+    height: 62px !important;
+    min-height: 62px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .strategy-chat.is-collapsed
+    .mobile-chat-menu-button {
+    width: 100% !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 38px 13px !important;
+    align-content: center !important;
+    justify-items: center !important;
+    gap: 2px !important;
+    padding: 2px 0 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action:nth-child(3) {
+    grid-column: 6 !important;
+    grid-row: 1 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-secondary-action {
+    grid-row: 2 !important;
+    height: 58px !important;
+    min-height: 58px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock.is-expanded
+    > .hud-command-button.mobile-more-action {
+    grid-column: 7 !important;
+    grid-row: 2 !important;
+    height: 58px !important;
+    min-height: 58px !important;
   }
 }

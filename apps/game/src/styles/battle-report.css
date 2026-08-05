@@ -1,0 +1,1364 @@
+.br-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100000 !important;
+  display: grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  padding: clamp(12px, 2.4vw, 30px) !important;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(136, 91, 24, 0.2), transparent 42%),
+    rgba(3, 7, 12, 0.88) !important;
+  backdrop-filter: blur(10px) !important;
+  overscroll-behavior: contain !important;
+}
+
+.br-modal-container {
+  box-sizing: border-box !important;
+  width: min(780px, calc(100vw - 32px)) !important;
+  max-width: none !important;
+  max-height: min(760px, calc(100dvh - 32px)) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(213, 166, 73, 0.72) rgba(8, 14, 20, 0.8) !important;
+  padding: clamp(14px, 1.8vw, 20px) clamp(14px, 2vw, 22px) 16px !important;
+  gap: clamp(7px, 1vw, 10px) !important;
+  border: 1px solid rgba(224, 178, 83, 0.82) !important;
+  outline: 1px solid rgba(255, 237, 174, 0.22) !important;
+  outline-offset: -6px !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(135deg, rgba(20, 34, 43, 0.98), rgba(7, 14, 21, 0.99) 58%),
+    #080d16 !important;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.9),
+    0 0 0 8px rgba(4, 8, 13, 0.4),
+    inset 0 1px 0 rgba(255, 245, 210, 0.1),
+    inset 0 0 48px rgba(183, 126, 32, 0.1) !important;
+}
+
+.br-modal-container::-webkit-scrollbar {
+  width: 7px !important;
+}
+
+.br-modal-container::-webkit-scrollbar-track {
+  background: rgba(8, 14, 20, 0.8) !important;
+}
+
+.br-modal-container::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(8, 14, 20, 0.8) !important;
+  border-radius: 10px !important;
+  background: rgba(213, 166, 73, 0.72) !important;
+}
+
+.br-modal-close-circle {
+  top: 11px !important;
+  right: 12px !important;
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid rgba(232, 195, 111, 0.8) !important;
+  background: rgba(8, 17, 24, 0.92) !important;
+  color: #f8e9bd !important;
+  font-size: 13px !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45) !important;
+}
+
+.br-modal-close-circle:hover,
+.br-modal-close-circle:focus-visible {
+  border-color: #ffe19a !important;
+  background: #b67c24 !important;
+  color: #101820 !important;
+  transform: translateY(-1px) scale(1.04) !important;
+}
+
+.br-header-title-box {
+  padding: 0 42px !important;
+  margin: 0 !important;
+}
+
+.br-header-main-title {
+  min-width: 0 !important;
+  font-size: clamp(17px, 2.2vw, 24px) !important;
+  line-height: 1.1 !important;
+  letter-spacing: clamp(0.7px, 0.15vw, 1.5px) !important;
+  gap: clamp(7px, 1.2vw, 14px) !important;
+}
+
+.br-header-main-title > span {
+  min-width: 0 !important;
+  text-wrap: balance !important;
+}
+
+.br-header-sub {
+  margin-top: 5px !important;
+  color: #d5dde1 !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.br-header-date {
+  margin-top: 3px !important;
+  color: #83949a !important;
+  font-size: 9px !important;
+}
+
+.br-versus-banner {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) clamp(40px, 4.2vw, 52px) minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  gap: clamp(6px, 1vw, 10px) !important;
+  padding: clamp(7px, 1.1vw, 10px) !important;
+  border: 1px solid rgba(196, 151, 63, 0.65) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(19, 72, 140, 0.7),
+      rgba(12, 24, 35, 0.93) 48%,
+      rgba(101, 31, 37, 0.78)
+    ),
+    url("/assets/ui/shop_hero_castle_bg.jpg") center/cover no-repeat !important;
+  box-shadow:
+    inset 0 0 42px rgba(0, 0, 0, 0.72),
+    0 10px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
+.br-side-card-cut {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  min-height: 88px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: clamp(6px, 1vw, 11px) !important;
+  padding: clamp(7px, 1vw, 10px) clamp(8px, 1.2vw, 14px) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+
+.br-side-card--attacker {
+  background: linear-gradient(
+    115deg,
+    rgba(22, 105, 194, 0.92),
+    rgba(14, 35, 58, 0.88)
+  ) !important;
+  border-color: rgba(92, 181, 255, 0.75) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(207, 239, 255, 0.16),
+    0 8px 18px rgba(7, 65, 135, 0.28) !important;
+}
+
+.br-side-card--defender {
+  background: linear-gradient(
+    245deg,
+    rgba(175, 56, 51, 0.92),
+    rgba(57, 28, 35, 0.88)
+  ) !important;
+  border-color: rgba(255, 127, 113, 0.75) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 222, 216, 0.15),
+    0 8px 18px rgba(130, 35, 32, 0.28) !important;
+}
+
+.br-crest-png {
+  flex: 0 0 auto !important;
+  width: clamp(42px, 4.6vw, 52px) !important;
+  height: clamp(42px, 4.6vw, 52px) !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  border-radius: 8px !important;
+}
+
+.br-flag {
+  position: relative !important;
+  flex: 0 0 auto !important;
+  width: clamp(42px, 4.6vw, 52px) !important;
+  height: clamp(48px, 5.4vw, 58px) !important;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.3)) !important;
+}
+
+.br-flag__pole {
+  position: absolute !important;
+  top: 2px !important;
+  left: 5px !important;
+  width: 2px !important;
+  height: calc(100% - 4px) !important;
+  border-radius: 2px !important;
+  background: linear-gradient(90deg, #7c541b, #ffe19a 48%, #8b5b1e) !important;
+}
+
+.br-flag__cloth {
+  position: absolute !important;
+  top: 5px !important;
+  right: 0 !important;
+  left: 7px !important;
+  display: grid !important;
+  place-items: center !important;
+  height: 28px !important;
+  border: 1px solid rgba(255, 237, 174, 0.66) !important;
+  clip-path: polygon(0 0, 100% 0, 82% 50%, 100% 100%, 0 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.br-flag--attacker .br-flag__cloth {
+  background: linear-gradient(135deg, #4d9ff0, #165ca9 68%, #0e396d) !important;
+}
+
+.br-flag--defender .br-flag__cloth {
+  background: linear-gradient(225deg, #e26d62, #a93238 68%, #671f2b) !important;
+}
+
+.br-flag__cloth img {
+  width: 17px !important;
+  height: 17px !important;
+  object-fit: contain !important;
+  filter: brightness(1.35) saturate(0.3)
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) !important;
+}
+
+.br-flag__base {
+  position: absolute !important;
+  bottom: 1px !important;
+  left: 1px !important;
+  width: 10px !important;
+  height: 3px !important;
+  border-radius: 50% !important;
+  background: #9f6b25 !important;
+}
+
+.br-side-info {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  gap: 4px !important;
+}
+
+.br-side-name {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  overflow: hidden !important;
+  color: #fff5dc !important;
+  font-family: "Cinzel", serif !important;
+  font-size: clamp(10px, 1.15vw, 13px) !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.br-side-name img {
+  flex: 0 0 auto !important;
+  width: 14px !important;
+  height: 14px !important;
+  object-fit: contain !important;
+}
+
+.br-side-player {
+  display: block !important;
+  overflow: hidden !important;
+  color: rgba(234, 241, 242, 0.72) !important;
+  font-size: 9px !important;
+  line-height: 1.15 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.br-role-tag {
+  color: rgba(231, 240, 243, 0.78) !important;
+  font-size: clamp(8px, 0.9vw, 10px) !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.8px !important;
+}
+
+.br-power-val {
+  margin-top: 1px !important;
+  font-size: clamp(18px, 2.2vw, 25px) !important;
+  line-height: 1 !important;
+}
+
+.br-status-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: clamp(9px, 1vw, 12px) !important;
+  line-height: 1.15 !important;
+}
+
+.br-result-icon {
+  width: 34px !important;
+  height: 28px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.65)) !important;
+}
+
+.br-vs-center {
+  align-self: center !important;
+}
+
+.br-vs-png {
+  width: clamp(36px, 4vw, 48px) !important;
+  height: clamp(36px, 4vw, 48px) !important;
+}
+
+.battle-comparison {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  gap: clamp(8px, 1.3vw, 14px) !important;
+  padding: 9px 11px !important;
+  border-color: rgba(193, 150, 61, 0.48) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 29, 38, 0.92),
+    rgba(5, 14, 20, 0.92)
+  ) !important;
+}
+
+.battle-comparison__side strong {
+  font-size: clamp(15px, 1.7vw, 19px) !important;
+}
+
+.battle-comparison__side > i {
+  height: 9px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.battle-comparison__center {
+  max-width: 92px !important;
+  color: #ecd18a !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+.br-table-section-title {
+  width: 100% !important;
+  margin: 2px 0 0 !important;
+  gap: 9px !important;
+  font-size: clamp(10px, 1.25vw, 13px) !important;
+  line-height: 1.25 !important;
+}
+
+.br-table-section-title .br-line {
+  flex: 1 1 80px !important;
+  max-width: 150px !important;
+  height: 1px !important;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(212, 165, 71, 0.65)
+  ) !important;
+}
+
+.br-table-section-title .br-line:last-of-type {
+  background: linear-gradient(
+    90deg,
+    rgba(212, 165, 71, 0.65),
+    transparent
+  ) !important;
+}
+
+.br-table-frame {
+  overflow: hidden !important;
+  border-color: rgba(198, 153, 65, 0.62) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 30, 42, 0.97),
+    rgba(5, 12, 19, 0.98)
+  ) !important;
+}
+
+.br-design-table {
+  table-layout: fixed !important;
+}
+
+.br-design-table th,
+.br-design-table td {
+  box-sizing: border-box !important;
+  overflow-wrap: anywhere !important;
+}
+
+.br-design-table th {
+  padding: 9px 10px !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+  vertical-align: middle !important;
+}
+
+.br-design-table th.th-type {
+  width: 25% !important;
+}
+
+.br-design-table th.th-side {
+  width: 37.5% !important;
+}
+
+.br-design-table td {
+  padding: 10px !important;
+}
+
+.br-troop-badge-wrapper {
+  min-width: 0 !important;
+  gap: 9px !important;
+}
+
+.br-troop-png {
+  flex: 0 0 auto !important;
+  width: clamp(28px, 3.2vw, 34px) !important;
+  height: clamp(28px, 3.2vw, 34px) !important;
+}
+
+.br-troop-name {
+  min-width: 0 !important;
+  font-size: clamp(9px, 1.05vw, 11px) !important;
+  line-height: 1.2 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.br-stat-line {
+  align-items: baseline !important;
+  gap: 6px !important;
+  margin-bottom: 3px !important;
+  font-size: clamp(9px, 1vw, 11px) !important;
+  line-height: 1.2 !important;
+}
+
+.br-stat-line span {
+  min-width: 0 !important;
+}
+
+.br-stat-line strong {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+.tr-summary-gold-row {
+  background: linear-gradient(
+    180deg,
+    rgba(83, 57, 17, 0.92),
+    rgba(31, 21, 7, 0.98)
+  ) !important;
+}
+
+.br-loot-section {
+  padding: 9px 10px !important;
+  border-color: rgba(198, 153, 65, 0.45) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(36, 25, 13, 0.72),
+    rgba(12, 12, 12, 0.8)
+  ) !important;
+}
+
+.br-loot-title {
+  margin-bottom: 6px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1.25 !important;
+}
+
+.br-loot-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.br-loot-card {
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  box-sizing: border-box !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 4px 6px !important;
+  border-color: rgba(247, 205, 88, 0.3) !important;
+  color: #d9e0df !important;
+  line-height: 1.15 !important;
+  text-align: left !important;
+}
+
+.br-loot-icon {
+  width: 22px !important;
+  height: 22px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)) !important;
+}
+
+.br-loot-label {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #b8c2c2 !important;
+  font-size: 9px !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.br-loot-card strong {
+  color: #ffd95e !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+.br-footer-action {
+  margin-top: 2px !important;
+}
+
+.br-confirm-amber-btn {
+  min-height: 42px !important;
+  height: auto !important;
+  max-width: 420px !important;
+  padding: 10px 18px !important;
+  border-radius: 9px !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+@media (max-width: 767px) {
+  .br-modal-overlay {
+    padding: 6px !important;
+  }
+
+  .br-modal-container {
+    width: calc(100vw - 12px) !important;
+    max-width: 520px !important;
+    max-height: calc(100dvh - 12px) !important;
+    padding: 10px 8px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .br-modal-close-circle {
+    top: 8px !important;
+    right: 8px !important;
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .br-header-title-box {
+    padding: 0 32px !important;
+  }
+
+  .br-header-main-title {
+    font-size: clamp(16px, 5vw, 21px) !important;
+  }
+
+  .br-header-sub {
+    margin-top: 5px !important;
+    font-size: 11px !important;
+  }
+
+  .br-header-date {
+    font-size: 9px !important;
+  }
+
+  .br-versus-banner {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr) !important;
+    gap: 4px !important;
+    padding: 7px 5px !important;
+    border-radius: 9px !important;
+  }
+
+  .br-side-card-cut {
+    min-height: 78px !important;
+    gap: 4px !important;
+    padding: 6px 5px !important;
+    border-radius: 7px !important;
+  }
+
+  .br-crest-png {
+    width: 34px !important;
+    height: 39px !important;
+  }
+
+  .br-flag {
+    width: 34px !important;
+    height: 39px !important;
+  }
+
+  .br-flag__cloth {
+    height: 20px !important;
+  }
+
+  .br-flag__cloth img {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .br-side-name {
+    font-size: 9px !important;
+  }
+
+  .br-role-tag {
+    font-size: 7px !important;
+    letter-spacing: 0.55px !important;
+  }
+
+  .br-power-val {
+    font-size: 14px !important;
+  }
+
+  .br-status-tag {
+    font-size: 9px !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .br-vs-png {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .battle-comparison {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    gap: 6px !important;
+    padding: 7px 8px !important;
+  }
+
+  .battle-comparison__center {
+    grid-row: auto !important;
+    max-width: 68px !important;
+    font-size: 8px !important;
+  }
+
+  .battle-comparison__side strong {
+    font-size: 14px !important;
+  }
+
+  .br-table-section-title {
+    gap: 5px !important;
+    font-size: 9px !important;
+  }
+
+  .br-table-section-title .br-line {
+    max-width: none !important;
+  }
+
+  .br-design-table th {
+    padding: 7px 5px !important;
+    font-size: 8px !important;
+  }
+
+  .br-design-table td {
+    padding: 8px 5px !important;
+  }
+
+  .br-troop-badge-wrapper {
+    gap: 5px !important;
+  }
+
+  .br-troop-png {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .br-troop-name {
+    font-size: 8px !important;
+  }
+
+  .br-stat-line {
+    gap: 3px !important;
+    margin-bottom: 2px !important;
+    font-size: 8px !important;
+  }
+
+  .br-stat-line strong {
+    font-size: 9px !important;
+  }
+
+  .br-loot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .br-loot-card {
+    min-height: 32px !important;
+    grid-template-columns: 20px minmax(0, 1fr) auto !important;
+    gap: 3px !important;
+    padding: 3px 4px !important;
+  }
+
+  .br-loot-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .br-confirm-amber-btn {
+    min-height: 40px !important;
+    padding-inline: 10px !important;
+    font-size: 10px !important;
+    letter-spacing: 0.6px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .br-modal-container {
+    padding: 8px 6px !important;
+    gap: 6px !important;
+  }
+
+  .br-header-title-box {
+    padding-inline: 26px !important;
+  }
+
+  .br-header-main-title {
+    font-size: 14px !important;
+    gap: 5px !important;
+  }
+
+  .br-versus-banner {
+    grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr) !important;
+    padding: 5px 4px !important;
+  }
+
+  .br-side-card-cut {
+    min-height: 68px !important;
+    gap: 3px !important;
+    padding: 5px 4px !important;
+  }
+
+  .br-crest-png {
+    width: 28px !important;
+    height: 32px !important;
+  }
+
+  .br-flag {
+    width: 28px !important;
+    height: 32px !important;
+  }
+
+  .br-flag__cloth {
+    height: 17px !important;
+  }
+
+  .br-flag__cloth img {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  .br-side-name {
+    font-size: 8px !important;
+  }
+
+  .br-role-tag {
+    font-size: 6px !important;
+  }
+
+  .br-power-val {
+    font-size: 12px !important;
+  }
+
+  .br-status-tag {
+    font-size: 7px !important;
+  }
+
+  .br-vs-png {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .battle-comparison {
+    gap: 4px !important;
+    padding: 6px !important;
+  }
+
+  .battle-comparison__center {
+    max-width: 54px !important;
+    font-size: 7px !important;
+  }
+
+  .battle-comparison__side strong {
+    font-size: 13px !important;
+  }
+
+  .br-design-table th {
+    padding: 6px 3px !important;
+    font-size: 7px !important;
+  }
+
+  .br-design-table td {
+    padding: 7px 3px !important;
+  }
+
+  .br-troop-png {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .br-troop-name,
+  .br-stat-line {
+    font-size: 7px !important;
+  }
+
+  .br-stat-line strong {
+    font-size: 8px !important;
+  }
+
+  .br-loot-section {
+    padding: 6px 5px !important;
+  }
+
+  .br-loot-card {
+    min-height: 30px !important;
+    grid-template-columns: 18px minmax(0, 1fr) auto !important;
+    gap: 2px !important;
+    padding: 2px 3px !important;
+  }
+
+  .br-loot-icon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .br-loot-label {
+    font-size: 7px !important;
+  }
+
+  .br-loot-card strong {
+    font-size: 9px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .br-modal-overlay {
+    padding: 8px !important;
+  }
+
+  .br-modal-container {
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .br-modal-close-circle {
+    top: 7px !important;
+    right: 8px !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+  }
+
+  .br-header-title-box {
+    padding-inline: 34px !important;
+  }
+
+  .br-header-main-title {
+    font-size: 15px !important;
+  }
+
+  .br-header-sub {
+    margin-top: 2px !important;
+    font-size: 9px !important;
+  }
+
+  .br-header-date {
+    margin-top: 1px !important;
+    font-size: 8px !important;
+  }
+
+  .br-versus-banner {
+    grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr) !important;
+    gap: 5px !important;
+    padding: 6px 8px !important;
+  }
+
+  .br-side-card-cut {
+    min-height: 64px !important;
+    gap: 6px !important;
+    padding: 5px 7px !important;
+  }
+
+  .br-crest-png {
+    width: 28px !important;
+    height: 32px !important;
+  }
+
+  .br-flag {
+    width: 28px !important;
+    height: 32px !important;
+  }
+
+  .br-flag__cloth {
+    height: 16px !important;
+  }
+
+  .br-flag__cloth img {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  .br-side-name {
+    font-size: 9px !important;
+  }
+
+  .br-role-tag {
+    font-size: 7px !important;
+  }
+
+  .br-power-val {
+    font-size: 15px !important;
+  }
+
+  .br-status-tag {
+    font-size: 8px !important;
+  }
+
+  .br-vs-png {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .battle-comparison {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+  }
+
+  .battle-comparison__center {
+    grid-row: auto !important;
+    max-width: 72px !important;
+    font-size: 8px !important;
+  }
+
+  .battle-comparison__side strong {
+    font-size: 13px !important;
+  }
+
+  .battle-comparison__side > i {
+    height: 6px !important;
+  }
+
+  .br-table-section-title {
+    font-size: 9px !important;
+  }
+
+  .br-design-table th {
+    padding: 5px 7px !important;
+    font-size: 8px !important;
+  }
+
+  .br-design-table td {
+    padding: 5px 7px !important;
+  }
+
+  .br-troop-png {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .br-troop-name,
+  .br-stat-line {
+    font-size: 8px !important;
+  }
+
+  .br-stat-line strong {
+    font-size: 8px !important;
+  }
+
+  .br-loot-section {
+    padding: 5px 8px !important;
+  }
+
+  .br-loot-title {
+    margin-bottom: 3px !important;
+    font-size: 8px !important;
+  }
+
+  .br-loot-card {
+    min-height: 34px !important;
+    padding: 4px !important;
+    font-size: 8px !important;
+  }
+
+  .br-loot-card strong {
+    font-size: 9px !important;
+  }
+
+  .br-confirm-amber-btn {
+    min-height: 32px !important;
+    padding: 5px 12px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .br-modal-close-circle,
+  .br-confirm-amber-btn {
+    transition: none !important;
+  }
+}
+
+.war-report-v2__overlay {
+  z-index: 100000 !important;
+  padding: clamp(8px, 2vw, 22px) !important;
+  background:
+    radial-gradient(
+      circle at 50% 12%,
+      rgba(117, 75, 22, 0.18),
+      transparent 44%
+    ),
+    rgba(2, 7, 10, 0.84) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.war-report-v2 {
+  box-sizing: border-box !important;
+  width: min(930px, calc(100vw - 32px)) !important;
+  height: min(620px, calc(100dvh - 32px)) !important;
+  grid-template-rows: 64px 64px 46px minmax(0, 1fr) !important;
+  border: 1px solid rgba(202, 157, 65, 0.82) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(145deg, #14252d, #071219 65%) !important;
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(255, 237, 174, 0.1) !important;
+}
+
+.war-report-v2__header {
+  min-width: 0 !important;
+  gap: 10px !important;
+  padding: 8px 14px !important;
+  background: linear-gradient(
+    90deg,
+    rgba(102, 40, 39, 0.64),
+    rgba(13, 25, 31, 0.96)
+  ) !important;
+}
+
+.war-report-v2__header > img {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.war-report-v2__header > span {
+  min-width: 0 !important;
+  gap: 2px !important;
+}
+
+.war-report-v2__header strong {
+  overflow: hidden !important;
+  font-size: 18px !important;
+  line-height: 1.1 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.war-report-v2__header small {
+  overflow: hidden !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.war-report-v2__header button {
+  flex: 0 0 auto !important;
+  width: 34px !important;
+  height: 34px !important;
+  font-size: 19px !important;
+}
+
+.war-report-v2__summary {
+  gap: 7px !important;
+  padding: 8px 12px !important;
+}
+
+.war-report-v2__summary > div {
+  min-width: 0 !important;
+  padding: 5px !important;
+}
+
+.war-report-v2__summary span {
+  overflow: hidden !important;
+  font-size: 9px !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.war-report-v2__summary strong {
+  font-size: 18px !important;
+  line-height: 1.05 !important;
+}
+
+.war-report-v2__filters {
+  gap: 5px !important;
+  padding: 5px 12px !important;
+}
+
+.war-report-v2__filters button {
+  min-height: 30px !important;
+  padding: 4px 11px !important;
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+}
+
+.war-report-v2__filters .mark-all {
+  padding-inline: 14px !important;
+}
+
+.war-report-v2__body {
+  grid-template-columns: minmax(0, 1fr) 260px !important;
+}
+
+.war-report-v2__history,
+.war-report-v2__active {
+  grid-template-rows: 34px minmax(0, 1fr) !important;
+  padding: 0 10px 10px !important;
+}
+
+.war-report-v2__history h3,
+.war-report-v2__active h3 {
+  font-size: 11px !important;
+}
+
+.war-report-v2__list {
+  gap: 6px !important;
+}
+
+.war-report-v2__row {
+  min-height: 62px !important;
+  grid-template-columns: 68px minmax(0, 1fr) 68px !important;
+  gap: 8px !important;
+  padding: 7px 10px !important;
+}
+
+.war-report-v2__result {
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  min-width: 0 !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+.war-report-v2__result-icon {
+  width: 42px !important;
+  height: 34px !important;
+}
+
+.war-report-v2__row-copy {
+  gap: 2px !important;
+  line-height: 1.15 !important;
+}
+
+.war-report-v2__row-copy strong {
+  font-size: 13px !important;
+  line-height: 1.1 !important;
+}
+
+.war-report-v2__row-copy small {
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+}
+
+.war-report-v2__row-copy em {
+  font-size: 9px !important;
+  line-height: 1.1 !important;
+}
+
+.war-report-v2__row time {
+  align-self: end !important;
+  padding-bottom: 1px !important;
+  white-space: nowrap !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+}
+
+.war-report-v2__row > i {
+  top: 8px !important;
+  right: 8px !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.war-report-v2__active article {
+  gap: 3px !important;
+  margin-bottom: 6px !important;
+  padding: 8px !important;
+}
+
+.war-report-v2__active article strong {
+  font-size: 10px !important;
+}
+
+.war-report-v2__active article span {
+  font-size: 9px !important;
+}
+
+@media (max-width: 767px) {
+  .war-report-v2__overlay {
+    padding: 8px !important;
+  }
+
+  .war-report-v2 {
+    width: calc(100vw - 16px) !important;
+    max-width: 560px !important;
+    height: min(720px, calc(100dvh - 16px)) !important;
+    grid-template-rows: 58px 56px 78px minmax(0, 1fr) !important;
+    border-radius: 11px !important;
+  }
+
+  .war-report-v2__header {
+    padding: 7px 10px !important;
+  }
+
+  .war-report-v2__header > img {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .war-report-v2__header strong {
+    font-size: 15px !important;
+  }
+
+  .war-report-v2__header small {
+    font-size: 9px !important;
+  }
+
+  .war-report-v2__header button {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 17px !important;
+  }
+
+  .war-report-v2__summary {
+    gap: 4px !important;
+    padding: 6px !important;
+  }
+
+  .war-report-v2__summary > div {
+    padding: 4px 2px !important;
+  }
+
+  .war-report-v2__summary span {
+    font-size: 8px !important;
+  }
+
+  .war-report-v2__summary strong {
+    font-size: 16px !important;
+  }
+
+  .war-report-v2__filters {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    padding: 6px !important;
+  }
+
+  .war-report-v2__filters button {
+    min-width: 0 !important;
+    min-height: 30px !important;
+    padding: 4px 2px !important;
+    font-size: 9px !important;
+    white-space: normal !important;
+  }
+
+  .war-report-v2__filters .mark-all {
+    grid-column: 1 / -1 !important;
+    margin-left: 0 !important;
+    padding-inline: 8px !important;
+  }
+
+  .war-report-v2__body {
+    grid-template-columns: 1fr !important;
+  }
+
+  .war-report-v2__active {
+    display: none !important;
+  }
+
+  .war-report-v2__history {
+    grid-template-rows: 32px minmax(0, 1fr) !important;
+    padding: 0 7px 7px !important;
+  }
+
+  .war-report-v2__row {
+    min-height: 64px !important;
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 7px 9px !important;
+  }
+
+  .war-report-v2__result {
+    font-size: 9px !important;
+  }
+
+  .war-report-v2__result-icon {
+    width: 36px !important;
+    height: 30px !important;
+  }
+
+  .war-report-v2__row-copy {
+    padding-right: 44px !important;
+  }
+
+  .war-report-v2__row-copy strong {
+    font-size: 12px !important;
+  }
+
+  .war-report-v2__row-copy small {
+    font-size: 9px !important;
+  }
+
+  .war-report-v2__row-copy em {
+    font-size: 8px !important;
+  }
+
+  .war-report-v2__row time {
+    position: absolute !important;
+    right: 9px !important;
+    bottom: 7px !important;
+    font-size: 7px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .war-report-v2 {
+    grid-template-rows: 54px 52px 78px minmax(0, 1fr) !important;
+  }
+
+  .war-report-v2__header > img {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .war-report-v2__header strong {
+    font-size: 13px !important;
+  }
+
+  .war-report-v2__header small {
+    font-size: 8px !important;
+  }
+
+  .war-report-v2__summary span {
+    font-size: 7px !important;
+  }
+
+  .war-report-v2__summary strong {
+    font-size: 15px !important;
+  }
+
+  .war-report-v2__filters button {
+    font-size: 8px !important;
+  }
+
+  .war-report-v2__row {
+    min-height: 60px !important;
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    padding-inline: 7px !important;
+  }
+
+  .war-report-v2__result-icon {
+    width: 32px !important;
+    height: 27px !important;
+  }
+
+  .war-report-v2__row-copy strong {
+    font-size: 11px !important;
+  }
+
+  .war-report-v2__row-copy small {
+    font-size: 8px !important;
+  }
+}

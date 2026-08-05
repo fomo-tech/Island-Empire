@@ -88,9 +88,9 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
               <i className="minimap-marker-dot other" /> Người chơi khác
             </span>
           </div>
-
-          {children}
         </div>
+
+        {children}
       </div>
     );
   },

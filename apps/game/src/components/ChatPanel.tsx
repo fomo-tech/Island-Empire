@@ -11,6 +11,7 @@ type ChatPanelProps = {
   currentVipLevel?: number;
   online: boolean;
   onSend: (text: string) => boolean;
+  mobileActionsExpanded?: boolean;
 };
 
 function formatTime(value: string) {
@@ -37,6 +38,7 @@ export function ChatPanel({
   currentVipLevel,
   online,
   onSend,
+  mobileActionsExpanded = false,
 }: ChatPanelProps) {
   const [tab, setTab] = useState<ChatTab>("user");
   const [collapsed, setCollapsed] = useState(
@@ -57,6 +59,43 @@ export function ChatPanel({
     () => messages.filter((message) => message.kind === tab).slice(-100),
     [messages, tab],
   );
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (!collapsed) {
+        document.body.classList.add("chat-panel-open");
+      } else {
+        document.body.classList.remove("chat-panel-open");
+      }
+    }
+
+    if (!collapsed && typeof window !== "undefined") {
+      const lockScroll = () => {
+        if (window.scrollY !== 0 || window.scrollX !== 0) {
+          window.scrollTo(0, 0);
+        }
+      };
+
+      window.addEventListener("scroll", lockScroll, { passive: true });
+      window.visualViewport?.addEventListener("resize", lockScroll);
+      window.visualViewport?.addEventListener("scroll", lockScroll);
+
+      return () => {
+        if (typeof document !== "undefined") {
+          document.body.classList.remove("chat-panel-open");
+        }
+        window.removeEventListener("scroll", lockScroll);
+        window.visualViewport?.removeEventListener("resize", lockScroll);
+        window.visualViewport?.removeEventListener("scroll", lockScroll);
+      };
+    }
+
+    return () => {
+      if (typeof document !== "undefined") {
+        document.body.classList.remove("chat-panel-open");
+      }
+    };
+  }, [collapsed]);
 
   useEffect(() => {
     const previous = previousIdsRef.current;
@@ -118,7 +157,7 @@ export function ChatPanel({
           aria-expanded="true"
           onClick={() => setCollapsed(true)}
         >
-          <img src="/assets/icons/icon_chat_users_european.png" alt="" />
+          <img src="/assets/icons/menu/icon_chat.png" alt="" />
           <span>
             <strong>QUẢNG TRƯỜNG</strong>
             <small className={online ? "is-online" : "is-offline"}>
@@ -130,12 +169,36 @@ export function ChatPanel({
       )}
 
       {collapsed && (
-        <CollapsedChatHud
-          messages={messages}
-          currentUserId={currentUserId}
-          currentAvatarId={currentAvatarId}
-          onOpen={() => setCollapsed(false)}
-        />
+        <>
+          <CollapsedChatHud
+            messages={messages}
+            currentUserId={currentUserId}
+            currentAvatarId={currentAvatarId}
+            unreadCount={unread.user + unread.system}
+            onOpen={() => {
+              console.log(
+                "[ChatPanel] Opening full chat panel from collapsed HUD",
+              );
+              setCollapsed(false);
+            }}
+          />
+          {mobileActionsExpanded && (
+            <button
+              className="mobile-chat-menu-button"
+              type="button"
+              aria-label="Mở Quảng Trường"
+              onClick={() => setCollapsed(false)}
+            >
+              <img src="/assets/icons/menu/icon_chat.png" alt="" />
+              <span>Chat</span>
+              {unread.user + unread.system > 0 && (
+                <b className="collapsed-chat__unread">
+                  {Math.min(99, unread.user + unread.system)}
+                </b>
+              )}
+            </button>
+          )}
+        </>
       )}
 
       {!collapsed && (
@@ -146,8 +209,7 @@ export function ChatPanel({
               type="button"
               onClick={() => setTab("user")}
             >
-              <img src="/assets/icons/icon_chat_users_european.png" alt="" />{" "}
-              Người chơi
+              <img src="/assets/icons/menu/icon_chat.png" alt="" /> Người chơi
               {unread.user > 0 && <em>{unread.user}</em>}
             </button>
             <button
@@ -155,8 +217,7 @@ export function ChatPanel({
               type="button"
               onClick={() => setTab("system")}
             >
-              <img src="/assets/icons/icon_chat_system_european.png" alt="" />{" "}
-              Hệ thống
+              <img src="/assets/icons/menu/icon_chat.png" alt="" /> Hệ thống
               {unread.system > 0 && <em>{unread.system}</em>}
             </button>
           </nav>
@@ -235,10 +296,7 @@ export function ChatPanel({
                       </span>
                     ) : (
                       <span className="strategy-chat__system-avatar">
-                        <img
-                          src="/assets/icons/icon_chat_system_european.png"
-                          alt=""
-                        />
+                        <img src="/assets/icons/menu/icon_chat.png" alt="" />
                       </span>
                     )}
                   </div>
@@ -276,6 +334,11 @@ export function ChatPanel({
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
+                onFocus={() => {
+                  if (typeof window !== "undefined") {
+                    window.scrollTo(0, 0);
+                  }
+                }}
                 placeholder={
                   online
                     ? "Truyền lệnh đến mọi người chơi..."

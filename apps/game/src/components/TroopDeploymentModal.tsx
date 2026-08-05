@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { MarchSourceOption } from "@island/shared";
 import { AssetIcon } from "./AssetIcon";
+import { kingdomBuildingSpriteStyle } from "../game/kingdomArchitecture";
 
 // Premium Vector SVGs
 const SwordsIcon = () => {
@@ -729,75 +730,41 @@ function ArtilleryAvatar() {
   );
 }
 
-const CastleThumbnail = () => {
+const CastleThumbnail = ({
+  architectureId = "vietnam",
+  buildingType = "capital",
+}: {
+  architectureId?: string;
+  buildingType?: "capital" | "district" | "flag";
+}) => {
+  const nationAtlas: Record<string, string> = {
+    vietnam: "/assets/kingdoms/nations/vietnam.webp",
+    china: "/assets/kingdoms/nations/china.webp",
+    japan: "/assets/kingdoms/nations/japan.webp",
+    england: "/assets/kingdoms/nations/gothic.webp",
+    ottoman: "/assets/kingdoms/nations/persia.webp",
+    rome: "/assets/kingdoms/nations/rome.webp",
+  };
+  const atlas = nationAtlas[architectureId];
+  const spriteStyle = buildingType === "flag"
+    ? kingdomBuildingSpriteStyle(architectureId, "flag")
+    : atlas
+      ? {
+        backgroundImage: `url(${atlas})`,
+        backgroundSize: "200% 200%",
+        // Nation atlases are 2x2: capital (top-left), district (top-right).
+        backgroundPosition: buildingType === "district" ? "100% 0%" : "0% 0%",
+        backgroundRepeat: "no-repeat",
+      }
+      : kingdomBuildingSpriteStyle(architectureId, buildingType);
   return (
-    <img
-      src="/assets/kingdoms/kingdom_base.webp"
-      alt=""
-      width={125}
-      height={75}
+    <span
+      className="town-sprite-thumbnail"
+      aria-hidden="true"
       style={{
-        borderRadius: 6,
-        border: "1px solid rgba(184, 147, 68, 0.4)",
-        flexShrink: 0,
-        objectFit: "cover",
+        ...spriteStyle,
       }}
     />
-  );
-  return (
-    <svg
-      viewBox="0 0 160 100"
-      width="125"
-      height="75"
-      style={{
-        borderRadius: 6,
-        border: "1px solid rgba(184, 147, 68, 0.4)",
-        flexShrink: 0,
-      }}
-    >
-      <defs>
-        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0b1726" />
-          <stop offset="100%" stopColor="#1e3a5f" />
-        </linearGradient>
-      </defs>
-      <rect width="160" height="100" fill="url(#skyGrad)" />
-      <rect
-        x="25"
-        y="40"
-        width="22"
-        height="45"
-        fill="#334155"
-        stroke="#0f172a"
-        strokeWidth="1.5"
-      />
-      <polygon points="25,40 36,25 47,40" fill="#2563eb" />
-      <rect
-        x="113"
-        y="40"
-        width="22"
-        height="45"
-        fill="#334155"
-        stroke="#0f172a"
-        strokeWidth="1.5"
-      />
-      <polygon points="113,40 124,25 135,40" fill="#2563eb" />
-      <rect
-        x="47"
-        y="52"
-        width="66"
-        height="33"
-        fill="#1e293b"
-        stroke="#0f172a"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M70,85 v-18 a10,10 0 0,1 20,0 v18 z"
-        fill="#78350f"
-        stroke="#f59e0b"
-        strokeWidth="1.5"
-      />
-    </svg>
   );
 };
 
@@ -831,6 +798,8 @@ interface TroopDeploymentModalProps {
   battleSide?: "attacker" | "defender";
   targetBattleActive?: boolean;
   gameConfig?: any;
+  architectureId?: string;
+  getTownBuildingType?: (town: any) => "capital" | "district" | "flag";
   errorMessage?: string | null;
   getTownRegionId?: (town: any) => number;
   getRegionCenter?: (id: number) => { x: number; y: number } | null;
@@ -857,6 +826,8 @@ export function TroopDeploymentModal({
   battleSide,
   targetBattleActive = false,
   gameConfig,
+  architectureId,
+  getTownBuildingType,
   errorMessage,
   getTownRegionId,
   getRegionCenter,
@@ -1176,7 +1147,10 @@ export function TroopDeploymentModal({
                   }
                 >
                   <span className="rt-source-card-emblem">
-                    <CastleThumbnail />
+                    <CastleThumbnail
+                      architectureId={architectureId}
+                      buildingType={getTownBuildingType?.(town) || "capital"}
+                    />
                   </span>
                   <span className="rt-source-card-copy">
                     <strong>Thành #{town.id}</strong>

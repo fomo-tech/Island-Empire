@@ -9,8 +9,10 @@ import "./styles/chat.css";
 import "./styles/hud-topbar.css";
 import "./styles/chat-reference.css";
 import "./styles/shop-trial.css";
+import "./styles/shop.css";
 import "./styles/settings.css";
 import "./styles/war-reports.css";
+import "./styles/battle-report.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");
@@ -30,14 +32,21 @@ function AppRouter() {
       );
       rootElement.style.setProperty("--app-height", `${viewportHeight}px`);
       rootElement.style.setProperty("--keyboard-offset", `${keyboardOffset}px`);
-      rootElement.dataset.keyboardOpen = keyboardOffset > 120 ? "true" : "false";
+      rootElement.dataset.keyboardOpen =
+        keyboardOffset > 120 ? "true" : "false";
       rootElement.dataset.touch = coarsePointer.matches ? "true" : "false";
     };
     updateViewport();
     window.addEventListener("resize", updateViewport, { passive: true });
-    window.addEventListener("orientationchange", updateViewport, { passive: true });
-    window.visualViewport?.addEventListener("resize", updateViewport, { passive: true });
-    window.visualViewport?.addEventListener("scroll", updateViewport, { passive: true });
+    window.addEventListener("orientationchange", updateViewport, {
+      passive: true,
+    });
+    window.visualViewport?.addEventListener("resize", updateViewport, {
+      passive: true,
+    });
+    window.visualViewport?.addEventListener("scroll", updateViewport, {
+      passive: true,
+    });
     coarsePointer.addEventListener("change", updateViewport);
     return () => {
       window.removeEventListener("resize", updateViewport);
@@ -56,7 +65,10 @@ function AppRouter() {
 
   useEffect(() => {
     const token = localStorage.getItem("island_empire_token");
-    if (token) updateActiveMap(token, path === "/conquest" ? "conquest" : "world").catch(() => undefined);
+    if (token)
+      updateActiveMap(token, path === "/conquest" ? "conquest" : "world").catch(
+        () => undefined,
+      );
   }, [path]);
 
   const navigate = (nextPath: "/" | "/conquest" | "/conquest-test") => {
@@ -77,4 +89,8 @@ function AppRouter() {
   );
 }
 
-createRoot(root).render(<StrictMode><AppRouter /></StrictMode>);
+createRoot(root).render(
+  <StrictMode>
+    <AppRouter />
+  </StrictMode>,
+);

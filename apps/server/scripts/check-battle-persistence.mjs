@@ -9,6 +9,7 @@ const shared = readFileSync(
   new URL("../../../packages/shared/src/index.ts", import.meta.url),
   "utf8",
 );
+const normalizedApp = app.replace(/\s+/g, " ");
 
 const requiredAppFragments = [
   "fromTerritoryId: battle.fromTerritoryId",
@@ -41,7 +42,7 @@ const requiredAppFragments = [
 ];
 
 for (const fragment of requiredAppFragments) {
-  if (!app.includes(fragment)) {
+  if (!normalizedApp.includes(fragment.replace(/\s+/g, " "))) {
     throw new Error(`Battle persistence thiếu bảo đảm: ${fragment}`);
   }
 }

@@ -70,18 +70,13 @@
  * ------------------------------------------------------------------------- */
 
 html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
-  display: grid !important;
-  grid-template-columns: 56px minmax(0, 1fr) !important;
-  align-items: stretch !important;
-  overflow: hidden !important;
+  display: block !important;
+  overflow: visible !important;
   color: #f4ead1 !important;
-  border: 1px solid rgba(190, 145, 57, 0.9) !important;
-  border-radius: 10px !important;
-  background:
-    linear-gradient(110deg, rgba(16, 37, 44, 0.97), rgba(5, 15, 21, 0.96)) !important;
-  box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.62),
-    inset 0 1px rgba(255, 224, 131, 0.16) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   font-family: Inter, "Segoe UI", sans-serif !important;
 }
 
@@ -539,11 +534,11 @@ html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collaps
   grid-template-columns: none !important;
   grid-template-rows: none !important;
   padding: 0 !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(190, 145, 57, 0.9) !important;
-  border-radius: 10px !important;
-  background: linear-gradient(110deg, rgba(16, 37, 44, 0.94), rgba(5, 15, 21, 0.94)) !important;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 224, 131, 0.16) !important;
+  overflow: visible !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collapsed.is-collapsed .strategy-chat__collapsed {
@@ -1361,18 +1356,12 @@ html body .game-shell .hud-wrapper .hud-command-dock > .strategy-chat.is-collaps
 
 /* Final specificity pass: keep the v2 preview above legacy layout media rules. */
 html body .game-shell .hud-wrapper .strategy-chat.is-collapsed {
-  display: grid !important;
-  grid-template-columns: 56px minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) !important;
-  align-items: stretch !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(190, 145, 57, 0.9) !important;
-  border-radius: 10px !important;
-  background:
-    linear-gradient(110deg, rgba(16, 37, 44, 0.97), rgba(5, 15, 21, 0.96)) !important;
-  box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.62),
-    inset 0 1px rgba(255, 224, 131, 0.16) !important;
+  display: block !important;
+  overflow: visible !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html body .game-shell .hud-wrapper .strategy-chat.is-collapsed::before {

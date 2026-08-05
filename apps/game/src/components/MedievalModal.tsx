@@ -1,4 +1,5 @@
 import React from "react";
+import { AssetIcon } from "./AssetIcon";
 
 interface MedievalModalProps {
   onClose: () => void;
@@ -31,7 +32,7 @@ export const MedievalModal: React.FC<MedievalModalProps> = ({
           className="medieval-modal-close-btn"
           aria-label="Đóng"
         >
-          ×
+          <AssetIcon asset="close" size={25} />
         </button>
         <header className="medieval-modal-header">
           <h2 className="medieval-modal-title">{title}</h2>

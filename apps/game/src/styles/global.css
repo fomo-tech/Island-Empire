@@ -7466,6 +7466,26 @@ canvas {
   font-size: 11px;
 }
 
+.rt-cost-chip-item.insufficient {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: linear-gradient(
+    180deg,
+    rgba(127, 29, 29, 0.38),
+    rgba(69, 10, 10, 0.55)
+  );
+  box-shadow:
+    inset 0 0 10px rgba(239, 68, 68, 0.18),
+    0 0 6px rgba(239, 68, 68, 0.16);
+}
+
+.rt-cost-chip-item.insufficient b {
+  color: #fca5a5;
+}
+
+.rt-cost-chip-item.insufficient img {
+  filter: drop-shadow(0 0 4px rgba(248, 113, 113, 0.82));
+}
+
 .rt-note-info {
   margin-top: 6px;
   font-size: 10px;
@@ -31277,10 +31297,9 @@ body .hud-wrapper .rok-event-badges-row {
 
 .hud-wrapper .rok-badge-icon-wrap {
   position: relative !important;
-  width: 52px !important;
-  height: 52px !important;
+  width: 60px !important;
+  height: 60px !important;
   border-radius: 50% !important;
-  background: #0d141c !important;
   border: none !important;
   box-shadow: none !important;
   display: flex !important;
@@ -31297,8 +31316,7 @@ body .hud-wrapper .rok-event-badges-row {
 }
 
 .hud-wrapper .rok-badge-img {
-  width: 32px !important;
-  height: 32px !important;
+  width: 100% !important;
   object-fit: contain !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85)) !important;
   transition: transform 0.22s ease !important;
@@ -36345,7 +36363,7 @@ html[data-touch="true"] [role="button"] {
 .attack-dispatch-modal .rt-source-card {
   min-width: 0;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) 18px;
+  grid-template-columns: 44px minmax(0, 1fr) 18px;
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -36383,10 +36401,50 @@ html[data-touch="true"] [role="button"] {
 }
 
 .attack-dispatch-modal .rt-source-card-emblem {
-  width: 54px;
-  height: 42px;
+  width: 44px;
+  height: 34px;
   overflow: hidden;
   border-radius: 5px;
+  display: block;
+  border: 1px solid rgba(184, 147, 68, 0.4);
+  background-color: #071218;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 400% 400%;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail {
+  display: block;
+  width: 44px;
+  height: 34px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  background-color: #071218;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 400% 400%;
+}
+
+.shop-modal-v2 .vip-progress-track {
+  height: 10px;
+  margin: 14px 0;
+  overflow: hidden;
+  border: 1px solid rgba(164, 126, 55, 0.65);
+  border-radius: 999px;
+  background: rgba(5, 16, 21, 0.86);
+}
+
+.shop-modal-v2 .vip-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a77b35, #f8df86);
+  box-shadow: 0 0 12px rgba(248, 223, 134, 0.55);
+}
+
+.shop-modal-v2 .gem-pack-icon {
+  display: grid;
+  place-items: center;
 }
 
 .attack-dispatch-modal .rt-source-card-emblem svg {
@@ -36456,13 +36514,18 @@ html[data-touch="true"] [role="button"] {
   }
 
   .attack-dispatch-modal .rt-source-card {
-    grid-template-columns: 46px minmax(0, 1fr) 16px;
+    grid-template-columns: 40px minmax(0, 1fr) 16px;
     padding: 6px;
   }
 
   .attack-dispatch-modal .rt-source-card-emblem {
-    width: 46px;
-    height: 36px;
+    width: 40px;
+    height: 31px;
+  }
+
+  .attack-dispatch-modal .town-sprite-thumbnail {
+    width: 40px;
+    height: 31px;
   }
 }
 .rt-territory-active,
@@ -37583,6 +37646,18 @@ html[data-touch="true"] [role="button"] {
 
   html body .game-shell .hud-wrapper .mobile-secondary-action {
     display: none !important;
+    order: 7 !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    order: 6 !important;
+    grid-column: auto !important;
+    grid-row: 1 !important;
   }
 
   html body .game-shell .hud-wrapper .hud-command-button img {
@@ -38456,10 +38531,10 @@ html[data-touch="true"] [role="button"] {
 }
 
 .shop-modal-v2.medieval-modal-container {
-  width: min(1180px, calc(100vw - 32px)) !important;
-  max-width: 1180px !important;
-  height: min(900px, calc(100dvh - 32px)) !important;
-  max-height: calc(100dvh - 32px) !important;
+  width: min(1160px, calc(100vw - 40px)) !important;
+  max-width: 1160px !important;
+  height: min(840px, calc(100dvh - 40px)) !important;
+  max-height: calc(100dvh - 40px) !important;
   padding: 0 !important;
   overflow: hidden !important;
   border: 1px solid rgba(218, 175, 79, 0.72) !important;
@@ -38550,17 +38625,18 @@ html[data-touch="true"] [role="button"] {
   min-width: 0 !important;
   min-height: 0 !important;
   height: 100% !important;
+  flex: 1 1 auto !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 0 !important;
   overflow: hidden !important;
-  padding: 18px 18px 14px !important;
+  padding: 16px 16px 14px !important;
 }
 
 .shop-modal-v2__hero {
   flex: 0 0 auto !important;
-  min-height: 104px !important;
-  padding: 18px 66px 22px 20px !important;
+  min-height: 88px !important;
+  padding: 14px 60px 18px 16px !important;
   border: 1px solid rgba(232, 190, 88, 0.72) !important;
   border-radius: 10px !important;
   box-shadow:
@@ -38570,7 +38646,7 @@ html[data-touch="true"] [role="button"] {
 
 .shop-modal-v2 .euro-hero-title {
   max-width: 600px !important;
-  font-size: clamp(18px, 1.7vw, 24px) !important;
+  font-size: clamp(17px, 1.6vw, 22px) !important;
   letter-spacing: 0.08em !important;
 }
 
@@ -38592,7 +38668,7 @@ html[data-touch="true"] [role="button"] {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 8px !important;
-  margin: 14px 0 0 !important;
+  margin: 10px 0 0 !important;
   padding: 4px !important;
   border: 1px solid rgba(167, 126, 53, 0.4) !important;
   border-radius: 8px !important;
@@ -38602,8 +38678,8 @@ html[data-touch="true"] [role="button"] {
 .shop-modal-v2__tabs .euro-tab-btn {
   justify-content: center !important;
   min-width: 0 !important;
-  min-height: 44px !important;
-  padding: 8px 12px !important;
+  min-height: 40px !important;
+  padding: 6px 10px !important;
   border-radius: 5px !important;
   font-size: 10px !important;
   white-space: normal !important;
@@ -38614,7 +38690,10 @@ html[data-touch="true"] [role="button"] {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  margin-top: 10px !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  margin-top: 8px !important;
   padding: 12px !important;
   border: 1px solid rgba(139, 111, 59, 0.34) !important;
   border-radius: 9px !important;
@@ -38669,7 +38748,7 @@ html[data-touch="true"] [role="button"] {
   }
 
   .shop-modal-v2__main {
-    padding-inline: 14px !important;
+    padding-inline: 12px !important;
   }
 
   .shop-modal-v2__content .sk-grid {
@@ -38682,11 +38761,11 @@ html[data-touch="true"] [role="button"] {
     align-self: end !important;
     width: 100vw !important;
     max-width: none !important;
-    height: min(94dvh, 900px) !important;
-    max-height: 94dvh !important;
+    height: min(92dvh, calc(100dvh - var(--safe-top, 0px))) !important;
+    max-height: calc(100dvh - var(--safe-top, 0px)) !important;
     border-right: 0 !important;
     border-bottom: 0 !important;
-    border-radius: 18px 18px 0 0 !important;
+    border-radius: 20px 20px 0 0 !important;
   }
 
   .shop-modal-v2 .medieval-modal-close-btn {
@@ -38697,9 +38776,11 @@ html[data-touch="true"] [role="button"] {
   }
 
   .shop-modal-v2__body {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
     height: 100% !important;
-    padding: 8px !important;
+    min-height: 0 !important;
+    padding: 8px 8px max(12px, env(safe-area-inset-bottom)) !important;
   }
 
   .shop-modal-v2__sidebar {
@@ -38707,13 +38788,16 @@ html[data-touch="true"] [role="button"] {
   }
 
   .shop-modal-v2__main {
+    display: flex !important;
+    flex-direction: column !important;
     height: 100% !important;
-    padding: 8px 0 0 !important;
+    min-height: 0 !important;
+    padding: 6px 0 0 !important;
   }
 
   .shop-modal-v2__hero {
-    min-height: 88px !important;
-    padding: 13px 58px 18px 12px !important;
+    min-height: 68px !important;
+    padding: 10px 48px 14px 10px !important;
   }
 
   .shop-modal-v2 .mobile-merchant-badge {
@@ -40868,5 +40952,166 @@ html[data-touch="true"] [role="button"] {
 
   .shop-modal-v2 .shop-empty-state span {
     font-size: 9px;
+  }
+}
+
+/* Mobile command dock: keep chat inside its grid cell and preserve asset colors. */
+@media (max-width: 767px),
+  (pointer: coarse) and (min-width: 768px) and (max-width: 1366px) {
+  html body .game-shell .hud-wrapper .hud-command-dock {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock img {
+    filter: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-command-dock.is-expanded {
+    height: 130px !important;
+    min-height: 130px !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    grid-template-rows: 64px 60px !important;
+    gap: 6px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed::before {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat {
+    width: 100% !important;
+    height: 64px !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__feed {
+    display: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    height: 64px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    filter: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring {
+    width: 31px !important;
+    height: 31px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__badge-ring
+    > img {
+    width: 31px !important;
+    height: 31px !important;
+    filter: none !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__label {
+    display: block !important;
+    color: #cbd2cf !important;
+    font-size: 8px !important;
+    font-weight: 850 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .hud-command-dock
+    > .strategy-chat.is-collapsed
+    .collapsed-chat__unread {
+    position: absolute !important;
+    top: 2px !important;
+    right: 5px !important;
+    display: grid !important;
+    place-items: center !important;
+    min-width: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(255, 244, 215, 0.8) !important;
+    border-radius: 50% !important;
+    background: #c0392b !important;
+    color: #fff !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
   }
 }

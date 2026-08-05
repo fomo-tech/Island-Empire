@@ -21,6 +21,14 @@ const marchDirection = readFileSync(
   new URL("../src/game/engine/marchDirection.ts", import.meta.url),
   "utf8",
 );
+const unitAtlas = readFileSync(
+  new URL("../src/game/engine/unitAtlas.ts", import.meta.url),
+  "utf8",
+);
+const unitAnimator = readFileSync(
+  new URL("../src/game/engine/unitAnimator.ts", import.meta.url),
+  "utf8",
+);
 const townManagement = readFileSync(
   new URL("../src/components/TownManagementModal.tsx", import.meta.url),
   "utf8",
@@ -48,6 +56,7 @@ for (const asset of [
   "../public/assets/units/medieval/medieval_artillery_8dir.webp",
   "../public/assets/units/medieval/medieval_builder_8dir.webp",
   "../public/assets/units/medieval/medieval_ship_8dir.webp",
+  "../public/assets/units/medieval/nation_units_attack_8.webp",
   "../public/assets/world/territory_vegetation_atlas.webp",
   "../public/assets/kingdoms/nation_flags_atlas.webp",
 ]) {
@@ -92,7 +101,7 @@ const settlers = section(
 );
 
 if (!source.includes("TERRITORY_VEGETATION_SPRITES")
-  || !terrain.includes("drawNaturalTerritoryVegetation(")) {
+  || !terrain.includes("renderTerritoryVegetation(")) {
   throw new Error("Bản đồ lãnh thổ chưa dùng atlas cây và bụi riêng");
 }
 if (source.includes("drawTerritoryResources(visibleRegions, visibleIslets)")) {
@@ -160,10 +169,12 @@ if (!requiredTroopKinds.every((kind) =>
   new RegExp(`drawMedievalUnitSprite\\(\\s*"${kind}"`).test(troops))) {
   throw new Error("Quân hành quân chưa dùng đủ atlas bộ binh, kỵ binh và pháo binh");
 }
-if (!source.includes("nationUnitSheet")
-  || !source.includes("NATION_UNIT_FRAME_COUNTS")
-  || !source.includes("NATION_UNIT_COLUMN_OFFSETS")) {
-  throw new Error("Quân chưa khóa về nation_units_8.webp");
+if (!source.includes("createNationUnitAtlases")
+  || !unitAtlas.includes("nation_units_8.webp")
+  || !unitAtlas.includes("nation_units_attack_8.webp")
+  || !unitAtlas.includes("infantry: { offset: 0, frames: 16 }")
+  || !unitAtlas.includes("ship: { offset: 128, frames: 16 }")) {
+  throw new Error("Quân chưa khóa về atlas movement/attack nhiều frame");
 }
 if (!source.includes("const useLowDetail = false")) {
   throw new Error("Hành quân vẫn có thể thay sprite quốc gia bằng LOD token");
@@ -189,7 +200,7 @@ if (!marchDirection.includes("stableMarchDirection")
   || !marchDirection.includes("Math.PI / 8 + 0.14")) {
   throw new Error("Renderer chưa chọn 8 hướng theo tiếp tuyến có hysteresis");
 }
-if (!voyageShip.includes("nationUnitSheet") || voyageShip.includes("fillRect(")) {
+if (!voyageShip.includes("drawNationShipSprite") || voyageShip.includes("fillRect(")) {
   throw new Error("Thuyền hành quân chưa dùng sprite atlas sạch");
 }
 if (source.includes("medievalArmySheet")) {
@@ -205,7 +216,8 @@ if (!source.includes("drawActiveBattleConnections")
 }
 if (!architecture.includes("NATION_FLAG_SHEET")
   || !architecture.includes('buildingType === "flag"')
-  || !/\? "district"\r?\n          : "flag"/.test(source)) {
+  || !source.includes('timing?.connectionType === "sea"')
+  || !/\? "district"\r?\n            : "flag";/.test(source)) {
   throw new Error("Vùng mở rộng chưa dùng atlas trụ cờ Nation riêng");
 }
 if (!/drawVoyageShip\(\r?\n            shipPoint\.x/.test(source)
@@ -219,11 +231,11 @@ if (!source.includes("function voyageUsesShip")
 }
 if (!source.includes("easedRouteProgress")
   || !source.includes("routeMovementState")
-  || !source.includes("distanceTravelled / 28")
-  || !source.includes("motionCycles")) {
+  || !source.includes("unitWalkPhases")
+  || !unitAnimator.includes("distanceTravelled / STRIDE_PIXELS.infantry")) {
   throw new Error("Hành quân chưa dùng state và animation theo quãng đường");
 }
-if (!source.includes("NATION_UNIT_COLUMN_OFFSETS.builderAction") || source.includes("builder_idle.png")) {
+if (!unitAtlas.includes("BUILDER_ACTION_FRAMES") || source.includes("builder_idle.png")) {
   throw new Error("Công binh chưa dùng WebP sprite atlas");
 }
 if (!settlers.includes("allowLegacyBuilderFallback = false")) {

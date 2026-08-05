@@ -230,7 +230,8 @@ export function TerritoryTooltip({
         setHudBottomInset(0);
         return;
       }
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const viewportHeight =
+        window.visualViewport?.height ?? window.innerHeight;
       const dockTop = dock.getBoundingClientRect().top;
       setHudBottomInset(Math.max(0, Math.ceil(viewportHeight - dockTop + 8)));
     };
@@ -239,7 +240,11 @@ export function TerritoryTooltip({
     const resizeObserver = dock ? new ResizeObserver(measureDock) : null;
     if (dock) resizeObserver?.observe(dock);
     const mutationObserver = dock ? new MutationObserver(measureDock) : null;
-    if (dock) mutationObserver?.observe(dock, { attributes: true, attributeFilter: ["class", "style"] });
+    if (dock)
+      mutationObserver?.observe(dock, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
     window.addEventListener("resize", measureDock);
     window.visualViewport?.addEventListener("resize", measureDock);
 
@@ -367,6 +372,14 @@ export function TerritoryTooltip({
   const buildCost = engine.territoryBuildCost
     ? engine.territoryBuildCost(id)
     : { gold: 0, wood: 0, stone: 0, food: 0 };
+  const currentResources = engineState.resources || {};
+  const costRows = (["gold", "wood", "stone", "food"] as const).map((key) => ({
+    key,
+    cost: Number(buildCost[key] || 0),
+    available: Number(currentResources[key] || 0),
+    insufficient:
+      Number(currentResources[key] || 0) < Number(buildCost[key] || 0),
+  }));
 
   const formatYield = (value: number) =>
     value >= 1
@@ -938,24 +951,29 @@ export function TerritoryTooltip({
               borderColor: "#ef4444",
               border: "1px solid #ef4444",
               borderRadius: 8,
-              padding: "10px 14px",
+              padding: "7px 10px",
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              gap: 6,
             }}
           >
             <SpriteIcon
               src="/assets/icons/icon_settings_info.png"
-              size={18}
+              size={14}
               style={{
-                marginRight: 6,
+                marginRight: 2,
                 filter:
                   "drop-shadow(0 0 2px #ef4444) hue-rotate(140deg) saturate(300%)",
               }}
             />
             <span
               className="text"
-              style={{ color: "#fca5a5", fontSize: 12, fontWeight: 600 }}
+              style={{
+                color: "#fca5a5",
+                fontSize: 10,
+                fontWeight: 600,
+                lineHeight: 1.2,
+              }}
             >
               CHƯA THỂ MỞ RỘNG: CẦN XÂY LIỀN KỀ, HOẶC DÙNG BẾN TÀU ĐỂ DỰNG ĐIỂM
               ĐỔ BỘ Ở VEN BIỂN
@@ -990,28 +1008,36 @@ export function TerritoryTooltip({
               <span className="line" />
             </div>
             <div className="rt-cost-chips-grid">
-              <div className="rt-cost-chip-item">
+              <div
+                className={`rt-cost-chip-item${costRows[0].insufficient ? " insufficient" : ""}`}
+              >
                 <SpriteIcon
                   src="/assets/icons/resource_gold_european.png"
                   size={18}
                 />{" "}
                 <b>{buildCost.gold}</b>
               </div>
-              <div className="rt-cost-chip-item">
+              <div
+                className={`rt-cost-chip-item${costRows[1].insufficient ? " insufficient" : ""}`}
+              >
                 <SpriteIcon
                   src="/assets/icons/resource_wood_european.png"
                   size={18}
                 />{" "}
                 <b>{buildCost.wood}</b>
               </div>
-              <div className="rt-cost-chip-item">
+              <div
+                className={`rt-cost-chip-item${costRows[2].insufficient ? " insufficient" : ""}`}
+              >
                 <SpriteIcon
                   src="/assets/icons/resource_stone_european.png"
                   size={18}
                 />{" "}
                 <b>{buildCost.stone}</b>
               </div>
-              <div className="rt-cost-chip-item">
+              <div
+                className={`rt-cost-chip-item${costRows[3].insufficient ? " insufficient" : ""}`}
+              >
                 <SpriteIcon
                   src="/assets/icons/resource_food_european.png"
                   size={18}
@@ -1060,16 +1086,18 @@ export function TerritoryTooltip({
   const tooltipElement = (
     <div
       className={`rt-tooltip-container ${positionClass}`}
-      style={{
-        position: "fixed",
-        left: `${left}px`,
-        top: `${top}px`,
-        width: `${cardW}px`,
-        zIndex: 99999,
-        pointerEvents: "none",
-        overflow: "visible",
-        "--rt-hud-bottom-inset": `${hudBottomInset}px`,
-      } as React.CSSProperties}
+      style={
+        {
+          position: "fixed",
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${cardW}px`,
+          zIndex: 99999,
+          pointerEvents: "none",
+          overflow: "visible",
+          "--rt-hud-bottom-inset": `${hudBottomInset}px`,
+        } as React.CSSProperties
+      }
     >
       {/* Dynamic 3D Golden Pointer Arrow pointing to Active Territory */}
       <div
@@ -1084,7 +1112,11 @@ export function TerritoryTooltip({
         className="rt-tooltip-card rt-territory-active"
         role="dialog"
         aria-modal="false"
-        aria-label={isIslet ? `Thông tin đảo nhỏ ${id + 1}` : `Thông tin lãnh thổ ${id + 1}`}
+        aria-label={
+          isIslet
+            ? `Thông tin đảo nhỏ ${id + 1}`
+            : `Thông tin lãnh thổ ${id + 1}`
+        }
         style={{ pointerEvents: "auto" }}
       >
         {/* Header */}
@@ -1141,305 +1173,306 @@ export function TerritoryTooltip({
         </div>
 
         <div className="rt-tooltip-scroll">
+          {/* Section Divider */}
+          <div className="rt-section-divider">
+            <CSSDiamond />
+            <span className="line" />
+            <span className="title">
+              {showGuide ? "HƯỚNG DẪN & BIỂU TƯỢNG" : "THÔNG TIN LÃNH THỔ"}
+            </span>
+            <span className="line" />
+            <CSSDiamond />
+          </div>
 
-        {/* Section Divider */}
-        <div className="rt-section-divider">
-          <CSSDiamond />
-          <span className="line" />
-          <span className="title">
-            {showGuide ? "HƯỚNG DẪN & BIỂU TƯỢNG" : "THÔNG TIN LÃNH THỔ"}
-          </span>
-          <span className="line" />
-          <CSSDiamond />
-        </div>
-
-        {showGuide ? (
-          <div className="rt-guide-content-box">
-            <div className="rt-guide-section-title">SỔ TAY QUÂN NHU</div>
-            <div className="rt-guide-legend-grid">
-              {(["food", "wood", "stone", "gold", "gems"] as const).map(
-                (key) => (
-                  <div className="rt-guide-legend-cell" key={key}>
-                    <ResourceIcon resource={key} />
-                    <span className="rt-guide-copy">
-                      <span className="res-name">
-                        {RESOURCE_META[key].label}
+          {showGuide ? (
+            <div className="rt-guide-content-box">
+              <div className="rt-guide-section-title">SỔ TAY QUÂN NHU</div>
+              <div className="rt-guide-legend-grid">
+                {(["food", "wood", "stone", "gold", "gems"] as const).map(
+                  (key) => (
+                    <div className="rt-guide-legend-cell" key={key}>
+                      <ResourceIcon resource={key} />
+                      <span className="rt-guide-copy">
+                        <span className="res-name">
+                          {RESOURCE_META[key].label}
+                        </span>
+                        <span className="res-use">
+                          {RESOURCE_META[key].purpose}
+                        </span>
                       </span>
-                      <span className="res-use">
-                        {RESOURCE_META[key].purpose}
-                      </span>
+                    </div>
+                  ),
+                )}
+              </div>
+              <div className="rt-guide-section-title rt-guide-subtitle">
+                ĐẶC ĐIỂM CHIẾN LƯỢC
+              </div>
+              <div className="rt-guide-special-grid">
+                {Object.values(SPECIAL_RESOURCE_META).map((meta) => (
+                  <div
+                    className={`rt-guide-special-item tone-${meta.tone}`}
+                    key={meta.label}
+                  >
+                    <img src={meta.icon} alt="" aria-hidden="true" />
+                    <span>
+                      <strong>{meta.label}</strong>
+                      <small>{meta.guide}</small>
                     </span>
                   </div>
-                ),
-              )}
+                ))}
+              </div>
+              <p className="rt-guide-note">
+                Chất lượng đất quyết định sản lượng. Kho đầy sẽ ngừng nhận tài
+                nguyên thường; Ngọc không bị chiếm theo kho lãnh thổ.
+              </p>
             </div>
-            <div className="rt-guide-section-title rt-guide-subtitle">
-              ĐẶC ĐIỂM CHIẾN LƯỢC
-            </div>
-            <div className="rt-guide-special-grid">
-              {Object.values(SPECIAL_RESOURCE_META).map((meta) => (
-                <div
-                  className={`rt-guide-special-item tone-${meta.tone}`}
-                  key={meta.label}
-                >
-                  <img src={meta.icon} alt="" aria-hidden="true" />
-                  <span>
-                    <strong>{meta.label}</strong>
-                    <small>{meta.guide}</small>
+          ) : (
+            <>
+              {/* Territory General Info Grid */}
+              <div className="rt-stats-container">
+                <div className="rt-stat-item">
+                  <span className="label">
+                    <SpriteIcon
+                      src="/assets/icons/icon_map.png"
+                      size={14}
+                      style={{ marginRight: 6 }}
+                    />{" "}
+                    Loại đất:
+                  </span>
+                  <span className="val">
+                    {isIslet ? "Đảo nhỏ" : "Lục địa lớn"}
                   </span>
                 </div>
-              ))}
-            </div>
-            <p className="rt-guide-note">
-              Chất lượng đất quyết định sản lượng. Kho đầy sẽ ngừng nhận tài
-              nguyên thường; Ngọc không bị chiếm theo kho lãnh thổ.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Territory General Info Grid */}
-            <div className="rt-stats-container">
-              <div className="rt-stat-item">
-                <span className="label">
-                  <SpriteIcon
-                    src="/assets/icons/icon_map.png"
-                    size={14}
-                    style={{ marginRight: 6 }}
-                  />{" "}
-                  Loại đất:
-                </span>
-                <span className="val">
-                  {isIslet ? "Đảo nhỏ" : "Lục địa lớn"}
-                </span>
-              </div>
-              <div className="rt-stat-item">
-                <span className="label">
-                  <SpriteIcon
-                    src="/assets/icons/icon_gold_crown.png"
-                    size={14}
-                    style={{ marginRight: 6 }}
-                  />{" "}
-                  Chủ quyền:
-                </span>
-                <span className="val">{ownerName}</span>
-              </div>
-              {effectiveOwnership === 0 && (
-                <>
-                  {distanceKm !== null && (
+                <div className="rt-stat-item">
+                  <span className="label">
+                    <SpriteIcon
+                      src="/assets/icons/icon_gold_crown.png"
+                      size={14}
+                      style={{ marginRight: 6 }}
+                    />{" "}
+                    Chủ quyền:
+                  </span>
+                  <span className="val">{ownerName}</span>
+                </div>
+                {effectiveOwnership === 0 && (
+                  <>
+                    {distanceKm !== null && (
+                      <div className="rt-stat-item">
+                        <span className="label">
+                          <SpriteIcon
+                            src="/assets/icons/icon_map.png"
+                            size={15}
+                            style={{ marginRight: 6 }}
+                          />{" "}
+                          Từ thành gần nhất:
+                        </span>
+                        <span className="val">{distanceKm} km</span>
+                      </div>
+                    )}
                     <div className="rt-stat-item">
                       <span className="label">
                         <SpriteIcon
-                          src="/assets/icons/icon_map.png"
+                          src="/assets/icons/icon_tech.png"
                           size={15}
                           style={{ marginRight: 6 }}
                         />{" "}
-                        Từ thành gần nhất:
+                        Thời gian xây:
                       </span>
-                      <span className="val">{distanceKm} km</span>
+                      <span className="val highlighted">{formatTime(dur)}</span>
                     </div>
-                  )}
-                  <div className="rt-stat-item">
-                    <span className="label">
-                      <SpriteIcon
-                        src="/assets/icons/icon_tech.png"
-                        size={15}
-                        style={{ marginRight: 6 }}
-                      />{" "}
-                      Thời gian xây:
+                  </>
+                )}
+                {town && (
+                  <>
+                    <div className="rt-stat-item">
+                      <span className="label">
+                        <SpriteIcon
+                          src="/assets/icons/icon_tower.png"
+                          size={16}
+                          style={{ marginRight: 6 }}
+                        />{" "}
+                        Công trình:
+                      </span>
+                      <span className="val">
+                        {settlementKindLabel} cấp {town.level ?? 1}
+                      </span>
+                    </div>
+                    <div className="rt-stat-item">
+                      <span className="label">
+                        <SpriteIcon
+                          src="/assets/icon-troops/sprite_02.webp"
+                          size={16}
+                          style={{ marginRight: 6 }}
+                        />{" "}
+                        Quân đồn trú:
+                      </span>
+                      <span className="val">
+                        {Math.floor(
+                          (town.troops || 0) + (town.reservedTroops || 0),
+                        ).toLocaleString("vi-VN")}{" "}
+                        /{" "}
+                        {Math.floor(
+                          town.troopCapacity || town.maxTroops || 0,
+                        ).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
+                    <div className="rt-stat-item rt-specialty-stat">
+                      <span className="label">
+                        <SpriteIcon src={specialtyMeta.icon} size={22} />{" "}
+                        {specialtyMeta.name}:
+                      </span>
+                      <span className="val highlighted">
+                        {Math.floor(specialtyMeta.count).toLocaleString(
+                          "vi-VN",
+                        )}
+                      </span>
+                    </div>
+                    <div className="rt-stat-item">
+                      <span className="label">
+                        <SpriteIcon
+                          src="/assets/icons/menu/troop.png"
+                          size={14}
+                          style={{ marginRight: 6 }}
+                        />{" "}
+                        Dân số:
+                      </span>
+                      <span className="val">
+                        {Math.floor(town.population || 0).toLocaleString(
+                          "vi-VN",
+                        )}{" "}
+                        /{" "}
+                        {Math.floor(
+                          town.populationCapacity || 0,
+                        ).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
+                    <div className="rt-stat-item">
+                      <span className="label">
+                        <SpriteIcon
+                          src="/assets/icons/icon_chest.png"
+                          size={14}
+                          style={{ marginRight: 6 }}
+                        />{" "}
+                        Kho lãnh thổ:
+                      </span>
+                      <span className="val">
+                        {Math.floor(storage).toLocaleString("vi-VN")} /{" "}
+                        {Math.floor(storageCapacity).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="rt-stat-item">
+                  <span className="label">
+                    <SpriteIcon
+                      src="/assets/icons/menu/setting.png"
+                      size={14}
+                      style={{ marginRight: 6 }}
+                    />{" "}
+                    Trạng thái:
+                  </span>
+                  <span className={`val ${statusClass}`}>{statusText}</span>
+                </div>
+                <div className="rt-stat-item">
+                  <span className="label">
+                    <SpriteIcon
+                      src="/assets/icons/icon_tech.png"
+                      size={14}
+                      style={{ marginRight: 6 }}
+                    />{" "}
+                    Chất lượng đất:
+                  </span>
+                  <span className="val">
+                    {Math.round(Number(territory?.resourceQuality || 100))}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Compact server-authoritative yield ledger */}
+              <div className="rt-section-divider margin-top">
+                <CSSDiamond />
+                <span className="line" />
+                <span className="title">SẢN LƯỢNG LÃNH THỔ</span>
+                <span className="line" />
+                <CSSDiamond />
+              </div>
+
+              {/* Server-authoritative territory yields */}
+              <div className="rt-yield-ledger">
+                {resourceRows.map((row) => (
+                  <button
+                    type="button"
+                    key={row.key}
+                    className={`rt-yield-ledger-item ${row.className}${selectedYield === row.key ? " is-open" : ""}`}
+                    onClick={() =>
+                      setSelectedYield((current) =>
+                        current === row.key ? null : row.key,
+                      )
+                    }
+                    aria-expanded={selectedYield === row.key}
+                  >
+                    <span className="rt-yield-main">
+                      {row.icon}
+                      <span className="name">{row.label}</span>
                     </span>
-                    <span className="val highlighted">{formatTime(dur)}</span>
-                  </div>
-                </>
-              )}
-              {town && (
+                    <span className="rate">
+                      +{formatRate(row.hourly)}/giờ{" "}
+                      <em className="share">{row.share}%</em>
+                    </span>
+                    <span className="rt-yield-popover">
+                      <strong>{row.label}</strong>
+                      <span>
+                        <b>Trong giờ</b>
+                        <em>+{formatRate(row.hourly)}</em>
+                      </span>
+                      <span>
+                        <b>Trong ngày</b>
+                        <em>+{formatRate(row.daily)}</em>
+                      </span>
+                      <small>{RESOURCE_META[row.key].purpose}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Special Features / Deposits Section */}
+              {specialResources.length > 0 && (
                 <>
-                  <div className="rt-stat-item">
-                    <span className="label">
-                      <SpriteIcon
-                        src="/assets/icons/icon_tower.png"
-                        size={16}
-                        style={{ marginRight: 6 }}
-                      />{" "}
-                      Công trình:
-                    </span>
-                    <span className="val">
-                      {settlementKindLabel} cấp {town.level ?? 1}
-                    </span>
+                  <div className="rt-section-divider margin-top">
+                    <CSSDiamond />
+                    <span className="line" />
+                    <span className="title">ĐẶC ĐIỂM CHIẾN LƯỢC</span>
+                    <span className="line" />
+                    <CSSDiamond />
                   </div>
-                  <div className="rt-stat-item">
-                    <span className="label">
-                      <SpriteIcon
-                        src="/assets/icon-troops/sprite_02.webp"
-                        size={16}
-                        style={{ marginRight: 6 }}
-                      />{" "}
-                      Quân đồn trú:
-                    </span>
-                    <span className="val">
-                      {Math.floor(
-                        (town.troops || 0) + (town.reservedTroops || 0),
-                      ).toLocaleString("vi-VN")}{" "}
-                      /{" "}
-                      {Math.floor(
-                        town.troopCapacity || town.maxTroops || 0,
-                      ).toLocaleString("vi-VN")}
-                    </span>
-                  </div>
-                  <div className="rt-stat-item rt-specialty-stat">
-                    <span className="label">
-                      <SpriteIcon src={specialtyMeta.icon} size={22} />{" "}
-                      {specialtyMeta.name}:
-                    </span>
-                    <span className="val highlighted">
-                      {Math.floor(specialtyMeta.count).toLocaleString("vi-VN")}
-                    </span>
-                  </div>
-                  <div className="rt-stat-item">
-                    <span className="label">
-                      <SpriteIcon
-                        src="/assets/icons/icon_military.png"
-                        size={14}
-                        style={{ marginRight: 6 }}
-                      />{" "}
-                      Dân số:
-                    </span>
-                    <span className="val">
-                      {Math.floor(town.population || 0).toLocaleString("vi-VN")}{" "}
-                      /{" "}
-                      {Math.floor(town.populationCapacity || 0).toLocaleString(
-                        "vi-VN",
-                      )}
-                    </span>
-                  </div>
-                  <div className="rt-stat-item">
-                    <span className="label">
-                      <SpriteIcon
-                        src="/assets/icons/icon_chest.png"
-                        size={14}
-                        style={{ marginRight: 6 }}
-                      />{" "}
-                      Kho lãnh thổ:
-                    </span>
-                    <span className="val">
-                      {Math.floor(storage).toLocaleString("vi-VN")} /{" "}
-                      {Math.floor(storageCapacity).toLocaleString("vi-VN")}
-                    </span>
+                  <div className="rt-special-list-container">
+                    {specialResources.map((item: string, idx: number) => {
+                      const meta = getSpecialResourceMeta(item);
+                      const cleanedName =
+                        meta?.label || cleanSpecialResourceName(item);
+                      return (
+                        <div
+                          key={idx}
+                          className={`rt-special-list-item${meta ? ` tone-${meta.tone}` : ""}`}
+                          title={meta?.guide || cleanedName}
+                        >
+                          {getSpecialResourceIcon(item)}
+                          <span className="rt-special-copy">
+                            <span className="item-name">{cleanedName}</span>
+                            {meta && <small>{meta.effect}</small>}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
-              <div className="rt-stat-item">
-                <span className="label">
-                  <SpriteIcon
-                    src="/assets/icons/icon_settings_european.png"
-                    size={14}
-                    style={{ marginRight: 6 }}
-                  />{" "}
-                  Trạng thái:
-                </span>
-                <span className={`val ${statusClass}`}>{statusText}</span>
-              </div>
-              <div className="rt-stat-item">
-                <span className="label">
-                  <SpriteIcon
-                    src="/assets/icons/icon_tech.png"
-                    size={14}
-                    style={{ marginRight: 6 }}
-                  />{" "}
-                  Chất lượng đất:
-                </span>
-                <span className="val">
-                  {Math.round(Number(territory?.resourceQuality || 100))}%
-                </span>
-              </div>
-            </div>
-
-            {/* Compact server-authoritative yield ledger */}
-            <div className="rt-section-divider margin-top">
-              <CSSDiamond />
-              <span className="line" />
-              <span className="title">SẢN LƯỢNG LÃNH THỔ</span>
-              <span className="line" />
-              <CSSDiamond />
-            </div>
-
-            {/* Server-authoritative territory yields */}
-            <div className="rt-yield-ledger">
-              {resourceRows.map((row) => (
-                <button
-                  type="button"
-                  key={row.key}
-                  className={`rt-yield-ledger-item ${row.className}${selectedYield === row.key ? " is-open" : ""}`}
-                  onClick={() =>
-                    setSelectedYield((current) =>
-                      current === row.key ? null : row.key,
-                    )
-                  }
-                  aria-expanded={selectedYield === row.key}
-                >
-                  <span className="rt-yield-main">
-                    {row.icon}
-                    <span className="name">{row.label}</span>
-                  </span>
-                  <span className="rate">
-                    +{formatRate(row.hourly)}/giờ{" "}
-                    <em className="share">{row.share}%</em>
-                  </span>
-                  <span className="rt-yield-popover">
-                    <strong>{row.label}</strong>
-                    <span>
-                      <b>Trong giờ</b>
-                      <em>+{formatRate(row.hourly)}</em>
-                    </span>
-                    <span>
-                      <b>Trong ngày</b>
-                      <em>+{formatRate(row.daily)}</em>
-                    </span>
-                    <small>{RESOURCE_META[row.key].purpose}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Special Features / Deposits Section */}
-            {specialResources.length > 0 && (
-              <>
-                <div className="rt-section-divider margin-top">
-                  <CSSDiamond />
-                  <span className="line" />
-                  <span className="title">ĐẶC ĐIỂM CHIẾN LƯỢC</span>
-                  <span className="line" />
-                  <CSSDiamond />
-                </div>
-                <div className="rt-special-list-container">
-                  {specialResources.map((item: string, idx: number) => {
-                    const meta = getSpecialResourceMeta(item);
-                    const cleanedName =
-                      meta?.label || cleanSpecialResourceName(item);
-                    return (
-                      <div
-                        key={idx}
-                        className={`rt-special-list-item${meta ? ` tone-${meta.tone}` : ""}`}
-                        title={meta?.guide || cleanedName}
-                      >
-                        {getSpecialResourceIcon(item)}
-                        <span className="rt-special-copy">
-                          <span className="item-name">{cleanedName}</span>
-                          {meta && <small>{meta.effect}</small>}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </>
-        )}
+            </>
+          )}
         </div>
 
         {/* Action Button Section */}
-        <div className="rt-tooltip-action-section">
-          {renderActionButtons()}
-        </div>
+        <div className="rt-tooltip-action-section">{renderActionButtons()}</div>
       </div>
     </div>
   );

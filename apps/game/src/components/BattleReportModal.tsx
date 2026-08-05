@@ -1,12 +1,8 @@
 import React from "react";
 import { EuroFlourishLeft, EuroFlourishRight } from "./EuroIcons";
 import { ICON_ASSETS } from "./AssetIcon";
-import {
-  iconLionShield,
-  iconDragonShield,
-  iconVsBadge,
-} from "./BattleReportAssets";
 import { BattleTroopComparison } from "./reports/BattleTroopComparison";
+import { ResourceIcon } from "./ResourceDisplay";
 
 export interface BattleReportData {
   _id?: string;
@@ -14,8 +10,10 @@ export interface BattleReportData {
   territoryName?: string;
   attackerId: string;
   attackerName: string;
+  attackerCityName?: string;
   defenderId: string | null;
   defenderName: string;
+  defenderCityName?: string;
   winnerId: string;
   isAttackerWin: boolean;
   attacker: {
@@ -80,6 +78,16 @@ export function BattleReportModal({
 }: BattleReportModalProps) {
   const isAttacker = currentUserId ? report.attackerId === currentUserId : true;
   const isWinner = isAttacker ? report.isAttackerWin : !report.isAttackerWin;
+  const attackerCityName =
+    report.attackerCityName?.trim() || report.attackerName || "Phe tấn công";
+  const defenderCityName =
+    report.defenderCityName?.trim() || report.defenderName || "Phe phòng thủ";
+  const showAttackerPlayerName =
+    Boolean(report.attackerName?.trim()) &&
+    report.attackerName.trim() !== attackerCityName;
+  const showDefenderPlayerName =
+    Boolean(report.defenderName?.trim()) &&
+    report.defenderName.trim() !== defenderCityName;
 
   const loot = report.lootedResources || {};
   const hasLoot =
@@ -135,7 +143,12 @@ export function BattleReportModal({
           onClick={onClose}
           aria-label="Close"
         >
-          ✕
+          <img
+            src="/assets/icons/menu/close.png"
+            width="22"
+            height="22"
+            alt=""
+          />
         </button>
 
         {/* Top Header Title */}
@@ -158,12 +171,25 @@ export function BattleReportModal({
         <div className="br-versus-banner">
           {/* Attacker Side (Blue Theme with Cut Angle) */}
           <div className="br-side-card-cut br-side-card--attacker">
-            <img
-              src={iconLionShield}
-              alt="Attacker Lion Crest"
-              className="br-crest-png"
-            />
+            <span
+              className="br-flag br-flag--attacker"
+              role="img"
+              aria-label="Cờ phe tấn công"
+            >
+              <span className="br-flag__cloth">
+                <img src={ICON_ASSETS.castle} alt="" />
+              </span>
+              <span className="br-flag__pole" />
+              <span className="br-flag__base" />
+            </span>
             <div className="br-side-info">
+              <span className="br-side-name">
+                <img src={ICON_ASSETS.castle} alt="" />
+                {attackerCityName}
+              </span>
+              {showAttackerPlayerName && (
+                <span className="br-side-player">{report.attackerName}</span>
+              )}
               <span className="br-role-tag">PHE TẤN CÔNG</span>
               <span className="br-power-val">
                 {attSurvivorsTotal.toLocaleString()}
@@ -171,6 +197,15 @@ export function BattleReportModal({
               <span
                 className={`br-status-tag ${report.isAttackerWin ? "win" : "lose"}`}
               >
+                <img
+                  src={
+                    report.isAttackerWin
+                      ? "/assets/report/win.png"
+                      : "/assets/report/lose.png"
+                  }
+                  alt=""
+                  className="br-result-icon"
+                />
                 {report.isAttackerWin ? "THẮNG LỢI" : "THẤT THỦ"}
               </span>
             </div>
@@ -178,12 +213,23 @@ export function BattleReportModal({
 
           {/* Center 3D VS Emblem Badge */}
           <div className="br-vs-center">
-            <img src={iconVsBadge} alt="VS Badge" className="br-vs-png" />
+            <img
+              src={ICON_ASSETS.battleVs}
+              alt="VS Badge"
+              className="br-vs-png"
+            />
           </div>
 
           {/* Defender Side (Red Theme with Cut Angle) */}
           <div className="br-side-card-cut br-side-card--defender">
             <div className="br-side-info text-right">
+              <span className="br-side-name">
+                <img src={ICON_ASSETS.castle} alt="" />
+                {defenderCityName}
+              </span>
+              {showDefenderPlayerName && (
+                <span className="br-side-player">{report.defenderName}</span>
+              )}
               <span className="br-role-tag">PHE PHÒNG THỦ</span>
               <span className="br-power-val">
                 {defSurvivorsTotal.toLocaleString()}
@@ -191,14 +237,29 @@ export function BattleReportModal({
               <span
                 className={`br-status-tag ${!report.isAttackerWin ? "win" : "lose"}`}
               >
+                <img
+                  src={
+                    !report.isAttackerWin
+                      ? "/assets/report/win.png"
+                      : "/assets/report/lose.png"
+                  }
+                  alt=""
+                  className="br-result-icon"
+                />
                 {!report.isAttackerWin ? "THẮNG LỢI" : "THẤT THỦ"}
               </span>
             </div>
-            <img
-              src={iconDragonShield}
-              alt="Defender Dragon Crest"
-              className="br-crest-png"
-            />
+            <span
+              className="br-flag br-flag--defender"
+              role="img"
+              aria-label="Cờ phe phòng thủ"
+            >
+              <span className="br-flag__cloth">
+                <img src={ICON_ASSETS.castle} alt="" />
+              </span>
+              <span className="br-flag__pole" />
+              <span className="br-flag__base" />
+            </span>
           </div>
         </div>
 
@@ -208,6 +269,45 @@ export function BattleReportModal({
           defenderInitial={defInitialTotal}
           defenderSurvivors={defSurvivorsTotal}
         />
+
+        {/* Looted Resources Section */}
+        {hasLoot && (
+          <div className="br-loot-section">
+            <div className="br-loot-title">
+              {isWinner ? "CHIẾN LỢI PHẨM" : "TÀI NGUYÊN CHIẾM ĐOẠT"}
+            </div>
+            <div className="br-loot-grid">
+              {(loot.gold || 0) > 0 && (
+                <div className="br-loot-card">
+                  <ResourceIcon resource="gold" className="br-loot-icon" />
+                  <span className="br-loot-label">Vàng</span>
+                  <strong>+{(loot.gold || 0).toLocaleString("vi-VN")}</strong>
+                </div>
+              )}
+              {(loot.wood || 0) > 0 && (
+                <div className="br-loot-card">
+                  <ResourceIcon resource="wood" className="br-loot-icon" />
+                  <span className="br-loot-label">Gỗ</span>
+                  <strong>+{(loot.wood || 0).toLocaleString("vi-VN")}</strong>
+                </div>
+              )}
+              {(loot.stone || 0) > 0 && (
+                <div className="br-loot-card">
+                  <ResourceIcon resource="stone" className="br-loot-icon" />
+                  <span className="br-loot-label">Đá</span>
+                  <strong>+{(loot.stone || 0).toLocaleString("vi-VN")}</strong>
+                </div>
+              )}
+              {(loot.gems || 0) > 0 && (
+                <div className="br-loot-card">
+                  <ResourceIcon resource="gems" className="br-loot-icon" />
+                  <span className="br-loot-label">Ngọc</span>
+                  <strong>+{(loot.gems || 0).toLocaleString("vi-VN")}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Section Divider Title */}
         <div className="br-table-section-title">
@@ -226,12 +326,8 @@ export function BattleReportModal({
             <thead>
               <tr>
                 <th className="th-type">LOẠI BINH CHỦNG</th>
-                <th className="th-side">
-                  PHE TẤN CÔNG ({report.attackerName || "Tấn Công"})
-                </th>
-                <th className="th-side">
-                  PHE PHÒNG THỦ ({report.defenderName || "Phòng Thủ"})
-                </th>
+                <th className="th-side">PHE TẤN CÔNG ({attackerCityName})</th>
+                <th className="th-side">PHE PHÒNG THỦ ({defenderCityName})</th>
               </tr>
             </thead>
             <tbody>
@@ -493,43 +589,6 @@ export function BattleReportModal({
             </tbody>
           </table>
         </div>
-
-        {/* Looted Resources Section */}
-        {hasLoot && (
-          <div className="br-loot-section">
-            <div className="br-loot-title">
-              {isWinner
-                ? "CHIẾN LỢI PHẨM CƯỚP ĐƯỢC"
-                : "TÀI NGUYÊN BỊ TẤN CÔNG CHIẾM ĐOẠT"}
-            </div>
-            <div className="br-loot-grid">
-              {(loot.gold || 0) > 0 && (
-                <div className="br-loot-card">
-                  <span>🪙 Vàng</span>
-                  <strong>+{(loot.gold || 0).toLocaleString()}</strong>
-                </div>
-              )}
-              {(loot.wood || 0) > 0 && (
-                <div className="br-loot-card">
-                  <span>🪵 Gỗ sồi</span>
-                  <strong>+{(loot.wood || 0).toLocaleString()}</strong>
-                </div>
-              )}
-              {(loot.stone || 0) > 0 && (
-                <div className="br-loot-card">
-                  <span>🪨 Đá tảng</span>
-                  <strong>+{(loot.stone || 0).toLocaleString()}</strong>
-                </div>
-              )}
-              {(loot.gems || 0) > 0 && (
-                <div className="br-loot-card">
-                  <span>💎 Ngọc đỏ</span>
-                  <strong>+{(loot.gems || 0).toLocaleString()}</strong>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Footer Action Button */}
         <div className="br-footer-action">
