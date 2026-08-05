@@ -39,6 +39,8 @@ export type PlayerDocument = {
     ownedAvatars?: string[];
     ownedAvatarFrames?: string[];
     equippedAvatarFrameId?: string | null;
+    ownedNameFrames?: string[];
+    equippedNameFrameId?: string | null;
     version: number;
   };
   role: "player" | "admin";
@@ -244,6 +246,7 @@ export type ShopPurchaseDocument = {
   grantedSkinId?: string;
   grantedAvatarId?: string;
   grantedAvatarFrameId?: string;
+  grantedNameFrameId?: string;
   createdAt: Date;
 };
 

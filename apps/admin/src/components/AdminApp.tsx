@@ -96,6 +96,15 @@ export function AdminApp() {
     shopSkinPhongLongCacPrice: 1800,
     shopSkinBangVuongPrice: 2200,
     shopSkinHacNguyetPrice: 2500,
+    shopAvatarDragonEmpressPrice: 980,
+    shopAvatarStormWarlordPrice: 1080,
+    shopAvatarMoonOraclePrice: 1180,
+    shopAvatarFrameDragonfirePrice: 1350,
+    shopAvatarFrameStormcrownPrice: 1550,
+    shopAvatarFrameVoidmoonPrice: 1750,
+    shopNameFrameImperialPrice: 1250,
+    shopNameFrameTempestPrice: 1450,
+    shopNameFrameAstralPrice: 1650,
     powerConnectedTerritory: 100,
     powerIsolatedTerritory: 25,
     powerNaturalHarborBonus: 30,
@@ -195,6 +204,15 @@ export function AdminApp() {
       shopSkinPhongLongCacPrice: Number(form.get("shopSkinPhongLongCacPrice")),
       shopSkinBangVuongPrice: Number(form.get("shopSkinBangVuongPrice")),
       shopSkinHacNguyetPrice: Number(form.get("shopSkinHacNguyetPrice")),
+      shopAvatarDragonEmpressPrice: Number(form.get("shopAvatarDragonEmpressPrice")),
+      shopAvatarStormWarlordPrice: Number(form.get("shopAvatarStormWarlordPrice")),
+      shopAvatarMoonOraclePrice: Number(form.get("shopAvatarMoonOraclePrice")),
+      shopAvatarFrameDragonfirePrice: Number(form.get("shopAvatarFrameDragonfirePrice")),
+      shopAvatarFrameStormcrownPrice: Number(form.get("shopAvatarFrameStormcrownPrice")),
+      shopAvatarFrameVoidmoonPrice: Number(form.get("shopAvatarFrameVoidmoonPrice")),
+      shopNameFrameImperialPrice: Number(form.get("shopNameFrameImperialPrice")),
+      shopNameFrameTempestPrice: Number(form.get("shopNameFrameTempestPrice")),
+      shopNameFrameAstralPrice: Number(form.get("shopNameFrameAstralPrice")),
       powerConnectedTerritory: Number(form.get("powerConnectedTerritory")),
       powerIsolatedTerritory: Number(form.get("powerIsolatedTerritory")),
       powerNaturalHarborBonus: Number(form.get("powerNaturalHarborBonus")),
@@ -917,6 +935,26 @@ export function AdminApp() {
                     Giá Hắc Nguyệt Thành (Gems)
                     <input type="number" name="shopSkinHacNguyetPrice" defaultValue={configData.shopSkinHacNguyetPrice} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
+                </div>
+
+                <h3 style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 6, margin: "12px 0 0 0" }}>GIÁ NGOẠI TRANG HỒ SƠ PREMIUM</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                  {[
+                    ["shopAvatarDragonEmpressPrice", "Avatar Long Hậu"],
+                    ["shopAvatarStormWarlordPrice", "Avatar Lôi Sư"],
+                    ["shopAvatarMoonOraclePrice", "Avatar Nguyệt Thần"],
+                    ["shopAvatarFrameDragonfirePrice", "Viền Long Diệm"],
+                    ["shopAvatarFrameStormcrownPrice", "Viền Lôi Miện"],
+                    ["shopAvatarFrameVoidmoonPrice", "Viền Nguyệt Thực"],
+                    ["shopNameFrameImperialPrice", "Khung tên Đế Vương"],
+                    ["shopNameFrameTempestPrice", "Khung tên Bão Tố"],
+                    ["shopNameFrameAstralPrice", "Khung tên Tinh Nguyệt"],
+                  ].map(([name, label]) => (
+                    <label key={name} style={{ display: "grid", gap: 6 }}>
+                      {label} (Gems)
+                      <input type="number" name={name} defaultValue={configData[name]} min={1} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                    </label>
+                  ))}
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>

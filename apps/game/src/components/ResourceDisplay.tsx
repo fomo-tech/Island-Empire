@@ -160,6 +160,18 @@ export function ResourceHudItem({
         </dl>
         {!isPremium && <p className={full ? "danger" : nearFull ? "warning" : ""}>{connected ? fullEstimate : "Đang chờ đồng bộ server"}</p>}
         {isPremium && <p>{connected ? "Chỉ có ở Mỏ Ngọc hiếm hoặc cửa hàng" : "Đang chờ đồng bộ server"}</p>}
+        {onAdd && (
+          <button
+            type="button"
+            className="hud-resource-tooltip-action"
+            onClick={() => {
+              setTooltipOpen(false);
+              onAdd();
+            }}
+          >
+            <span>+</span> Mở cửa hàng {meta.shortLabel.toLowerCase()}
+          </button>
+        )}
       </div>
     </div>
   );

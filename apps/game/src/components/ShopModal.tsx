@@ -10,6 +10,7 @@ import {
 import type {
   NewbieSkinTrialState,
   ResourceBag,
+  ResourceKey,
   ShopGemPack,
   ShopInventory,
   ShopProduct,
@@ -41,9 +42,9 @@ const SKIN_PRESENTATION: Record<
 };
 
 const PROFILE_AVATAR_ASSETS: Record<string, string> = {
-  queen: "/assets/avatars/queen.png",
-  warlord: "/assets/avatars/warlord.png",
-  pirate: "/assets/avatars/pirate.png",
+  "dragon-empress": "/assets/avatars/dragon-empress.png",
+  "storm-warlord": "/assets/avatars/storm-warlord.png",
+  "moon-oracle": "/assets/avatars/moon-oracle.png",
 };
 
 const PROFILE_FRAME_ASSETS: Record<string, string> = {
@@ -51,6 +52,15 @@ const PROFILE_FRAME_ASSETS: Record<string, string> = {
   gold: "/assets/leaderboard/leaderboard_frame_gold.png",
   silver: "/assets/leaderboard/leaderboard_frame_silver.png",
   bronze: "/assets/leaderboard/leaderboard_frame_bronze.png",
+  dragonfire: "/assets/cosmetics/frames/dragonfire.png",
+  stormcrown: "/assets/cosmetics/frames/stormcrown.png",
+  voidmoon: "/assets/cosmetics/frames/voidmoon.png",
+};
+
+const PROFILE_NAME_FRAME_ASSETS: Record<string, string> = {
+  imperial: "/assets/cosmetics/nameplates/imperial.png",
+  tempest: "/assets/cosmetics/nameplates/tempest.png",
+  astral: "/assets/cosmetics/nameplates/astral.png",
 };
 
 function KingdomSkinAsset({
@@ -759,6 +769,7 @@ interface ShopModalProps {
   catalog: ShopProduct[];
   gemPacks: ShopGemPack[];
   gemPackPaymentConfigured: boolean;
+  initialResource?: ResourceKey | null;
   inventory: ShopInventory;
   purchasedProductIds: string[];
   onResources: (resources: ResourceBag) => void;
@@ -828,6 +839,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   catalog,
   gemPacks,
   gemPackPaymentConfigured,
+  initialResource,
   inventory,
   purchasedProductIds,
   onResources,
@@ -854,6 +866,14 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     const randomIndex = Math.floor(Math.random() * MERCHANT_QUOTES.length);
     setQuote(MERCHANT_QUOTES[randomIndex]);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (initialResource === "gems") {
+      setActiveTab("gems");
+    } else if (initialResource) {
+      setActiveTab("resources");
+    }
+  }, [initialResource]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1059,7 +1079,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     (
       product,
     ): product is ShopProduct & {
-      profileCosmeticKind: "avatar" | "avatar_frame";
+      profileCosmeticKind: "avatar" | "avatar_frame" | "name_frame";
     } =>
       product.type === "profile_cosmetic" &&
       Boolean(product.profileCosmeticKind),
@@ -1072,6 +1092,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     activeTab === "offers" && liveOfferResourcePacks.length > 0
       ? liveOfferResourcePacks
       : resourcePacks;
+  const focusedResourcePackId =
+    initialResource && initialResource !== "gems"
+      ? `pack_${initialResource}`
+      : null;
+  const orderedVisibleResourcePacks = focusedResourcePackId
+    ? [...visibleResourcePacks].sort((left, right) => {
+        if (left.id === focusedResourcePackId) return -1;
+        if (right.id === focusedResourcePackId) return 1;
+        return 0;
+      })
+    : visibleResourcePacks;
   const showingSkinCatalog = activeTab === "skins";
   const showingProfileCatalog = activeTab === "profile";
   const showingGemCatalog = activeTab === "gems";
@@ -1121,6 +1152,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       width="95vw"
       maxWidth="1180px"
       className="shop-modal-v2"
+      fitViewport={false}
     >
       <div className="euro-shop-modal-body euro-shop-split-layout medieval-wood-panel shop-modal-v2__body">
         {/* Left Side: Merchant Character Panel (Hidden on mobile) */}
@@ -1306,17 +1338,25 @@ export const ShopModal: React.FC<ShopModalProps> = ({
             ) : showingProfileCatalog ? (
               <div className="profile-shop-grid">
                 {profilePacks.map((profile) => {
-                  const isAvatar = profile.profileCosmeticKind === "avatar";
+                  const kind = profile.profileCosmeticKind;
+                  const isAvatar = kind === "avatar";
+                  const isNameFrame = kind === "name_frame";
                   const cosmeticId = isAvatar
                     ? profile.avatarId
-                    : profile.avatarFrameId;
+                    : isNameFrame
+                      ? profile.nameFrameId
+                      : profile.avatarFrameId;
                   if (!cosmeticId) return null;
                   const isOwned = isAvatar
                     ? inventory.ownedAvatars.includes(cosmeticId)
-                    : inventory.ownedAvatarFrames.includes(cosmeticId);
+                    : isNameFrame
+                      ? inventory.ownedNameFrames.includes(cosmeticId)
+                      : inventory.ownedAvatarFrames.includes(cosmeticId);
                   const isEquipped = isAvatar
                     ? currentAvatarId === cosmeticId
-                    : inventory.equippedAvatarFrameId === cosmeticId;
+                    : isNameFrame
+                      ? inventory.equippedNameFrameId === cosmeticId
+                      : inventory.equippedAvatarFrameId === cosmeticId;
 
                   return (
                     <article
@@ -1324,10 +1364,14 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       key={profile.id}
                     >
                       <span className="profile-shop-badge">
-                        {isAvatar ? "AVATAR" : "KHUNG BẢNG TÊN"}
+                        {isAvatar
+                          ? "AVATAR PREMIUM"
+                          : isNameFrame
+                            ? "KHUNG TÊN PREMIUM"
+                            : "KHUNG AVATAR PREMIUM"}
                       </span>
                       <div
-                        className={`profile-shop-preview ${isAvatar ? "is-avatar" : "is-frame"}`}
+                        className={`profile-shop-preview ${isAvatar ? "is-avatar" : isNameFrame ? "is-name-frame" : "is-frame"} premium-${cosmeticId}`}
                       >
                         {isAvatar ? (
                           <img
@@ -1337,6 +1381,12 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                             }
                             alt={profile.name}
                           />
+                        ) : isNameFrame ? (
+                          <div className="premium-nameplate">
+                            <img src={PROFILE_NAME_FRAME_ASSETS[cosmeticId]} alt={profile.name} />
+                            <span>LÃNH CHÚA</span>
+                            <strong>HEX RIVALS</strong>
+                          </div>
                         ) : (
                           <>
                             <img
@@ -1344,14 +1394,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                               alt=""
                               className="profile-shop-preview-avatar"
                             />
-                            <img
-                              src={
-                                PROFILE_FRAME_ASSETS[cosmeticId] ||
-                                PROFILE_FRAME_ASSETS.vip
-                              }
-                              alt={profile.name}
-                              className="profile-shop-preview-frame"
-                            />
+                            <img src={PROFILE_FRAME_ASSETS[cosmeticId]} alt={profile.name} className="profile-shop-preview-frame" />
                           </>
                         )}
                       </div>
@@ -1386,8 +1429,9 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               </div>
             ) : !showingSkinCatalog ? (
               <div className="euro-cards-grid">
-                {visibleResourcePacks.map((pack, packIndex) => {
+                {orderedVisibleResourcePacks.map((pack, packIndex) => {
                   const isStarter = packIndex % 2 === 0;
+                  const isFocused = pack.id === focusedResourcePackId;
                   const isBought = Boolean(
                     pack.isNewbiePrice && purchasedProductIds.includes(pack.id),
                   );
@@ -1397,7 +1441,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
                   return (
                     <div
-                      className={`rk-card ${isStarter ? "rk-card--blue" : "rk-card--gold"} ${isBought ? "rk-card--sold" : ""}`}
+                      className={`rk-card ${isStarter ? "rk-card--blue" : "rk-card--gold"} ${isBought ? "rk-card--sold" : ""} ${isFocused ? "rk-card--focused" : ""}`}
                       key={pack.id}
                     >
                       {/* Corner ribbon badge */}

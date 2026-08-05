@@ -59,6 +59,15 @@ export type GameConfig = {
   shopSkinPhongLongCacPrice: number;
   shopSkinBangVuongPrice: number;
   shopSkinHacNguyetPrice: number;
+  shopAvatarDragonEmpressPrice: number;
+  shopAvatarStormWarlordPrice: number;
+  shopAvatarMoonOraclePrice: number;
+  shopAvatarFrameDragonfirePrice: number;
+  shopAvatarFrameStormcrownPrice: number;
+  shopAvatarFrameVoidmoonPrice: number;
+  shopNameFrameImperialPrice: number;
+  shopNameFrameTempestPrice: number;
+  shopNameFrameAstralPrice: number;
   powerConnectedTerritory: number;
   powerIsolatedTerritory: number;
   powerNaturalHarborBonus: number;
@@ -272,9 +281,10 @@ export type ShopProduct = {
   resources?: Partial<ResourceBag>;
   skinId?: string;
   skinTarget?: "capital" | "military_district";
-  profileCosmeticKind?: "avatar" | "avatar_frame";
+  profileCosmeticKind?: "avatar" | "avatar_frame" | "name_frame";
   avatarId?: string;
   avatarFrameId?: string;
+  nameFrameId?: string;
   isNewbiePrice?: boolean; // true nếu giá tân thủ đặc biệt
   newbiePriceExpiresAt?: string; // ISO timestamp hết hạn giá tân thủ
   isNewbieFree?: boolean; // skin thử miễn phí trong tuần đầu
@@ -298,6 +308,8 @@ export type ShopInventory = {
   ownedAvatars: string[];
   ownedAvatarFrames: string[];
   equippedAvatarFrameId: string | null;
+  ownedNameFrames: string[];
+  equippedNameFrameId: string | null;
   version: number;
   newbieSkinExpiresAt?: string | null; // skin tân thủ hết hạn lúc nào
   newbieSkinId?: string | null;
@@ -330,6 +342,7 @@ export type ShopPurchase = {
   grantedSkinId?: string;
   grantedAvatarId?: string;
   grantedAvatarFrameId?: string;
+  grantedNameFrameId?: string;
   createdAt: string;
 };
 
@@ -614,6 +627,8 @@ export type UserChatMessage = {
   userId: string;
   userName: string;
   avatarId?: string;
+  avatarFrameId?: string;
+  nameFrameId?: string;
   vipLevel?: number;
   text: string;
   sentAt: string;

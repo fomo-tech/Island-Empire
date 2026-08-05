@@ -68,6 +68,7 @@ import type {
   PlayerMail,
   PlayerSyncResult,
   ResourceBag,
+  ResourceKey,
   ChatMessage,
   ShopGemPack,
 } from "@island/shared";
@@ -1720,6 +1721,8 @@ export function GameApp({
     MarchSourceOption[] | null
   >(null);
   const [activeModal, setActiveModal] = useState<string>("none");
+  const [shopResourceFocus, setShopResourceFocus] =
+    useState<ResourceKey | null>(null);
   useEffect(() => {
     if (activeModal !== "shop" || !token) return;
     let cancelled = false;
@@ -3280,6 +3283,19 @@ export function GameApp({
     setActiveModal(modalId);
   }, []);
 
+  const openShop = useCallback(() => {
+    setShopResourceFocus(null);
+    openModal("shop");
+  }, [openModal]);
+
+  const openResourceShop = useCallback(
+    (resource: ResourceKey) => {
+      setShopResourceFocus(resource);
+      openModal("shop");
+    },
+    [openModal],
+  );
+
   const closeModal = useCallback(() => {
     engineRef.current?.handleAction("setUiOverlayActive", { active: false });
     setActiveModal("none");
@@ -4296,6 +4312,7 @@ export function GameApp({
             <ProfileHud
               avatarId={selectedAvatarId}
               avatarFrameId={shopInventory.equippedAvatarFrameId}
+              nameFrameId={shopInventory.equippedNameFrameId}
               playerName={nationStatus?.playerName || "Rising Empire"}
               rank={nationStatus?.rank || "Lãnh Chúa"}
               power={hudPower}
@@ -4310,7 +4327,7 @@ export function GameApp({
               capacityFor={resourceCapacity}
               rateFor={resourceRatePerHour}
               connected={Boolean(serverHud.lastSync || nationStatus)}
-              onOpenGemShop={() => openModal("shop")}
+              onOpenResourceShop={openResourceShop}
             />
           </div>
 
@@ -4511,7 +4528,7 @@ export function GameApp({
               <button
                 type="button"
                 className={`hud-command-button mobile-secondary-action ${activeModal === "shop" ? "active" : ""}`}
-                onClick={() => openModal("shop")}
+                onClick={openShop}
               >
                 <img src="/assets/icons/menu/store.png" alt="" />
                 <span>Cửa hàng</span>
@@ -4536,6 +4553,8 @@ export function GameApp({
                 messages={chatMessages}
                 currentUserId={playerId ?? undefined}
                 currentAvatarId={selectedAvatarId}
+                currentAvatarFrameId={shopInventory.equippedAvatarFrameId}
+                currentNameFrameId={shopInventory.equippedNameFrameId}
                 currentVipLevel={vipLevel}
                 online={socketOnline}
                 mobileActionsExpanded={mobileActionsExpanded}
@@ -4655,7 +4674,7 @@ export function GameApp({
             {/* 5. Cửa hàng (Shop / Offers) */}
             <div
               className="rok-badge-item rok-badge-item-shop"
-              onClick={() => openModal("shop")}
+              onClick={openShop}
               title="Cửa hàng & Gói ưu đãi"
             >
               <div className="rok-badge-icon-wrap rok-badge-shop">
@@ -5308,6 +5327,7 @@ export function GameApp({
           catalog={shopCatalog}
           gemPacks={shopGemPacks}
           gemPackPaymentConfigured={gemPackPaymentConfigured}
+          initialResource={shopResourceFocus}
           inventory={shopInventory}
           purchasedProductIds={purchasedProductIds}
           onResources={(next) => {

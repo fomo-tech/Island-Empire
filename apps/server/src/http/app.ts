@@ -12,7 +12,7 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import { generateWorldTerritories } from "@island/shared";
-import type { ShopGemPack, ShopProduct } from "@island/shared";
+import type { ResourceKey, ShopGemPack, ShopProduct } from "@island/shared";
 import { collections } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
 import { requireAdmin, requireAuth, signToken } from "../security/auth.js";
@@ -2765,6 +2765,15 @@ const DEFAULT_CONFIG = {
   shopSkinPhongLongCacPrice: 1800,
   shopSkinBangVuongPrice: 2200,
   shopSkinHacNguyetPrice: 2500,
+  shopAvatarDragonEmpressPrice: 980,
+  shopAvatarStormWarlordPrice: 1080,
+  shopAvatarMoonOraclePrice: 1180,
+  shopAvatarFrameDragonfirePrice: 1350,
+  shopAvatarFrameStormcrownPrice: 1550,
+  shopAvatarFrameVoidmoonPrice: 1750,
+  shopNameFrameImperialPrice: 1250,
+  shopNameFrameTempestPrice: 1450,
+  shopNameFrameAstralPrice: 1650,
   powerConnectedTerritory: 100,
   powerIsolatedTerritory: 25,
   powerNaturalHarborBonus: 30,
@@ -2799,7 +2808,45 @@ const NEWBIE_RESOURCE_PRICE_GEMS = 1; // giá tân thủ tuần đầu
 const NEWBIE_WELCOME_GEMS = 100;
 const RESOURCE_PACK_DAILY_LIMIT = 3;
 const RESOURCE_PACK_WEEKLY_LIMIT = 6;
-const RESOURCE_PACK_IDS = ["pack_basic_all", "pack_royal_all"];
+const RESOURCE_PACK_IDS = [
+  "pack_basic_all",
+  "pack_royal_all",
+  "pack_food",
+  "pack_wood",
+  "pack_stone",
+  "pack_gold",
+];
+const SINGLE_RESOURCE_PACKS: Array<{
+  resource: Exclude<ResourceKey, "gems">;
+  id: string;
+  name: string;
+  description: string;
+}> = [
+  {
+    resource: "food",
+    id: "pack_food",
+    name: "Túi Lương Thực",
+    description: "Bổ sung riêng lương thực vào kho quốc gia.",
+  },
+  {
+    resource: "wood",
+    id: "pack_wood",
+    name: "Túi Gỗ",
+    description: "Bổ sung riêng gỗ vào kho quốc gia.",
+  },
+  {
+    resource: "stone",
+    id: "pack_stone",
+    name: "Túi Đá",
+    description: "Bổ sung riêng đá vào kho quốc gia.",
+  },
+  {
+    resource: "gold",
+    id: "pack_gold",
+    name: "Túi Vàng",
+    description: "Bổ sung riêng vàng vào kho quốc gia.",
+  },
+];
 const GEM_PACKS: ShopGemPack[] = [
   {
     id: "gem_small",
@@ -2923,6 +2970,20 @@ function shopCatalog(
       },
       ...(newbieWeek && { isNewbiePrice: true, newbiePriceExpiresAt }),
     },
+    ...SINGLE_RESOURCE_PACKS.map((pack) => ({
+      id: pack.id,
+      type: "resource_pack" as const,
+      name: pack.name,
+      description: pack.description,
+      priceGems: Math.max(
+        1,
+        Math.floor(Number(gameConfig.shopResourcePackPriceGems || 1) / 4),
+      ),
+      testPrice: false,
+      resources: {
+        [pack.resource]: packAmount,
+      },
+    })),
     {
       id: "skin_long_bao_thanh",
       type: "skin",
@@ -2993,66 +3054,48 @@ function shopCatalog(
         newbieFreeExpiresAt: newbiePriceExpiresAt,
       }),
     },
-    {
-      id: "profile_avatar_queen",
-      type: "profile_cosmetic",
-      name: "Nữ Hoàng",
-      description: "Đại diện hoàng gia cho hồ sơ và bảng tên lãnh chúa.",
-      priceGems: 60,
+    ...[
+      ["dragon_empress", "Long Hậu Thiên Mệnh", "Chân dung Long Hậu độc quyền, ánh kim đỏ hoàng gia.", gameConfig.shopAvatarDragonEmpressPrice],
+      ["storm_warlord", "Lôi Sư Chiến Vương", "Chiến vương sư tử giữa lôi quang bạch kim.", gameConfig.shopAvatarStormWarlordPrice],
+      ["moon_oracle", "Nguyệt Thần Tiên Tri", "Tiên tri thạch anh tím dưới ánh trăng huyền bí.", gameConfig.shopAvatarMoonOraclePrice],
+    ].map(([id, name, description, priceGems]) => ({
+      id: `profile_avatar_${id}`,
+      type: "profile_cosmetic" as const,
+      name: String(name),
+      description: String(description),
+      priceGems: Number(priceGems),
       testPrice: false,
-      profileCosmeticKind: "avatar",
-      avatarId: "queen",
-    },
-    {
-      id: "profile_avatar_warlord",
-      type: "profile_cosmetic",
-      name: "Chiến Tướng",
-      description: "Chân dung chiến tướng dành cho hồ sơ và bảng tên.",
-      priceGems: 75,
+      profileCosmeticKind: "avatar" as const,
+      avatarId: String(id).replaceAll("_", "-"),
+    })),
+    ...[
+      ["dragonfire", "Long Diệm Chí Tôn", "Khung avatar rồng vàng với lõi hỏa ngọc chuyển động.", gameConfig.shopAvatarFrameDragonfirePrice],
+      ["stormcrown", "Lôi Miện Bạch Kim", "Khung avatar bạch kim được bao quanh bởi lôi quang.", gameConfig.shopAvatarFrameStormcrownPrice],
+      ["voidmoon", "Nguyệt Thực Hư Không", "Khung avatar hắc tím hiếm với hào quang nguyệt thực.", gameConfig.shopAvatarFrameVoidmoonPrice],
+    ].map(([id, name, description, priceGems]) => ({
+      id: `profile_frame_${id}`,
+      type: "profile_cosmetic" as const,
+      name: String(name),
+      description: String(description),
+      priceGems: Number(priceGems),
       testPrice: false,
-      profileCosmeticKind: "avatar",
-      avatarId: "warlord",
-    },
-    {
-      id: "profile_avatar_pirate",
-      type: "profile_cosmetic",
-      name: "Hải Tặc",
-      description: "Đại diện hải tặc nổi bật cho hồ sơ cá nhân.",
-      priceGems: 90,
+      profileCosmeticKind: "avatar_frame" as const,
+      avatarFrameId: String(id),
+    })),
+    ...[
+      ["imperial", "Đế Vương Kim Ấn", "Khung tên vàng đen chạm rồng dành cho bậc quân vương.", gameConfig.shopNameFrameImperialPrice],
+      ["tempest", "Vương Miện Bão Tố", "Khung tên lam bạc với tia sét chạy dọc viền.", gameConfig.shopNameFrameTempestPrice],
+      ["astral", "Tinh Nguyệt Vĩnh Hằng", "Khung tên tím thiên hà với bụi sao phát sáng.", gameConfig.shopNameFrameAstralPrice],
+    ].map(([id, name, description, priceGems]) => ({
+      id: `profile_name_frame_${id}`,
+      type: "profile_cosmetic" as const,
+      name: String(name),
+      description: String(description),
+      priceGems: Number(priceGems),
       testPrice: false,
-      profileCosmeticKind: "avatar",
-      avatarId: "pirate",
-    },
-    {
-      id: "profile_frame_gold",
-      type: "profile_cosmetic",
-      name: "Viền Vàng",
-      description: "Viền vàng hiển thị quanh avatar và bảng tên.",
-      priceGems: 120,
-      testPrice: false,
-      profileCosmeticKind: "avatar_frame",
-      avatarFrameId: "gold",
-    },
-    {
-      id: "profile_frame_silver",
-      type: "profile_cosmetic",
-      name: "Viền Bạc",
-      description: "Viền bạc thanh lịch cho avatar và bảng tên.",
-      priceGems: 80,
-      testPrice: false,
-      profileCosmeticKind: "avatar_frame",
-      avatarFrameId: "silver",
-    },
-    {
-      id: "profile_frame_bronze",
-      type: "profile_cosmetic",
-      name: "Viền Đồng",
-      description: "Viền đồng cổ điển cho avatar và bảng tên.",
-      priceGems: 45,
-      testPrice: false,
-      profileCosmeticKind: "avatar_frame",
-      avatarFrameId: "bronze",
-    },
+      profileCosmeticKind: "name_frame" as const,
+      nameFrameId: String(id),
+    })),
   ];
 }
 function normalizeShopInventory(
@@ -3100,24 +3143,39 @@ function normalizeShopInventory(
   const ownedAvatars = [
     ...new Set(
       Array.isArray(value?.ownedAvatars)
-        ? value.ownedAvatars.filter(Boolean)
+        ? value.ownedAvatars.filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          )
         : [],
     ),
   ];
   const ownedAvatarFrames = [
     ...new Set(
       Array.isArray(value?.ownedAvatarFrames)
-        ? value.ownedAvatarFrames.filter(Boolean)
+        ? value.ownedAvatarFrames.filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          )
         : ["vip"],
+    ),
+  ];
+  const ownedNameFrames = [
+    ...new Set(
+      Array.isArray(value?.ownedNameFrames)
+        ? value.ownedNameFrames.filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          )
+        : [],
     ),
   ];
   return {
     ownedSkins,
     equippedCapitalSkin,
     equippedDistrictSkin,
-    ownedAvatars,
-    ownedAvatarFrames,
+    ownedAvatars: ownedAvatars as string[],
+    ownedAvatarFrames: ownedAvatarFrames as string[],
     equippedAvatarFrameId: value?.equippedAvatarFrameId || "vip",
+    ownedNameFrames: ownedNameFrames as string[],
+    equippedNameFrameId: value?.equippedNameFrameId || null,
     version: Math.max(0, Math.floor(Number(value?.version) || 0)),
     newbieSkinExpiresAt: temporarySkinActive ? expiresAt!.toISOString() : null,
     newbieSkinId: temporarySkinActive ? temporarySkinId : null,
@@ -5771,10 +5829,25 @@ export function createApp() {
     res.json(realtimeStats());
   });
   app.get("/api/chat/history", requireAuth, async (_req, res) => {
-    const { chatMessages } = await collections();
+    const { chatMessages, players } = await collections();
     const docs = await chatMessages
       .find({}, { sort: { sentAt: -1 }, limit: 50 })
       .toArray();
+    const playerIds = [...new Set(docs.map((message) => message.userId).filter(Boolean))];
+    const chatPlayers = playerIds.length
+      ? await players
+          .find(
+            { _id: { $in: playerIds } },
+            { projection: { shopInventory: 1 } },
+          )
+          .toArray()
+      : [];
+    const inventoryByPlayer = new Map(
+      chatPlayers.map((player) => [
+        player._id,
+        normalizeShopInventory(player.shopInventory, player),
+      ]),
+    );
     res.json({
       messages: docs.reverse().map((message) => ({
         id: message._id,
@@ -5782,6 +5855,14 @@ export function createApp() {
         userId: message.userId,
         userName: message.userName,
         avatarId: message.avatarId || "emperor",
+        avatarFrameId:
+          inventoryByPlayer.get(message.userId)?.equippedAvatarFrameId ||
+          message.avatarFrameId ||
+          "vip",
+        nameFrameId:
+          inventoryByPlayer.get(message.userId)?.equippedNameFrameId ||
+          message.nameFrameId ||
+          undefined,
         vipLevel: Math.max(0, Math.floor(Number(message.vipLevel) || 0)),
         text: message.text,
         sentAt: message.sentAt.toISOString(),
@@ -6858,6 +6939,7 @@ export function createApp() {
         grantedSkinId: purchase.grantedSkinId,
         grantedAvatarId: purchase.grantedAvatarId,
         grantedAvatarFrameId: purchase.grantedAvatarFrameId,
+        grantedNameFrameId: purchase.grantedNameFrameId,
         createdAt: purchase.createdAt.toISOString(),
       })),
     });
@@ -6927,6 +7009,7 @@ export function createApp() {
             grantedSkinId: existing.grantedSkinId,
             grantedAvatarId: existing.grantedAvatarId,
             grantedAvatarFrameId: existing.grantedAvatarFrameId,
+            grantedNameFrameId: existing.grantedNameFrameId,
             createdAt: existing.createdAt.toISOString(),
           },
           inventory: repairedInventory,
@@ -6957,6 +7040,11 @@ export function createApp() {
         product.type === "profile_cosmetic" &&
         product.profileCosmeticKind === "avatar_frame"
           ? product.avatarFrameId
+          : undefined;
+      const productNameFrameId =
+        product.type === "profile_cosmetic" &&
+        product.profileCosmeticKind === "name_frame"
+          ? product.nameFrameId
           : undefined;
       const resourceState = await collectPlayerResources(playerId);
       const currentResources = normalizeResources(resourceState.resources);
@@ -7033,7 +7121,9 @@ export function createApp() {
           !convertingActiveTrial) ||
         (productAvatarId && inventory.ownedAvatars.includes(productAvatarId)) ||
         (productAvatarFrameId &&
-          inventory.ownedAvatarFrames.includes(productAvatarFrameId))
+          inventory.ownedAvatarFrames.includes(productAvatarFrameId)) ||
+        (productNameFrameId &&
+          inventory.ownedNameFrames.includes(productNameFrameId))
       ) {
         return res.status(409).json({
           error: "already_owned",
@@ -7053,7 +7143,17 @@ export function createApp() {
           ) {
             return res.status(409).json({
               error: "storage_full",
-              message: `Kho ${key} không đủ chỗ, cần trống thêm ${Math.max(0, nextResources[key] + grant - resourceState.resourceCapacity[key])}`,
+              message: `Kho ${
+                key === "food"
+                  ? "lương thực"
+                  : key === "wood"
+                    ? "gỗ"
+                    : key === "stone"
+                      ? "đá"
+                      : key === "gold"
+                        ? "vàng"
+                        : key
+              } không đủ chỗ, cần trống thêm ${Math.max(0, nextResources[key] + grant - resourceState.resourceCapacity[key])}`,
             });
           }
         }
@@ -7095,6 +7195,11 @@ export function createApp() {
             : inventory.ownedAvatarFrames,
           equippedAvatarFrameId:
             productAvatarFrameId || inventory.equippedAvatarFrameId,
+          ownedNameFrames: productNameFrameId
+            ? [...new Set([...inventory.ownedNameFrames, productNameFrameId])]
+            : inventory.ownedNameFrames,
+          equippedNameFrameId:
+            productNameFrameId || inventory.equippedNameFrameId,
           equippedCapitalSkin:
             productSkinId && parsed.data.equipTarget === "capital"
               ? productSkinId
@@ -7128,6 +7233,7 @@ export function createApp() {
         grantedSkinId: productSkinId,
         grantedAvatarId: productAvatarId,
         grantedAvatarFrameId: productAvatarFrameId,
+        grantedNameFrameId: productNameFrameId,
         createdAt,
       };
       await players.updateOne(
@@ -7209,6 +7315,7 @@ export function createApp() {
         grantedSkinId: productSkinId,
         grantedAvatarId: productAvatarId,
         grantedAvatarFrameId: productAvatarFrameId,
+        grantedNameFrameId: productNameFrameId,
         createdAt: createdAt.toISOString(),
       };
       const version = createdAt.getTime();
@@ -8874,6 +8981,15 @@ export function createApp() {
     shopSkinPhongLongCacPrice: z.number().int().positive(),
     shopSkinBangVuongPrice: z.number().int().positive(),
     shopSkinHacNguyetPrice: z.number().int().positive(),
+    shopAvatarDragonEmpressPrice: z.number().int().positive(),
+    shopAvatarStormWarlordPrice: z.number().int().positive(),
+    shopAvatarMoonOraclePrice: z.number().int().positive(),
+    shopAvatarFrameDragonfirePrice: z.number().int().positive(),
+    shopAvatarFrameStormcrownPrice: z.number().int().positive(),
+    shopAvatarFrameVoidmoonPrice: z.number().int().positive(),
+    shopNameFrameImperialPrice: z.number().int().positive(),
+    shopNameFrameTempestPrice: z.number().int().positive(),
+    shopNameFrameAstralPrice: z.number().int().positive(),
     powerConnectedTerritory: z.number().nonnegative(),
     powerIsolatedTerritory: z.number().nonnegative(),
     powerNaturalHarborBonus: z.number().nonnegative(),

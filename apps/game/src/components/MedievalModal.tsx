@@ -9,6 +9,7 @@ interface MedievalModalProps {
   width?: string;
   maxWidth?: string;
   className?: string;
+  fitViewport?: boolean;
 }
 
 export const MedievalModal: React.FC<MedievalModalProps> = ({
@@ -19,11 +20,12 @@ export const MedievalModal: React.FC<MedievalModalProps> = ({
   width,
   maxWidth,
   className,
+  fitViewport = true,
 }) => {
   return (
     <div className="medieval-modal-overlay" onClick={onClose}>
       <div
-        className={`medieval-modal-container${className ? ` ${className}` : ""}`}
+        className={`medieval-modal-container${fitViewport ? " modal-fit-viewport" : ""}${className ? ` ${className}` : ""}`}
         onClick={(e) => e.stopPropagation()}
         style={{ width, maxWidth }}
       >

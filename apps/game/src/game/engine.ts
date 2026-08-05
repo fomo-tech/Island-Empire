@@ -774,11 +774,20 @@ export function createIslandEmpireGame(
     localPlayerVipLevel: 0,
     equippedCapitalSkin: null as string | null,
     equippedDistrictSkin: null as string | null,
+    equippedNameFrameId: null as string | null,
     capitalTerritoryIds: new Set<number>(),
     capitalTownIds: new Set<number>(),
     research: { sword: 0, stirrups: 0, cannon: 0, travel: 0 },
     events: { goldRush: 0, harvestRush: 0 },
   };
+
+  const premiumNameplateImages = Object.fromEntries(
+    ["imperial", "tempest", "astral"].map((id) => {
+      const image = new Image();
+      image.src = `/assets/cosmetics/nameplates/${id}.png`;
+      return [id, image];
+    }),
+  ) as Record<string, HTMLImageElement>;
 
   const organicPathCache = new Map();
   const sharedEdgeCache = new Map<string, Array<[number, number]>>();
@@ -1787,7 +1796,7 @@ export function createIslandEmpireGame(
     color?: string,
     align?: CanvasTextAlign,
   ) {
-    ctx.font = `700 ${size}px 'Outfit', 'Inter', system-ui, sans-serif`;
+    ctx.font = `700 ${size}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.textAlign = align || "left";
     ctx.textBaseline = "top";
     ctx.lineWidth = Math.max(2, Math.floor(size / 5));
@@ -7694,7 +7703,7 @@ export function createIslandEmpireGame(
     const textSz = isUserTown ? 14 : 13;
 
     ctx.save();
-    ctx.font = `bold ${textSz}px 'Outfit', 'Inter', system-ui, sans-serif`;
+    ctx.font = `bold ${textSz}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     const tw = ctx.measureText(nameText).width || 48;
     const padX = 9;
     const labelGround = buildingOverlayGeometry(
@@ -7710,16 +7719,27 @@ export function createIslandEmpireGame(
     const bw = tw + padX * 2;
     const bh = 22;
 
-    ctx.fillStyle = "rgba(10, 20, 23, 0.92)";
-    ctx.beginPath();
-    ctx.roundRect(bx, by, bw, bh, 3);
-    ctx.fill();
-    ctx.strokeStyle = flagColor;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    const premiumNameplate = isUserTown && state.equippedNameFrameId
+      ? premiumNameplateImages[state.equippedNameFrameId]
+      : null;
+    if (premiumNameplate?.complete && premiumNameplate.naturalWidth > 0) {
+      ctx.drawImage(premiumNameplate, bx - 36, by - 18, bw + 72, bh + 36);
+    } else {
+      ctx.fillStyle = "rgba(10, 20, 23, 0.92)";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 3);
+      ctx.fill();
+      ctx.strokeStyle = flagColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = isUserTown ? "#55e6c1" : "#ff7b72";
+    ctx.fillStyle = premiumNameplate ? "#fff4cf" : isUserTown ? "#55e6c1" : "#ff7b72";
+    if (premiumNameplate) {
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 4;
+    }
     ctx.fillText(nameText, labelGround.groundX, by + bh / 2 + 0.5);
     ctx.restore();
 
@@ -8075,7 +8095,7 @@ export function createIslandEmpireGame(
     ctx.fill();
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `700 ${compact ? 6.5 : 7}px 'Outfit', Arial, sans-serif`;
+    ctx.font = `700 ${compact ? 6.5 : 7}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "#f4cf70";
     ctx.fillText(`GIAO TRANH · ${rem}s`, 0, top - 1);
     const leftX = -panelWidth / 2 + 6;
@@ -8097,7 +8117,7 @@ export function createIslandEmpireGame(
       "#438bc2",
       4.5,
     );
-    ctx.font = `700 ${compact ? 5.7 : 6.2}px 'Outfit', Arial, sans-serif`;
+    ctx.font = `700 ${compact ? 5.7 : 6.2}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "#f3b0a4";
     ctx.fillText(
       `CÔNG ${Math.ceil(attackersHp)}`,
@@ -8110,7 +8130,7 @@ export function createIslandEmpireGame(
       rightX + groupWidth / 2,
       top + 17,
     );
-    ctx.font = `600 ${compact ? 5.2 : 5.8}px 'Outfit', Arial, sans-serif`;
+    ctx.font = `600 ${compact ? 5.2 : 5.8}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "rgba(218, 228, 232, .78)";
     ctx.fillText(`${participants.length || 1} đạo quân vây thành`, 0, top + 25);
     ctx.restore();
@@ -8180,7 +8200,7 @@ export function createIslandEmpireGame(
       4,
     );
     ctx.textAlign = "center";
-    ctx.font = `700 ${compact ? 5.4 : 5.9}px 'Outfit', Arial, sans-serif`;
+    ctx.font = `700 ${compact ? 5.4 : 5.9}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "#f0cb71";
     ctx.fillText(`QUÂN ${remainingTroops}`, leftX + groupWidth / 2, top + 15);
     ctx.fillStyle = "#b9dcf7";
@@ -10076,7 +10096,7 @@ export function createIslandEmpireGame(
     ctx.save();
     ctx.translate(x, y - 17 * scale);
     ctx.scale(scale, scale);
-    ctx.font = `700 ${compact ? 5.8 : 6.4}px 'Outfit', Arial, sans-serif`;
+    ctx.font = `700 ${compact ? 5.8 : 6.4}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.textAlign = "center";
     const width = ctx.measureText(label).width + 10;
     ctx.fillStyle = "rgba(8, 16, 22, .84)";
@@ -11168,7 +11188,7 @@ export function createIslandEmpireGame(
     }
 
     ctx.save();
-    ctx.font = "bold 11px 'Outfit', 'Inter', sans-serif";
+    ctx.font = "bold 11px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif";
     ctx.textAlign = "center";
 
     // Crisp text shadow for contrast
@@ -11376,7 +11396,7 @@ export function createIslandEmpireGame(
     const fontSize = isOwn ? 14 : 13;
 
     ctx.save();
-    ctx.font = `700 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
+    ctx.font = `700 ${fontSize}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     const nameWidth = ctx.measureText(name).width;
     const width = Math.max(54, nameWidth + 18);
     const height = 22;
@@ -11415,18 +11435,29 @@ export function createIslandEmpireGame(
           ? "#f5d98f"
           : "#ff7b72";
 
-    ctx.fillStyle = "rgba(10, 20, 23, 0.92)";
-    ctx.beginPath();
-    ctx.roundRect(box.x, box.y, width, height, 3);
-    ctx.fill();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = isOwn || inBattle ? 1.5 : 1;
-    ctx.stroke();
+    const premiumNameplate = isOwn && state.equippedNameFrameId
+      ? premiumNameplateImages[state.equippedNameFrameId]
+      : null;
+    if (premiumNameplate?.complete && premiumNameplate.naturalWidth > 0) {
+      ctx.drawImage(premiumNameplate, box.x - 36, box.y - 18, width + 72, height + 36);
+    } else {
+      ctx.fillStyle = "rgba(10, 20, 23, 0.92)";
+      ctx.beginPath();
+      ctx.roundRect(box.x, box.y, width, height, 3);
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = isOwn || inBattle ? 1.5 : 1;
+      ctx.stroke();
+    }
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `700 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
-    ctx.fillStyle = nameColor;
+    ctx.font = `700 ${fontSize}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
+    ctx.fillStyle = premiumNameplate ? "#fff4cf" : nameColor;
+    if (premiumNameplate) {
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 4;
+    }
     ctx.fillText(name, x, box.y + height / 2 + 0.5);
     ctx.restore();
   }
@@ -15170,6 +15201,8 @@ export function createIslandEmpireGame(
           payload?.inventory?.equippedCapitalSkin || null;
         state.equippedDistrictSkin =
           payload?.inventory?.equippedDistrictSkin || null;
+        state.equippedNameFrameId =
+          payload?.inventory?.equippedNameFrameId || null;
         if (Array.isArray(payload?.capitalTerritoryIds)) {
           state.capitalTerritoryIds = new Set(
             payload.capitalTerritoryIds.map(Number).filter(Number.isFinite),

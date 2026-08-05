@@ -245,7 +245,7 @@ export function attachRealtime(server: Server) {
           const { players, chatMessages } = await collections();
           const player = await players.findOne(
             { _id: client.user.id },
-            { projection: { name: 1, avatarId: 1, vipLevel: 1 } },
+            { projection: { name: 1, avatarId: 1, vipLevel: 1, shopInventory: 1 } },
           );
           const sentAt = new Date();
           const chatMessage = {
@@ -254,6 +254,10 @@ export function attachRealtime(server: Server) {
             userId: client.user.id,
             userName: player?.name || "Người chơi",
             avatarId: player?.avatarId || "emperor",
+            avatarFrameId:
+              player?.shopInventory?.equippedAvatarFrameId || "vip",
+            nameFrameId:
+              player?.shopInventory?.equippedNameFrameId || undefined,
             vipLevel: Math.max(0, Math.floor(Number(player?.vipLevel) || 0)),
             text,
             sentAt: sentAt.toISOString(),
@@ -264,6 +268,8 @@ export function attachRealtime(server: Server) {
             userId: chatMessage.userId,
             userName: chatMessage.userName,
             avatarId: chatMessage.avatarId,
+            avatarFrameId: chatMessage.avatarFrameId,
+            nameFrameId: chatMessage.nameFrameId,
             vipLevel: chatMessage.vipLevel,
             text: chatMessage.text,
             sentAt,

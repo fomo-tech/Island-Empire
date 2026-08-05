@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Cinzel:wght@500;700;800;900&family=Marcellus&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Noto+Serif+JP:wght@400;500;600;700;800;900&family=Noto+Serif+KR:wght@400;500;600;700;800;900&display=swap");
 
 * {
   box-sizing: border-box;
@@ -193,6 +193,34 @@
   line-height: 1.35;
 }
 
+.strategy-chat__message:has(.has-premium-nameplate) {
+  grid-template-columns: 58px minmax(0, 1fr);
+  min-height: 72px;
+  align-items: center;
+}
+
+.strategy-chat__message:has(.has-premium-nameplate) .strategy-chat__avatar {
+  z-index: 4;
+  width: 52px;
+  height: 52px;
+}
+
+.strategy-chat__message:has(.has-premium-nameplate) .strategy-chat__avatar-portrait {
+  position: absolute;
+  inset: 8px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+}
+
+.strategy-chat__message:has(.has-premium-nameplate) .strategy-chat__avatar-frame {
+  inset: -5px;
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 4px #000);
+}
+
 .strategy-chat__message-identity {
   display: flex;
   justify-content: center;
@@ -289,6 +317,40 @@
     rgba(47, 34, 24, 0.72),
     rgba(23, 29, 32, 0.72)
   );
+}
+
+.strategy-chat__message-body.has-premium-nameplate {
+  position: relative;
+  z-index: 1;
+  min-height: 54px;
+  margin-left: -13px;
+  padding: 10px 18px 8px 25px;
+  border: 0;
+  background: rgba(5, 14, 28, .88);
+  box-shadow: none;
+}
+
+.strategy-chat__nameplate {
+  position: absolute;
+  z-index: -1;
+  inset: -20px -26px -20px -38px;
+  width: calc(100% + 64px);
+  height: calc(100% + 40px);
+  object-fit: fill;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 4px #000);
+}
+
+.strategy-chat__message-body.has-premium-nameplate .strategy-chat__message-meta strong {
+  color: #fff3cb;
+  font-family: Cinzel, Georgia, serif;
+  font-size: 12px;
+  text-shadow: 0 2px 2px #000;
+}
+
+.strategy-chat__message-body.has-premium-nameplate p {
+  position: relative;
+  color: #f4ead4;
 }
 
 .strategy-chat__message-meta {

@@ -8,6 +8,8 @@ type ChatPanelProps = {
   messages: ChatMessage[];
   currentUserId?: string;
   currentAvatarId?: string;
+  currentAvatarFrameId?: string | null;
+  currentNameFrameId?: string | null;
   currentVipLevel?: number;
   online: boolean;
   onSend: (text: string) => boolean;
@@ -35,6 +37,8 @@ export function ChatPanel({
   messages,
   currentUserId,
   currentAvatarId,
+  currentAvatarFrameId,
+  currentNameFrameId,
   currentVipLevel,
   online,
   onSend,
@@ -258,6 +262,17 @@ export function ChatPanel({
                     ? message.vipLevel
                     : undefined,
               );
+              const avatarFrameId = message.kind === "user"
+                ? message.avatarFrameId || (isMine ? currentAvatarFrameId : "vip") || "vip"
+                : "vip";
+              const nameFrameId = message.kind === "user"
+                ? message.nameFrameId || (isMine ? currentNameFrameId : null)
+                : null;
+              const avatarFrameSrc = ["dragonfire", "stormcrown", "voidmoon"].includes(avatarFrameId)
+                ? `/assets/cosmetics/frames/${avatarFrameId}.png`
+                : avatarFrameId === "gold" || avatarFrameId === "silver" || avatarFrameId === "bronze"
+                  ? `/assets/leaderboard/leaderboard_frame_${avatarFrameId}.png`
+                  : "/assets/ui/vip-avatar-frame.webp";
 
               return (
                 <article
@@ -280,7 +295,7 @@ export function ChatPanel({
                         />
                         <img
                           className="strategy-chat__avatar-frame"
-                          src="/assets/ui/vip-avatar-frame.webp"
+                          src={avatarFrameSrc}
                           alt=""
                         />
                         <span
@@ -300,7 +315,10 @@ export function ChatPanel({
                       </span>
                     )}
                   </div>
-                  <div className="strategy-chat__message-body">
+                  <div className={`strategy-chat__message-body ${nameFrameId ? "has-premium-nameplate" : ""}`}>
+                    {nameFrameId && (
+                      <img className="strategy-chat__nameplate" src={`/assets/cosmetics/nameplates/${nameFrameId}.png`} alt="" />
+                    )}
                     <div className="strategy-chat__message-meta">
                       <strong>
                         {message.kind === "user"

@@ -6,7 +6,7 @@ type ResourceHudProps = {
   connected: boolean;
   capacityFor: (resource: ResourceKey) => number;
   rateFor: (resource: ResourceKey) => number;
-  onOpenGemShop: () => void;
+  onOpenResourceShop: (resource: ResourceKey) => void;
 };
 
 export function ResourceHud({
@@ -14,7 +14,7 @@ export function ResourceHud({
   connected,
   capacityFor,
   rateFor,
-  onOpenGemShop,
+  onOpenResourceShop,
 }: ResourceHudProps) {
   return (
     <section className="rok-ref-resources" aria-label="Tài nguyên vương quốc">
@@ -27,7 +27,7 @@ export function ResourceHud({
             capacity={capacityFor(resource)}
             ratePerHour={rateFor(resource)}
             connected={connected}
-            onAdd={resource === "gems" ? onOpenGemShop : undefined}
+            onAdd={() => onOpenResourceShop(resource)}
             className="rok-ref-resource"
           />
         ))}

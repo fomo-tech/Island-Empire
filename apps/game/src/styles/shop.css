@@ -431,6 +431,16 @@
   border: 1px solid #6b9aa6 !important;
 }
 
+.shop-modal-v2__content .rk-card--focused {
+  outline: 2px solid #f6d46a !important;
+  outline-offset: -2px !important;
+  box-shadow:
+    0 0 0 3px rgba(246, 212, 106, 0.22),
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -18px 28px rgba(0, 0, 0, 0.16) !important;
+}
+
 .shop-modal-v2__content .rk-card:nth-child(even) {
   background: linear-gradient(145deg, #604a2b, #302316) !important;
   border-color: #bd9a5a !important;
@@ -2013,6 +2023,60 @@
   height: 94px !important;
   object-fit: contain !important;
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.72)) !important;
+}
+
+.premium-avatar-ring {
+  --ring-a: #ffd86a;
+  --ring-b: #8b2d18;
+  position: absolute;
+  z-index: 4;
+  width: 94px;
+  height: 94px;
+  border: 7px ridge var(--ring-a);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 8px var(--ring-a), inset 0 0 9px var(--ring-b), 0 0 0 3px #21130c;
+  pointer-events: none;
+  animation: premium-ring-pulse 2.4s ease-in-out infinite;
+}
+
+.premium-avatar-ring::before,
+.premium-avatar-ring::after {
+  content: "◆";
+  position: absolute;
+  top: 50%;
+  color: var(--ring-a);
+  font-size: 18px;
+  text-shadow: 0 0 8px var(--ring-a);
+  transform: translateY(-50%) rotate(45deg);
+}
+.premium-avatar-ring::before { left: -12px; }
+.premium-avatar-ring::after { right: -12px; }
+.premium-avatar-ring--stormcrown { --ring-a: #c8f1ff; --ring-b: #197fb6; }
+.premium-avatar-ring--voidmoon { --ring-a: #d9a1ff; --ring-b: #662ca8; }
+
+.premium-nameplate {
+  --plate-a: #e9bd53;
+  --plate-b: #7e2c1d;
+  position: relative;
+  width: 88%;
+  padding: 13px 28px 10px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff2c9;
+  text-align: center;
+  clip-path: none;
+}
+.premium-nameplate img { position: absolute; inset: -45% -10%; width: 120%; height: 190%; object-fit: contain; filter: drop-shadow(0 3px 5px #000); }
+.premium-nameplate span, .premium-nameplate strong { position: relative; z-index: 1; }
+.premium-nameplate span { display: block; color: #ffe7a2; font: 700 7px Cinzel, serif; letter-spacing: .24em; }
+.premium-nameplate strong { font: 800 13px Cinzel, serif; text-shadow: 0 2px 2px #000; }
+.premium-nameplate--tempest { --plate-a: #bcecff; --plate-b: #105a86; }
+.premium-nameplate--astral { --plate-a: #e0a8ff; --plate-b: #4e217a; }
+
+@keyframes premium-ring-pulse {
+  50% { filter: brightness(1.3); transform: scale(1.035); }
 }
 
 .shop-modal-v2 .profile-shop-info {

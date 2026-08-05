@@ -1,5 +1,6 @@
 import React from "react";
 import type { ResourceBag } from "@island/shared";
+import { getSpecialResourceMeta } from "./SpecialResourceDisplay";
 
 type TrainingSpecialty = "infantry" | "cavalry" | "artillery";
 
@@ -111,6 +112,9 @@ export function TownManagementModal({
   const config = gameConfig || {};
   const specialty: TrainingSpecialty = town.trainingSpecialty || "infantry";
   const specialtyMeta = SPECIALTY_META[specialty];
+  const territorySpecialMeta = specialResources.length
+    ? getSpecialResourceMeta(specialResources[0])
+    : null;
   const specialtyCount = Math.max(0, Number(town[specialtyMeta.countKey] || 0));
   const reservedTroops = Math.max(0, Number(town.reservedTroops || 0));
   const troopCapacity = Math.max(
@@ -226,7 +230,10 @@ export function TownManagementModal({
 
           <div className="town-stat-card">
             <div className="stat-icon-wrapper">
-              <AssetIcon src="/assets/icon-troops/sprite_02.webp" />
+              <AssetIcon
+                src={specialtyMeta.icon}
+                alt={specialtyMeta.title}
+              />
             </div>
             <div className="stat-info">
               <span className="stat-label">{specialtyMeta.title}</span>
@@ -239,7 +246,10 @@ export function TownManagementModal({
 
           <div className="town-stat-card">
             <div className="stat-icon-wrapper">
-              <AssetIcon src="/assets/icons/icon_map.png" />
+              <AssetIcon
+                src={territorySpecialMeta?.icon || "/assets/icons/icon_map.png"}
+                alt={territorySpecialMeta?.label || "Đặc biệt lãnh thổ"}
+              />
             </div>
             <div className="stat-info">
               <span className="stat-label">ĐẶC BIỆT LÃNH THỔ</span>
