@@ -4,6 +4,7 @@ import { GameApp } from "./components/GameApp";
 import { ConquestMap } from "./components/ConquestMap";
 import { updateActiveMap } from "./game/api";
 import "./styles/global.css";
+import "./styles/founding.css";
 import "./styles/minimap.css";
 import "./styles/chat.css";
 import "./styles/hud-topbar.css";

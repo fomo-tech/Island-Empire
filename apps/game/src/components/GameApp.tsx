@@ -2252,6 +2252,7 @@ export function GameApp({
     engineRef.current?.handleAction?.("setLocalPlayer", {
       playerId,
       playerName: "Bạn",
+      avatarId: selectedAvatarId,
     });
 
     if (token && playerId) {
@@ -4312,7 +4313,6 @@ export function GameApp({
             <ProfileHud
               avatarId={selectedAvatarId}
               avatarFrameId={shopInventory.equippedAvatarFrameId}
-              nameFrameId={shopInventory.equippedNameFrameId}
               playerName={nationStatus?.playerName || "Rising Empire"}
               rank={nationStatus?.rank || "Lãnh Chúa"}
               power={hudPower}
@@ -4344,59 +4344,58 @@ export function GameApp({
                 onToggle={toggleMinimapCollapsed}
                 onSearch={jumpToCoordinates}
                 searchTitle={t("search")}
+              />
+              <section
+                className="hud-main-missions"
+                aria-label="Tình hình chiến trường"
               >
-                <section
-                  className="hud-main-missions"
-                  aria-label="Tình hình chiến trường"
-                >
-                  <div className="hud-main-missions-header">
-                    <span>TÌNH HÌNH CHIẾN TRƯỜNG</span>
-                    <i>
-                      <img
-                        src="/assets/icons/icon_collapse_european.png"
-                        alt=""
-                      />
-                    </i>
-                  </div>
-                  <div className="hud-main-missions-list">
-                    {visibleBattlefieldActivities.map((activity) => (
-                      <button
-                        type="button"
-                        className={`hud-main-mission battlefield-${activity.tone}`}
-                        key={activity.id}
-                        disabled={!activity.focus}
-                        onClick={() => focusBattlefieldActivity(activity)}
-                        title={
-                          activity.focus
-                            ? `Định vị ${activity.title.toLowerCase()}`
-                            : activity.meta
-                        }
-                      >
-                        <span className="hud-main-mission-icon">
-                          <img src={activity.icon} alt="" />
+                <div className="hud-main-missions-header">
+                  <span>TÌNH HÌNH CHIẾN TRƯỜNG</span>
+                  <i>
+                    <img
+                      src="/assets/icons/icon_collapse_european.png"
+                      alt=""
+                    />
+                  </i>
+                </div>
+                <div className="hud-main-missions-list">
+                  {visibleBattlefieldActivities.map((activity) => (
+                    <button
+                      type="button"
+                      className={`hud-main-mission battlefield-${activity.tone}`}
+                      key={activity.id}
+                      disabled={!activity.focus}
+                      onClick={() => focusBattlefieldActivity(activity)}
+                      title={
+                        activity.focus
+                          ? `Định vị ${activity.title.toLowerCase()}`
+                          : activity.meta
+                      }
+                    >
+                      <span className="hud-main-mission-icon">
+                        <img src={activity.icon} alt="" />
+                      </span>
+                      <span className="hud-main-mission-copy">
+                        <b>{activity.title}</b>
+                        <span className="hud-main-mission-meta">
+                          {activity.meta}
                         </span>
-                        <span className="hud-main-mission-copy">
-                          <b>{activity.title}</b>
-                          <span className="hud-main-mission-meta">
-                            {activity.meta}
-                          </span>
+                      </span>
+                      {activity.focus && (
+                        <span
+                          className="hud-main-mission-locate"
+                          aria-hidden="true"
+                        >
+                          <img
+                            src="/assets/icons/icon_search_european.png"
+                            alt=""
+                          />
                         </span>
-                        {activity.focus && (
-                          <span
-                            className="hud-main-mission-locate"
-                            aria-hidden="true"
-                          >
-                            <img
-                              src="/assets/icons/icon_search_european.png"
-                              alt=""
-                            />
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </MinimapPanel>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
 
@@ -4475,7 +4474,7 @@ export function GameApp({
                 type="button"
                 className="hud-command-button mobile-main-action mobile-map-action"
                 onClick={() => {
-                  setMinimapCollapsed(false);
+                  toggleMinimapCollapsed();
                   setMobileActionsExpanded(false);
                   handleAction("map");
                 }}
@@ -5348,6 +5347,7 @@ export function GameApp({
             if (!avatarId) return;
             setSelectedAvatarId(avatarId);
             localStorage.setItem("island_empire_avatar", avatarId);
+            engineRef.current?.handleAction("setLocalPlayer", { avatarId });
           }}
           onVipProgress={(level, points) => {
             setNationStatus((previous) =>
@@ -5843,6 +5843,9 @@ export function GameApp({
                 onClick={async () => {
                   setSelectedAvatarId(av.id);
                   setShowAvatarPicker(false);
+                  engineRef.current?.handleAction("setLocalPlayer", {
+                    avatarId: av.id,
+                  });
                   if (token) {
                     try {
                       await fetch("/api/player/profile", {

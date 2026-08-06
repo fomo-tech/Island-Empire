@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run dev:game",
+    "dev": "concurrently --kill-others-on-fail --names server,game \"npm run dev:server\" \"npm run dev:game\"",
     "dev:game": "npm --prefix apps/game run dev",
     "dev:admin": "npm --prefix apps/admin run dev",
     "dev:server": "npm --prefix apps/server run dev",
@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "concurrently": "^9.2.1",
     "typescript": "^5.7.2"
   }
 }

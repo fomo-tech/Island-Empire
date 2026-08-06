@@ -1,7 +1,4 @@
-import {
-  forwardRef,
-  type ReactNode,
-} from "react";
+import { forwardRef } from "react";
 
 type MinimapPanelProps = {
   title: string;
@@ -10,7 +7,6 @@ type MinimapPanelProps = {
   onToggle: () => void;
   onSearch?: () => void;
   searchTitle?: string;
-  children?: ReactNode;
 };
 
 export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
@@ -22,7 +18,6 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
       onToggle,
       onSearch,
       searchTitle = "Tìm tọa độ",
-      children,
     },
     canvasRef,
   ) {
@@ -36,8 +31,12 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
             <span className="hud-minimap-svg-icon">
               <img src="/assets/icons/icon_map.png" alt="" />
             </span>
-            {title}
+            <span className="hud-minimap-title-copy">
+              <strong>{title}</strong>
+              <small>BẢN ĐỒ VƯƠNG QUỐC</small>
+            </span>
           </span>
+          <span className="hud-minimap-live">TRỰC TUYẾN</span>
           <button
             type="button"
             className="hud-mini-icon-btn-plus"
@@ -90,7 +89,6 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
           </div>
         </div>
 
-        {children}
       </div>
     );
   },

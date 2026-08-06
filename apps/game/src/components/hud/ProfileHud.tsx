@@ -1,7 +1,6 @@
 type ProfileHudProps = {
   avatarId: string;
   avatarFrameId?: string | null;
-  nameFrameId?: string | null;
   playerName: string;
   rank: string;
   power: number;
@@ -23,7 +22,6 @@ function compact(value: number) {
 export function ProfileHud({
   avatarId,
   avatarFrameId = "vip",
-  nameFrameId,
   playerName,
   rank,
   power,
@@ -42,12 +40,9 @@ export function ProfileHud({
       stormcrown: "/assets/cosmetics/frames/stormcrown.png",
       voidmoon: "/assets/cosmetics/frames/voidmoon.png",
     }[avatarFrameId || "vip"];
-  const nameFrameAsset = nameFrameId
-    ? `/assets/cosmetics/nameplates/${nameFrameId}.png`
-    : null;
 
   return (
-    <section className={`rok-ref-profile ${nameFrameId ? `has-name-frame name-frame--${nameFrameId}` : ""}`} aria-label="Hồ sơ người chơi">
+    <section className="rok-ref-profile" aria-label="Hồ sơ người chơi">
       <button
         type="button"
         className="rok-ref-avatar"
@@ -66,7 +61,6 @@ export function ProfileHud({
       </button>
 
       <div className="rok-ref-profile-info">
-        {nameFrameAsset && <div className="rok-ref-premium-name"><img src={nameFrameAsset} alt="" /><strong>{playerName}</strong><span>{rank}</span></div>}
         <button
           type="button"
           className="rok-ref-power"

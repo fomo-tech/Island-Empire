@@ -2,7 +2,6 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { KINGDOM_ARCHITECTURES, type KingdomBuildingType } from "../game/kingdomArchitecture";
 import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
-import { AssetIcon, type IconAssetId } from "./AssetIcon";
 
 interface KingdomCreationModalProps {
   onClose: () => void;
@@ -21,10 +20,6 @@ const FLAG_COLORS = [
 ];
 
 function EmblemIcon({ id, className = "" }: { id: string; className?: string }) {
-  const assets: Record<string, IconAssetId> = {
-    crown: "crown", swords: "army", shield: "defender", eagle: "attacker", lion: "attacker", dragon: "defender",
-  };
-  return <AssetIcon asset={assets[id] || "crown"} size={34} className={className} />;
   const line = { fill: "none", stroke: "currentColor", strokeWidth: 2.1, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   return <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
     {id === "crown" && <><path {...line} d="M8 16l8 7 8-13 8 13 8-7-3 21H11L8 16z"/><path {...line} d="M12 31h24M14 37h20"/><circle cx="8" cy="14" r="2" fill="currentColor"/><circle cx="24" cy="8" r="2" fill="currentColor"/><circle cx="40" cy="14" r="2" fill="currentColor"/></>}
@@ -33,12 +28,14 @@ function EmblemIcon({ id, className = "" }: { id: string; className?: string }) 
     {id === "eagle" && <><path {...line} d="M24 11l5 7 12-5-6 12 8 2-13 5-6 11-6-11-13-5 8-2-6-12 12 5 5-7z"/><path {...line} d="M19 18l5 6 5-6M16 34l-4 7m20-7 4 7"/></>}
     {id === "lion" && <><path {...line} d="M24 7l6 4 7-1 2 7 4 6-5 5-1 9-8 1-5 5-5-5-8-1-1-9-5-5 4-6 2-7 7 1 6-4z"/><path {...line} d="M17 19l7-4 7 4-2 12-5 5-5-5-2-12z"/><path {...line} d="M20 23h1m6 0h1M21 29h6"/></>}
     {id === "dragon" && <><path {...line} d="M38 9l-10 4-7-5-2 8-8 2 5 6-9 7 12-1 3 11 5-10 10 5-4-10 9-7-10-1 6-9z"/><path {...line} d="M18 21c6-5 12-4 15 2-4 0-7 2-9 6M29 16l5-6M15 25l-7-3"/><circle cx="29" cy="20" r="1.5" fill="currentColor"/></>}
+    {id === "star" && <><path {...line} d="M24 5l5.2 11.1 12.2 1.8-8.8 8.6 2.1 12.2L24 33l-10.7 5.7 2.1-12.2-8.8-8.6 12.2-1.8L24 5z"/><circle cx="24" cy="24" r="2" fill="currentColor"/></>}
+    {id === "tree" && <><path {...line} d="M24 6v35M18 41h12"/><path {...line} d="M24 8L13 21h6L9 31h11l-5 7h18l-5-7h11L29 21h6L24 8z"/></>}
   </svg>;
 }
 
 export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "Vương Quốc Tân Lập", territoryName = "Chưa chọn lãnh thổ", checkName, required = false }: KingdomCreationModalProps) {
   const [stage, setStage] = useState<2 | 3>(2);
-  const [cityName, setCityName] = useState(defaultCityName);
+  const [cityName, setCityName] = useState("");
   const [selectedColor, setSelectedColor] = useState(FLAG_COLORS[0].id);
   const [selectedArchitecture, setSelectedArchitecture] = useState(KINGDOM_ARCHITECTURES[0].id);
   const [previewType, setPreviewType] = useState<KingdomBuildingType>("capital");
@@ -79,7 +76,7 @@ export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "V�
         {(["capital", "district", "flag"] as KingdomBuildingType[]).map((type) => <button key={type} type="button" role="tab" aria-selected={previewType === type} className={previewType === type ? "active" : ""} onClick={() => setPreviewType(type)}>{type === "capital" ? "Hoàng Thành" : type === "district" ? "Quân Khu" : "Cờ"}</button>)}
       </div>
     </div>
-    <div className="founding-preview-info"><EmblemIcon id={selectedEmblem}/><div><small>VƯƠNG QUỐC</small><strong>{cityName.trim() || defaultCityName}</strong><span>{territoryName} · {selectedColorInfo.name}</span></div></div>
+    <div className="founding-preview-info"><EmblemIcon id={selectedEmblem}/><div><small>VƯƠNG QUỐC</small><strong>{cityName.trim() || "Chưa đặt tên"}</strong><span>{territoryName} · {selectedColorInfo.name}</span></div></div>
   </div>;
 
   return createPortal(<div className="founding-backdrop" role="dialog" aria-modal="true" aria-label="Thành lập Vương Quốc">
@@ -89,9 +86,9 @@ export function KingdomCreationModal({ onClose, onConfirm, defaultCityName = "V�
       <form className="founding-body" onSubmit={submit}>
         {preview}
         <div className="founding-panel">{stage === 2 ? <>
-          <div className="founding-section"><label htmlFor="founding-name"><span>01</span> Tên Vương Quốc</label><div className={`founding-name-input status-${nameStatus}`}><input id="founding-name" value={cityName} onChange={(event) => setCityName(event.target.value)} maxLength={24} required/><small>{cityName.length}/24</small></div><p className={`founding-name-status ${nameStatus}`}>{nameStatus === "checking" ? "ĐANG KIỂM TRA TÊN" : nameMessage}</p></div>
+          <div className="founding-section"><label htmlFor="founding-name"><span>01</span> Tên Vương Quốc</label><div className={`founding-name-input status-${nameStatus}`}><input id="founding-name" value={cityName} placeholder={defaultCityName} onChange={(event) => setCityName(event.target.value)} maxLength={24} autoComplete="off" required/><small>{cityName.length}/24</small></div><p className={`founding-name-status ${nameStatus}`}>{nameStatus === "checking" ? "ĐANG KIỂM TRA TÊN" : nameMessage}</p></div>
           <div className="founding-section"><label><span>02</span> Màu Lãnh Thổ <b>{selectedColorInfo.name}</b></label><div className="founding-colors">{FLAG_COLORS.map((color) => <button key={color.id} type="button" aria-label={color.name} aria-pressed={selectedColor === color.id} className={selectedColor === color.id ? "selected" : ""} onClick={() => setSelectedColor(color.id)} style={{ "--color": color.id } as CSSProperties}><i/></button>)}</div></div>
-          <div className="founding-section"><label><span>03</span> Nền Văn Minh <b>{selectedArchitectureInfo.name}</b></label><div className="founding-emblems founding-architectures">{KINGDOM_ARCHITECTURES.map((architecture) => <button key={architecture.id} type="button" aria-label={architecture.name} aria-pressed={selectedArchitecture === architecture.id} className={selectedArchitecture === architecture.id ? "selected" : ""} onClick={() => setSelectedArchitecture(architecture.id)}><KingdomBuildingSprite architectureId={architecture.id} buildingType="capital"/><small>{architecture.name}</small></button>)}</div></div>
+          <div className="founding-section"><label><span>03</span> Nền Văn Minh <b>{selectedArchitectureInfo.name}</b></label><div className="founding-emblems founding-architectures">{KINGDOM_ARCHITECTURES.map((architecture) => <button key={architecture.id} type="button" aria-label={architecture.name} aria-pressed={selectedArchitecture === architecture.id} className={selectedArchitecture === architecture.id ? "selected" : ""} onClick={() => setSelectedArchitecture(architecture.id)}><EmblemIcon id={architecture.emblem} className="founding-architecture-icon"/><small>{architecture.name}</small></button>)}</div></div>
         </> : <div className="founding-complete"><EmblemIcon id={selectedEmblem}/><span>SẮC LỆNH ĐÃ SẴN SÀNG</span><h3>{cityName}</h3><p>Hoàn tất kiến quốc, sau đó chọn một lãnh thổ trên bản đồ để dựng Hoàng Thành.</p><dl><div><dt>Màu lãnh thổ</dt><dd>{selectedColorInfo.name}</dd></div><div><dt>Văn minh</dt><dd>{selectedArchitectureInfo.name}</dd></div></dl></div>}</div>
         <footer className="founding-actions"><p>{stage === 2 ? "Tên, màu và nền văn minh sẽ đại diện cho vương quốc của bạn." : "Sau khi hoàn tất, hãy chọn lãnh thổ phù hợp để dựng Hoàng Thành."}</p><div>{stage === 3 && <button type="button" className="secondary" onClick={() => setStage(2)} disabled={submitting}>QUAY LẠI</button>}<button type="submit" className="primary" disabled={submitting || nameStatus !== "available"}>{submitting ? "ĐANG THÀNH LẬP" : stage === 2 ? "XEM HOÀN THÀNH" : "HOÀN TẤT THÀNH LẬP"}</button></div></footer>
       </form>

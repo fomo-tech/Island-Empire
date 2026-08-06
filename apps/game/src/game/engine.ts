@@ -7714,14 +7714,17 @@ export function createIslandEmpireGame(
       size,
       equippedSkin,
     );
-    const bx = labelGround.groundX - tw / 2 - padX;
-    const by = labelGround.groundY + 2;
-    const bw = tw + padX * 2;
-    const bh = 22;
-
     const premiumNameplate = isUserTown && state.equippedNameFrameId
       ? premiumNameplateImages[state.equippedNameFrameId]
       : null;
+    const avatarRadius = Math.max(12, Math.min(20, 14 / Math.max(state.zoom, 0.55)));
+    const avatarBottom = labelGround.groundY + avatarRadius * 0.28 + 3.5;
+    const nameplateTop = avatarBottom + 4;
+    const bx = labelGround.groundX - tw / 2 - padX;
+    const by = nameplateTop + (premiumNameplate ? 18 : 0);
+    const bw = tw + padX * 2;
+    const bh = 22;
+
     if (premiumNameplate?.complete && premiumNameplate.naturalWidth > 0) {
       ctx.drawImage(premiumNameplate, bx - 36, by - 18, bw + 72, bh + 36);
     } else {
@@ -11400,7 +11403,9 @@ export function createIslandEmpireGame(
     const nameWidth = ctx.measureText(name).width;
     const width = Math.max(54, nameWidth + 18);
     const height = 22;
-    const top = y - castleSize * 0.015;
+    // The avatar badge sits just above the ground anchor. Keep the expanded
+    // premium artwork below it instead of letting the frame cover the badge.
+    const top = y + 28;
     const box = {
       x: x - width / 2,
       y: top,
@@ -15187,8 +15192,15 @@ export function createIslandEmpireGame(
         return;
       }
       if (id === "setLocalPlayer") {
-        state.localPlayerId = payload?.playerId || null;
-        state.localPlayerName = payload?.playerName || "BẠN";
+        if (payload?.playerId !== undefined) {
+          state.localPlayerId = payload.playerId || null;
+        }
+        if (payload?.playerName !== undefined) {
+          state.localPlayerName = payload.playerName || "BẠN";
+        }
+        if (payload?.avatarId) {
+          state.localPlayerAvatarId = payload.avatarId;
+        }
         return;
       }
       if (id === "syncResources") {

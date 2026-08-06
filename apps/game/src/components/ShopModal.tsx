@@ -2,10 +2,12 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import {
   activateNewbieSkinTrial,
   createClientId,
+  equipProfileCosmetic,
   equipShopSkin,
   getNewbieSkinTrial,
   getShopInventory,
   purchaseShopProduct,
+  type ProfileCosmeticKind,
 } from "../game/api";
 import type {
   NewbieSkinTrialState,
@@ -779,6 +781,7 @@ interface ShopModalProps {
   onProfileCosmeticEquipped?: (profile: {
     avatarId?: string;
     avatarFrameId?: string;
+    nameFrameId?: string;
   }) => void;
   onVipProgress?: (level: number, points: number) => void;
   onClaimGemPack: (sku: string) => Promise<void>;
@@ -963,6 +966,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
         onProfileCosmeticEquipped?.({
           avatarId: product.avatarId,
           avatarFrameId: product.avatarFrameId,
+          nameFrameId: product.nameFrameId,
         });
         onNotify(
           result.duplicate
@@ -989,6 +993,28 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       }
     } catch (error: any) {
       onNotify(error?.message || "Không thể hoàn tất giao dịch");
+    } finally {
+      setBusyProductId(null);
+    }
+  };
+
+  const equipProfile = async (
+    kind: ProfileCosmeticKind,
+    cosmeticId: string,
+  ) => {
+    if (busyProductId) return;
+    setBusyProductId(cosmeticId);
+    try {
+      const result = await equipProfileCosmetic(token, kind, cosmeticId);
+      onInventory(result.inventory);
+      onProfileCosmeticEquipped?.({
+        avatarId: kind === "avatar" ? cosmeticId : result.avatarId,
+        avatarFrameId: kind === "avatar_frame" ? cosmeticId : undefined,
+        nameFrameId: kind === "name_frame" ? cosmeticId : undefined,
+      });
+      onNotify("Đã trang bị vật phẩm hồ sơ");
+    } catch (error: any) {
+      onNotify(error?.message || "Không thể trang bị vật phẩm hồ sơ");
     } finally {
       setBusyProductId(null);
     }
@@ -1405,11 +1431,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       <button
                         type="button"
                         className="profile-shop-buy"
-                        disabled={isOwned || busyProductId !== null}
-                        onClick={() => buyProduct(profile.id)}
+                        disabled={busyProductId !== null || (isOwned && isEquipped)}
+                        onClick={() => {
+                          if (isOwned) {
+                            void equipProfile(kind, cosmeticId);
+                          } else {
+                            void buyProduct(profile.id);
+                          }
+                        }}
                       >
                         {isOwned ? (
-                          <span>{isEquipped ? "ĐANG DÙNG" : "ĐÃ SỞ HỮU"}</span>
+                          <span>{isEquipped ? "ĐANG DÙNG" : "TRANG BỊ"}</span>
                         ) : (
                           <>
                             <ResourceIcon

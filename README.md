@@ -12,8 +12,7 @@ TypeScript monorepo cho game pixel chiến thuật đảo:
 ```bash
 npm run install:all
 cp .env.example .env
-npm run dev:server
-npm run dev:game
+npm run dev
 npm run dev:admin
 ```
 
@@ -27,7 +26,7 @@ Mặc định:
 
 1. Kết nối điện thoại và máy tính vào cùng một Wi-Fi.
 2. Không đặt `VITE_API_URL` hoặc `VITE_WS_URL` về `127.0.0.1` trong `apps/game/.env.local`; để trống để game dùng Vite proxy.
-3. Chạy `npm run dev:server` và `npm run dev:game`.
+3. Chạy `npm run dev` để khởi động server và game cùng lúc.
 4. Mở địa chỉ `Network` mà Vite in ra, thường là `http://<IP-máy-tính>:5173`.
 
 Game sẽ chuyển tiếp `/api` và `/ws` tới backend ở cổng `4000`, nên điện thoại có thể đăng nhập và dùng realtime qua LAN.

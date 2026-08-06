@@ -316,20 +316,40 @@ export function ChatPanel({
                     )}
                   </div>
                   <div className={`strategy-chat__message-body ${nameFrameId ? "has-premium-nameplate" : ""}`}>
-                    {nameFrameId && (
-                      <img className="strategy-chat__nameplate" src={`/assets/cosmetics/nameplates/${nameFrameId}.png`} alt="" />
+                    {nameFrameId ? (
+                      <div className="strategy-chat__premium-nameplate">
+                        <img
+                          className="strategy-chat__nameplate"
+                          src={`/assets/cosmetics/nameplates/${nameFrameId}.png`}
+                          alt=""
+                        />
+                        <div className="strategy-chat__message-meta">
+                          <strong>
+                            {message.kind === "user"
+                              ? message.userName
+                              : "Hệ thống"}
+                          </strong>
+                          <span>VIP {messageVipLevel}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="strategy-chat__message-meta">
+                        <strong>
+                          {message.kind === "user"
+                            ? message.userName
+                            : "Hệ thống"}
+                        </strong>
+                        {message.kind === "user" && (
+                          <span>VIP {messageVipLevel}</span>
+                        )}
+                        <time>{formatTime(message.sentAt)}</time>
+                      </div>
                     )}
-                    <div className="strategy-chat__message-meta">
-                      <strong>
-                        {message.kind === "user"
-                          ? message.userName
-                          : "Hệ thống"}
-                      </strong>
-                      {message.kind === "user" && (
-                        <span>VIP {messageVipLevel}</span>
-                      )}
-                      <time>{formatTime(message.sentAt)}</time>
-                    </div>
+                    {nameFrameId && (
+                      <time className="strategy-chat__premium-time">
+                        {formatTime(message.sentAt)}
+                      </time>
+                    )}
                     <p>{message.text}</p>
                   </div>
                 </article>

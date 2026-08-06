@@ -6,6 +6,7 @@ import type { RealtimeEnvelope, RealtimeEvent } from "@island/shared";
 import { config, isAllowedCorsOrigin } from "../config.js";
 import type { AuthUser } from "../security/auth.js";
 import { collections } from "../db/collections.js";
+import { resolveChatUserName } from "../chat-name.js";
 
 type Client = {
   id: string;
@@ -245,14 +246,26 @@ export function attachRealtime(server: Server) {
           const { players, chatMessages } = await collections();
           const player = await players.findOne(
             { _id: client.user.id },
-            { projection: { name: 1, avatarId: 1, vipLevel: 1, shopInventory: 1 } },
+            {
+              projection: {
+                name: 1,
+                cityName: 1,
+                avatarId: 1,
+                vipLevel: 1,
+                shopInventory: 1,
+              },
+            },
           );
           const sentAt = new Date();
           const chatMessage = {
             id: randomUUID(),
             kind: "user" as const,
             userId: client.user.id,
-            userName: player?.name || "Người chơi",
+            userName: resolveChatUserName({
+              userId: client.user.id,
+              playerName: player?.name,
+              cityName: player?.cityName,
+            }),
             avatarId: player?.avatarId || "emperor",
             avatarFrameId:
               player?.shopInventory?.equippedAvatarFrameId || "vip",

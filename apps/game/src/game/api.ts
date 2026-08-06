@@ -356,6 +356,24 @@ export function equipShopSkin(
   });
 }
 
+export type ProfileCosmeticKind = "avatar" | "avatar_frame" | "name_frame";
+
+export function equipProfileCosmetic(
+  token: string,
+  kind: ProfileCosmeticKind,
+  cosmeticId: string,
+): Promise<{
+  ok: true;
+  inventory: ShopInventory;
+  avatarId?: string;
+}> {
+  return request("/api/shop/equip-profile", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ kind, cosmeticId }),
+  });
+}
+
 export interface LeaderboardEntry {
   rank: number;
   playerId: string;

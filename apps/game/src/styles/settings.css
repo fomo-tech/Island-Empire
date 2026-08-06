@@ -798,3 +798,385 @@
     padding-block: 6px;
   }
 }
+
+/* ========================================================================
+   FINAL SETTINGS VIEWPORT — compact, readable and overflow-safe
+   Keep the modal inside one viewport; only the active settings content scrolls.
+   ======================================================================== */
+.settings-medieval-modal.settings-v2 {
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  width: min(820px, calc(100vw - 24px)) !important;
+  height: min(720px, calc(100dvh - 24px)) !important;
+  max-height: calc(100dvh - 24px) !important;
+  min-height: 0 !important;
+  padding: clamp(9px, 1.5vw, 16px) !important;
+  overflow: hidden !important;
+}
+
+.settings-v2 .medieval-modal-header {
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.settings-v2 .medieval-modal-title {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.settings-v2 .medieval-modal-subtitle {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+
+.settings-v2 .medieval-modal-body {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+.settings-v2__layout {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  overflow: hidden !important;
+}
+
+.settings-v2__nav,
+.settings-v2__content,
+.settings-v2__footer {
+  min-width: 0 !important;
+}
+
+.settings-v2__content {
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.settings-v2__section,
+.settings-v2__section header,
+.settings-v2__row,
+.settings-v2__danger,
+.settings-v2__info,
+.settings-v2__hotkeys,
+.settings-v2__hotkeys > div {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.settings-v2__row,
+.settings-v2__danger {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+}
+
+.settings-v2__row > span,
+.settings-v2__danger > span,
+.settings-v2__info > span,
+.settings-v2__info > strong,
+.settings-v2__hotkeys span {
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.settings-v2__row > span,
+.settings-v2__danger > span {
+  overflow: hidden !important;
+}
+
+.settings-v2__row strong,
+.settings-v2__danger strong,
+.settings-v2__row small,
+.settings-v2__danger small {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+
+.settings-v2__choices,
+.settings-v2__row > .settings-switch,
+.settings-v2__danger > button,
+.settings-v2__info > button {
+  flex-shrink: 0 !important;
+  min-width: 0 !important;
+}
+
+.settings-v2__choices {
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+}
+
+.settings-v2__choices button,
+.settings-v2__info button,
+.settings-v2__danger button,
+.settings-v2__footer button {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+.settings-v2__info > strong {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.settings-v2__hotkeys span {
+  line-height: 1.3 !important;
+}
+
+.settings-v2__footer {
+  min-height: 44px !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 700px) {
+  .settings-medieval-modal.settings-v2 {
+    width: calc(100vw - 16px) !important;
+    height: min(720px, calc(100dvh - 16px)) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 8px !important;
+  }
+
+  .settings-v2 .medieval-modal-header {
+    margin-bottom: 7px !important;
+    padding: 7px 30px 8px !important;
+  }
+
+  .settings-v2__layout {
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  .settings-v2__nav {
+    min-height: 0 !important;
+  }
+
+  .settings-v2__content {
+    padding: 9px 8px !important;
+  }
+
+  .settings-v2__row,
+  .settings-v2__danger {
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .settings-v2__choices {
+    max-width: 46% !important;
+    gap: 4px !important;
+  }
+
+  .settings-v2__choices button,
+  .settings-v2__info button,
+  .settings-v2__danger button {
+    min-height: 29px !important;
+    padding: 5px 7px !important;
+    font-size: 8px !important;
+  }
+
+  .settings-v2__footer {
+    min-height: 42px !important;
+    padding: 6px 8px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .settings-v2__row,
+  .settings-v2__danger {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+
+  .settings-v2__row strong,
+  .settings-v2__danger strong {
+    font-size: 10px !important;
+  }
+
+  .settings-v2__row small,
+  .settings-v2__danger small {
+    font-size: 8px !important;
+  }
+
+  .settings-v2__choices {
+    max-width: 44% !important;
+  }
+
+  .settings-v2__choices button,
+  .settings-v2__info button,
+  .settings-v2__danger button {
+    padding-inline: 5px !important;
+    font-size: 7px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .settings-medieval-modal.settings-v2 {
+    width: min(820px, calc(100vw - 16px)) !important;
+    height: calc(100dvh - 12px) !important;
+    max-height: calc(100dvh - 12px) !important;
+    padding: 6px !important;
+  }
+
+  .settings-v2 .medieval-modal-header {
+    margin-bottom: 5px !important;
+    padding-block: 4px !important;
+  }
+
+  .settings-v2__content {
+    padding-block: 6px !important;
+  }
+
+  .settings-v2__row,
+  .settings-v2__danger,
+  .settings-v2__info {
+    min-height: 0 !important;
+    padding-block: 6px !important;
+  }
+
+  .settings-v2__footer {
+    min-height: 36px !important;
+  }
+}
+
+/* Content-sized modal: do not leave a large empty panel when a tab is short. */
+.settings-medieval-modal.settings-v2 {
+  height: auto !important;
+  max-height: calc(100dvh - 24px) !important;
+}
+
+.settings-v2 .medieval-modal-body {
+  flex: 0 1 auto !important;
+}
+
+.settings-v2__layout {
+  flex: 0 1 auto !important;
+  height: auto !important;
+  grid-template-rows: auto auto !important;
+}
+
+.settings-v2__content {
+  max-height: min(560px, calc(100dvh - 230px)) !important;
+}
+
+@media (max-width: 700px) {
+  .settings-medieval-modal.settings-v2 {
+    height: auto !important;
+    max-height: calc(100dvh - 16px) !important;
+  }
+
+  .settings-v2__content {
+    max-height: min(560px, calc(100dvh - 190px)) !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .settings-medieval-modal.settings-v2 {
+    height: auto !important;
+    max-height: calc(100dvh - 12px) !important;
+  }
+
+  .settings-v2__content {
+    max-height: calc(100dvh - 150px) !important;
+  }
+}
+
+/* Settings tabs must stay on one readable line, even when global HUD text
+   rules are larger than the modal's compact navigation column. */
+.settings-v2__nav button {
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr) !important;
+  align-items: center !important;
+  justify-content: initial !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  padding-inline: 8px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+.settings-v2__nav button span {
+  display: block !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+.settings-v2__nav img {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+@media (max-width: 700px) {
+  .settings-v2__nav button,
+  .settings-v2__nav button.active {
+    grid-template-columns: 23px minmax(0, 1fr) !important;
+    gap: 4px !important;
+    padding-inline: 4px !important;
+    font-size: 8px !important;
+  }
+
+  .settings-v2__nav button span {
+    font-size: 8px !important;
+  }
+
+  .settings-v2__nav img {
+    width: 23px !important;
+    height: 23px !important;
+  }
+}
+
+/* Stable frame: switching tabs must never resize or jump the modal. */
+.settings-medieval-modal.settings-v2 {
+  --settings-frame-height: min(720px, calc(100dvh - 24px));
+  height: var(--settings-frame-height) !important;
+  max-height: var(--settings-frame-height) !important;
+}
+
+.settings-v2 .medieval-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.settings-v2__layout {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+}
+
+.settings-v2__content {
+  max-height: none !important;
+}
+
+@media (max-width: 700px) {
+  .settings-medieval-modal.settings-v2 {
+    --settings-frame-height: min(620px, calc(100dvh - 16px));
+    height: var(--settings-frame-height) !important;
+    max-height: var(--settings-frame-height) !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .settings-medieval-modal.settings-v2 {
+    --settings-frame-height: calc(100dvh - 12px);
+    height: var(--settings-frame-height) !important;
+    max-height: var(--settings-frame-height) !important;
+  }
+}

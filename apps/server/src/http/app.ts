@@ -21,6 +21,7 @@ import {
   publishRealtime,
   realtimeStats,
 } from "../realtime/socket.js";
+import { resolveChatUserName } from "../chat-name.js";
 import {
   bumpWorldCacheVersion,
   cacheGetJson,
@@ -116,6 +117,12 @@ const ShopEquipSchema = z
   .object({
     skinId: z.string().trim().min(3).max(80),
     target: z.enum(["capital", "military_district"]),
+  })
+  .strict();
+const ProfileCosmeticEquipSchema = z
+  .object({
+    kind: z.enum(["avatar", "avatar_frame", "name_frame"]),
+    cosmeticId: z.string().trim().min(2).max(80),
   })
   .strict();
 const NewbieSkinTrialActivateSchema = z
@@ -5838,10 +5845,13 @@ export function createApp() {
       ? await players
           .find(
             { _id: { $in: playerIds } },
-            { projection: { shopInventory: 1 } },
+            { projection: { name: 1, cityName: 1, shopInventory: 1 } },
           )
           .toArray()
       : [];
+    const playerById = new Map(
+      chatPlayers.map((player) => [player._id, player]),
+    );
     const inventoryByPlayer = new Map(
       chatPlayers.map((player) => [
         player._id,
@@ -5853,7 +5863,12 @@ export function createApp() {
         id: message._id,
         kind: "user" as const,
         userId: message.userId,
-        userName: message.userName,
+        userName: resolveChatUserName({
+          userId: message.userId,
+          playerName: playerById.get(message.userId)?.name,
+          cityName: playerById.get(message.userId)?.cityName,
+          storedName: message.userName,
+        }),
         avatarId: message.avatarId || "emperor",
         avatarFrameId:
           inventoryByPlayer.get(message.userId)?.equippedAvatarFrameId ||
@@ -7410,6 +7425,73 @@ export function createApp() {
         serverTime: new Date(version).toISOString(),
       });
       res.json({ ok: true, inventory: nextInventory });
+    } finally {
+      release();
+    }
+  });
+  app.post("/api/shop/equip-profile", requireAuth, async (req, res) => {
+    const parsed = ProfileCosmeticEquipSchema.safeParse(req.body);
+    if (!parsed.success)
+      return res
+        .status(400)
+        .json({ error: "bad_request", message: "Vật phẩm hồ sơ không hợp lệ" });
+    const playerId = req.user!.id;
+    const release = await acquirePlayerMutationLock(playerId);
+    try {
+      const { players } = await collections();
+      const player = await players.findOne({ _id: playerId });
+      const inventory = normalizeShopInventory(
+        player?.shopInventory,
+        player ?? undefined,
+      );
+      const { kind, cosmeticId } = parsed.data;
+      const owned =
+        kind === "avatar"
+          ? inventory.ownedAvatars
+          : kind === "avatar_frame"
+            ? inventory.ownedAvatarFrames
+            : inventory.ownedNameFrames;
+      if (!owned.includes(cosmeticId)) {
+        return res.status(403).json({
+          error: "not_owned",
+          message: "Bạn chưa sở hữu vật phẩm hồ sơ này",
+        });
+      }
+
+      const nextInventory: any = {
+        ...inventory,
+        ...(kind === "avatar_frame"
+          ? { equippedAvatarFrameId: cosmeticId }
+          : {}),
+        ...(kind === "name_frame"
+          ? { equippedNameFrameId: cosmeticId }
+          : {}),
+        version: inventory.version + 1,
+      };
+      await players.updateOne(
+        { _id: playerId },
+        {
+          $set: {
+            shopInventory: nextInventory,
+            ...(kind === "avatar" ? { avatarId: cosmeticId } : {}),
+          },
+        },
+      );
+      const version = Date.now();
+      publishRealtime(
+        {
+          type: "shop_inventory_updated",
+          inventory: nextInventory,
+          version,
+          serverTime: new Date(version).toISOString(),
+        },
+        `player:${playerId}`,
+      );
+      res.json({
+        ok: true,
+        inventory: nextInventory,
+        ...(kind === "avatar" ? { avatarId: cosmeticId } : {}),
+      });
     } finally {
       release();
     }

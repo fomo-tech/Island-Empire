@@ -417,3 +417,366 @@ html
     display: none !important;
   }
 }
+
+/* ========================================================================
+   TACTICAL MAP SURFACE — final visual layer
+   The battlefield feed is intentionally a sibling of the minimap card, so
+   collapsing the map never collapses the live situation report with it.
+   ======================================================================== */
+html body .game-shell .hud-wrapper .hud-right-side {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  width: min(274px, calc(100vw - 24px)) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(205, 157, 68, 0.72) !important;
+  border-radius: 14px !important;
+  outline: 1px solid rgba(101, 169, 189, 0.24);
+  outline-offset: 2px;
+  background:
+    linear-gradient(135deg, rgba(35, 64, 73, 0.96), transparent 31%),
+    linear-gradient(160deg, #101f27 0%, #07131a 56%, #050c11 100%) !important;
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.58),
+    inset 0 1px rgba(255, 231, 162, 0.2),
+    inset 0 0 0 2px rgba(2, 9, 13, 0.38) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card::before,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card::after {
+  width: 16px;
+  height: 16px;
+  border-color: #e2b75e;
+  opacity: 0.82;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card::before {
+  top: 5px;
+  left: 5px;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card::after {
+  right: 5px;
+  bottom: 5px;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 42px !important;
+  margin: 0 0 9px !important;
+  padding: 0 2px 9px !important;
+  border-bottom: 1px solid rgba(211, 169, 87, 0.32) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-title {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  color: #fff0be !important;
+  letter-spacing: 0 !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-svg-icon {
+  display: grid !important;
+  place-items: center !important;
+  width: 31px !important;
+  height: 31px !important;
+  flex: 0 0 31px !important;
+  border: 1px solid rgba(225, 183, 94, 0.52) !important;
+  border-radius: 9px !important;
+  background: linear-gradient(145deg, #294b54, #0b1d26) !important;
+  box-shadow: inset 0 1px rgba(255, 243, 188, 0.18), 0 3px 8px #0008;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-svg-icon img {
+  display: block !important;
+  width: 19px !important;
+  height: 19px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 2px #000);
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-title-copy {
+  display: grid !important;
+  min-width: 0 !important;
+  gap: 2px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-title-copy strong {
+  overflow: hidden;
+  color: #ffe9a7;
+  font: 800 12px/1.05 Cinzel, Georgia, serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 2px #000;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-title-copy small {
+  color: #8db0b7;
+  font: 800 7px/1 Arial, sans-serif;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-live {
+  flex: 0 0 auto;
+  padding: 4px 5px 3px;
+  border: 1px solid rgba(71, 203, 162, 0.48);
+  border-radius: 5px;
+  color: #8ef0c7;
+  background: rgba(24, 111, 91, 0.2);
+  font: 800 7px/1 Arial, sans-serif;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-card.collapsed .hud-minimap-live {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn-plus {
+  width: 30px !important;
+  height: 30px !important;
+  flex: 0 0 30px !important;
+  border: 1px solid rgba(224, 179, 82, 0.58) !important;
+  border-radius: 9px !important;
+  background: linear-gradient(145deg, #284a53, #0b1a22) !important;
+  box-shadow: inset 0 1px rgba(255, 239, 173, 0.15), 0 3px 8px #0007;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn-plus:hover {
+  border-color: #ffe39a !important;
+  background: linear-gradient(145deg, #3b6870, #10242d) !important;
+  transform: translateY(-1px);
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-coords-display {
+  height: 31px !important;
+  margin: 0 0 8px !important;
+  padding: 0 5px 0 10px !important;
+  border: 1px solid rgba(106, 164, 174, 0.26) !important;
+  border-left: 3px solid #d6a94f !important;
+  border-radius: 8px !important;
+  background: rgba(3, 13, 19, 0.72) !important;
+  box-shadow: inset 0 1px rgba(255, 240, 183, 0.07);
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .coords-text {
+  color: #d5e4df !important;
+  font: 700 10px/1 "JetBrains Mono", "Courier New", monospace !important;
+  letter-spacing: 0.04em !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn {
+  width: 25px !important;
+  height: 25px !important;
+  border: 1px solid rgba(211, 169, 87, 0.44) !important;
+  border-radius: 7px !important;
+  background: rgba(27, 54, 61, 0.72) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-canvas-wrapper {
+  height: auto !important;
+  aspect-ratio: 4 / 3 !important;
+  padding: 3px !important;
+  border: 1px solid rgba(211, 169, 87, 0.62) !important;
+  border-radius: 10px !important;
+  background: #06131a !important;
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.76),
+    0 0 0 1px rgba(99, 190, 196, 0.12) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-canvas-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border: 1px solid rgba(189, 224, 196, 0.1);
+  border-radius: 7px;
+  background:
+    linear-gradient(rgba(188, 220, 196, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(188, 220, 196, 0.045) 1px, transparent 1px);
+  background-size: 25% 25%;
+  mix-blend-mode: screen;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .hud-minimap-canvas {
+  border-radius: 7px;
+  background: #06131a !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .minimap-marker-legend {
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  padding: 7px 1px 1px !important;
+  color: #9bb2b3 !important;
+  font: 700 8px/1 Arial, sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side .minimap-marker-legend > span {
+  padding: 4px 6px;
+  border: 1px solid rgba(116, 164, 158, 0.2);
+  border-radius: 5px;
+  background: rgba(5, 18, 23, 0.68);
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  max-height: min(320px, calc(var(--app-height, 100dvh) - 330px)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: auto !important;
+  border: 1px solid rgba(205, 157, 68, 0.5) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(135deg, rgba(43, 63, 67, 0.42), transparent 35%),
+    linear-gradient(160deg, rgba(12, 28, 35, 0.98), rgba(5, 13, 18, 0.98)) !important;
+  box-shadow: 0 12px 25px #0008, inset 0 1px rgba(255, 231, 162, 0.12) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header {
+  height: 38px !important;
+  padding: 0 13px !important;
+  border-bottom: 1px solid rgba(211, 169, 87, 0.3) !important;
+  color: #f2d790 !important;
+  font: 800 10px/1 Cinzel, Georgia, serif !important;
+  letter-spacing: 0.06em;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header i {
+  width: 24px !important;
+  height: 24px !important;
+  border: 1px solid rgba(211, 169, 87, 0.42) !important;
+  border-radius: 7px !important;
+  background: rgba(18, 42, 48, 0.72);
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-list {
+  padding: 2px 10px 7px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission {
+  min-height: 53px !important;
+  grid-template-columns: 35px minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  border-bottom-color: rgba(127, 167, 157, 0.17) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon {
+  width: 31px !important;
+  height: 31px !important;
+  border-color: rgba(207, 164, 77, 0.54) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #244652, #0a1b24) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon img {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-copy {
+  gap: 4px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-copy b {
+  color: #e7e4d8 !important;
+  font-size: 9px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-meta {
+  color: #91a9aa !important;
+  font-size: 8px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-locate {
+  width: 23px !important;
+  height: 23px !important;
+  border-color: rgba(211, 169, 87, 0.45) !important;
+  border-radius: 7px !important;
+  background: rgba(20, 49, 56, 0.72);
+}
+
+/* Keep the collapsed desktop state compact. This must come after the full
+   card styling above, otherwise the generic width: 100% rule wins. */
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed {
+  flex: 0 0 58px !important;
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 5px !important;
+  border-radius: 12px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed .hud-minimap-header {
+  height: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed .hud-minimap-title,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed .hud-minimap-live {
+  display: none !important;
+}
+
+@media (max-width: 767px),
+  (max-height: 599px) and (pointer: coarse) {
+  /* Mobile menu's Bản đồ command is the only minimap toggle. */
+  html body .game-shell .hud-wrapper .hud-right-side {
+    width: min(228px, calc(100vw - 16px)) !important;
+    gap: 8px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card:not(.collapsed) {
+    width: 100% !important;
+    padding: 8px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn-plus {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions {
+    display: block !important;
+    max-height: min(260px, calc(var(--app-height, 100dvh) - 390px)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .mobile-battlefield-alert {
+    display: none !important;
+  }
+}
+
+/* The app marks touch devices explicitly, covering mobile WebViews whose
+   viewport media query is reported inconsistently. */
+html[data-touch="true"] body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn-plus,
+html[data-touch="true"] body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed {
+  display: none !important;
+}
