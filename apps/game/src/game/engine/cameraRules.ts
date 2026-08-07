@@ -13,9 +13,9 @@ export function getZoomTier(zoom: number) {
 }
 
 export function getMinZoom(viewportWidth: number) {
-  if (viewportWidth <= 600) return 0.08;
-  if (viewportWidth <= 1024) return 0.1;
-  return 0.12;
+  // The far strategic overview is intentionally available on every device.
+  // It is lightweight-only, so 0.05x remains cheap to render even on mobile.
+  return 0.05;
 }
 
 export function getDefaultFarZoom(

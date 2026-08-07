@@ -47,4 +47,5 @@ export type CachedRegion = {
   hasOwner: boolean;
   zoomTier: number;
   assetsEnabled?: boolean;
+  overviewPalette?: boolean;
 };

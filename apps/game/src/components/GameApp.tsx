@@ -2,6 +2,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -15,6 +16,7 @@ import {
   completeClearing,
   createMarch,
   deletePlayerMail,
+  equipProfileCosmetic,
   getMarchSourceOptions,
   getGameConfig,
   getShopGemPacks,
@@ -80,6 +82,19 @@ const CLAIM_KEY = "island_empire_onboarding_claim";
 const ONBOARDING_KEY = "island_empire_onboarding_pending";
 const MINIMAP_COLLAPSED_KEY = "island_empire_minimap_collapsed";
 let didApplyNewbieReset = false;
+
+const BASE_PROFILE_AVATARS = [
+  { id: "emperor", label: "Hoàng Đế" },
+  { id: "warlord", label: "Chiến Tướng" },
+  { id: "merchant", label: "Thương Nhân" },
+  { id: "scholar", label: "Học Giả" },
+  { id: "knight", label: "Kị Sĩ" },
+  { id: "queen", label: "Nữ Hoàng" },
+  { id: "pirate", label: "Hải Tặc" },
+  { id: "nomad", label: "Du Mục" },
+  { id: "alchemist", label: "Giả Kim" },
+  { id: "assassin", label: "Sát Thủ" },
+];
 
 type MailConfirmAction =
   | { kind: "delete"; mail: PlayerMail; tab: "inbox" | "sent" }
@@ -1574,6 +1589,23 @@ export function GameApp({
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>(
     () => localStorage.getItem("island_empire_avatar") || "emperor",
   );
+  const avatarPickerOptions = useMemo(() => {
+    const seen = new Set(BASE_PROFILE_AVATARS.map((avatar) => avatar.id));
+    const purchasedAvatars = shopInventory.ownedAvatars.flatMap((avatarId) => {
+      if (seen.has(avatarId)) return [];
+      seen.add(avatarId);
+      const catalogItem = shopCatalog.find(
+        (product) => product.avatarId === avatarId,
+      );
+      return [
+        {
+          id: avatarId,
+          label: catalogItem?.name || avatarId.replaceAll("-", " "),
+        },
+      ];
+    });
+    return [...BASE_PROFILE_AVATARS, ...purchasedAvatars];
+  }, [shopCatalog, shopInventory.ownedAvatars]);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [toastMessage, setToastMessage] = useState(
     "CHỌN THÀNH CỦA BẠN ĐỂ RA LỆNH",
@@ -5343,11 +5375,30 @@ export function GameApp({
             setPurchasedProductIds((prev) => [...prev, productId]);
           }}
           currentAvatarId={selectedAvatarId}
-          onProfileCosmeticEquipped={({ avatarId }) => {
-            if (!avatarId) return;
-            setSelectedAvatarId(avatarId);
-            localStorage.setItem("island_empire_avatar", avatarId);
-            engineRef.current?.handleAction("setLocalPlayer", { avatarId });
+          onProfileCosmeticEquipped={({
+            avatarId,
+            avatarFrameId,
+            nameFrameId,
+          }) => {
+            if (avatarId) {
+              setSelectedAvatarId(avatarId);
+              localStorage.setItem("island_empire_avatar", avatarId);
+              engineRef.current?.handleAction("setLocalPlayer", { avatarId });
+            }
+            if (avatarFrameId || nameFrameId) {
+              const currentInventory = useGameStore.getState().shopInventory;
+              const nextInventory = {
+                ...currentInventory,
+                ...(avatarFrameId
+                  ? { equippedAvatarFrameId: avatarFrameId }
+                  : {}),
+                ...(nameFrameId
+                  ? { equippedNameFrameId: nameFrameId }
+                  : {}),
+              };
+              setShopInventory(nextInventory);
+              syncShopInventoryToEngine(nextInventory);
+            }
           }}
           onVipProgress={(level, points) => {
             setNationStatus((previous) =>
@@ -5825,30 +5876,25 @@ export function GameApp({
           maxWidth="95vw"
         >
           <div className="avatar-picker-grid">
-            {[
-              { id: "emperor", label: "Hoàng Đế" },
-              { id: "warlord", label: "Chiến Tướng" },
-              { id: "merchant", label: "Thương Nhân" },
-              { id: "scholar", label: "Học Giả" },
-              { id: "knight", label: "Kị Sĩ" },
-              { id: "queen", label: "Nữ Hoàng" },
-              { id: "pirate", label: "Hải Tặc" },
-              { id: "nomad", label: "Du Mục" },
-              { id: "alchemist", label: "Giả Kim" },
-              { id: "assassin", label: "Sát Thủ" },
-            ].map((av) => (
+            {avatarPickerOptions.map((av) => (
               <button
                 key={av.id}
                 className={`avatar-option${selectedAvatarId === av.id ? " active" : ""}`}
                 onClick={async () => {
-                  setSelectedAvatarId(av.id);
-                  setShowAvatarPicker(false);
-                  engineRef.current?.handleAction("setLocalPlayer", {
-                    avatarId: av.id,
-                  });
-                  if (token) {
-                    try {
-                      await fetch("/api/player/profile", {
+                  try {
+                    if (
+                      token &&
+                      shopInventory.ownedAvatars.includes(av.id)
+                    ) {
+                      const result = await equipProfileCosmetic(
+                        token,
+                        "avatar",
+                        av.id,
+                      );
+                      setShopInventory(result.inventory);
+                      syncShopInventoryToEngine(result.inventory);
+                    } else if (token) {
+                      const response = await fetch("/api/player/profile", {
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
@@ -5856,12 +5902,19 @@ export function GameApp({
                         },
                         body: JSON.stringify({ avatarId: av.id }),
                       });
-                      localStorage.setItem("island_empire_avatar", av.id);
-                    } catch (err) {
-                      console.error("Failed to update avatar on backend:", err);
+                      if (!response.ok) {
+                        throw new Error("Không thể cập nhật ảnh đại diện");
+                      }
                     }
-                  } else {
+                    setSelectedAvatarId(av.id);
                     localStorage.setItem("island_empire_avatar", av.id);
+                    engineRef.current?.handleAction("setLocalPlayer", {
+                      avatarId: av.id,
+                    });
+                    setShowAvatarPicker(false);
+                  } catch (err) {
+                    console.error("Failed to update avatar on backend:", err);
+                    showGameError("Không thể cập nhật ảnh đại diện");
                   }
                 }}
                 title={av.label}

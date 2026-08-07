@@ -1820,6 +1820,19 @@ export function createIslandEmpireGame(
     7: { core: 7, mid: 6, coast: 5 }, // Highland Moss: Core Moss -> Mid Pine -> Coastal Olive
   };
 
+  const OVERVIEW_CLIMATE_GROUP: Record<string, number> = {
+    forest: 0,
+    pine: 0,
+    mint: 0,
+    isles: 0,
+    violet: 0,
+    desert: 1,
+    sand: 1,
+    rose: 1,
+    ice: 2,
+    volcanic: 3,
+  };
+
   function visualBiomeIndex(r: any, idx: number, isIslet = false) {
     const declaredBiome = Number(r?.biome);
     const hasDeclaredBiome =
@@ -1887,12 +1900,18 @@ export function createIslandEmpireGame(
         return OVERVIEW_BIOMES[cachedOverviewBiome] || OVERVIEW_BIOMES[0];
       }
 
-      // Keep the exact biome for normal zoom, but use the dominant continent
-      // family for the strategic overview so one landmass reads as one place
-      // instead of a patchwork of unrelated province colours.
+      // Keep the exact biome for normal zoom, but use the continent climate
+      // for the strategic overview so every province in one landmass shares
+      // one stable colour instead of becoming a patchwork of biome colours.
       let sourceBiome = visualBiomeIndex(r, idx, isIslet);
+      let overviewGroup: number | undefined;
       if (!isIslet) {
-        const continentBiome = Number(nearestContinent(r)?.biome);
+        const continent = nearestContinent(r);
+        const climate = String(continent?.climate || "").toLowerCase();
+        if (climate in OVERVIEW_CLIMATE_GROUP) {
+          overviewGroup = OVERVIEW_CLIMATE_GROUP[climate];
+        }
+        const continentBiome = Number(continent?.biome);
         if (
           Number.isInteger(continentBiome) &&
           continentBiome >= 0 &&
@@ -1902,6 +1921,7 @@ export function createIslandEmpireGame(
         }
       }
       const group =
+        overviewGroup ??
         OVERVIEW_BIOME_GROUP_BY_BIOME[sourceBiome] ??
         OVERVIEW_BIOME_GROUP_BY_BIOME[0];
       overviewBiomeCache.set(cacheKey, group);
@@ -3574,7 +3594,10 @@ export function createIslandEmpireGame(
     }
 
     const biomeId = visualBiomeIndex(r, idx, isIslet);
-    const biome = BIOMES[biomeId] || BIOMES[0];
+    // The strategic overview must use the same continent palette as the
+    // foundation layer. Using BIOMES[biomeId] here repainted every province
+    // on top and recreated the green/amber/grey patchwork.
+    const biome = visualBiome(r, idx, isIslet);
     const seed = r.seed || idx + 1;
     const territoryColor = territoryTerrainColor(biome);
     const scale = isIslet ? 0.82 : 0.995;
@@ -3967,7 +3990,8 @@ export function createIslandEmpireGame(
         cache.hasTown === hasTown &&
         cache.hasOwner === hasOwner &&
         cache.zoomTier === zoomTier &&
-        cache.assetsEnabled === !lightweightAssetRenderMode
+        cache.assetsEnabled === !lightweightAssetRenderMode &&
+        cache.overviewPalette === overviewRenderMode
       ) {
         ctx.drawImage(
           cache.canvas,
@@ -4082,6 +4106,7 @@ export function createIslandEmpireGame(
             hasOwner,
             zoomTier,
             assetsEnabled: !lightweightAssetRenderMode,
+            overviewPalette: overviewRenderMode,
           });
 
           ctx.drawImage(
@@ -11212,12 +11237,14 @@ export function createIslandEmpireGame(
       ctx.save();
       ctx.globalAlpha = 0.42 + buildP * 0.58;
       if (lightweightAssetRenderMode) {
-        drawLightweightTerritoryMarker(
-          r.x,
-          r.y,
-          state.newbieFlagColor || "#2563eb",
-          constructionType,
-        );
+        if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
+          drawLightweightTerritoryMarker(
+            r.x,
+            r.y,
+            state.newbieFlagColor || "#2563eb",
+            constructionType,
+          );
+        }
       } else {
         drawKingdomBuildingSprite(
           constructionArchitecture,
@@ -11810,22 +11837,9 @@ export function createIslandEmpireGame(
 
     const color = getRegionFlagColor(regionId);
 
-    // At a crowded strategic zoom, remote full-size buildings do not convey
-    // more information than a flag but cost a drawImage and a nameplate each.
-    // Keep the local and battle-related settlements detailed; downgrade the
-    // rest to a tiny marker until the camera is close again.
     const isBattleRegion =
       frameBattleTargetRegions.has(Number(regionId)) ||
       frameBattleSourceRegions.has(Number(regionId));
-    if (
-      ultraCrowdedRenderMode &&
-      state.zoom < 0.42 &&
-      ownerCode > 1 &&
-      !isBattleRegion
-    ) {
-      drawTerritoryFlagMarker(x, y, color, 0.58);
-      return;
-    }
 
     // On Conquest Map layout, do NOT draw 1,000 castle sprites or flag markers over every territory
     if (isConquestLayout) {
@@ -11849,9 +11863,39 @@ export function createIslandEmpireGame(
     });
     const { isCapital, isSubCapital, isMilitaryDistrict, buildingType } =
       settlement;
+    const displayOwnerName = cleanOwnerName(ownerName, ownerCode, regionId);
+
+    // Remote non-capital settlements may collapse to a flag under extreme
+    // load, but a Hoàng Thành must retain its identity and player name.
+    if (
+      ultraCrowdedRenderMode &&
+      state.zoom <= OVERVIEW_ICON_THRESHOLD &&
+      ownerCode > 1 &&
+      !isBattleRegion &&
+      !isCapital
+    ) {
+      drawTerritoryFlagMarker(x, y, color, 0.58);
+      return;
+    }
 
     if (lightweightAssetRenderMode) {
-      drawLightweightTerritoryMarker(x, y, color, buildingType);
+      // Keep the middle overview tier clean: terrain remains cheap to draw,
+      // but settlement markers are reserved for the farther strategic zoom.
+      if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
+        drawLightweightTerritoryMarker(x, y, color, buildingType);
+      }
+      if (isCapital) {
+        if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
+          drawMedievalCastleNameplate(
+            x,
+            y,
+            displayOwnerName,
+            ownerCode,
+            22,
+            isBattleRegion,
+          );
+        }
+      }
       return;
     }
 
@@ -11922,9 +11966,18 @@ export function createIslandEmpireGame(
       });
     }
 
-    // Territory buildings intentionally have no owner nameplate. The flag and
-    // structure identify ownership while avoiding per-frame text measurement
-    // and canvas text rendering across the whole map.
+    // Only Hoàng Thành carries the player name. Districts and flag-only
+    // territories stay label-free to keep the map compact.
+    if (isCapital) {
+      drawMedievalCastleNameplate(
+        buildingAnchor.x,
+        buildingAnchor.y,
+        displayOwnerName,
+        ownerCode,
+        castleSize,
+        isBattleRegion,
+      );
+    }
   }
 
   function drawClaimedTerritoryMarkers(
@@ -12405,7 +12458,9 @@ export function createIslandEmpireGame(
     const invZoom = 1 / (state.zoom || 1);
     const offX = -((1 - state.zoom) * W * 0.48 + state.panX) * invZoom;
     const offY = -((1 - state.zoom) * H * 0.48 + state.panY) * invZoom;
-    const margin = 200; // Thêm lề để không bị khuyết viền khi cuộn
+    // Keep the culling margin roughly screen-sized. A fixed 200 world-unit
+    // margin becomes 800 CSS pixels at 4x and renders many invisible regions.
+    const margin = Math.min(200, 240 / Math.max(1, state.zoom));
     return {
       minX: offX - margin,
       minY: offY - margin,
@@ -12428,17 +12483,21 @@ export function createIslandEmpireGame(
 
   function isPointInViewport(x: number, y: number, vp: any, margin = 200) {
     if (!vp) return true;
+    const effectiveMargin = Math.min(
+      margin,
+      420 / Math.max(1, state.zoom),
+    );
     return (
-      x >= vp.minX - margin &&
-      x <= vp.maxX + margin &&
-      y >= vp.minY - margin &&
-      y <= vp.maxY + margin
+      x >= vp.minX - effectiveMargin &&
+      x <= vp.maxX + effectiveMargin &&
+      y >= vp.minY - effectiveMargin &&
+      y <= vp.maxY + effectiveMargin
     );
   }
 
   function isFastPanning() {
     return (
-      Boolean(state.drag) ||
+      Boolean(state.drag && state.dragMoved) ||
       Math.abs(panVelX) > 0.35 ||
       Math.abs(panVelY) > 0.35 ||
       Boolean(minimapController?.isDragging())
@@ -12453,14 +12512,12 @@ export function createIslandEmpireGame(
   }
 
   let fastRenderMode = false;
-  // At close zoom and during camera input, vegetation/resource dioramas add
-  // many bitmap composites without adding strategic information. Keep only
-  // lightweight territory/building markers and unit tokens in this mode.
-  const HIGH_ZOOM_LIGHTWEIGHT_THRESHOLD = 1.05;
-  // The world opens at ~0.52x. At that scale a tree sprite is only a few
-  // pixels but still costs a bitmap composite, so the overview must be a
-  // terrain silhouette plus strategic markers rather than a mini diorama.
-  const OVERVIEW_LIGHTWEIGHT_THRESHOLD = 0.72;
+  // Colour unification, lightweight terrain and icon LOD are independent.
+  // The middle overview tier stays clean; only the farthest tier shows markers.
+  const OVERVIEW_PALETTE_THRESHOLD = 0.72;
+  const OVERVIEW_LIGHTWEIGHT_THRESHOLD = 0.5;
+  const OVERVIEW_ICON_THRESHOLD = 0.05;
+  const HIGH_ZOOM_PERFORMANCE_THRESHOLD = 3.2;
   let overviewRenderMode = false;
   let lightweightAssetRenderMode = false;
   // Render pressure is based on visible simulation entities, not the number
@@ -12473,17 +12530,17 @@ export function createIslandEmpireGame(
   function drawWorld() {
     const fastPan = isCameraInteracting();
     fastRenderMode = fastPan || state.zoom < 0.15;
-    overviewRenderMode = state.zoom <= OVERVIEW_LIGHTWEIGHT_THRESHOLD;
+    overviewRenderMode = state.zoom <= OVERVIEW_PALETTE_THRESHOLD;
     lightweightAssetRenderMode =
-      fastPan ||
-      overviewRenderMode ||
-      state.zoom >= HIGH_ZOOM_LIGHTWEIGHT_THRESHOLD;
+      state.zoom <= OVERVIEW_LIGHTWEIGHT_THRESHOLD;
     // Build only a few new offscreen territory caches per settled frame. A
     // zoom-tier change can invalidate many regions at once; spreading that
     // work prevents a long hitch immediately after a pinch or wheel zoom.
     regionCacheBuildBudget =
       fastPan || lightweightAssetRenderMode
         ? 0
+        : state.zoom >= HIGH_ZOOM_PERFORMANCE_THRESHOLD
+          ? 1
         : isTouchDevice()
           ? 2
           : 4;
@@ -12771,9 +12828,9 @@ export function createIslandEmpireGame(
     // icon pass duplicated dioramas with mines and obscured borders/towns.
     if (!fastRenderMode && !crowdedRenderMode && !isConquestLayout)
       drawDecoration(vp);
-    // Territory buildings are the base layer for a settlement. Draw them
-    // before marches so siege routes, attackers and impact effects are never
-    // hidden behind the target territory artwork.
+    // Territory buildings are the base layer for a settlement. In overview
+    // these functions automatically draw compact markers/tokens; above 0.5x
+    // they restore the original building and unit sprites.
     drawClaimedTerritoryMarkers(vp, [...visibleIslets, ...visibleRegions]);
     drawSpecialTerritorySprites(visibleRegions, visibleIslets);
     drawVoyages(vp);
@@ -15138,8 +15195,15 @@ export function createIslandEmpireGame(
   canvas.addEventListener("mousemove", (e) => {
     const p = pointer(e);
     if (state.drag) {
-      markCameraInput();
       const now = performance.now();
+      const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
+      if (!state.dragMoved && totalDist <= 4) {
+        state.drag = p;
+        lastDragTime = now;
+        return;
+      }
+      state.dragMoved = true;
+      markCameraInput();
       const dtMs = Math.max(1, now - lastDragTime);
       const dx = p.x - state.drag.x;
       const dy = p.y - state.drag.y;
@@ -15152,8 +15216,6 @@ export function createIslandEmpireGame(
       state.panX += dx;
       state.panY += dy;
       state.drag = p;
-      const totalDist = Math.hypot(p.x - dragStartPos.x, p.y - dragStartPos.y);
-      if (totalDist > 4) state.dragMoved = true;
       clampPan();
       return;
     }
@@ -15180,7 +15242,6 @@ export function createIslandEmpireGame(
     state.targetPanX = null;
     state.targetPanY = null;
     if (!buttonAt(p.x, p.y) && !gearAt(p.x, p.y)) {
-      markCameraInput();
       state.drag = p;
     }
   });
@@ -15202,7 +15263,6 @@ export function createIslandEmpireGame(
     "touchstart",
     (e) => {
       updateCachedRect();
-      markCameraInput();
       if (e.touches.length === 1) {
         const touch = e.touches[0];
         const p = pointer({ clientX: touch.clientX, clientY: touch.clientY });
@@ -15238,11 +15298,21 @@ export function createIslandEmpireGame(
     "touchmove",
     (e) => {
       if (e.cancelable) e.preventDefault();
-      markCameraInput();
       if (e.touches.length === 1 && state.drag) {
         const touch = e.touches[0];
         const p = pointer({ clientX: touch.clientX, clientY: touch.clientY });
         const now = performance.now();
+        const totalDist = Math.hypot(
+          touch.clientX - touchStartClient.x,
+          touch.clientY - touchStartClient.y,
+        );
+        if (!state.dragMoved && totalDist <= 4) {
+          state.drag = p;
+          lastDragTime = now;
+          return;
+        }
+        state.dragMoved = true;
+        markCameraInput();
         const dtMs = Math.max(1, now - lastDragTime);
         const dx = p.x - state.drag.x;
         const dy = p.y - state.drag.y;
@@ -15254,13 +15324,9 @@ export function createIslandEmpireGame(
         state.panX += dx;
         state.panY += dy;
         state.drag = p;
-        const totalDist = Math.hypot(
-          touch.clientX - touchStartClient.x,
-          touch.clientY - touchStartClient.y,
-        );
-        if (totalDist > 4) state.dragMoved = true;
         clampPan();
       } else if (e.touches.length === 2 && initialPinchDistance > 0) {
+        markCameraInput();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDist = Math.hypot(
@@ -15310,13 +15376,13 @@ export function createIslandEmpireGame(
     "wheel",
     (e) => {
       e.preventDefault();
-      markCameraInput();
       const zoomFactor = e.deltaY < 0 ? 1.14 : 0.86;
       const oldZoom = state.zoom;
       const minZ = getMinZoom();
       const maxZ = getMaxZoom();
       const newZoom = Math.max(minZ, Math.min(maxZ, oldZoom * zoomFactor));
       if (Math.abs(newZoom - oldZoom) > 0.001) {
+        markCameraInput();
         const p = pointer(e);
         const focalX = (p.x - (1 - oldZoom) * W * 0.48 - state.panX) / oldZoom;
         const focalY = (p.y - (1 - oldZoom) * H * 0.48 - state.panY) / oldZoom;
@@ -15637,15 +15703,23 @@ export function createIslandEmpireGame(
 
     // 2. Dynamic Frame Pacing & Throttle (60 FPS active / 30 FPS idle)
     const isAnimating = hasActiveAnimations();
-    const targetFps = isAnimating
-      ? ultraCrowdedRenderMode
-        ? 24
-        : crowdedRenderMode
-          ? 36
-          : 60
-      : uiOverlayActive
-        ? 20
-        : 30;
+    const highZoomPerformanceMode =
+      state.zoom >= HIGH_ZOOM_PERFORMANCE_THRESHOLD;
+    const targetFps = highZoomPerformanceMode
+      ? isAnimating
+        ? isTouchDevice()
+          ? 24
+          : 30
+        : 20
+      : isAnimating
+        ? ultraCrowdedRenderMode
+          ? 24
+          : crowdedRenderMode
+            ? 36
+            : 60
+        : uiOverlayActive
+          ? 20
+          : 30;
     const minFrameInterval = 1000 / targetFps;
 
     if (now - lastFrameTime < minFrameInterval) {
