@@ -7224,6 +7224,62 @@ canvas {
   gap: 6px;
 }
 
+.rt-special-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.rt-special-summary-title {
+  color: #d7b66a;
+  font-family: Cinzel, Georgia, serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  margin-right: 2px;
+}
+
+.rt-special-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 23px;
+  padding: 2px 7px 2px 4px;
+  border: 1px solid rgba(183, 139, 59, 0.52);
+  border-radius: 4px;
+  background: rgba(8, 20, 23, 0.86);
+  color: #f4e4b0;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rt-special-summary-item .rt-special-png-icon {
+  width: 19px;
+  height: 19px;
+  flex-basis: 19px;
+}
+
+.rt-special-summary-item.tone-cavalry {
+  border-color: rgba(228, 159, 65, 0.72);
+}
+
+.rt-special-summary-item.tone-artillery {
+  border-color: rgba(190, 122, 78, 0.72);
+}
+
+.rt-special-summary-item.tone-naval {
+  border-color: rgba(70, 164, 210, 0.74);
+}
+
+.rt-special-summary-item.tone-gem {
+  border-color: rgba(80, 205, 225, 0.8);
+  color: #b8f2ff;
+}
+
 .rt-biome-pill {
   font-size: 11px;
   font-weight: 800;
@@ -12635,6 +12691,10 @@ canvas {
   .rt-special-list-container,
   .rt-guide-special-grid {
     grid-template-columns: 1fr;
+  }
+  .rt-special-summary-item {
+    font-size: 8.5px;
+    padding-right: 5px;
   }
   .rt-special-list-item {
     min-height: 44px;

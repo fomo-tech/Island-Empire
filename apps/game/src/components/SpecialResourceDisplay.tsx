@@ -25,7 +25,7 @@ export const SPECIAL_RESOURCE_META: Record<string, SpecialResourceMeta> = {
     tone: "artillery",
   },
   "Bến tàu tự nhiên": {
-    label: "Bến tàu tự nhiên",
+    label: "Bến tàu ven biển",
     icon: "/assets/special/special_harbor_icon.png",
     mapAsset: "/assets/special/special_harbor.png",
     effect: "Mở tuyến hành quân biển",
@@ -33,11 +33,11 @@ export const SPECIAL_RESOURCE_META: Record<string, SpecialResourceMeta> = {
     tone: "naval",
   },
   "Mỏ Ngọc": {
-    label: "Mỏ Ngọc",
+    label: "Mỏ Gem",
     icon: "/assets/special/special_gem_mine_icon.png",
     mapAsset: "/assets/special/special_gem_mine.png",
-    effect: "Sinh Ngọc hiếm",
-    guide: "Nguồn Ngọc tự nhiên cực hiếm; Ngọc không giới hạn kho.",
+    effect: "Sinh Gem hiếm",
+    guide: "Nguồn Gem tự nhiên cực hiếm; Gem không giới hạn kho.",
     tone: "gem",
   },
 };

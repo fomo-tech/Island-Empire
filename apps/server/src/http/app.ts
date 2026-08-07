@@ -978,6 +978,22 @@ function townPopulationGrowthPerSecond(town) {
     ) / 100000
   );
 }
+// Every territory owns one deterministic troop limit. It is derived only
+// from the territory itself, never from town level, population or buildings.
+function territoryTroopLimit(territory: any) {
+  if (!territory) return 100;
+  const areaFactor = Math.max(
+    0.7,
+    Math.min(2.4, (Number(territory.rx) * Number(territory.ry)) / 10000),
+  );
+  const biomeMultiplier =
+    [1.15, 0.82, 0.78, 0.72, 0.95, 1.22, 1, 0.88][territory.biome ?? 0] || 1;
+  const islandMultiplier = territory.isIslet ? 0.7 : 1;
+  return Math.max(
+    40,
+    Math.round(100 * areaFactor * biomeMultiplier * islandMultiplier),
+  );
+}
 function settleTownPopulation(town, now = new Date()) {
   const capacity = Math.max(
     1,
@@ -1018,10 +1034,7 @@ function defaultTownSnapshotForTerritory(
 ) {
   const population = territoryStartingPopulationForTown(territory, 1);
   const gameConfig = cachedGameConfig || DEFAULT_CONFIG;
-  const troopCapacity = Math.max(
-    1,
-    Math.floor(population * gameConfig.strongholdTroopCapacityMultiplier),
-  );
+  const troopCapacity = territoryTroopLimit(territory);
   const now = new Date();
   return {
     id: townIdForTerritory(territory.id, townId),
@@ -1139,14 +1152,7 @@ function normalizeTownSnapshotForState(
     Math.floor(Number(town?.artilleryCount ?? 0) || 0),
   );
   const unitCount = infantryCount + cavalryCount + artilleryCount;
-  const capacityMultiplier =
-    kind === "capital" || kind === "sub_capital"
-      ? gameConfig.capitalTroopCapacityMultiplier
-      : gameConfig.strongholdTroopCapacityMultiplier;
-  const troopCapacity = Math.max(
-    1,
-    Math.floor(populationState.population * capacityMultiplier),
-  );
+  const troopCapacity = territoryTroopLimit(territory);
   const specialty = trainingSpecialtyForTerritory(territory, kind);
   const storedRecoveryAt = town?.nextTroopRecoveryAt
     ? new Date(town.nextTroopRecoveryAt)

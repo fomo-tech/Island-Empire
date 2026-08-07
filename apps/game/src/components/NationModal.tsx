@@ -186,9 +186,9 @@ export function NationModal({
               <NationIcon name="people" />
             </span>
             <div className="info">
-              <span className="label">DÂN SỐ</span>
+              <span className="label">QUÂN ĐỘI</span>
               <span className="val">
-                {Math.floor(nation?.population || 0).toLocaleString("vi-VN")}
+                {Math.floor(nation?.ownedTroops || 0).toLocaleString("vi-VN")}
               </span>
             </div>
           </div>
@@ -259,7 +259,7 @@ export function NationModal({
                 <th>THÀNH TRÌ</th>
                 <th>TỌA ĐỘ</th>
                 <th>LOẠI</th>
-                <th>DÂN SỐ</th>
+                <th>QUÂN / GIỚI HẠN</th>
                 <th>KHO</th>
                 <th>TRẠNG THÁI</th>
                 <th>HÀNH ĐỘNG</th>
@@ -311,13 +311,11 @@ export function NationModal({
                       <td>
                         <div className="ka-garrison-cell">
                           <span className="count green">
-                            {Math.floor(town.population).toLocaleString(
-                              "vi-VN",
-                            )}
+                            {Math.floor(town.troops).toLocaleString("vi-VN")}
                           </span>
                           <span className="sub">
                             /
-                            {Math.floor(town.populationCapacity).toLocaleString(
+                            {Math.floor(town.maxTroops).toLocaleString(
                               "vi-VN",
                             )}
                           </span>

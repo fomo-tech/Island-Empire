@@ -121,7 +121,16 @@ export function TownManagementModal({
     1,
     Number(town.troopCapacity ?? town.maxTroops ?? specialtyCount),
   );
-  const population = Math.max(0, Number(town.population || 0));
+  const garrisonTroops = Math.max(
+    0,
+    Number(
+      town.troops ??
+        Number(town.infantryCount || 0) +
+          Number(town.cavalryCount || 0) +
+          Number(town.artilleryCount || 0),
+    ),
+  );
+  const committedTroops = garrisonTroops + reservedTroops;
   const storage = town.storage || {};
   const storedTotal = Object.values(storage).reduce(
     (sum, value) => sum + Math.max(0, Number(value) || 0),
@@ -220,10 +229,10 @@ export function TownManagementModal({
               <AssetIcon src="/assets/icons/icon_tower.png" />
             </div>
             <div className="stat-info">
-              <span className="stat-label">CẤP ĐỘ / DÂN SỐ</span>
+              <span className="stat-label">CẤP ĐỘ / GIỚI HẠN QUÂN</span>
               <span className="stat-val text-gold">
-                Lv. {town.lvl} · {Math.floor(population)}/
-                {Math.floor(town.populationCapacity || population)}
+                Lv. {town.lvl} · {Math.floor(committedTroops)}/
+                {Math.floor(troopCapacity)} quân
               </span>
             </div>
           </div>
@@ -255,7 +264,11 @@ export function TownManagementModal({
               <span className="stat-label">ĐẶC BIỆT LÃNH THỔ</span>
               <span className="stat-val text-gold">
                 {specialResources.length
-                  ? specialResources.join(" · ")
+                  ? specialResources
+                      .map(
+                        (name) => getSpecialResourceMeta(name)?.label || name,
+                      )
+                      .join(" · ")
                   : "Chưa có"}
               </span>
             </div>

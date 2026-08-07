@@ -15,6 +15,7 @@ import "./styles/settings.css";
 import "./styles/war-reports.css";
 import "./styles/battle-report.css";
 import "./styles/typography.css";
+import "./styles/hud-mobile.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");

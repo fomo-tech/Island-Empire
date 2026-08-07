@@ -89,7 +89,7 @@ const castles = section(
 );
 const troops = section(
   "function renderTroopSprites",
-  "function drawHarborDock(",
+  "function drawPortIcon(",
 );
 const voyageShip = section(
   "function drawVoyageShip(",
@@ -176,8 +176,11 @@ if (!source.includes("createNationUnitAtlases")
   || !unitAtlas.includes("ship: { offset: 128, frames: 16 }")) {
   throw new Error("Quân chưa khóa về atlas movement/attack nhiều frame");
 }
-if (!source.includes("const useLowDetail = false")) {
-  throw new Error("Hành quân vẫn có thể thay sprite quốc gia bằng LOD token");
+if (!source.includes("const useLowDetail =")
+  || !source.includes("lightweightAssetRenderMode")
+  || !source.includes("crowdedRenderMode")
+  || !source.includes("state.zoom < 0.42")) {
+  throw new Error("Hành quân chưa khóa điều kiện LOD theo tải render");
 }
 if (!source.includes("return { x: r.x, y: r.y }")) {
   throw new Error("Công trình chưa được khóa vào tâm lãnh thổ");
@@ -231,9 +234,9 @@ if (!source.includes("function voyageUsesShip")
 }
 if (!source.includes("easedRouteProgress")
   || !source.includes("routeMovementState")
-  || !source.includes("unitWalkPhases")
-  || !unitAnimator.includes("distanceTravelled / STRIDE_PIXELS.infantry")) {
-  throw new Error("Hành quân chưa dùng state và animation theo quãng đường");
+  || !source.includes("animateMarchingUnits")
+  || !source.includes('const marchFrame = animateMarchingUnits ? "walk" : "idle"')) {
+  throw new Error("Hành quân chưa dùng state và sprite tĩnh tối ưu");
 }
 if (!unitAtlas.includes("BUILDER_ACTION_FRAMES") || source.includes("builder_idle.png")) {
   throw new Error("Công binh chưa dùng WebP sprite atlas");

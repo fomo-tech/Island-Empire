@@ -1,0 +1,183 @@
+/* Final mobile HUD authority. Imported last to keep legacy responsive rules
+   from mixing the profile and the resource rail. */
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .hud-topbar.rok-hud-topbar {
+    height: 116px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-profile {
+    width: calc(100vw - 8px) !important;
+    height: 113px !important;
+    z-index: 11 !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-avatar {
+    --rok-avatar-size: 60px !important;
+    top: 1px !important;
+    left: 2px !important;
+    width: 60px !important;
+    height: 60px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-avatar .rok-ref-avatar-portrait {
+    width: 42px !important;
+    height: 42px !important;
+    margin-top: 8px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-avatar .rok-ref-avatar-frame {
+    width: 62px !important;
+    height: 62px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-profile-info {
+    top: 59px !important;
+    left: 2px !important;
+    width: 88px !important;
+    height: 52px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 26px 23px 0 !important;
+    gap: 2px !important;
+    filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-power {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 26px !important;
+    justify-content: center !important;
+    padding: 0 5px !important;
+    gap: 3px !important;
+    border-radius: 12px 12px 5px 5px !important;
+    border-color: rgb(186 136 43 / 85%) !important;
+    background: linear-gradient(90deg, rgb(10 27 35 / 96%), rgb(6 17 24 / 91%)) !important;
+    box-shadow: inset 0 1px rgb(255 232 155 / 12%) !important;
+    font-size: 13px !important;
+    line-height: 26px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-power img {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-vip {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 23px !important;
+    justify-content: center !important;
+    padding: 0 5px !important;
+    gap: 3px !important;
+    border-radius: 5px 5px 12px 12px !important;
+    border-color: rgb(186 136 43 / 82%) !important;
+    background: linear-gradient(90deg, rgb(83 50 9 / 95%), rgb(24 19 11 / 92%)) !important;
+    box-shadow: inset 0 1px rgb(255 231 141 / 13%) !important;
+    font-size: 11px !important;
+    line-height: 23px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-vip img {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-vip span {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-vip strong {
+    white-space: nowrap !important;
+    font-size: 12px !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-time {
+    display: none !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-resources {
+    position: absolute !important;
+    top: 2px !important;
+    right: 4px !important;
+    bottom: auto !important;
+    left: 66px !important;
+    width: auto !important;
+    height: 33px !important;
+    z-index: 10 !important;
+  }
+
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip {
+    height: 33px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource,
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource:nth-child(n) {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 2px 0 22px !important;
+    border-radius: 7px !important;
+    border-color: rgb(151 113 47 / 64%) !important;
+    background: linear-gradient(180deg, rgb(18 34 28 / 94%), rgb(7 20 20 / 91%)) !important;
+    box-shadow: inset 0 1px rgb(255 233 157 / 8%), 0 2px 4px rgb(0 0 0 / 34%) !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource
+    .hud-resource-entry-icon {
+    left: -2px !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource
+    .hud-resource-entry-copy {
+    line-height: 32px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource
+    .hud-resource-entry-copy
+    strong {
+    font-size: clamp(8px, 2.2vw, 10px) !important;
+    line-height: 32px !important;
+  }
+
+  html
+    body
+    .game-shell
+    .hud-wrapper
+    .rok-ref-resource-strip
+    .rok-ref-resource
+    .rok-add-btn {
+    display: none !important;
+  }
+}

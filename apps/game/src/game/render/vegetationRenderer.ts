@@ -2,6 +2,7 @@ import { hash } from "../engine/random";
 
 export type VegetationRendererDeps = {
   hasTown: (regionId: number) => boolean;
+  getTownDistance?: (x: number, y: number) => number;
   zoom: number;
   getAtlas: () => HTMLImageElement;
   drawMedievalWorldSprite: (...args: any[]) => void;
@@ -21,7 +22,7 @@ export function drawNaturalTerritoryVegetation(
   ry: number,
   biome: number,
 ) {
-  const hasTown = deps.hasTown(Number(region.id));
+    const hasTown = deps.hasTown(Number(region.id));
   const vegetationDensity = hash(seed * 83 + region.id * 29);
   const farZoom = deps.zoom < 0.38;
   const ultraFarZoom = deps.zoom < 0.22;
@@ -77,24 +78,39 @@ export function drawNaturalTerritoryVegetation(
       minRadius + hash(clusterSeed * 2.13) * (maxRadius - minRadius);
     const cx = region.x + Math.cos(angle) * rx * radius;
     const cy = region.y + Math.sin(angle) * ry * radius * 0.82;
+    const nearestTownDistance = deps.getTownDistance?.(cx, cy) ?? Infinity;
+    // Keep a clear visual moat around every building, including when this
+    // vegetation belongs to a neighbouring territory.
+    if (!hasTown && nearestTownDistance < 118) return;
+    const safeCx = hasTown
+      ? region.x + (cx - region.x) * 1.22
+      : cx;
+    const safeCy = hasTown
+      ? region.y + (cy - region.y) * 1.22
+      : cy;
     const useMedievalCluster = hash(clusterSeed * 7.17) < 0.42;
-    const itemCount = farZoom
-      ? 1
-      : deps.zoom < 0.52
-        ? 1
-        : 1 + Math.floor(hash(clusterSeed * 3.19) * 2);
+    // Use at most two well-separated representatives. The old close offsets
+    // made canopy sprites overlap their ground sprites from an impossible
+    // isometric angle, especially when the legacy diorama was also drawn.
+    const itemCount = farZoom || deps.zoom < 0.52 ? 1 : 2;
 
     for (let item = 0; item < itemCount; item++) {
       const itemSeed = clusterSeed * 5.31 + item * 47;
       const groundLayer = useMedievalCluster
         ? item > 0
         : item >= Math.ceil(itemCount * 0.58);
-      const offsets = [[0, -4], [-19, 3], [19, 4], [-10, 12]];
+      const offsets =
+        itemCount === 1
+          ? [[0, -4]]
+          : [
+              [-42, -8],
+              [42, 10],
+            ];
       const slot = item % offsets.length;
       const jitterX = (hash(itemSeed * 1.37) - 0.5) * 7;
       const jitterY = (hash(itemSeed * 2.47) - 0.5) * 4;
-      const x = cx + offsets[slot][0] + jitterX;
-      const y = cy + offsets[slot][1] + jitterY + (groundLayer ? 9 : 0);
+      const x = safeCx + offsets[slot][0] + jitterX;
+      const y = safeCy + offsets[slot][1] + jitterY + (groundLayer ? 9 : 0);
       const spritePool = groundLayer ? palette.ground : palette.canopy;
       const medieval = useMedievalCluster && item === 0;
       const sprite = medieval
@@ -159,10 +175,10 @@ export function renderTerritoryVegetation(
   if (mode.hideAssets) return "hidden" as const;
 
   const farZoom = deps.zoom < 0.28;
-  const lightweight = Boolean(mode.lightweight) || farZoom;
   drawNaturalTerritoryVegetation(deps, region, seed, rx, ry, biome);
 
-  // At far zoom or while the camera is moving, the representative vegetation
-  // is the complete layer for this territory. Do not build the full diorama.
-  return lightweight ? ("complete" as const) : ("continue" as const);
+  // This representative layer is the complete vegetation layer at every zoom.
+  // Do not append the legacy full diorama: the two layers occupied the same
+  // territory and produced trees/buildings stacked in the wrong depth order.
+  return "complete" as const;
 }

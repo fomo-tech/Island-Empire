@@ -75,6 +75,28 @@ export function territoryStartingPopulation(
   );
 }
 
+// A territory has one fixed military capacity. It is intentionally independent
+// from town level, population and building levels.
+export function territoryTroopLimit(
+  regionOrId: any,
+  getRegion: SelectorDeps["getRegion"],
+) {
+  const region =
+    typeof regionOrId === "number" ? getRegion(regionOrId) : regionOrId;
+  if (!region) return 100;
+  const areaFactor = Math.max(
+    0.7,
+    Math.min(2.4, ((region.rx || 0) * (region.ry || 0)) / 10000),
+  );
+  const biomeMultiplier =
+    [1.15, 0.82, 0.78, 0.72, 0.95, 1.22, 1, 0.88][region.biome ?? 0] || 1;
+  const islandMultiplier = region.isIslet ? 0.7 : 1;
+  return Math.max(
+    40,
+    Math.round(100 * areaFactor * biomeMultiplier * islandMultiplier),
+  );
+}
+
 export function clearingDuration(
   regionOrId: any,
   getRegion: SelectorDeps["getRegion"],
@@ -172,7 +194,10 @@ export function troopPopulationCost(troopValue: number) {
 
 export function maxDefendingTroops(town: any) {
   normalizeTown(town);
-  return Math.max(10, Math.floor((town.population || 0) * 10));
+  return Math.max(
+    40,
+    Math.floor(Number(town.troopCapacity ?? town.maxTroops ?? 100) || 100),
+  );
 }
 
 export function territoryBuildCost(regionId: number, deps: SelectorDeps) {

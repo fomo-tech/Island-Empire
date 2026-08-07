@@ -1164,6 +1164,28 @@ export function TerritoryTooltip({
                   {showGuide ? "Đóng" : "HƯỚNG DẪN"}
                 </button>
               </div>
+              {specialResources.length > 0 && (
+                <div
+                  className="rt-special-summary"
+                  aria-label="Đặc sản lãnh thổ"
+                >
+                  <span className="rt-special-summary-title">ĐẶC SẢN</span>
+                  {specialResources.map((item: string) => {
+                    const meta = getSpecialResourceMeta(item);
+                    const label = meta?.label || cleanSpecialResourceName(item);
+                    return (
+                      <span
+                        className={`rt-special-summary-item${meta ? ` tone-${meta.tone}` : ""}`}
+                        key={item}
+                        title={meta?.guide || label}
+                      >
+                        {getSpecialResourceIcon(item)}
+                        <span>{label}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <div className="rt-header-body-row">
@@ -1334,15 +1356,15 @@ export function TerritoryTooltip({
                           size={14}
                           style={{ marginRight: 6 }}
                         />{" "}
-                        Dân số:
+                        Giới hạn quân:
                       </span>
                       <span className="val">
-                        {Math.floor(town.population || 0).toLocaleString(
-                          "vi-VN",
-                        )}{" "}
+                        {Math.floor(
+                          (town.troops || 0) + (town.reservedTroops || 0),
+                        ).toLocaleString("vi-VN")}{" "}
                         /{" "}
                         {Math.floor(
-                          town.populationCapacity || 0,
+                          town.troopCapacity || town.maxTroops || 0,
                         ).toLocaleString("vi-VN")}
                       </span>
                     </div>
