@@ -186,8 +186,10 @@ if (!source.includes("return { x: r.x, y: r.y }")) {
   throw new Error("Công trình chưa được khóa vào tâm lãnh thổ");
 }
 if ((source.match(/territoryBuildingAnchor\(/g) || []).length < 3
-  || !source.includes("kingdomBuildingVisualCenter")) {
-  throw new Error("Công trình chưa căn tâm thị giác ở đủ hai nhánh render");
+  || !source.includes("kingdomBuildingVisualMetrics")
+  || !source.includes("layout.pivotX - metrics.footX")
+  || !source.includes("layout.pivotY - metrics.footY")) {
+  throw new Error("Chân công trình chưa được căn giữa lãnh thổ ở đủ hai nhánh render");
 }
 if (source.includes('const buildingLabel = isCapital')) {
   throw new Error("Bảng tên công trình vẫn còn hiển thị dòng loại công trình");
@@ -224,7 +226,8 @@ if (!architecture.includes("NATION_FLAG_SHEET")
   throw new Error("Vùng mở rộng chưa dùng atlas trụ cờ Nation riêng");
 }
 if (!/drawVoyageShip\(\r?\n            shipPoint\.x/.test(source)
-  || !source.includes("travelled <= sourceLandLength + seaLength")) {
+  || !source.includes("travelled <= seaLength")
+  || !source.includes("ctx.moveTo(sPort.x, sPort.y)")) {
   throw new Error("Đoạn hành quân trên biển chưa khóa renderer về sprite thuyền");
 }
 if (!source.includes("function voyageUsesShip")

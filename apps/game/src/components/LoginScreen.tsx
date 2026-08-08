@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { loginGuest, loginPlayer, registerPlayer } from "../game/api";
 import { detectDeviceLanguage, translate } from "../game/i18n";
 import { AssetIcon } from "./AssetIcon";
+import { TurnstileWidget } from "./TurnstileWidget";
 
 interface LoginScreenProps {
   onSuccess: (token: string, playerId: string) => void;
@@ -217,8 +218,28 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+
+  const requireTurnstileToken = () => {
+    if (!turnstileToken) {
+      throw new Error("Vui lòng hoàn tất xác minh bảo mật");
+    }
+    return turnstileToken;
+  };
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((value) => value + 1);
+  };
+
+  const switchMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setError(null);
+    resetTurnstile();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,6 +247,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     setLoading(true);
 
     try {
+      const captchaToken = requireTurnstileToken();
       if (!username || !password) {
         throw new Error(
           mode === "login"
@@ -237,25 +259,30 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
       
       if (mode === "login") {
         if (password.length < 6) throw new Error("Mật khẩu tối thiểu từ 6 ký tự");
-        const res = await loginPlayer(username, password);
+        const res = await loginPlayer(username, password, captchaToken);
         onSuccess(res.token, res.playerId);
       } else {
         if (password.length < 8) throw new Error("Mật khẩu đăng ký tối thiểu từ 8 ký tự");
         
         // Randomize initial profile features under the hood for faster signups
         const colors = ["#b4232f", "#2459a9", "#d39216", "#26724f", "#6d3ca0", "#147f91"];
-        const emblems = ["shield", "crown", "swords", "eagle", "lion", "dragon"];
+        const emblems = ["shield", "tree", "mountain", "anchor"];
         const lands = ["south-river", "north-forest", "west-hills", "east-coast"];
         
         const randomFlagColor = colors[Math.floor(Math.random() * colors.length)];
         const randomEmblem = emblems[Math.floor(Math.random() * emblems.length)];
         const randomLand = lands[Math.floor(Math.random() * lands.length)];
 
-        const res = await registerPlayer(username, password, {
-          flagColor: randomFlagColor,
-          emblem: randomEmblem,
-          starterLandId: randomLand,
-        });
+        const res = await registerPlayer(
+          username,
+          password,
+          {
+            flagColor: randomFlagColor,
+            emblem: randomEmblem,
+            starterLandId: randomLand,
+          },
+          captchaToken,
+        );
         localStorage.removeItem(CAMERA_KEY);
         localStorage.removeItem(CLAIM_KEY);
         localStorage.setItem(ONBOARDING_KEY, "1");
@@ -264,6 +291,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     } catch (err: any) {
       setError(err.message || t("unknownError"));
       setLoading(false);
+      resetTurnstile();
     }
   };
 
@@ -271,8 +299,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     setError(null);
     setLoading(true);
     try {
+      const captchaToken = requireTurnstileToken();
       const name = `Lord-${Math.floor(1000 + Math.random() * 9000)}`;
-      const res = await loginGuest(name);
+      const res = await loginGuest(name, captchaToken);
       localStorage.removeItem(CAMERA_KEY);
       localStorage.removeItem(CLAIM_KEY);
       localStorage.setItem(ONBOARDING_KEY, "1");
@@ -280,6 +309,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     } catch (err: any) {
       setError(err.message || "Đăng nhập chơi nhanh thất bại");
       setLoading(false);
+      resetTurnstile();
     }
   };
 
@@ -287,8 +317,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     setError(null);
     setLoading(true);
     try {
+      const captchaToken = requireTurnstileToken();
       const name = `GoogleUser-${Math.floor(1000 + Math.random() * 9000)}`;
-      const res = await loginGuest(name);
+      const res = await loginGuest(name, captchaToken);
       localStorage.removeItem(CAMERA_KEY);
       localStorage.removeItem(CLAIM_KEY);
       localStorage.setItem(ONBOARDING_KEY, "1");
@@ -296,6 +327,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     } catch (err: any) {
       setError(err.message || "Đăng nhập Google thất bại");
       setLoading(false);
+      resetTurnstile();
     }
   };
 
@@ -387,6 +419,11 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               </div>
             )}
 
+            <TurnstileWidget
+              onToken={setTurnstileToken}
+              resetKey={turnstileResetKey}
+            />
+
             {/* Primary Actions Area */}
             <div className="l4-action-buttons">
               <button type="submit" className="l4-gold-submit-btn" disabled={loading}>
@@ -422,14 +459,14 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                 {mode === "login" ? (
                   <>
                     <span>Chưa có tài khoản thế lực?</span>
-                    <button type="button" className="l4-toggle-mode-btn" onClick={() => { setMode("register"); setError(null); }}>
+                    <button type="button" className="l4-toggle-mode-btn" onClick={() => switchMode("register")}>
                       ĐĂNG KÝ NGAY
                     </button>
                   </>
                 ) : (
                   <>
                     <span>Đã có tài khoản tân thủ?</span>
-                    <button type="button" className="l4-toggle-mode-btn" onClick={() => { setMode("login"); setError(null); }}>
+                    <button type="button" className="l4-toggle-mode-btn" onClick={() => switchMode("login")}>
                       QUAY LẠI ĐĂNG NHẬP
                     </button>
                   </>

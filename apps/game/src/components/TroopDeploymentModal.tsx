@@ -1033,6 +1033,12 @@ export function TroopDeploymentModal({
     setArtillery(cleanVal);
   };
 
+  const applyTroopPreset = (ratio: number) => {
+    setInfantry(Math.floor(maxInfantry * ratio));
+    setCavalry(Math.floor(maxCavalry * ratio));
+    setArtillery(Math.floor(maxArtillery * ratio));
+  };
+
   const handleConfirm = () => {
     if (hasServerSourceDecision && !currentSourceOption) {
       alert("Thành này chưa được server xác nhận là nguồn xuất quân hợp lệ!");
@@ -1227,7 +1233,20 @@ export function TroopDeploymentModal({
 
         {/* Section 3: CHỈNH ĐỊNH LỰC LƯỢNG (Sliders) */}
         <div className="rt-dispatch-section margin-top">
-          <div className="rt-dispatch-section-title">CHỈNH ĐỊNH LỰC LƯỢNG</div>
+          <div className="rt-dispatch-section-heading">
+            <div className="rt-dispatch-section-title">CHỈNH ĐỊNH LỰC LƯỢNG</div>
+            <div className="rt-troop-presets" aria-label="Chọn nhanh số quân">
+              {[0.25, 0.5, 1].map((ratio) => (
+                <button
+                  key={ratio}
+                  type="button"
+                  onClick={() => applyTroopPreset(ratio)}
+                >
+                  {ratio === 1 ? "Tất cả" : `${ratio * 100}%`}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Infantry Row */}
           {maxInfantry > 0 && (

@@ -8,6 +8,16 @@ import { territorySkinEffect } from "../cosmetics/territorySkinEffects";
 
 const TAU = Math.PI * 2;
 const avatarImages = new Map<string, HTMLImageElement>();
+const avatarFrameImages = new Map<string, HTMLImageElement>();
+const AVATAR_FRAME_ASSETS: Record<string, string> = {
+  vip: "/assets/ui/vip-avatar-frame.webp",
+  gold: "/assets/leaderboard/leaderboard_frame_gold.png",
+  silver: "/assets/leaderboard/leaderboard_frame_silver.png",
+  bronze: "/assets/leaderboard/leaderboard_frame_bronze.png",
+  dragonfire: "/assets/cosmetics/frames/dragonfire.png",
+  stormcrown: "/assets/cosmetics/frames/stormcrown.png",
+  voidmoon: "/assets/cosmetics/frames/voidmoon.png",
+};
 const knownAvatars = new Set([
   "emperor", "queen", "pirate", "assassin", "knight",
   "merchant", "alchemist", "scholar", "warlord", "nomad",
@@ -114,6 +124,7 @@ export function drawRulerAvatarBadge(options: {
   size: number;
   skinId?: string | null;
   avatarId?: string | null;
+  avatarFrameId?: string | null;
   relation: "own" | "ally" | "enemy";
 }) {
   const { ctx, zoom, architectureId, buildingType, x, y, size, relation } = options;
@@ -128,12 +139,21 @@ export function drawRulerAvatarBadge(options: {
   const centerY = geometry.groundY - radius * 0.72;
   const relationColor = relation === "own" ? "#27e0c1" : relation === "ally" ? "#5eb8ff" : "#ff5e5e";
   const id = knownAvatars.has(String(options.avatarId)) ? String(options.avatarId) : "emperor";
+  const frameId = String(options.avatarFrameId || "vip");
+  const frameSrc = AVATAR_FRAME_ASSETS[frameId] || AVATAR_FRAME_ASSETS.vip;
   let portrait = avatarImages.get(id);
   if (!portrait) {
     portrait = new Image();
     portrait.decoding = "async";
     portrait.src = `/assets/avatars/${id}.png`;
     avatarImages.set(id, portrait);
+  }
+  let avatarFrame = avatarFrameImages.get(frameSrc);
+  if (!avatarFrame) {
+    avatarFrame = new Image();
+    avatarFrame.decoding = "async";
+    avatarFrame.src = frameSrc;
+    avatarFrameImages.set(frameSrc, avatarFrame);
   }
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,.7)";
@@ -162,5 +182,18 @@ export function drawRulerAvatarBadge(options: {
     ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
   }
   ctx.restore();
+  if (avatarFrame.complete && avatarFrame.naturalWidth) {
+    // Cosmetic frame artwork is authored on a square transparent canvas. It
+    // must be drawn after the clipped portrait so crowns, flames, and side
+    // ornaments remain visible instead of being cut by the avatar circle.
+    const frameRadius = radius * (frameId === "vip" ? 1.72 : 1.62);
+    ctx.drawImage(
+      avatarFrame,
+      centerX - frameRadius,
+      centerY - frameRadius,
+      frameRadius * 2,
+      frameRadius * 2,
+    );
+  }
   ctx.restore();
 }

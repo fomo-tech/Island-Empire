@@ -12,6 +12,8 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().optional().default(""),
   TRUST_PROXY: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
   ANTI_BOT_SECRET: z.string().min(24).default("dev-only-change-this-long-random-secret"),
+  TURNSTILE_SECRET_KEY: z.string().trim().default(""),
+  TURNSTILE_EXPECTED_HOSTNAME: z.string().trim().default(""),
   SHOP_TEST_MODE: z.enum(["true", "false"]).default("true").transform((value) => value === "true"),
 });
 

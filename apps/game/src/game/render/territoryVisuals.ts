@@ -3,7 +3,7 @@ export type TerritoryBiomePalette = {
   b?: string;
 };
 
-const FALLBACK_TERRAIN_COLOR = "#3b6939";
+const FALLBACK_TERRAIN_COLOR = "#53715a";
 const FALLBACK_OWNER_COLORS = [
   "#3f7ed8",
   "#c94b43",
@@ -16,9 +16,9 @@ const FALLBACK_OWNER_COLORS = [
 ];
 
 /**
- * A territory's terrain color must depend only on its biome. Keeping ownership
- * out of this layer prevents neighboring provinces from becoming randomly
- * lighter or darker and preserves contrast for vegetation drawn above it.
+ * Ownership never affects the base terrain colour. Visual biome selection is
+ * spatially clustered by the world renderer so neighbouring provinces form
+ * broad climate regions instead of a random patchwork.
  */
 export function territoryTerrainColor(
   biome: TerritoryBiomePalette | undefined,
@@ -48,4 +48,3 @@ export function fallbackTerritoryOwnerColor(
 
 /** One opacity contract for every claimed territory. */
 export const TERRITORY_OWNER_TINT_ALPHA = 0.22;
-

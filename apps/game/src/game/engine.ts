@@ -5,7 +5,7 @@ import {
 } from "@island/shared";
 import {
   kingdomArchitectureFromEmblem,
-  kingdomBuildingVisualCenter,
+  kingdomBuildingVisualMetrics,
   kingdomBuildingSprite,
   KINGDOM_BUILDING_LAYOUT,
   normalizeKingdomArchitecture,
@@ -151,6 +151,15 @@ export function createIslandEmpireGame(
 
   const regionPass2Cache = new Map<number, CachedRegion>();
   const isletPass1Cache = new Map<number, CachedRegion>();
+  let strategicWorldCache: {
+    canvas: HTMLCanvasElement;
+    minX: number;
+    minY: number;
+    width: number;
+    height: number;
+    signature: string;
+  } | null = null;
+  let lastStrategicCacheSignatureCheckAt = 0;
 
   function invalidateRegionCache(regionId: number) {
     regionPass2Cache.delete(regionId);
@@ -159,6 +168,8 @@ export function createIslandEmpireGame(
   function clearAllRegionCache() {
     regionPass2Cache.clear();
     isletPass1Cache.clear();
+    strategicWorldCache = null;
+    lastStrategicCacheSignatureCheckAt = 0;
   }
   clearAllRegionCache();
   ctx.imageSmoothingEnabled = false;
@@ -739,6 +750,7 @@ export function createIslandEmpireGame(
     regionOwnerEmblems: {} as Record<number, string>,
     regionOwnerArchitectureIds: {} as Record<number, string>,
     regionOwnerAvatarIds: {} as Record<number, string>,
+    regionOwnerAvatarFrameIds: {} as Record<number, string>,
     regionOwnerVipLevels: {} as Record<number, number>,
     regionOwnerAllianceTags: {} as Record<number, string>,
     regionOwnerAllianceEmblems: {} as Record<number, string>,
@@ -793,6 +805,7 @@ export function createIslandEmpireGame(
     localPlayerId: null,
     localPlayerName: "BẠN",
     localPlayerAvatarId: "emperor",
+    equippedAvatarFrameId: "vip" as string | null,
     localPlayerVipLevel: 0,
     equippedCapitalSkin: null as string | null,
     equippedDistrictSkin: null as string | null,
@@ -898,6 +911,7 @@ export function createIslandEmpireGame(
     state.regionOwnerEmblems = {};
     state.regionOwnerArchitectureIds = {};
     state.regionOwnerAvatarIds = {};
+    state.regionOwnerAvatarFrameIds = {};
     state.regionOwnerVipLevels = {};
     state.regionOwnerAllianceTags = {};
     state.regionOwnerAllianceEmblems = {};
@@ -1577,7 +1591,7 @@ export function createIslandEmpireGame(
     skinId: string | null = null,
   ) {
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-    const visualCenter = kingdomBuildingVisualCenter(
+    const metrics = kingdomBuildingVisualMetrics(
       architectureId,
       buildingType,
       skinId,
@@ -1590,8 +1604,12 @@ export function createIslandEmpireGame(
           : size * (frame.sw / frame.sh)
         : size;
     return {
-      x: centerX + drawWidth * (layout.pivotX - visualCenter.x),
-      y: centerY + size * (layout.pivotY - visualCenter.y),
+      // A territory's canonical point represents the centre of its usable
+      // ground. Align the sprite's footprint—not the centre of its transparent
+      // atlas cell—to that point so every building stands in the middle of
+      // the province regardless of nation artwork or equipped skin.
+      x: centerX + drawWidth * (layout.pivotX - metrics.footX),
+      y: centerY + size * (layout.pivotY - metrics.footY),
     };
   }
 
@@ -1811,9 +1829,9 @@ export function createIslandEmpireGame(
     { core: number; mid: number; coast: number }
   > = {
     0: { core: 6, mid: 0, coast: 5 }, // Emerald Continent: Core Deep Pine -> Mid Grassland -> Coastal Olive
-    1: { core: 1, mid: 5, coast: 1 }, // Amber Continent: Core Sand -> Mid Clay Savanna -> Coastal Sand
-    2: { core: 2, mid: 2, coast: 4 }, // Alpine Continent: Core Snow -> Mid Alpine Jade -> Coastal Jade
-    3: { core: 3, mid: 3, coast: 5 }, // Volcanic Continent: Core Obsidian Basalt -> Mid Ash -> Coastal Clay
+    1: { core: 1, mid: 7, coast: 0 }, // Desert: compact sand core -> moss savanna -> green coast
+    2: { core: 2, mid: 4, coast: 6 }, // Alpine: snow core -> jade foothills -> pine coast
+    3: { core: 3, mid: 6, coast: 5 }, // Volcanic: compact ash core -> pine highland -> clay coast
     4: { core: 4, mid: 6, coast: 0 }, // Jade Isle: Core Jade -> Mid Pine -> Coastal Grass
     5: { core: 5, mid: 0, coast: 7 }, // Rose Isle: Core Clay -> Mid Grass -> Coastal Moss
     6: { core: 6, mid: 4, coast: 0 }, // Pine Realm: Core Pine -> Mid Jade -> Coastal Grass
@@ -1845,17 +1863,15 @@ export function createIslandEmpireGame(
     const cached = visualBiomeCache.get(cacheKey);
     if (cached !== undefined) return cached;
 
-    // The map data is authoritative. The old continent-distance heuristic
-    // recolored valid biome records based on where they sat inside a continent
-    // (for example a desert tile could become grassland), so its visuals did
-    // not match the tooltip/economy biome.
-    if (hasDeclaredBiome) {
-      visualBiomeCache.set(cacheKey, declaredBiome);
-      return declaredBiome;
-    }
-
     if (isIslet) {
-      const isletBiome = (r.id ?? idx) % 2 === 0 ? 4 : 0;
+      // Islands inherit the nearest climate family so an archipelago reads as
+      // one geographic group instead of alternating colour per island.
+      const nearest = nearestContinent(r);
+      const isletBiome = Number.isInteger(Number(nearest?.biome))
+        ? Number(nearest.biome) % BIOMES.length
+        : hasDeclaredBiome
+          ? declaredBiome
+          : 0;
       visualBiomeCache.set(cacheKey, isletBiome);
       return isletBiome;
     }
@@ -1873,13 +1889,26 @@ export function createIslandEmpireGame(
       const nx = (r.x - continent.x) / (continent.rx || 300);
       const ny = (r.y - continent.y) / (continent.ry || 300);
       const distSq = nx * nx + ny * ny;
+      // Keep only a tiny deterministic wobble at climate boundaries. The old
+      // 0.32 noise amplitude scattered isolated snow/desert/forest provinces
+      // throughout a continent and created the mottled appearance.
       const noise =
-        (hash((r.id ?? idx) * 37 + (r.seed || 1) * 19) - 0.5) * 0.32;
+        (hash((r.id ?? idx) * 37 + (r.seed || 1) * 19) - 0.5) * 0.035;
       const effectiveDist = distSq + noise;
 
-      if (effectiveDist < 0.28) {
+      const coreThreshold =
+        primaryBiome === 1
+          ? 0.14
+          : primaryBiome === 5
+            ? 0.18
+            : primaryBiome === 3
+              ? 0.2
+              : 0.26;
+      const midThreshold = primaryBiome === 1 ? 0.64 : 0.72;
+
+      if (effectiveDist < coreThreshold) {
         base = cluster.core; // Core mountain peak / deep forest
-      } else if (effectiveDist < 0.72) {
+      } else if (effectiveDist < midThreshold) {
         base = cluster.mid; // Midland valley / grassland
       } else {
         base = cluster.coast; // Coastal plain / savanna
@@ -3107,18 +3136,9 @@ export function createIslandEmpireGame(
       let y = r.y + dy;
 
       if (special === "Bến tàu tự nhiên" && i > 0) {
-        const continent = megaContinents.find((c) => {
-          const nx = (r.x - c.x) / c.rx;
-          const ny = (r.y - c.y) / c.ry;
-          return nx * nx + ny * ny <= 2.2;
-        });
-        const cx = continent ? continent.x : 1200;
-        const cy = continent ? continent.y : 800;
-        const cdx = r.x - cx;
-        const cdy = r.y - cy;
-        const clen = Math.hypot(cdx, cdy) || 1;
-        const harborX = r.x + (cdx / clen) * rx * 0.82;
-        const harborY = r.y + (cdy / clen) * ry * 0.82;
+        const fixedHarbor = getCachedCoastPort(r.id);
+        const harborX = fixedHarbor?.x ?? r.x + dx;
+        const harborY = fixedHarbor?.y ?? r.y + dy;
 
         const angleInward = Math.atan2(r.y - harborY, r.x - harborX);
         const scatterRoll = hash(itemSeed * 53);
@@ -3140,18 +3160,11 @@ export function createIslandEmpireGame(
         let posX = r.x + dx * (hasTown ? 1 : 0.4);
         let posY = r.y + dy * (hasTown ? 1 : 0.4);
         if (primarySprite === "harbor") {
-          const continent = megaContinents.find((c) => {
-            const nx = (r.x - c.x) / c.rx;
-            const ny = (r.y - c.y) / c.ry;
-            return nx * nx + ny * ny <= 2.2;
-          });
-          const cx = continent ? continent.x : 1200;
-          const cy = continent ? continent.y : 800;
-          const cdx = r.x - cx;
-          const cdy = r.y - cy;
-          const clen = Math.hypot(cdx, cdy) || 1;
-          posX = r.x + (cdx / clen) * rx * 0.82;
-          posY = r.y + (cdy / clen) * ry * 0.82;
+          const fixedHarbor = getCachedCoastPort(r.id);
+          if (fixedHarbor) {
+            posX = fixedHarbor.x;
+            posY = fixedHarbor.y;
+          }
         }
         items.push({
           type: "sprite",
@@ -3568,10 +3581,10 @@ export function createIslandEmpireGame(
   function drawRegion(r, idx, pass, isIslet) {
     if (pass === 3) {
       if (isConquestLayout) return;
-      // Full cached dioramas are too dense at far zoom. Pass 2 draws one LOD
-      // vegetation marker instead; skipping the cache here prevents hundreds
-      // of tiny trees/resources from being composited every frame.
-      if (lightweightAssetRenderMode || state.zoom < 0.38) return;
+      // At far zoom the tiny diorama canvases no longer carry readable detail
+      // and are the largest source of draw calls. Territory land and buildings
+      // are rendered by their separate passes, so the map never becomes blank.
+      if (farSceneryRenderMode || lightweightAssetRenderMode) return;
       const cache = regionPass2Cache.get(idx);
       if (cache && cache.assetsCanvas) {
         const isSelected = state.selectedRegion === idx;
@@ -4006,6 +4019,7 @@ export function createIslandEmpireGame(
         );
         if (
           state.zoom < 0.38 &&
+          !farSceneryRenderMode &&
           !lightweightAssetRenderMode &&
           !hideTerritoryAssets &&
           !isConquestLayout
@@ -4035,6 +4049,7 @@ export function createIslandEmpireGame(
           // regions during a pan. This avoids a blank territory while keeping
           // the expensive diorama cache build out of the input frame.
           if (
+            !farSceneryRenderMode &&
             !lightweightAssetRenderMode &&
             !hideTerritoryAssets &&
             !isConquestLayout
@@ -4177,13 +4192,22 @@ export function createIslandEmpireGame(
         ctx.restore();
       } else if (ownerCode > 0) {
         ctx.save();
-        ctx.globalAlpha =
-          skinTerritoryEffect?.fillAlpha ?? TERRITORY_OWNER_TINT_ALPHA;
+        ctx.globalAlpha = overviewRenderMode
+          ? 0.52
+          : skinTerritoryEffect?.fillAlpha ?? TERRITORY_OWNER_TINT_ALPHA;
         const claimedLand = inflatePolygon(displayLand, 3, r.x, r.y);
-        fillSmoothPath(claimedLand, skinTerritoryEffect?.fill ?? flagColor);
+        fillSmoothPath(
+          claimedLand,
+          overviewRenderMode ? flagColor : skinTerritoryEffect?.fill ?? flagColor,
+        );
         ctx.restore();
 
-        if (skinTerritoryEffect && !fastRenderMode && !crowdedRenderMode) {
+        if (
+          skinTerritoryEffect &&
+          !overviewRenderMode &&
+          !fastRenderMode &&
+          !crowdedRenderMode
+        ) {
           // A low-contrast moving sheen makes the skin feel alive without
           // painting over trees, roads, or resource markers.
           ctx.save();
@@ -4286,26 +4310,27 @@ export function createIslandEmpireGame(
       py: number,
       r: any,
       ownerCode: number,
-      rel: string,
+      _rel: string,
     ) {
       if (ownerCode === 0) return false;
       const neighbors = nearbyMainlandRegions(r);
       for (let i = 0; i < neighbors.length; i++) {
         const other = neighbors[i];
         const otherOwner = derivedRegionOwnership(other.id);
-        const otherRel = getRegionAllianceRelation(
-          other.id,
-          otherOwner,
-          state.regionOwnerNames[other.id],
-        );
 
+        const currentOwnerId = state.regionOwnerIds?.[r.id];
+        const otherOwnerId = state.regionOwnerIds?.[other.id];
+        const sameRemoteOwner =
+          currentOwnerId && otherOwnerId
+            ? currentOwnerId === otherOwnerId
+            : Boolean(
+                state.regionOwnerNames[other.id] &&
+                  state.regionOwnerNames[other.id] ===
+                    state.regionOwnerNames[r.id],
+              );
         const sameOwner =
           otherOwner === ownerCode &&
-          (ownerCode === 1 ||
-            (state.regionOwnerNames[other.id] &&
-              state.regionOwnerNames[other.id] ===
-                state.regionOwnerNames[r.id]) ||
-            (rel !== "enemy" && otherRel === rel));
+          (ownerCode === 1 || sameRemoteOwner);
 
         if (sameOwner) {
           const dx = px - other.x;
@@ -4359,15 +4384,45 @@ export function createIslandEmpireGame(
       ctx.restore();
     }
 
+    function drawStrategicCoastline(strokeColor: string, width: number) {
+      if (!isCoastal || targetPoly.length < 3) return;
+      ctx.save();
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = width;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      for (let i = 0; i < targetPoly.length; i++) {
+        const p1 = targetPoly[i];
+        const p2 = targetPoly[(i + 1) % targetPoly.length];
+        const midX = (p1[0] + p2[0]) / 2;
+        const midY = (p1[1] + p2[1]) / 2;
+        if (isIslet || !isSharedInlandVertex(midX, midY, r)) {
+          ctx.moveTo(p1[0], p1[1]);
+          ctx.lineTo(p2[0], p2[1]);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (pass === 4) {
-      // Province outlines are noise at world overview scale. Keep only an
-      // active clearing/selection highlight; ownership remains communicated
-      // by the compact building marker instead of hundreds of tile borders.
+      // Strategic overview uses a strict hierarchy: coastline, then country
+      // borders. Province edges inside one owner remain hidden.
       if (
         overviewRenderMode &&
         !isClearing &&
         state.selectedRegion !== idx
       ) {
+        const inverseZoom = 1 / Math.max(0.05, state.zoom);
+        if (isCoastal) {
+          drawStrategicCoastline("rgba(5, 15, 22, 0.9)", 3.2 * inverseZoom);
+          drawStrategicCoastline("rgba(126, 166, 161, 0.72)", 1.05 * inverseZoom);
+        }
+        if (ownerCode > 0) {
+          drawOuterBoundaryLines("rgba(4, 10, 15, 0.94)", 3.8 * inverseZoom);
+          drawOuterBoundaryLines(flagColor, 1.45 * inverseZoom);
+        }
         return;
       }
 
@@ -4650,6 +4705,7 @@ export function createIslandEmpireGame(
   function drawTerritoryResources(visibleRegions: any[], visibleIslets: any[]) {
     if (
       hideTerritoryAssets ||
+      farSceneryRenderMode ||
       lightweightAssetRenderMode ||
       fastRenderMode ||
       state.zoom < 0.45
@@ -5070,6 +5126,7 @@ export function createIslandEmpireGame(
   function drawDecoration(vp?: any) {
     if (
       hideTerritoryAssets ||
+      farSceneryRenderMode ||
       lightweightAssetRenderMode ||
       fastRenderMode ||
       state.zoom < 0.45
@@ -7877,6 +7934,9 @@ export function createIslandEmpireGame(
         avatarId: isUserTown
           ? state.localPlayerAvatarId
           : state.regionOwnerAvatarIds[regionId],
+        avatarFrameId: isUserTown
+          ? state.equippedAvatarFrameId
+          : state.regionOwnerAvatarFrameIds[regionId],
         relation: avatarRelation,
       });
     }
@@ -8331,66 +8391,74 @@ export function createIslandEmpireGame(
         1,
     );
     const targetGround = territoryGroundPoint(territoryId, { x, y });
-    const panelWidth = compact ? 140 : 160;
-    const panelHeight = compact ? 62 : 68;
+    const panelWidth = compact ? 150 : 184;
+    const panelHeight = compact ? 64 : 78;
     // Anchor from the building's ground contact so every territory type gets
     // the same clear, floating battle banner above its sprite.
-    const top = -(panelHeight + (compact ? 36 : 42));
+    const top = -(panelHeight + (compact ? 38 : 48));
     const left = -panelWidth / 2;
-    const headerHeight = 20;
-    const bodyTop = top + headerHeight + 3;
-    const sideWidth = (panelWidth - 24) / 2;
+    const headerHeight = compact ? 19 : 23;
+    const footerHeight = compact ? 10 : 12;
+    const bodyTop = top + headerHeight + 4;
+    const sideWidth = (panelWidth - (compact ? 26 : 30)) / 2;
     const leftSide = left + 6;
-    const rightSide = 6;
-    const attackTone = "#d9504a";
-    const defendTone = "#4c9bd1";
+    const rightSide = left + panelWidth - sideWidth - 6;
+    const attackTone = "#e65a4f";
+    const defendTone = "#4da5e5";
     const pulse = 0.55 + Math.sin(state.tick * 5.4 + territoryId * 0.17) * 0.18;
 
     ctx.save();
     ctx.translate(targetGround.x, targetGround.y);
     ctx.scale(visualScale, visualScale);
 
-    // Gold connector pins the banner to the contested building.
-    ctx.strokeStyle = `rgba(255, 210, 102, ${0.72 + pulse * 0.2})`;
-    ctx.lineWidth = 1.8;
+    // A short luminous pin keeps the card visually attached to the contested
+    // building while the opaque card remains above every map asset.
+    ctx.strokeStyle = `rgba(255, 202, 92, ${0.7 + pulse * 0.24})`;
+    ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 3]);
     ctx.beginPath();
     ctx.moveTo(0, top + panelHeight);
-    ctx.lineTo(0, top + panelHeight + 13);
+    ctx.lineTo(0, top + panelHeight + 12);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = "#ffd36a";
     ctx.beginPath();
-    ctx.arc(0, top + panelHeight + 13, 2 + pulse, 0, TAU);
+    ctx.arc(0, top + panelHeight + 12, 1.8 + pulse, 0, TAU);
     ctx.fill();
 
-    // Deep glass panel with a double gold frame.
-    ctx.fillStyle = "rgba(0, 0, 0, .58)";
+    // Strong shadow and restrained gold trim keep the HUD readable over trees,
+    // units, borders, and bright territory colours.
+    ctx.shadowColor = "rgba(0, 0, 0, .78)";
+    ctx.shadowBlur = compact ? 5 : 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = "rgba(0, 0, 0, .5)";
     ctx.beginPath();
-    ctx.roundRect(left + 4, top + 5, panelWidth, panelHeight, 9);
+    ctx.roundRect(left + 3, top + 4, panelWidth, panelHeight, 9);
     ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
     const panelGradient = ctx.createLinearGradient(0, top, 0, top + panelHeight);
-    panelGradient.addColorStop(0, "rgba(20, 31, 43, .98)");
-    panelGradient.addColorStop(1, "rgba(5, 13, 21, .98)");
+    panelGradient.addColorStop(0, "rgba(23, 32, 43, .99)");
+    panelGradient.addColorStop(1, "rgba(5, 11, 18, .99)");
     ctx.fillStyle = panelGradient;
     ctx.beginPath();
     ctx.roundRect(left, top, panelWidth, panelHeight, 9);
     ctx.fill();
-    ctx.strokeStyle = `rgba(255, 211, 106, ${0.88 + pulse * 0.1})`;
-    ctx.lineWidth = 1.35;
+    ctx.strokeStyle = `rgba(241, 187, 72, ${0.86 + pulse * 0.12})`;
+    ctx.lineWidth = 1.45;
     ctx.stroke();
-    ctx.strokeStyle = "rgba(133, 85, 26, .88)";
+    ctx.strokeStyle = "rgba(116, 77, 29, .9)";
     ctx.lineWidth = 0.65;
     ctx.beginPath();
     ctx.roundRect(left + 3, top + 3, panelWidth - 6, panelHeight - 6, 6);
     ctx.stroke();
 
-    // Header uses both war colors so it reads as a live conflict, not a
-    // generic territory tooltip.
+    // Two-tone header communicates the opposing sides before the player reads
+    // any number.
     const headerGradient = ctx.createLinearGradient(left, 0, left + panelWidth, 0);
-    headerGradient.addColorStop(0, "#8f2832");
-    headerGradient.addColorStop(0.48, "#41202a");
-    headerGradient.addColorStop(1, "#15506d");
+    headerGradient.addColorStop(0, "#8f2630");
+    headerGradient.addColorStop(0.5, "#3a222b");
+    headerGradient.addColorStop(1, "#174f70");
     ctx.fillStyle = headerGradient;
     ctx.beginPath();
     ctx.roundRect(left + 1, top + 1, panelWidth - 2, headerHeight, 8);
@@ -8399,8 +8467,8 @@ export function createIslandEmpireGame(
     ctx.fillRect(left + 8, top + headerHeight - 2, panelWidth - 16, 1);
 
     // Crossed-sword emblem.
-    const iconX = left + 12;
-    const iconY = top + 10;
+    const iconX = left + (compact ? 11 : 13);
+    const iconY = top + headerHeight / 2;
     ctx.save();
     ctx.strokeStyle = "#ffe6a6";
     ctx.lineCap = "round";
@@ -8422,23 +8490,23 @@ export function createIslandEmpireGame(
 
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.font = `800 ${compact ? 7.6 : 8.6}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
+    ctx.font = `800 ${compact ? 7.4 : 9}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "#fff0c2";
-    ctx.fillText("GIAO TRANH", left + 22, top + 10);
+    ctx.fillText("GIAO TRANH", left + (compact ? 21 : 25), iconY);
 
-    const timerWidth = compact ? 38 : 42;
+    const timerWidth = compact ? 38 : 46;
     const timerX = left + panelWidth - timerWidth - 5;
-    ctx.fillStyle = "rgba(7, 13, 20, .64)";
+    ctx.fillStyle = "rgba(4, 10, 16, .78)";
     ctx.beginPath();
-    ctx.roundRect(timerX, top + 3, timerWidth, 13, 4);
+    ctx.roundRect(timerX, top + 4, timerWidth, headerHeight - 8, 4);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 211, 106, .62)";
+    ctx.strokeStyle = "rgba(255, 211, 106, .7)";
     ctx.lineWidth = 0.7;
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `800 ${compact ? 6 : 6.6}px system-ui, sans-serif`;
+    ctx.font = `800 ${compact ? 6.2 : 7.2}px ui-monospace, monospace`;
     ctx.fillStyle = "#ffe08a";
-    ctx.fillText(formatTime(rem), timerX + timerWidth / 2, top + 9.5);
+    ctx.fillText(formatTime(rem), timerX + timerWidth / 2, iconY);
 
     const drawBattleSide = (
       sideX: number,
@@ -8450,40 +8518,47 @@ export function createIslandEmpireGame(
       power: number,
     ) => {
       const sideY = bodyTop;
-      const sideH = panelHeight - headerHeight - 10;
+      const sideH = panelHeight - headerHeight - footerHeight - 7;
       ctx.fillStyle = tone === attackTone
-        ? "rgba(127, 29, 29, .25)"
-        : "rgba(30, 64, 175, .24)";
+        ? "rgba(145, 39, 38, .22)"
+        : "rgba(25, 90, 135, .22)";
       ctx.beginPath();
-      ctx.roundRect(sideX, sideY, sideWidth, sideH, 5);
+      ctx.roundRect(sideX, sideY, sideWidth, sideH, 6);
       ctx.fill();
       ctx.fillStyle = tone;
-      ctx.fillRect(sideX + 4, sideY + 4, 3, sideH - 8);
-      ctx.textAlign = "center";
-      ctx.font = `800 ${compact ? 6.2 : 6.8}px system-ui, sans-serif`;
+      ctx.beginPath();
+      ctx.arc(sideX + 7, sideY + 7, 2.2, 0, TAU);
+      ctx.fill();
+      ctx.textAlign = "left";
+      ctx.font = `800 ${compact ? 5.8 : 6.7}px system-ui, sans-serif`;
       ctx.fillStyle = tone === attackTone ? "#ffb2a7" : "#b8e1ff";
-      ctx.fillText(label, sideX + sideWidth / 2, sideY + 7);
-      ctx.font = `600 ${compact ? 5.1 : 5.6}px system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(238, 245, 248, .88)";
+      ctx.fillText(label, sideX + 12, sideY + 7);
+      ctx.textAlign = "right";
+      ctx.font = `800 ${compact ? 5.5 : 6.3}px system-ui, sans-serif`;
+      ctx.fillStyle = "#f5e4b3";
       ctx.fillText(
-        `Q ${formatStat(troops)} · LỰC ${formatStat(power)}`,
-        sideX + sideWidth / 2,
-        sideY + 14,
+        `LỰC ${formatStat(power)}`,
+        sideX + sideWidth - 5,
+        sideY + 7,
       );
       drawBattleBar(
-        sideX + 7,
-        sideY + 18,
-        sideWidth - 14,
+        sideX + 5,
+        sideY + (compact ? 13 : 15),
+        sideWidth - 10,
         hp / maxHp,
         tone,
-        compact ? 4.5 : 5,
+        compact ? 5 : 6,
       );
-      ctx.font = `700 ${compact ? 5 : 5.5}px system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(236, 244, 246, .86)";
+      const statY = sideY + sideH - (compact ? 5 : 6);
+      ctx.textAlign = "left";
+      ctx.font = `700 ${compact ? 5.2 : 6}px system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(238, 244, 247, .92)";
+      ctx.fillText(`QUÂN ${formatStat(troops)}`, sideX + 5, statY);
+      ctx.textAlign = "right";
       ctx.fillText(
         `${formatStat(hp)} / ${formatStat(maxHp)} HP`,
-        sideX + sideWidth / 2,
-        sideY + 27,
+        sideX + sideWidth - 5,
+        statY,
       );
     };
 
@@ -8506,19 +8581,34 @@ export function createIslandEmpireGame(
       defenderPower,
     );
 
-    ctx.strokeStyle = "rgba(255, 211, 106, .35)";
-    ctx.lineWidth = 0.8;
+    // Compact VS seal separates both cards without an extra column.
+    const vsY = bodyTop +
+      (panelHeight - headerHeight - footerHeight - 7) / 2;
+    ctx.fillStyle = "rgba(6, 12, 18, .96)";
     ctx.beginPath();
-    ctx.moveTo(0, bodyTop + 4);
-    ctx.lineTo(0, top + panelHeight - 13);
+    ctx.arc(0, vsY, compact ? 6 : 7, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(241, 187, 72, .78)";
+    ctx.lineWidth = 0.8;
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `700 ${compact ? 5.8 : 6.2}px system-ui, sans-serif`;
-    ctx.fillStyle = "rgba(255, 224, 151, .86)";
+    ctx.font = `900 ${compact ? 5.4 : 6}px system-ui, sans-serif`;
+    ctx.fillStyle = "#ffe19a";
+    ctx.fillText("VS", 0, vsY + 0.3);
+
+    // Live-state footer: one red pulse and one short line are enough to convey
+    // that combat is active without repeating the title.
+    const footerY = top + panelHeight - footerHeight / 2 - 1;
+    ctx.fillStyle = `rgba(239, 68, 68, ${0.65 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(-(compact ? 34 : 40), footerY, 1.7, 0, TAU);
+    ctx.fill();
+    ctx.font = `750 ${compact ? 5.5 : 6.2}px system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255, 224, 151, .9)";
     ctx.fillText(
-      `${engagedCount} ĐẠO QUÂN · ĐANG GIAO CHIẾN`,
-      0,
-      top + panelHeight - 5,
+      `${engagedCount} ĐẠO QUÂN ĐANG THAM CHIẾN`,
+      compact ? 3 : 4,
+      footerY,
     );
     ctx.restore();
   }
@@ -9788,6 +9878,41 @@ export function createIslandEmpireGame(
     opacity = 1,
     architectureId?: string,
   ) {
+    if (farSceneryRenderMode) {
+      const markerScale = Math.min(
+        8,
+        Math.max(1, 0.42 / Math.max(0.05, state.zoom)),
+      );
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(markerScale, markerScale);
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = "rgba(5, 18, 28, 0.94)";
+      ctx.strokeStyle = "#d9b75f";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(-10, -10, 20, 20, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(-6, 4);
+      ctx.lineTo(6, 4);
+      ctx.lineTo(3, 8);
+      ctx.lineTo(-4, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#f7e7b2";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(0, 4);
+      ctx.lineTo(0, -7);
+      ctx.lineTo(6, 0);
+      ctx.lineTo(0, 0);
+      ctx.stroke();
+      ctx.restore();
+      return true;
+    }
     if (!nationUnitAtlasReady(nationUnitAtlases, "walk")) return false;
     ctx.save();
     ctx.translate(x, y);
@@ -9960,7 +10085,11 @@ export function createIslandEmpireGame(
       Number(Boolean(hasArtillery));
     const formationScale =
       visibleKinds >= 3 ? 0.9 : visibleKinds === 2 ? 0.98 : 1.06;
-    const pulse = useLowDetail ? 0.92 : formationScale * detailScale;
+    const pulse = farSceneryRenderMode
+      ? Math.min(8, Math.max(1, 0.42 / Math.max(0.05, state.zoom)))
+      : useLowDetail
+        ? 0.92
+        : formationScale * detailScale;
     ctx.translate(x, y);
     ctx.scale(pulse, pulse);
 
@@ -10628,7 +10757,11 @@ export function createIslandEmpireGame(
                 Number(participant.infantry || 0)
               ? "cavalry"
               : "infantry";
-        if (lightweightAssetRenderMode || crowdedRenderMode) {
+        if (
+          farSceneryRenderMode ||
+          lightweightAssetRenderMode ||
+          crowdedRenderMode
+        ) {
           ctx.save();
           ctx.translate(unitX, unitY);
           ctx.scale(visualScale, visualScale);
@@ -10663,11 +10796,13 @@ export function createIslandEmpireGame(
           }
         }
       });
-      drawSiegeImpact(
-        toX + 19 * visualScale,
-        toY - 10 * visualScale,
-        targetRegionId * 0.07,
-      );
+      if (!farSceneryRenderMode) {
+        drawSiegeImpact(
+          toX + 19 * visualScale,
+          toY - 10 * visualScale,
+          targetRegionId * 0.07,
+        );
+      }
       if (
         !(
           lightweightAssetRenderMode ||
@@ -10728,6 +10863,10 @@ export function createIslandEmpireGame(
       const routeOnly = t >= 1 && keepBattleRoute;
       if (t >= 1 && !keepBattleRoute) return;
       const factionColor = factions[v.owner ?? 0]?.color || factions[0].color;
+      let travelBadgePoint = {
+        x: lerp(v.from.x, v.to.x, t),
+        y: lerp(v.from.y, v.to.y, t),
+      };
 
       if (voyageUsesShip(v)) {
         const sPort = v.sourcePort || {
@@ -10745,7 +10884,7 @@ export function createIslandEmpireGame(
 
         // Port art is part of the heavy map asset layer. Keep the moving ship
         // marker, but omit decorative port bitmaps in lightweight mode.
-        if (!lightweightAssetRenderMode) {
+        if (!farSceneryRenderMode && !lightweightAssetRenderMode) {
           drawPortIcon(sPort.x, sPort.y);
           if (Math.hypot(sPort.x - tPort.x, sPort.y - tPort.y) > 30) {
             drawPortIcon(tPort.x, tPort.y);
@@ -10757,10 +10896,9 @@ export function createIslandEmpireGame(
           v,
           () => {
             ctx.beginPath();
-            ctx.moveTo(v.from.x, v.from.y);
-            if (Math.hypot(v.from.x - sPort.x, v.from.y - sPort.y) > 15) {
-              ctx.lineTo(sPort.x, sPort.y);
-            }
+            // A naval order begins at the actual dock. The city-to-dock leg is
+            // intentionally omitted for both route clarity and cheaper draw.
+            ctx.moveTo(sPort.x, sPort.y);
             seaPath.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
             if (Math.hypot(v.to.x - tPort.x, v.to.y - tPort.y) > 15) {
               ctx.lineTo(v.to.x, v.to.y);
@@ -10769,38 +10907,13 @@ export function createIslandEmpireGame(
           keepBattleRoute,
         );
 
-        const sourceLandLength = Math.hypot(
-          v.from.x - sPort.x,
-          v.from.y - sPort.y,
-        );
         const seaLength = Math.max(1, polylineLength(seaPath));
         const targetLandLength = Math.hypot(v.to.x - tPort.x, v.to.y - tPort.y);
-        const totalLength = Math.max(
-          1,
-          sourceLandLength + seaLength + targetLandLength,
-        );
+        const totalLength = Math.max(1, seaLength + targetLandLength);
         const travelled = t * totalLength;
 
-        if (!routeOnly && travelled <= sourceLandLength) {
-          const p = sourceLandLength > 0 ? travelled / sourceLandLength : 1;
-          const xLand = lerp(v.from.x, sPort.x, p);
-          const yLand = lerp(v.from.y, sPort.y, p);
-          const direction = stableMarchDirection(
-            v,
-            sPort.x - v.from.x,
-            sPort.y - v.from.y,
-          );
-          renderTroopSprites(
-            xLand,
-            yLand,
-            v,
-            factionColor,
-            vp,
-            travelled,
-            direction,
-          );
-        } else if (!routeOnly && travelled <= sourceLandLength + seaLength) {
-          const seaP = (travelled - sourceLandLength) / seaLength;
+        if (!routeOnly && travelled <= seaLength) {
+          const seaP = travelled / seaLength;
           const shipPoint = pointAlongPolyline(seaPath, seaP);
           const nextShipPoint = pointAlongPolyline(
             seaPath,
@@ -10820,13 +10933,14 @@ export function createIslandEmpireGame(
             1,
             voyageArchitecture(v),
           );
+          travelBadgePoint = shipPoint;
         } else if (!routeOnly) {
           // The ship remains in water while the army disembarks onto the target territory.
           const landP =
             targetLandLength > 0
               ? Math.min(
                   1,
-                  (travelled - sourceLandLength - seaLength) / targetLandLength,
+                  (travelled - seaLength) / targetLandLength,
                 )
               : 1;
           drawVoyageShip(
@@ -10840,6 +10954,7 @@ export function createIslandEmpireGame(
           );
           const xLand = lerp(tPort.x, v.to.x, landP);
           const yLand = lerp(tPort.y, v.to.y, landP);
+          travelBadgePoint = { x: xLand, y: yLand };
           renderTroopSprites(
             xLand,
             yLand,
@@ -10854,6 +10969,7 @@ export function createIslandEmpireGame(
         // Straight line land march
         const x = lerp(v.from.x, v.to.x, t);
         const y = lerp(v.from.y, v.to.y, t);
+        travelBadgePoint = { x, y };
 
         strokeVoyagePath(
           v,
@@ -10886,8 +11002,8 @@ export function createIslandEmpireGame(
           : Math.max(0, Math.ceil((v.duration || 0) * (1 - serverProgress)));
         drawVoyageTravelBadge(
           v,
-          lerp(v.from.x, v.to.x, t),
-          lerp(v.from.y, v.to.y, t),
+          travelBadgePoint.x,
+          travelBadgePoint.y,
           remainingSeconds,
         );
       }
@@ -11048,47 +11164,25 @@ export function createIslandEmpireGame(
       seaRoute.error ||
       !seaRoute.sourcePort ||
       !seaRoute.targetPort ||
-      !seaRoute.control
+      !Array.isArray(seaRoute.seaPath) ||
+      seaRoute.seaPath.length < 2
     ) {
-      return { requiresShip: false };
+      return { requiresShip: true, blocked: true };
     }
+    const seaPath: MapPoint[] = seaRoute.seaPath;
     return {
       requiresShip: true,
       sourcePort: seaRoute.sourcePort,
       sourceLand: seaRoute.sourceCoast?.land || seaRoute.sourcePort,
       targetPort: seaRoute.targetPort,
       targetLand: seaRoute.targetCoast?.land || seaRoute.targetPort,
-      control: seaRoute.control,
-    };
-  }
-
-  function seaEntryExitPoints(
-    a: { x: number; y: number },
-    b: { x: number; y: number },
-  ) {
-    const steps = Math.max(
-      24,
-      Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 28),
-    );
-    let firstSea: { x: number; y: number } | null = null;
-    let lastSea: { x: number; y: number } | null = null;
-    for (let i = 1; i < steps; i++) {
-      const p = i / steps;
-      const point = { x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p) };
-      if (regionAtCoords(point.x, point.y) < 0) {
-        if (!firstSea) firstSea = point;
-        lastSea = point;
-      }
-    }
-    return {
-      sourcePort: firstSea || {
-        x: lerp(a.x, b.x, 0.22),
-        y: lerp(a.y, b.y, 0.22),
-      },
-      targetPort: lastSea || {
-        x: lerp(a.x, b.x, 0.78),
-        y: lerp(a.y, b.y, 0.78),
-      },
+      seaPath,
+      control:
+        seaRoute.control ||
+        seaPath[Math.floor(seaPath.length / 2)] || {
+          x: (seaRoute.sourcePort.x + seaRoute.targetPort.x) / 2,
+          y: (seaRoute.sourcePort.y + seaRoute.targetPort.y) / 2,
+        },
     };
   }
 
@@ -11119,33 +11213,20 @@ export function createIslandEmpireGame(
       travel?.usesShip ||
       travel?.connectionType === "sea",
     );
-    const seaFallback = seaEntryExitPoints(origin, r);
-    const sourcePort =
-      timing?.sourcePort ||
-      travel?.sourcePort ||
-      calculatedRoute.sourcePort ||
-      seaFallback.sourcePort;
-    const targetPort =
-      timing?.targetPort ||
-      travel?.targetPort ||
-      calculatedRoute.targetPort ||
-      seaFallback.targetPort;
     const route =
       serverRequiresShip && !calculatedRoute.requiresShip
-        ? {
-            requiresShip: true,
-            sourcePort,
-            sourceLand: sourcePort,
-            targetPort,
-            targetLand: targetPort,
-            control: timing?.control ||
-              travel?.control || {
-                x: (sourcePort.x + targetPort.x) / 2,
-                y: (sourcePort.y + targetPort.y) / 2,
-              },
-          }
+        ? { requiresShip: true, blocked: true }
         : calculatedRoute;
-    if (route.blocked) return;
+    if (
+      route.blocked ||
+      (route.requiresShip &&
+        (!route.sourcePort ||
+          !route.targetPort ||
+          !Array.isArray(route.seaPath) ||
+          route.seaPath.length < 2))
+    ) {
+      return;
+    }
 
     const now = Date.now();
     const startMs = timing?.startedAt
@@ -11179,14 +11260,11 @@ export function createIslandEmpireGame(
     if (route.requiresShip) {
       strokeVoyagePath({ owner: 0, relation: "ally" }, () => {
         ctx.beginPath();
-        ctx.moveTo(origin.x, origin.y);
-        ctx.lineTo(route.sourcePort.x, route.sourcePort.y);
-        ctx.quadraticCurveTo(
-          route.control.x,
-          route.control.y,
-          route.targetPort.x,
-          route.targetPort.y,
-        );
+        ctx.moveTo(route.sourcePort.x, route.sourcePort.y);
+        const builderSeaPath: MapPoint[] = route.seaPath;
+        builderSeaPath
+          .slice(1)
+          .forEach((point) => ctx.lineTo(point.x, point.y));
         ctx.lineTo(r.x, r.y);
       });
       if (!lightweightAssetRenderMode) {
@@ -11246,11 +11324,18 @@ export function createIslandEmpireGame(
           );
         }
       } else {
+        const constructionAnchor = territoryBuildingAnchor(
+          r.x,
+          r.y,
+          constructionArchitecture,
+          constructionType,
+          constructionSize,
+        );
         drawKingdomBuildingSprite(
           constructionArchitecture,
           constructionType,
-          r.x,
-          r.y,
+          constructionAnchor.x,
+          constructionAnchor.y,
           constructionSize,
         );
       }
@@ -11284,37 +11369,27 @@ export function createIslandEmpireGame(
         route.requiresShip &&
         route.sourcePort &&
         route.targetPort &&
-        route.control
+        Array.isArray(route.seaPath) &&
+        route.seaPath.length >= 2
       ) {
-        const sourceLand = route.sourceLand || route.sourcePort;
-        const targetLand = route.targetLand || route.targetPort;
-        if (renderedTravelP <= 0.22) {
-          const landP = renderedTravelP / 0.22;
-          x = lerp(origin.x, sourceLand.x, landP);
-          y = lerp(origin.y, sourceLand.y, landP);
-          onShip = false;
-        } else if (renderedTravelP <= 0.78) {
-          const seaP = (renderedTravelP - 0.22) / 0.56;
-          x =
-            (1 - seaP) * (1 - seaP) * route.sourcePort.x +
-            2 * (1 - seaP) * seaP * route.control.x +
-            seaP * seaP * route.targetPort.x;
-          y =
-            (1 - seaP) * (1 - seaP) * route.sourcePort.y +
-            2 * (1 - seaP) * seaP * route.control.y +
-            seaP * seaP * route.targetPort.y;
-          const tangentX =
-            2 * (1 - seaP) * (route.control.x - route.sourcePort.x) +
-            2 * seaP * (route.targetPort.x - route.control.x);
-          const tangentY =
-            2 * (1 - seaP) * (route.control.y - route.sourcePort.y) +
-            2 * seaP * (route.targetPort.y - route.control.y);
+        const builderSeaPath: MapPoint[] = route.seaPath;
+        if (renderedTravelP <= 0.8) {
+          const seaP = renderedTravelP / 0.8;
+          const shipPoint = pointAlongPolyline(builderSeaPath, seaP);
+          const nextShipPoint = pointAlongPolyline(
+            builderSeaPath,
+            Math.min(1, seaP + 0.01),
+          );
+          x = shipPoint.x;
+          y = shipPoint.y;
+          const tangentX = nextShipPoint.x - shipPoint.x;
+          const tangentY = nextShipPoint.y - shipPoint.y;
           builderDirection = marchDirectionFromDelta(tangentX, tangentY);
           onShip = true;
         } else {
-          const landP = (renderedTravelP - 0.78) / 0.22;
-          x = lerp(targetLand.x, r.x, landP);
-          y = lerp(targetLand.y, r.y, landP);
+          const landP = (renderedTravelP - 0.8) / 0.2;
+          x = lerp(route.targetPort.x, r.x, landP);
+          y = lerp(route.targetPort.y, r.y, landP);
           onShip = false;
         }
       }
@@ -11706,8 +11781,15 @@ export function createIslandEmpireGame(
     buildingType: string,
   ) {
     const isCapital = buildingType === "capital";
-    const width = isCapital ? 22 : 17;
-    const height = isCapital ? 18 : 14;
+    // At the far strategic overview the canvas itself is scaled to 0.05x.
+    // Compensate that scale so a marker remains a small, readable screen icon
+    // instead of shrinking below one physical pixel.
+    const overviewScale = Math.min(
+      10,
+      Math.max(1, 0.5 / Math.max(state.zoom, 0.05)),
+    );
+    const width = (isCapital ? 22 : 17) * overviewScale;
+    const height = (isCapital ? 18 : 14) * overviewScale;
     ctx.save();
     ctx.globalAlpha = 0.96;
     ctx.fillStyle = "rgba(4, 12, 18, 0.72)";
@@ -11726,14 +11808,33 @@ export function createIslandEmpireGame(
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = "rgba(255, 245, 200, 0.88)";
-    ctx.fillRect(x - 2, y - height + 6, 4, 5);
+    ctx.fillRect(
+      x - 2 * overviewScale,
+      y - height + 6 * overviewScale,
+      4 * overviewScale,
+      5 * overviewScale,
+    );
     ctx.fillStyle = "#334155";
-    ctx.fillRect(x + width * 0.46, y - height - (isCapital ? 16 : 13), 2, 16);
+    ctx.fillRect(
+      x + width * 0.46,
+      y - height - (isCapital ? 16 : 13) * overviewScale,
+      2 * overviewScale,
+      16 * overviewScale,
+    );
     ctx.fillStyle = color || "#2563eb";
     ctx.beginPath();
-    ctx.moveTo(x + width * 0.48, y - height - (isCapital ? 16 : 13));
-    ctx.lineTo(x + width * 0.48 + 11, y - height - (isCapital ? 13 : 10));
-    ctx.lineTo(x + width * 0.48, y - height - (isCapital ? 9 : 7));
+    ctx.moveTo(
+      x + width * 0.48,
+      y - height - (isCapital ? 16 : 13) * overviewScale,
+    );
+    ctx.lineTo(
+      x + width * 0.48 + 11 * overviewScale,
+      y - height - (isCapital ? 13 : 10) * overviewScale,
+    );
+    ctx.lineTo(
+      x + width * 0.48,
+      y - height - (isCapital ? 9 : 7) * overviewScale,
+    );
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -11879,23 +11980,21 @@ export function createIslandEmpireGame(
     }
 
     if (lightweightAssetRenderMode) {
-      // Keep the middle overview tier clean: terrain remains cheap to draw,
-      // but settlement markers are reserved for the farther strategic zoom.
+      // The global map shows strategic anchors, not one icon per province.
+      // This keeps capitals and battles readable instead of creating a dense
+      // block of overlapping house markers.
       if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
-        drawLightweightTerritoryMarker(x, y, color, buildingType);
-      }
-      if (isCapital) {
-        if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
-          drawMedievalCastleNameplate(
-            x,
-            y,
-            displayOwnerName,
-            ownerCode,
-            22,
-            isBattleRegion,
-          );
+        const showStrategicMarker =
+          isCapital ||
+          isSubCapital ||
+          isBattleRegion ||
+          state.selectedRegion === regionId;
+        if (showStrategicMarker) {
+          drawLightweightTerritoryMarker(x, y, color, buildingType);
         }
       }
+      // Names are deliberately omitted in the global overview: one compact
+      // marker per territory remains legible and avoids text-layout work.
       return;
     }
 
@@ -11962,6 +12061,10 @@ export function createIslandEmpireGame(
           ownerCode === 1
             ? state.localPlayerAvatarId
             : state.regionOwnerAvatarIds[regionId],
+        avatarFrameId:
+          ownerCode === 1
+            ? state.equippedAvatarFrameId
+            : state.regionOwnerAvatarFrameIds[regionId],
         relation: avatarRelation,
       });
     }
@@ -12101,12 +12204,12 @@ export function createIslandEmpireGame(
   ) {
     if (
       hideTerritoryAssets ||
+      farSceneryRenderMode ||
       lightweightAssetRenderMode ||
       fastRenderMode ||
       crowdedRenderMode
     )
       return;
-    if (state.zoom < 0.44 && state.selectedRegion === null) return;
 
     const baseSize = Math.max(
       82,
@@ -12481,6 +12584,191 @@ export function createIslandEmpireGame(
     );
   }
 
+  function strategicOwnershipSignature() {
+    const claimedIds = Object.keys(state.regionOwnership || {});
+    return claimedIds
+      .map((rawId) => {
+        const id = Number(rawId);
+        return `${id}:${derivedRegionOwnership(id)}:${state.regionOwnerIds?.[id] || ""}:${getRegionFlagColor(id)}`;
+      })
+      .join("|");
+  }
+
+  function buildStrategicWorldCache(signature: string) {
+    const entries = [
+      ...regions.map((region: any) => [region, Number(region.id), false] as const),
+      ...islets.map((region: any) => [region, Number(region.id), true] as const),
+    ];
+    if (!entries.length) return null;
+
+    const prepared = entries.map(([region, id, isIslet]) => ({
+      region,
+      id,
+      isIslet,
+      polygon: organicTerritoryDisplayPolygon(
+        getSharedRegionPolygon(region, id, isIslet),
+        region,
+        id,
+        isIslet,
+      ),
+    }));
+    let rawMinX = Infinity;
+    let rawMinY = Infinity;
+    let rawMaxX = -Infinity;
+    let rawMaxY = -Infinity;
+    prepared.forEach((entry) => {
+      entry.polygon.forEach(([x, y]) => {
+        rawMinX = Math.min(rawMinX, x);
+        rawMinY = Math.min(rawMinY, y);
+        rawMaxX = Math.max(rawMaxX, x);
+        rawMaxY = Math.max(rawMaxY, y);
+      });
+    });
+    const minX = Math.floor(rawMinX - 20);
+    const minY = Math.floor(rawMinY - 20);
+    const maxX = Math.ceil(rawMaxX + 20);
+    const maxY = Math.ceil(rawMaxY + 20);
+    const width = Math.max(1, maxX - minX);
+    const height = Math.max(1, maxY - minY);
+    const maxTextureSize = isTouchDevice() ? 1536 : 2048;
+    const cacheScale = Math.min(
+      isTouchDevice() ? 0.14 : 0.18,
+      maxTextureSize / width,
+      maxTextureSize / height,
+    );
+    const cacheCanvas = document.createElement("canvas");
+    cacheCanvas.width = Math.max(1, Math.ceil(width * cacheScale));
+    cacheCanvas.height = Math.max(1, Math.ceil(height * cacheScale));
+    const cacheContext = cacheCanvas.getContext("2d", { alpha: true });
+    if (!cacheContext) return null;
+
+    const previousContext = ctx;
+    ctx = cacheContext;
+    ctx.save();
+    ctx.scale(cacheScale, cacheScale);
+    ctx.translate(-minX, -minY);
+    prepared.forEach(({ region, id, isIslet, polygon }) => {
+      const biome = visualBiome(region, id, isIslet);
+      const claimedLand = inflatePolygon(polygon, 3, region.x, region.y);
+      ctx.globalAlpha = 1;
+      fillSmoothPath(claimedLand, territoryTerrainColor(biome));
+      const ownerCode = isConquestLayout ? 0 : derivedRegionOwnership(id);
+      if (ownerCode > 0) {
+        ctx.globalAlpha = 0.52;
+        fillSmoothPath(claimedLand, getRegionFlagColor(id));
+      }
+    });
+
+    const strokeSegments = (
+      polygon: Array<[number, number]>,
+      shouldDraw: (midX: number, midY: number) => boolean,
+      color: string,
+      lineWidth: number,
+    ) => {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      for (let i = 0; i < polygon.length; i++) {
+        const p1 = polygon[i];
+        const p2 = polygon[(i + 1) % polygon.length];
+        const midX = (p1[0] + p2[0]) / 2;
+        const midY = (p1[1] + p2[1]) / 2;
+        if (!shouldDraw(midX, midY)) continue;
+        ctx.moveTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
+      }
+      ctx.stroke();
+    };
+
+    prepared.forEach(({ region, id, isIslet, polygon }) => {
+      const coastal =
+        isIslet ||
+        region.coastal ||
+        mainlandCoastalRegionIds.has(id) ||
+        polygon.some(([x, y]) => !isSharedInlandVertex(x, y, region));
+      if (coastal) {
+        const isCoastEdge = (x: number, y: number) =>
+          isIslet || !isSharedInlandVertex(x, y, region);
+        strokeSegments(polygon, isCoastEdge, "rgba(5, 15, 22, 0.92)", 24);
+        strokeSegments(polygon, isCoastEdge, "rgba(126, 166, 161, 0.74)", 8);
+      }
+
+      const ownerCode = isConquestLayout ? 0 : derivedRegionOwnership(id);
+      if (ownerCode <= 0) return;
+      const ownerNeighbors = nearbyMainlandRegions(region);
+      const isCountryEdge = (midX: number, midY: number) => {
+        const currentOwnerId = state.regionOwnerIds?.[id];
+        const currentOwnerName = state.regionOwnerNames?.[id];
+        return !ownerNeighbors.some((other: any) => {
+          const dx = midX - other.x;
+          const dy = midY - other.y;
+          const otherRx = (other.rx || 230) * 1.08;
+          const otherRy = (other.ry || otherRx * 0.78) * 1.08;
+          if (
+            (dx * dx) / (otherRx * otherRx) +
+              (dy * dy) / (otherRy * otherRy) >
+            1.08
+          ) {
+            return false;
+          }
+          if (derivedRegionOwnership(other.id) !== ownerCode) return false;
+          if (ownerCode === 1) return true;
+          const otherOwnerId = state.regionOwnerIds?.[other.id];
+          return currentOwnerId && otherOwnerId
+            ? currentOwnerId === otherOwnerId
+            : Boolean(
+                currentOwnerName &&
+                  currentOwnerName === state.regionOwnerNames?.[other.id],
+              );
+        });
+      };
+      strokeSegments(polygon, isCountryEdge, "rgba(4, 10, 15, 0.96)", 28);
+      strokeSegments(polygon, isCountryEdge, getRegionFlagColor(id), 11);
+    });
+    ctx.restore();
+    ctx = previousContext;
+
+    return {
+      canvas: cacheCanvas,
+      minX,
+      minY,
+      width,
+      height,
+      signature,
+    };
+  }
+
+  function drawStrategicWorldCache() {
+    const now = performance.now();
+    let signature = strategicWorldCache?.signature || "";
+    if (
+      !strategicWorldCache ||
+      now - lastStrategicCacheSignatureCheckAt >= 1000
+    ) {
+      lastStrategicCacheSignatureCheckAt = now;
+      signature = strategicOwnershipSignature();
+      if (!strategicWorldCache || strategicWorldCache.signature !== signature) {
+        strategicWorldCache = buildStrategicWorldCache(signature);
+      }
+    }
+    if (!strategicWorldCache) return false;
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "low";
+    ctx.drawImage(
+      strategicWorldCache.canvas,
+      strategicWorldCache.minX,
+      strategicWorldCache.minY,
+      strategicWorldCache.width,
+      strategicWorldCache.height,
+    );
+    ctx.restore();
+    return true;
+  }
+
   function isPointInViewport(x: number, y: number, vp: any, margin = 200) {
     if (!vp) return true;
     const effectiveMargin = Math.min(
@@ -12512,13 +12800,18 @@ export function createIslandEmpireGame(
   }
 
   let fastRenderMode = false;
-  // Colour unification, lightweight terrain and icon LOD are independent.
-  // The middle overview tier stays clean; only the farthest tier shows markers.
-  const OVERVIEW_PALETTE_THRESHOLD = 0.72;
-  const OVERVIEW_LIGHTWEIGHT_THRESHOLD = 0.5;
-  const OVERVIEW_ICON_THRESHOLD = 0.05;
+  // Keep normal world assets through almost the entire zoom range. The cheap
+  // strategic renderer is entered only at the true global overview near the
+  // camera minimum, so a small wheel/pinch zoom never empties the map.
+  const OVERVIEW_PALETTE_THRESHOLD = 0.22;
+  const FAR_SCENERY_THRESHOLD = 0.22;
+  const OVERVIEW_LIGHTWEIGHT_THRESHOLD = 0.06;
+  // Small epsilon avoids a fractional zoom value such as 0.0500001 missing
+  // the far-overview tier. Markers start exactly when heavy assets are hidden.
+  const OVERVIEW_ICON_THRESHOLD = 0.06;
   const HIGH_ZOOM_PERFORMANCE_THRESHOLD = 3.2;
   let overviewRenderMode = false;
+  let farSceneryRenderMode = false;
   let lightweightAssetRenderMode = false;
   // Render pressure is based on visible simulation entities, not the number
   // of players connected to the server. This lets a busy world stay readable
@@ -12529,15 +12822,18 @@ export function createIslandEmpireGame(
 
   function drawWorld() {
     const fastPan = isCameraInteracting();
-    fastRenderMode = fastPan || state.zoom < 0.15;
+    // Zoom level alone must not remove assets. During active dragging we may
+    // temporarily skip effects, while settled rendering follows the LOD tiers.
+    fastRenderMode = fastPan;
     overviewRenderMode = state.zoom <= OVERVIEW_PALETTE_THRESHOLD;
+    farSceneryRenderMode = state.zoom <= FAR_SCENERY_THRESHOLD;
     lightweightAssetRenderMode =
       state.zoom <= OVERVIEW_LIGHTWEIGHT_THRESHOLD;
     // Build only a few new offscreen territory caches per settled frame. A
     // zoom-tier change can invalidate many regions at once; spreading that
     // work prevents a long hitch immediately after a pinch or wheel zoom.
     regionCacheBuildBudget =
-      fastPan || lightweightAssetRenderMode
+      fastPan || farSceneryRenderMode || lightweightAssetRenderMode
         ? 0
         : state.zoom >= HIGH_ZOOM_PERFORMANCE_THRESHOLD
           ? 1
@@ -12570,7 +12866,11 @@ export function createIslandEmpireGame(
     ctx.scale(state.zoom, state.zoom);
 
     // Draw world space ocean texture & details (moves with pan/zoom)
-    if (!fastRenderMode && !lightweightAssetRenderMode) {
+    if (
+      !fastRenderMode &&
+      !farSceneryRenderMode &&
+      !lightweightAssetRenderMode
+    ) {
       drawWorldOceanTexture();
       drawWorldOceanDetails();
     }
@@ -12774,18 +13074,36 @@ export function createIslandEmpireGame(
       if (isRegionInViewport(r, vp)) visibleRegions.push([r, r.id]);
     }
 
-    // Layer 2: continuous mainland foundation below all province polygons.
-    drawStrategyContinentLayer(visibleRegions, visibleIslets);
+    if (!farSceneryRenderMode) {
+      // Layer 2: continuous mainland foundation below all province polygons.
+      drawStrategyContinentLayer(visibleRegions, visibleIslets);
 
-    // Pass 0/1 only for standalone islets. Mainland coast/cliff is drawn once as foundation
-    // below all province polygons so territories sit on top instead of hiding each other's cliffs.
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 0, true));
+      // Pass 0/1 only for standalone islets. At far zoom the strategic
+      // coastline pass replaces waves, cliffs and island depth completely.
+      visibleIslets.forEach(([r, id]) => drawRegion(r, id, 0, true));
+      visibleIslets.forEach(([r, id]) => drawRegion(r, id, 1, true));
+    }
 
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 1, true));
-
-    // Pass 2: Draw main land bodies.
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 2, true));
-    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 2, false));
+    // At strategic zoom, one cached bitmap replaces hundreds of territory
+    // land paths. Dynamic selections/clearing states are layered afterward.
+    const strategicBaseDrawn =
+      overviewRenderMode && drawStrategicWorldCache();
+    if (!strategicBaseDrawn) {
+      visibleIslets.forEach(([r, id]) => drawRegion(r, id, 2, true));
+      visibleRegions.forEach(([r, id]) => drawRegion(r, id, 2, false));
+    } else {
+      activeClearingRegionIds().forEach((regionId) => {
+        const clearingRegion = landById(regionId);
+        if (clearingRegion && isRegionInViewport(clearingRegion, vp)) {
+          drawRegion(
+            clearingRegion,
+            regionId,
+            2,
+            Boolean(clearingRegion.isIslet),
+          );
+        }
+      });
+    }
 
     // Re-render active/selected territory on top of all other regions so it floats above everything
     if (state.selectedRegion !== null && state.selectedRegion !== undefined) {
@@ -12796,21 +13114,37 @@ export function createIslandEmpireGame(
       }
     }
 
-    // Pass 3: Draw diorama assets (forests, resources, harbors) on top of all land borders.
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 3, true));
-    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 3, false));
+    if (!farSceneryRenderMode) {
+      // Pass 3: Draw diorama assets only while they remain readable.
+      visibleIslets.forEach(([r, id]) => drawRegion(r, id, 3, true));
+      visibleRegions.forEach(([r, id]) => drawRegion(r, id, 3, false));
 
-    if (state.selectedRegion !== null && state.selectedRegion !== undefined) {
-      const activeId = state.selectedRegion;
-      const activeRegion = landById(activeId);
-      if (activeRegion && isRegionInViewport(activeRegion, vp)) {
-        drawRegion(activeRegion, activeId, 3, Boolean(activeRegion.isIslet));
+      if (state.selectedRegion !== null && state.selectedRegion !== undefined) {
+        const activeId = state.selectedRegion;
+        const activeRegion = landById(activeId);
+        if (activeRegion && isRegionInViewport(activeRegion, vp)) {
+          drawRegion(activeRegion, activeId, 3, Boolean(activeRegion.isIslet));
+        }
       }
     }
 
-    // Pass 4: Draw/Redraw borders on top of diorama assets so they are never obscured
-    visibleIslets.forEach(([r, id]) => drawRegion(r, id, 4, true));
-    visibleRegions.forEach(([r, id]) => drawRegion(r, id, 4, false));
+    // Strategic coastline/country borders are baked into the world cache.
+    if (!strategicBaseDrawn) {
+      visibleIslets.forEach(([r, id]) => drawRegion(r, id, 4, true));
+      visibleRegions.forEach(([r, id]) => drawRegion(r, id, 4, false));
+    } else {
+      activeClearingRegionIds().forEach((regionId) => {
+        const clearingRegion = landById(regionId);
+        if (clearingRegion && isRegionInViewport(clearingRegion, vp)) {
+          drawRegion(
+            clearingRegion,
+            regionId,
+            4,
+            Boolean(clearingRegion.isIslet),
+          );
+        }
+      });
+    }
 
     if (state.selectedRegion !== null && state.selectedRegion !== undefined) {
       const activeId = state.selectedRegion;
@@ -13393,7 +13727,8 @@ export function createIslandEmpireGame(
     const now = performance.now();
     if (
       minimapController?.isDragging() ||
-      now - lastMinimapDrawAt > (crowdedRenderMode ? 420 : 180)
+      now - lastMinimapDrawAt >
+        (farSceneryRenderMode ? 650 : crowdedRenderMode ? 420 : 180)
     ) {
       minimapController?.draw();
       lastMinimapDrawAt = now;
@@ -13999,12 +14334,23 @@ export function createIslandEmpireGame(
   const coastPortCache: {
     [regionId: number]: { x: number; y: number } | null;
   } = {};
+  const coastPortCandidateCache: { [regionId: number]: any | null } = {};
+
+  function getCachedCoastPortCandidate(regionId: number) {
+    if (coastPortCandidateCache[regionId] !== undefined) {
+      return coastPortCandidateCache[regionId];
+    }
+    const candidate =
+      findCoastPortCandidates(regionId, { x: 0, y: 0 }, 1)[0] || null;
+    coastPortCandidateCache[regionId] = candidate;
+    return candidate;
+  }
 
   function getCachedCoastPort(regionId: number) {
     if (coastPortCache[regionId] !== undefined) {
       return coastPortCache[regionId];
     }
-    const candidate = findCoastPortCandidates(regionId, { x: 0, y: 0 }, 1)[0];
+    const candidate = getCachedCoastPortCandidate(regionId);
     const port =
       candidate && candidate.water
         ? { x: candidate.water.x, y: candidate.water.y }
@@ -14066,6 +14412,11 @@ export function createIslandEmpireGame(
         }
       }
       if (!waterPoint) continue;
+      // A gap between two provinces, an inland lake, or a narrow river is
+      // still reported as "water" by regionAtCoords. Ports are only valid on
+      // water connected to the outer ocean, otherwise ships can spawn inside
+      // the continent and their route immediately crosses land.
+      if (!isOceanWaterPoint(waterPoint)) continue;
       const distToTarget = Math.hypot(
         waterPoint.x - toward.x,
         waterPoint.y - toward.y,
@@ -14108,6 +14459,154 @@ export function createIslandEmpireGame(
     { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
   );
 
+  const SEA_NAV_STEP = 92;
+  const SEA_NAV_MARGIN = 460;
+  const seaNavMinX =
+    Math.floor((seaRouteBounds.minX - SEA_NAV_MARGIN) / SEA_NAV_STEP) *
+    SEA_NAV_STEP;
+  const seaNavMinY =
+    Math.floor((seaRouteBounds.minY - SEA_NAV_MARGIN) / SEA_NAV_STEP) *
+    SEA_NAV_STEP;
+  const seaNavMaxX =
+    Math.ceil((seaRouteBounds.maxX + SEA_NAV_MARGIN) / SEA_NAV_STEP) *
+    SEA_NAV_STEP;
+  const seaNavMaxY =
+    Math.ceil((seaRouteBounds.maxY + SEA_NAV_MARGIN) / SEA_NAV_STEP) *
+    SEA_NAV_STEP;
+  const seaNavCols = Math.floor((seaNavMaxX - seaNavMinX) / SEA_NAV_STEP) + 1;
+  const seaNavRows = Math.floor((seaNavMaxY - seaNavMinY) / SEA_NAV_STEP) + 1;
+  const seaNavCount = seaNavCols * seaNavRows;
+  const seaNavWater = new Int8Array(Math.max(0, seaNavCount));
+  const seaNavOcean = new Uint8Array(Math.max(0, seaNavCount));
+  let seaNavOceanReady = false;
+
+  function seaNavPoint(index: number): MapPoint {
+    return {
+      x: seaNavMinX + (index % seaNavCols) * SEA_NAV_STEP,
+      y:
+        seaNavMinY + Math.floor(index / seaNavCols) * SEA_NAV_STEP,
+    };
+  }
+
+  function seaNavIsWater(index: number) {
+    if (index < 0 || index >= seaNavCount) return false;
+    if (seaNavWater[index] !== 0) return seaNavWater[index] === 1;
+    const point = seaNavPoint(index);
+    const water = isWaterAt(point.x, point.y);
+    seaNavWater[index] = water ? 1 : 2;
+    return water;
+  }
+
+  function seaNavNodesConnect(
+    currentIndex: number,
+    nextIndex: number,
+    dx: number,
+    dy: number,
+  ) {
+    if (!seaNavIsWater(nextIndex)) return false;
+    const current = seaNavPoint(currentIndex);
+    const next = seaNavPoint(nextIndex);
+    if (
+      !isWaterAt(lerp(current.x, next.x, 0.25), lerp(current.y, next.y, 0.25)) ||
+      !isWaterAt(lerp(current.x, next.x, 0.5), lerp(current.y, next.y, 0.5)) ||
+      !isWaterAt(lerp(current.x, next.x, 0.75), lerp(current.y, next.y, 0.75))
+    ) {
+      return false;
+    }
+    if (dx !== 0 && dy !== 0) {
+      const gx = currentIndex % seaNavCols;
+      const gy = Math.floor(currentIndex / seaNavCols);
+      if (
+        !seaNavIsWater(gy * seaNavCols + gx + dx) ||
+        !seaNavIsWater((gy + dy) * seaNavCols + gx)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function ensureSeaNavOcean() {
+    if (seaNavOceanReady) return;
+    seaNavOceanReady = true;
+    if (seaNavCount <= 0 || seaNavCount > 180000) return;
+
+    const queue = new Int32Array(seaNavCount);
+    let head = 0;
+    let tail = 0;
+    const seed = (index: number) => {
+      if (seaNavOcean[index] || !seaNavIsWater(index)) return;
+      seaNavOcean[index] = 1;
+      queue[tail++] = index;
+    };
+    for (let x = 0; x < seaNavCols; x++) {
+      seed(x);
+      seed((seaNavRows - 1) * seaNavCols + x);
+    }
+    for (let y = 1; y < seaNavRows - 1; y++) {
+      seed(y * seaNavCols);
+      seed(y * seaNavCols + seaNavCols - 1);
+    }
+
+    const directions = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ];
+    while (head < tail) {
+      const currentIndex = queue[head++];
+      const gx = currentIndex % seaNavCols;
+      const gy = Math.floor(currentIndex / seaNavCols);
+      for (const [dx, dy] of directions) {
+        const nx = gx + dx;
+        const ny = gy + dy;
+        if (nx < 0 || nx >= seaNavCols || ny < 0 || ny >= seaNavRows) continue;
+        const nextIndex = ny * seaNavCols + nx;
+        if (
+          seaNavOcean[nextIndex] ||
+          !seaNavNodesConnect(currentIndex, nextIndex, dx, dy)
+        ) {
+          continue;
+        }
+        seaNavOcean[nextIndex] = 1;
+        queue[tail++] = nextIndex;
+      }
+    }
+  }
+
+  function isOceanWaterPoint(point: MapPoint) {
+    if (!isWaterAt(point.x, point.y)) return false;
+    ensureSeaNavOcean();
+    if (seaNavCount <= 0 || seaNavCount > 180000) return false;
+    const cx = Math.round((point.x - seaNavMinX) / SEA_NAV_STEP);
+    const cy = Math.round((point.y - seaNavMinY) / SEA_NAV_STEP);
+    for (let radius = 0; radius <= 5; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (
+            radius > 0 &&
+            Math.abs(dx) !== radius &&
+            Math.abs(dy) !== radius
+          ) {
+            continue;
+          }
+          const gx = cx + dx;
+          const gy = cy + dy;
+          if (gx < 0 || gx >= seaNavCols || gy < 0 || gy >= seaNavRows) continue;
+          const index = gy * seaNavCols + gx;
+          if (!seaNavOcean[index]) continue;
+          if (waterSegmentClear(point, seaNavPoint(index))) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   const shortestWaterPathCache = new Map<string, MapPoint[] | null>();
 
   function findShortestWaterPath(
@@ -14119,8 +14618,8 @@ export function createIslandEmpireGame(
     if (shortestWaterPathCache.has(cacheKey))
       return shortestWaterPathCache.get(cacheKey) || null;
 
-    const step = 92;
-    const margin = 460;
+    const step = SEA_NAV_STEP;
+    const margin = SEA_NAV_MARGIN;
     const minX = Math.floor((seaRouteBounds.minX - margin) / step) * step;
     const minY = Math.floor((seaRouteBounds.minY - margin) / step) * step;
     const maxX = Math.ceil((seaRouteBounds.maxX + margin) / step) * step;
@@ -14323,16 +14822,22 @@ export function createIslandEmpireGame(
     sourcePoint: { x: number; y: number },
     targetPoint: { x: number; y: number },
   ) {
-    const sourcePorts = findCoastPortCandidates(
+    const sourceFixedHarbor = territorySpecialResources(
       sourceRegionId,
-      targetPoint,
-      14,
-    );
-    const targetPorts = findCoastPortCandidates(
+    ).includes("Bến tàu tự nhiên")
+      ? getCachedCoastPortCandidate(sourceRegionId)
+      : null;
+    const targetFixedHarbor = territorySpecialResources(
       targetRegionId,
-      sourcePoint,
-      14,
-    );
+    ).includes("Bến tàu tự nhiên")
+      ? getCachedCoastPortCandidate(targetRegionId)
+      : null;
+    const sourcePorts = sourceFixedHarbor
+      ? [sourceFixedHarbor]
+      : findCoastPortCandidates(sourceRegionId, targetPoint, 14);
+    const targetPorts = targetFixedHarbor
+      ? [targetFixedHarbor]
+      : findCoastPortCandidates(targetRegionId, sourcePoint, 14);
     if (sourcePorts.length === 0) return { error: "source_port" };
     if (targetPorts.length === 0) return { error: "target_port" };
     const pairs: any[] = [];
@@ -14628,49 +15133,33 @@ export function createIslandEmpireGame(
         target,
       );
       if (route.error === "source_port") {
-        if (backendTiming) {
-          sourcePort = {
-            x: lerp(source.x, target.x, 0.22),
-            y: lerp(source.y, target.y, 0.22),
-          };
-        } else {
+        if (!backendTiming) {
           toast(
             "LÃNH THỔ XUẤT PHÁT KHÔNG CÓ BỜ BIỂN/CẢNG - KHÔNG THỂ ĐI THUYỀN",
           );
-          return false;
         }
+        return false;
       }
       if (route.error === "target_port") {
-        if (backendTiming) {
-          targetPort = {
-            x: lerp(source.x, target.x, 0.78),
-            y: lerp(source.y, target.y, 0.78),
-          };
-        } else {
+        if (!backendTiming) {
           toast("ĐÍCH KHÔNG PHẢI VÙNG VEN BIỂN - PHẢI CHIẾM BỜ BIỂN TRƯỚC");
-          return false;
         }
+        return false;
       }
-      sourcePort = sourcePort ||
-        route.sourcePort || {
-          x: lerp(source.x, target.x, 0.22),
-          y: lerp(source.y, target.y, 0.22),
-        };
-      targetPort = targetPort ||
-        route.targetPort || {
-          x: lerp(source.x, target.x, 0.78),
-          y: lerp(source.y, target.y, 0.78),
-        };
+      sourcePort = route.sourcePort || null;
+      targetPort = route.targetPort || null;
       seaPath = route.seaPath || null;
-      if (!seaPath || seaPath.length < 2 || route.error === "blocked") {
-        if (backendTiming) {
-          // Server already confirmed this march sailed; draw a straight water
-          // line instead of dropping the ship/voyage entirely.
-          seaPath = [sourcePort, targetPort];
-        } else {
+      if (
+        !sourcePort ||
+        !targetPort ||
+        !seaPath ||
+        seaPath.length < 2 ||
+        route.error === "blocked"
+      ) {
+        if (!backendTiming) {
           toast("KHÔNG TÌM ĐƯỢC TUYẾN NƯỚC AN TOÀN ĐẾN VÙNG ĐÍCH");
-          return false;
         }
+        return false;
       }
     }
 
@@ -15705,7 +16194,14 @@ export function createIslandEmpireGame(
     const isAnimating = hasActiveAnimations();
     const highZoomPerformanceMode =
       state.zoom >= HIGH_ZOOM_PERFORMANCE_THRESHOLD;
-    const targetFps = highZoomPerformanceMode
+    const farZoomPerformanceMode = state.zoom <= FAR_SCENERY_THRESHOLD;
+    const targetFps = farZoomPerformanceMode
+      ? isAnimating
+        ? isTouchDevice()
+          ? 20
+          : 24
+        : 15
+      : highZoomPerformanceMode
       ? isAnimating
         ? isTouchDevice()
           ? 24
@@ -15885,6 +16381,8 @@ export function createIslandEmpireGame(
         return;
       }
       if (id === "setShopInventory") {
+        state.equippedAvatarFrameId =
+          payload?.inventory?.equippedAvatarFrameId || "vip";
         state.equippedCapitalSkin =
           payload?.inventory?.equippedCapitalSkin || null;
         state.equippedDistrictSkin =
@@ -15918,6 +16416,19 @@ export function createIslandEmpireGame(
         });
         return;
       }
+      if (id === "updateRemoteProfileCosmetic") {
+        const ownerId = payload?.ownerId;
+        if (!ownerId) return;
+        Object.keys(state.regionOwnerIds).forEach((key) => {
+          const regionId = Number(key);
+          if (state.regionOwnerIds[regionId] !== ownerId) return;
+          if (payload?.avatarId)
+            state.regionOwnerAvatarIds[regionId] = payload.avatarId;
+          if (payload?.avatarFrameId)
+            state.regionOwnerAvatarFrameIds[regionId] = payload.avatarFrameId;
+        });
+        return;
+      }
       if (id === "syncTownSnapshots") {
         applyBackendTownSnapshots(payload?.towns || []);
         save();
@@ -15946,6 +16457,7 @@ export function createIslandEmpireGame(
         state.regionOwnerEmblems = {};
         state.regionOwnerArchitectureIds = {};
         state.regionOwnerAvatarIds = {};
+        state.regionOwnerAvatarFrameIds = {};
         state.regionOwnerVipLevels = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
@@ -16023,6 +16535,7 @@ export function createIslandEmpireGame(
         state.regionOwnerEmblems = {};
         state.regionOwnerArchitectureIds = {};
         state.regionOwnerAvatarIds = {};
+        state.regionOwnerAvatarFrameIds = {};
         state.regionOwnerVipLevels = {};
         state.regionOwnerAllianceTags = {};
         state.regionOwnerAllianceEmblems = {};
@@ -16071,6 +16584,9 @@ export function createIslandEmpireGame(
               territory.ownerArchitectureId;
           if (territory.ownerAvatarId)
             state.regionOwnerAvatarIds[territory.id] = territory.ownerAvatarId;
+          if (territory.ownerAvatarFrameId)
+            state.regionOwnerAvatarFrameIds[territory.id] =
+              territory.ownerAvatarFrameId;
           if (territory.ownerVipLevel !== undefined)
             state.regionOwnerVipLevels[territory.id] = Number(
               territory.ownerVipLevel || 0,
@@ -16195,6 +16711,7 @@ export function createIslandEmpireGame(
           state.regionOwnerEmblems = {};
           state.regionOwnerArchitectureIds = {};
           state.regionOwnerAvatarIds = {};
+          state.regionOwnerAvatarFrameIds = {};
           state.regionOwnerVipLevels = {};
           state.regionOwnerAllianceTags = {};
           state.regionOwnerAllianceEmblems = {};
@@ -16244,6 +16761,10 @@ export function createIslandEmpireGame(
           if (territory.ownerAvatarId)
             state.regionOwnerAvatarIds[territory.id] = territory.ownerAvatarId;
           else delete state.regionOwnerAvatarIds[territory.id];
+          if (territory.ownerAvatarFrameId)
+            state.regionOwnerAvatarFrameIds[territory.id] =
+              territory.ownerAvatarFrameId;
+          else delete state.regionOwnerAvatarFrameIds[territory.id];
           if (territory.ownerVipLevel !== undefined)
             state.regionOwnerVipLevels[territory.id] = Number(
               territory.ownerVipLevel || 0,

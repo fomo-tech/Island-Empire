@@ -38,6 +38,7 @@ const ALLIANCE_AID_MAX_TROOPS = 500;
 const AntiBotProofSchema = z.object({
   challengeToken: z.string().min(32).max(600),
   proof: z.number().int().nonnegative().max(2_147_483_647),
+  turnstileToken: z.string().trim().min(1).max(2048).optional(),
 });
 const LoginSchema = z
   .object({
@@ -203,6 +204,14 @@ const TERRITORY_RESOURCE_CAPACITY = {
   food: 1600,
   gems: 0,
 };
+const WAREHOUSE_MAX_LEVEL = 3;
+const WAREHOUSE_CAPACITY_BONUS_BY_LEVEL = [0, 0.5, 1.25, 2.25];
+const WAREHOUSE_UPGRADE_COSTS = [
+  null,
+  { gold: 350, wood: 300, stone: 200, food: 0, gems: 0 },
+  { gold: 800, wood: 650, stone: 500, food: 0, gems: 0 },
+  { gold: 1600, wood: 1200, stone: 1000, food: 0, gems: 0 },
+];
 const MAX_OFFLINE_RESOURCE_SECONDS = 24 * 60 * 60;
 const MIN_OFFLINE_REPORT_SECONDS = 60;
 const actionBuckets = new Map();
@@ -363,6 +372,47 @@ function verifyAntiBotProof(req, proof) {
   }
   return true;
 }
+const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
+async function verifyTurnstileToken(req, token) {
+  const secret =
+    config.TURNSTILE_SECRET_KEY ||
+    (config.NODE_ENV === "production" ? "" : TURNSTILE_TEST_SECRET);
+  if (!secret || typeof token !== "string" || !token.trim()) return false;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const body = new URLSearchParams({
+      secret,
+      response: token,
+      remoteip: antiBotIp(req),
+    });
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) return false;
+    const result = await response.json();
+    if (!result?.success) return false;
+    if (result.action && result.action !== "auth") return false;
+    if (
+      config.TURNSTILE_EXPECTED_HOSTNAME &&
+      result.hostname !== config.TURNSTILE_EXPECTED_HOSTNAME
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 function enforceAuthAttempt(req, res, action, identity) {
   const ipResult = consumeActionLimit(
     `auth-ip:${antiBotIp(req)}`,
@@ -429,14 +479,39 @@ function compactResourceDelta(resources) {
   });
   return compact;
 }
-function resourceCapacityForOwnedTerritories(ownedCount) {
+function warehouseUpgradeCost(targetLevel) {
+  const level = Math.max(
+    1,
+    Math.min(WAREHOUSE_MAX_LEVEL, Math.floor(Number(targetLevel) || 1)),
+  );
+  return normalizeResources(WAREHOUSE_UPGRADE_COSTS[level] || {});
+}
+function warehouseCapacityBonus(level) {
+  const normalizedLevel = Math.max(
+    0,
+    Math.min(WAREHOUSE_MAX_LEVEL, Math.floor(Number(level) || 0)),
+  );
+  return WAREHOUSE_CAPACITY_BONUS_BY_LEVEL[normalizedLevel] || 0;
+}
+function resourceCapacityForOwnedTerritories(ownedCount, towns: any[] = []) {
   const cap = emptyResources();
+  const ownedTownCount = Math.min(
+    Math.max(0, ownedCount),
+    Array.isArray(towns) ? towns.length : 0,
+  );
+  const warehouseBonus = (Array.isArray(towns) ? towns : [])
+    .slice(0, ownedTownCount)
+    .reduce(
+      (sum, town) => sum + warehouseCapacityBonus(town?.buildings?.warehouse),
+      0,
+    );
   RESOURCE_KEYS.forEach((key) => {
     cap[key] =
       key === "gems"
         ? 0
         : BASE_RESOURCE_CAPACITY[key] +
-          Math.max(0, ownedCount) * TERRITORY_RESOURCE_CAPACITY[key];
+          (Math.max(0, ownedCount) + warehouseBonus) *
+            TERRITORY_RESOURCE_CAPACITY[key];
   });
   return cap;
 }
@@ -458,7 +533,7 @@ const BIOME_NAMES = {
  */
 const BIOME_BASE_YIELDS = {
   0: {
-    gold: 0.003,
+    gold: 0.007,
     wood: 0.01,
     stone: 0.006,
     food: 0.03,
@@ -468,7 +543,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.0002,
   }, // Đồng bằng: lương nhiều, gỗ/đá ít
   1: {
-    gold: 0.018,
+    gold: 0.012,
     wood: 0.001,
     stone: 0.012,
     food: 0.003,
@@ -478,7 +553,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.004,
   }, // Sa mạc: vàng/đá quý, thiếu gỗ/lương
   2: {
-    gold: 0.002,
+    gold: 0.0065,
     wood: 0.003,
     stone: 0.02,
     food: 0.003,
@@ -488,7 +563,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.002,
   }, // Núi tuyết: đá, sắt, than
   3: {
-    gold: 0.004,
+    gold: 0.008,
     wood: 0.001,
     stone: 0.018,
     food: 0.001,
@@ -498,7 +573,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.002,
   }, // Núi lửa: khoáng sản nặng
   4: {
-    gold: 0.005,
+    gold: 0.008,
     wood: 0.003,
     stone: 0.01,
     food: 0.003,
@@ -508,7 +583,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.014,
   }, // Mỏ ngọc: đá quý
   5: {
-    gold: 0.01,
+    gold: 0.009,
     wood: 0.008,
     stone: 0.004,
     food: 0.022,
@@ -518,7 +593,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.002,
   }, // Vùng màu mỡ: lương + vàng
   6: {
-    gold: 0.002,
+    gold: 0.0065,
     wood: 0.026,
     stone: 0.012,
     food: 0.01,
@@ -528,7 +603,7 @@ const BIOME_BASE_YIELDS = {
     gems: 0.0005,
   }, // Rừng/vùng cao: gỗ nhiều, đá vừa
   7: {
-    gold: 0.003,
+    gold: 0.009,
     wood: 0.016,
     stone: 0.003,
     food: 0.018,
@@ -537,6 +612,14 @@ const BIOME_BASE_YIELDS = {
     sulfur: 0.004,
     gems: 0.001,
   }, // Đầm lầy: lương/gỗ, than/lưu huỳnh ít
+};
+// Normalize the world-wide hourly economy. Biomes keep their specialty, while
+// the average supply of the four standard resources remains approximately 1:1.
+const RESOURCE_YIELD_BALANCE = {
+  gold: 1,
+  wood: 0.8,
+  stone: 0.65,
+  food: 0.7,
 };
 // Biome clearing difficulty multipliers (applied on top of area-based time)
 const BIOME_CLEAR_MULT = {
@@ -601,10 +684,11 @@ function calcYields(t, hasGemMine = false) {
   const base = BIOME_BASE_YIELDS[biome] ?? BIOME_BASE_YIELDS[0];
   const areaFactor = (rx * ry) / 10000;
   const quality = 0.8 + territoryRoll(id, 0x51f15e) * 0.4;
-  let gold = base.gold * areaFactor * quality;
-  let wood = base.wood * areaFactor * quality;
-  let stone = base.stone * areaFactor * quality;
-  let food = base.food * areaFactor * quality;
+  let gold = base.gold * RESOURCE_YIELD_BALANCE.gold * areaFactor * quality;
+  let wood = base.wood * RESOURCE_YIELD_BALANCE.wood * areaFactor * quality;
+  let stone =
+    base.stone * RESOURCE_YIELD_BALANCE.stone * areaFactor * quality;
+  let food = base.food * RESOURCE_YIELD_BALANCE.food * areaFactor * quality;
   let gems = hasGemMine ? Math.max(0.004, base.gems * areaFactor * quality) : 0;
   if (isIslet) {
     gold *= 1.15;
@@ -754,13 +838,12 @@ function nearestLandFrontierClaim(claims, target) {
       (a, b) => a.distance - b.distance || a.territory.id - b.territory.id,
     )[0];
 }
-function resolvePlayerAttackRoute(claims, source, target) {
-  const frontier = nearestLandFrontierClaim(claims, target);
-  if (frontier) {
+function resolvePlayerAttackRoute(_claims, source, target) {
+  if (territoryConnectionType(source, target) === "land") {
     return {
       valid: true,
       routeType: "land",
-      frontierTerritoryId: frontier.territory.id,
+      frontierTerritoryId: source.id,
       reason: undefined,
     };
   }
@@ -930,25 +1013,24 @@ function territoryStartingPopulationForTown(territory, ownerCode = 1) {
   );
 }
 function townStorageCapacityForTerritory(town, territory) {
-  const level = Math.max(
-    1,
-    Math.floor(Number(town?.level ?? town?.lvl ?? 1) || 1),
-  );
   const warehouse = Math.max(
     0,
-    Math.floor(Number(town?.buildings?.warehouse || 0) || 0),
+    Math.min(
+      WAREHOUSE_MAX_LEVEL,
+      Math.floor(Number(town?.buildings?.warehouse || 0) || 0),
+    ),
   );
-  const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
-  const areaFactor = territory ? territoryAreaFactorForTown(territory) : 1;
+  const isCapital =
+    town?.kind === "capital" || territory?.settlementKind === "capital";
+  const warehouseBonus = warehouseCapacityBonus(warehouse);
   const capacity = emptyResources();
   STORAGE_RESOURCE_KEYS.forEach((key) => {
-    const base = TERRITORY_RESOURCE_CAPACITY[key];
-    const warehouseBonus = base * warehouse * 0.55;
-    const fortBonus = key === "food" ? base * fort * 0.1 : 0;
-    const levelBonus = base * Math.max(0, level - 1) * 0.12;
     capacity[key] = Math.max(
       1,
-      Math.round((base + warehouseBonus + fortBonus + levelBonus) * areaFactor),
+      Math.round(
+        TERRITORY_RESOURCE_CAPACITY[key] * (1 + warehouseBonus) +
+          (isCapital ? BASE_RESOURCE_CAPACITY[key] : 0),
+      ),
     );
   });
   capacity.gems = 0;
@@ -978,8 +1060,21 @@ function townPopulationGrowthPerSecond(town) {
     ) / 100000
   );
 }
-// Every territory owns one deterministic troop limit. It is derived only
-// from the territory itself, never from town level, population or buildings.
+const TROOP_SPECIALTY_BALANCE = {
+  infantry: { intervalMultiplier: 1, capacityMultiplier: 1 },
+  cavalry: { intervalMultiplier: 2, capacityMultiplier: 0.55 },
+  artillery: { intervalMultiplier: 3.2, capacityMultiplier: 0.32 },
+};
+function troopRecoverySecondsForSpecialty(specialty, gameConfig) {
+  const balance =
+    TROOP_SPECIALTY_BALANCE[specialty] || TROOP_SPECIALTY_BALANCE.infantry;
+  return Math.max(
+    10,
+    Math.round(gameConfig.troopRecoverySeconds * balance.intervalMultiplier),
+  );
+}
+// Every territory owns one deterministic troop limit. The specialty modifier
+// keeps maximum combat power comparable while preserving territory identity.
 function territoryTroopLimit(territory: any) {
   if (!territory) return 100;
   const areaFactor = Math.max(
@@ -989,10 +1084,14 @@ function territoryTroopLimit(territory: any) {
   const biomeMultiplier =
     [1.15, 0.82, 0.78, 0.72, 0.95, 1.22, 1, 0.88][territory.biome ?? 0] || 1;
   const islandMultiplier = territory.isIslet ? 0.7 : 1;
-  return Math.max(
+  const baseCapacity = Math.max(
     40,
     Math.round(100 * areaFactor * biomeMultiplier * islandMultiplier),
   );
+  const specialty = trainingSpecialtyForTerritory(territory);
+  const specialtyMultiplier =
+    TROOP_SPECIALTY_BALANCE[specialty]?.capacityMultiplier || 1;
+  return Math.max(24, Math.round(baseCapacity * specialtyMultiplier));
 }
 function settleTownPopulation(town, now = new Date()) {
   const capacity = Math.max(
@@ -1034,6 +1133,11 @@ function defaultTownSnapshotForTerritory(
 ) {
   const population = territoryStartingPopulationForTown(territory, 1);
   const gameConfig = cachedGameConfig || DEFAULT_CONFIG;
+  const specialty = trainingSpecialtyForTerritory(territory);
+  const recoverySeconds = troopRecoverySecondsForSpecialty(
+    specialty,
+    gameConfig,
+  );
   const troopCapacity = territoryTroopLimit(territory);
   const now = new Date();
   return {
@@ -1072,11 +1176,11 @@ function defaultTownSnapshotForTerritory(
     maxTroops: troopCapacity,
     troopCapacity,
     reservedTroops: 0,
-    trainingSpecialty: trainingSpecialtyForTerritory(territory),
+    trainingSpecialty: specialty,
     nextTroopRecoveryAt: new Date(
-      now.getTime() + gameConfig.troopRecoverySeconds * 1000,
+      now.getTime() + recoverySeconds * 1000,
     ).toISOString(),
-    troopRecoverySeconds: gameConfig.troopRecoverySeconds,
+    troopRecoverySeconds: recoverySeconds,
     troopRecoveryBlockedReason: null,
   };
 }
@@ -1116,8 +1220,14 @@ function normalizeTownSnapshotForState(
     population: storedPopulation,
     buildings,
   };
+  const resolvedKind = territory?.settlementKind ?? town?.kind;
+  const isHarbor =
+    territory &&
+    (territory.isIslet ||
+      territory.specialResources?.includes("Bến tàu tự nhiên"));
+  const kind = resolvedKind ?? (isHarbor ? "military_district" : "flag");
   const storageCapacity = townStorageCapacityForTerritory(
-    normalized,
+    { ...normalized, kind },
     territory,
   );
   const populationState = settleTownPopulation(
@@ -1133,12 +1243,6 @@ function normalizeTownSnapshotForState(
   const territoryProduction = territory
     ? productionForClaims([{ territoryId: territory.id }])
     : emptyResources();
-  const resolvedKind = territory?.settlementKind ?? town?.kind;
-  const isHarbor =
-    territory &&
-    (territory.isIslet ||
-      territory.specialResources?.includes("Bến tàu tự nhiên"));
-  const kind = resolvedKind ?? (isHarbor ? "military_district" : "flag");
   const infantryCount = Math.max(
     0,
     Math.floor(Number(town?.infantryCount ?? town?.troops ?? 0) || 0),
@@ -1154,6 +1258,10 @@ function normalizeTownSnapshotForState(
   const unitCount = infantryCount + cavalryCount + artilleryCount;
   const troopCapacity = territoryTroopLimit(territory);
   const specialty = trainingSpecialtyForTerritory(territory, kind);
+  const recoverySeconds = troopRecoverySecondsForSpecialty(
+    specialty,
+    gameConfig,
+  );
   const storedRecoveryAt = town?.nextTroopRecoveryAt
     ? new Date(town.nextTroopRecoveryAt)
     : null;
@@ -1161,7 +1269,7 @@ function normalizeTownSnapshotForState(
     storedRecoveryAt && Number.isFinite(storedRecoveryAt.getTime())
       ? storedRecoveryAt.toISOString()
       : new Date(
-          now.getTime() + gameConfig.troopRecoverySeconds * 1000,
+          now.getTime() + recoverySeconds * 1000,
         ).toISOString();
   return {
     ...town,
@@ -1176,6 +1284,11 @@ function normalizeTownSnapshotForState(
     cavalryCount,
     artilleryCount,
     buildings,
+    warehouseMaxLevel: WAREHOUSE_MAX_LEVEL,
+    warehouseUpgradeCost:
+      Number(buildings.warehouse || 0) < WAREHOUSE_MAX_LEVEL
+        ? warehouseUpgradeCost(Number(buildings.warehouse || 0) + 1)
+        : null,
     storage: { ...(town?.storage || {}) },
     storageCapacity,
     productionPerSecond: territoryProduction,
@@ -1184,7 +1297,7 @@ function normalizeTownSnapshotForState(
     reservedTroops: Math.max(0, Math.floor(Number(town?.reservedTroops || 0))),
     trainingSpecialty: specialty,
     nextTroopRecoveryAt,
-    troopRecoverySeconds: gameConfig.troopRecoverySeconds,
+    troopRecoverySeconds: recoverySeconds,
     troopRecoveryBlockedReason: town?.troopRecoveryBlockedReason ?? null,
     recoveryCost: troopRecoveryCost(specialty, gameConfig),
   };
@@ -1872,11 +1985,6 @@ async function buildNationStatusSnapshot(
   const storageNearFullCount = townStatuses.filter(
     (town) => town.storageUsagePercent >= 90,
   ).length;
-  const populationNearFullCount = townStatuses.filter(
-    (town) =>
-      town.populationCapacity > 0 &&
-      town.population / town.populationCapacity >= 0.95,
-  ).length;
   const alerts = [];
   if (underAttackCount > 0)
     alerts.push({
@@ -1894,12 +2002,6 @@ async function buildNationStatusSnapshot(
     alerts.push({
       code: "storage_near_full",
       count: storageNearFullCount,
-      severity: "warning",
-    });
-  if (populationNearFullCount > 0)
-    alerts.push({
-      code: "population_near_full",
-      count: populationNearFullCount,
       severity: "warning",
     });
   const status =
@@ -1963,7 +2065,10 @@ async function publishPlayerState(
     : Array.isArray(savedState?.towns)
       ? savedState.towns
       : [];
-  const resourceCapacity = resourceCapacityForOwnedTerritories(claims.length);
+  const resourceCapacity = resourceCapacityForOwnedTerritories(
+    claims.length,
+    effectiveTowns,
+  );
   const productionPerSecond = productionForClaims(claims);
   const nationStatus = await buildNationStatusSnapshot(
     playerId,
@@ -2190,6 +2295,13 @@ async function buildWorldTerritoriesPayload() {
       player.avatarId || "emperor",
     ]) as any,
   );
+  const avatarFrameByOwner = new Map(
+    ownerDocs.map((player: any) => [
+      player._id,
+      normalizeShopInventory(player.shopInventory, player)
+        .equippedAvatarFrameId,
+    ]) as any,
+  );
   const vipLevelByOwner = new Map(
     ownerDocs.map((player: any) => [
       player._id,
@@ -2252,6 +2364,9 @@ async function buildWorldTerritoriesPayload() {
       ownerAvatarId: ownerId
         ? (avatarByOwner.get(ownerId) ?? "emperor")
         : undefined,
+      ownerAvatarFrameId: ownerId
+        ? (avatarFrameByOwner.get(ownerId) ?? "vip")
+        : undefined,
       ownerVipLevel: ownerId ? (vipLevelByOwner.get(ownerId) ?? 0) : undefined,
       ownerAllianceTag: ownerId ? allianceByOwner.get(ownerId)?.tag : undefined,
       ownerAllianceEmblem: ownerId
@@ -2291,7 +2406,9 @@ function productionForClaims(claims: any) {
     production.gems += territory.yieldGems * 2.5;
   });
   RESOURCE_KEYS.forEach((key) => {
-    production[key] = Math.round(production[key] * 100) / 100;
+    // Keep sub-cent rates intact. Rounding to 2 decimals here made small
+    // territories produce exactly zero before offline time was applied.
+    production[key] = Math.round(production[key] * 1_000_000) / 1_000_000;
   });
   return production;
 }
@@ -2342,7 +2459,11 @@ function troopRecoveryCost(unitType, gameConfig) {
 function subtractCost(resources, cost) {
   const next = normalizeResources(resources);
   RESOURCE_KEYS.forEach((key) => {
-    next[key] = Math.max(0, Math.floor(next[key] - Math.floor(cost[key] || 0)));
+    next[key] = Math.max(
+      0,
+      Math.floor((next[key] - Math.floor(cost[key] || 0)) * 1_000_000) /
+        1_000_000,
+    );
   });
   return next;
 }
@@ -2496,9 +2617,10 @@ async function collectPlayerResources(
 ) {
   const { players, territoryClaims, saves, gemTransactions } =
     await collections();
-  const [player, ownedClaims] = await Promise.all([
+  const [player, ownedClaims, save] = await Promise.all([
     players.findOne({ _id: playerId }),
     territoryClaims.find({ playerId }).toArray(),
+    saves.findOne({ playerId }),
   ]);
   const rawResources: any = player?.resources || {};
   const current = normalizeResources(rawResources);
@@ -2509,7 +2631,10 @@ async function collectPlayerResources(
     current.stone += Math.floor(iron + coal + sulfur);
     current.gold += Math.floor(iron * 0.2);
   }
-  const capacity = resourceCapacityForOwnedTerritories(ownedClaims.length);
+  const capacity = resourceCapacityForOwnedTerritories(
+    ownedClaims.length,
+    Array.isArray(save?.towns) ? save.towns : [],
+  );
   const productionPerSecond = productionForClaims(ownedClaims);
   const lastCollectedAt =
     player?.lastResourceCollectedAt ?? player?.createdAt ?? now;
@@ -2527,16 +2652,19 @@ async function collectPlayerResources(
   RESOURCE_KEYS.forEach((key) => {
     produced[key] = Math.max(
       0,
-      Math.round(productionPerSecond[key] * elapsedSeconds),
+      Math.round(productionPerSecond[key] * elapsedSeconds * 1_000_000) /
+        1_000_000,
     );
     gained[key] = produced[key];
+    const uncappedNext =
+      Math.floor((current[key] + gained[key]) * 1_000_000) / 1_000_000;
     next[key] =
-      key === "gems"
-        ? Math.floor((current[key] + gained[key]) * 100) / 100
+      key === "gems" || capacity[key] <= 0
+        ? uncappedNext
         : current[key] >= capacity[key]
-          ? Math.floor(current[key])
-          : Math.min(capacity[key], Math.floor(current[key] + gained[key]));
-    gained[key] = Math.max(0, next[key] - Math.floor(current[key]));
+          ? current[key]
+          : Math.min(capacity[key], uncappedNext);
+    gained[key] = Math.max(0, next[key] - current[key]);
     discarded[key] = Math.max(0, produced[key] - gained[key]);
   });
   await players.updateOne(
@@ -2724,6 +2852,7 @@ const DEFAULT_MARCH_CONFIG = {
   gameHourSeconds: 30,
 };
 const DEFAULT_CONFIG = {
+  economyBalanceVersion: 2,
   maxBattleDuration: 300,
   minBattleDuration: 30,
   baseBattleSeconds: 30,
@@ -2739,18 +2868,18 @@ const DEFAULT_CONFIG = {
   townLevelDefense: 40,
   fortLevelDefense: 120,
   retreatPercent: 35,
-  infantryCostGold: 100,
-  infantryCostWood: 30,
-  infantryCostFood: 55,
+  infantryCostGold: 10,
+  infantryCostWood: 3,
+  infantryCostFood: 8,
   infantryTroopsValue: 18,
-  cavalryCostGold: 170,
-  cavalryCostWood: 40,
+  cavalryCostGold: 20,
+  cavalryCostWood: 6,
   cavalryCostStone: 45,
-  cavalryCostFood: 90,
+  cavalryCostFood: 15,
   cavalryCostIron: 12,
   cavalryTroopsValue: 34,
-  artilleryCostGold: 240,
-  artilleryCostStone: 120,
+  artilleryCostGold: 32,
+  artilleryCostStone: 24,
   artilleryCostIron: 85,
   artilleryCostCoal: 35,
   artilleryCostSulfur: 25,
@@ -2766,7 +2895,7 @@ const DEFAULT_CONFIG = {
   gameHourSeconds: DEFAULT_MARCH_CONFIG.gameHourSeconds,
   troopRecoveryEnabled: true,
   troopRecoverySeconds: 600,
-  troopRecoveryOfflineLimit: 24,
+  troopRecoveryOfflineLimit: 144,
   capitalTroopCapacityMultiplier: 2,
   strongholdTroopCapacityMultiplier: 1,
   seaInvasionMaxDistanceKm: 1200,
@@ -2804,7 +2933,24 @@ const DEFAULT_CONFIG = {
 let cachedGameConfig = null;
 let cachedGameConfigExpiresAt = 0;
 function normalizeGameConfig(doc) {
-  return { ...DEFAULT_CONFIG, ...(doc || {}) };
+  const normalized = { ...DEFAULT_CONFIG, ...(doc || {}) };
+  if (Number(doc?.economyBalanceVersion || 0) < 2) {
+    return {
+      ...normalized,
+      economyBalanceVersion: 2,
+      infantryCostGold: DEFAULT_CONFIG.infantryCostGold,
+      infantryCostWood: DEFAULT_CONFIG.infantryCostWood,
+      infantryCostFood: DEFAULT_CONFIG.infantryCostFood,
+      cavalryCostGold: DEFAULT_CONFIG.cavalryCostGold,
+      cavalryCostWood: DEFAULT_CONFIG.cavalryCostWood,
+      cavalryCostFood: DEFAULT_CONFIG.cavalryCostFood,
+      artilleryCostGold: DEFAULT_CONFIG.artilleryCostGold,
+      artilleryCostStone: DEFAULT_CONFIG.artilleryCostStone,
+      troopRecoverySeconds: DEFAULT_CONFIG.troopRecoverySeconds,
+      troopRecoveryOfflineLimit: DEFAULT_CONFIG.troopRecoveryOfflineLimit,
+    };
+  }
+  return normalized;
 }
 async function loadGameConfig() {
   const now = Date.now();
@@ -4121,6 +4267,7 @@ async function processActiveBattles(now = new Date()) {
         });
         const attackerCapacity = resourceCapacityForOwnedTerritories(
           attackerClaimCount + 1,
+          attackerTowns,
         );
         STORAGE_RESOURCE_KEYS.forEach((key) => {
           const stored = Math.min(
@@ -4962,11 +5109,21 @@ async function processDueTroopRecovery(now) {
       const battleTerritories = new Set(
         battles.map((battle) => Number(battle.regionId)),
       );
-      const intervalMs = Math.max(10, gameConfig.troopRecoverySeconds) * 1000;
       for (const town of towns) {
         const territoryId = Number(
           town.territoryId ?? normalizeWorldTerritoryId(town.id),
         );
+        const claim = claims.find((item) => item.territoryId === territoryId);
+        const territory = getStaticTerritory(territoryId);
+        const specialty = trainingSpecialtyForTerritory(
+          territory,
+          claim?.settlementKind || town.kind,
+        );
+        const recoverySeconds = troopRecoverySecondsForSpecialty(
+          specialty,
+          gameConfig,
+        );
+        const intervalMs = recoverySeconds * 1000;
         const dueAt = town.nextTroopRecoveryAt
           ? new Date(town.nextTroopRecoveryAt)
           : new Date(now.getTime() + intervalMs);
@@ -4975,71 +5132,92 @@ async function processDueTroopRecovery(now) {
           dueAt.getTime() > now.getTime()
         )
           continue;
-        const claim = claims.find((item) => item.territoryId === territoryId);
-        const territory = getStaticTerritory(territoryId);
-        const specialty = trainingSpecialtyForTerritory(
-          territory,
-          claim?.settlementKind || town.kind,
-        );
         const cost = troopRecoveryCost(specialty, gameConfig);
         const elapsedSlots =
           1 +
           Math.floor(Math.max(0, now.getTime() - dueAt.getTime()) / intervalMs);
+        const offlineSlots = Math.max(
+          1,
+          Math.ceil(MAX_OFFLINE_RESOURCE_SECONDS / recoverySeconds),
+        );
         const slots = Math.min(
           gameConfig.troopRecoveryOfflineLimit,
+          offlineSlots,
           elapsedSlots,
         );
         let recovered = 0;
         let blockedReason = null;
-        for (let slot = 0; slot < slots; slot += 1) {
-          const garrisonUnits = Math.max(
+        const garrisonUnits = Math.max(
+          0,
+          Number(town.infantryCount || 0) +
+            Number(town.cavalryCount || 0) +
+            Number(town.artilleryCount || 0),
+        );
+        const usedCapacity =
+          garrisonUnits + Math.max(0, Number(town.reservedTroops || 0));
+        const capacity = Math.max(
+          1,
+          Number(town.troopCapacity ?? town.maxTroops) || 1,
+        );
+        if (!claim || !isClaimConnectedToCapital(claims, territoryId)) {
+          blockedReason = "isolated";
+        } else if (battleTerritories.has(territoryId)) {
+          blockedReason = "battle";
+        } else if (usedCapacity >= capacity) {
+          blockedReason = "full";
+        } else {
+          const availableCapacity = Math.max(
             0,
-            Number(town.infantryCount || 0) +
-              Number(town.cavalryCount || 0) +
-              Number(town.artilleryCount || 0),
+            Math.floor(capacity - usedCapacity),
           );
-          const usedCapacity =
-            garrisonUnits + Math.max(0, Number(town.reservedTroops || 0));
-          const capacity = Math.max(
-            1,
-            Number(town.troopCapacity ?? town.maxTroops) || 1,
+          const affordableSlots = RESOURCE_KEYS.reduce((limit, key) => {
+            const unitCost = Math.max(0, Math.floor(Number(cost[key]) || 0));
+            return unitCost > 0
+              ? Math.min(
+                  limit,
+                  Math.floor(Math.max(0, resources[key] || 0) / unitCost),
+                )
+              : limit;
+          }, Number.POSITIVE_INFINITY);
+          recovered = Math.max(
+            0,
+            Math.min(slots, availableCapacity, affordableSlots),
           );
-          if (!claim || !isClaimConnectedToCapital(claims, territoryId)) {
-            blockedReason = "isolated";
-            break;
+          if (recovered < slots) {
+            blockedReason =
+              availableCapacity <= recovered ? "full" : "resources";
           }
-          if (battleTerritories.has(territoryId)) {
-            blockedReason = "battle";
-            break;
-          }
-          if (usedCapacity >= capacity) {
-            blockedReason = "full";
-            break;
-          }
-          if (!canAfford(resources, cost)) {
-            blockedReason = "resources";
-            break;
-          }
-          resources = subtractCost(resources, cost);
+        }
+        if (recovered > 0) {
+          RESOURCE_KEYS.forEach((key) => {
+            resources[key] = Math.max(
+              0,
+              Math.floor(
+                (resources[key] -
+                  Math.max(0, Math.floor(Number(cost[key]) || 0)) * recovered) *
+                  1_000_000,
+              ) / 1_000_000,
+            );
+          });
           if (specialty === "cavalry")
-            town.cavalryCount = Math.max(0, Number(town.cavalryCount || 0)) + 1;
+            town.cavalryCount =
+              Math.max(0, Number(town.cavalryCount || 0)) + recovered;
           else if (specialty === "artillery")
             town.artilleryCount =
-              Math.max(0, Number(town.artilleryCount || 0)) + 1;
+              Math.max(0, Number(town.artilleryCount || 0)) + recovered;
           else
             town.infantryCount =
-              Math.max(0, Number(town.infantryCount || 0)) + 1;
+              Math.max(0, Number(town.infantryCount || 0)) + recovered;
           town.troops =
             Number(town.infantryCount || 0) +
             Number(town.cavalryCount || 0) +
             Number(town.artilleryCount || 0);
-          recovered += 1;
-          recoveredByType[specialty] += 1;
+          recoveredByType[specialty] += recovered;
           changed = true;
         }
         town.trainingSpecialty = specialty;
         town.recoveryCost = cost;
-        town.troopRecoverySeconds = gameConfig.troopRecoverySeconds;
+        town.troopRecoverySeconds = recoverySeconds;
         town.troopRecoveryBlockedReason = blockedReason;
         town.nextTroopRecoveryAt = new Date(
           blockedReason
@@ -5919,13 +6097,19 @@ export function createApp() {
     }
     const { username, password, flagColor, emblem, starterLandId } =
       parsed.data;
+    if (!enforceAuthAttempt(req, res, "register", username)) return;
     if (!verifyAntiBotProof(req, parsed.data)) {
       return res.status(429).json({
         error: "anti_bot_failed",
         message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
       });
     }
-    if (!enforceAuthAttempt(req, res, "register", username)) return;
+    if (!(await verifyTurnstileToken(req, parsed.data.turnstileToken))) {
+      return res.status(403).json({
+        error: "human_verification_failed",
+        message: "Xác minh bảo mật thất bại, vui lòng thử lại",
+      });
+    }
     const normalizedUsername = username.trim();
     const id = `player:${normalizedUsername.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
@@ -5969,13 +6153,19 @@ export function createApp() {
       });
     }
     const { username, password } = parsed.data;
+    if (!enforceAuthAttempt(req, res, "login", username)) return;
     if (!verifyAntiBotProof(req, parsed.data)) {
       return res.status(429).json({
         error: "anti_bot_failed",
         message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
       });
     }
-    if (!enforceAuthAttempt(req, res, "login", username)) return;
+    if (!(await verifyTurnstileToken(req, parsed.data.turnstileToken))) {
+      return res.status(403).json({
+        error: "human_verification_failed",
+        message: "Xác minh bảo mật thất bại, vui lòng thử lại",
+      });
+    }
     const id = `player:${username
       .trim()
       .toLowerCase()
@@ -6002,10 +6192,10 @@ export function createApp() {
   });
   app.post("/api/auth/player/guest", async (req, res) => {
     const antiBot = AntiBotProofSchema.safeParse(req.body);
-    if (!antiBot.success || !verifyAntiBotProof(req, antiBot.data)) {
-      return res.status(429).json({
-        error: "anti_bot_failed",
-        message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
+    if (!antiBot.success) {
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Dữ liệu đăng nhập chơi nhanh không hợp lệ",
       });
     }
     const name = z
@@ -6017,6 +6207,18 @@ export function createApp() {
       .catch(`PLAYER-${Math.floor(Math.random() * 9999)}`)
       .parse(req.body?.name);
     if (!enforceAuthAttempt(req, res, "guest", name)) return;
+    if (!verifyAntiBotProof(req, antiBot.data)) {
+      return res.status(429).json({
+        error: "anti_bot_failed",
+        message: "Xác minh chống spam không hợp lệ hoặc đã hết hạn",
+      });
+    }
+    if (!(await verifyTurnstileToken(req, antiBot.data.turnstileToken))) {
+      return res.status(403).json({
+        error: "human_verification_failed",
+        message: "Xác minh bảo mật thất bại, vui lòng thử lại",
+      });
+    }
     const id = `guest:${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
     const { players } = await collections();
     const now = new Date();
@@ -7351,6 +7553,15 @@ export function createApp() {
         },
         `player:${playerId}`,
       );
+      publishRealtime({
+        type: "profile_cosmetic_updated",
+        ownerId: playerId,
+        avatarId: productAvatarId || player?.avatarId || "emperor",
+        avatarFrameId: nextInventory.equippedAvatarFrameId || "vip",
+        nameFrameId: nextInventory.equippedNameFrameId || null,
+        version,
+        serverTime: new Date(version).toISOString(),
+      });
       res.json({
         ok: true,
         purchase,
@@ -7493,6 +7704,16 @@ export function createApp() {
         },
         `player:${playerId}`,
       );
+      publishRealtime({
+        type: "profile_cosmetic_updated",
+        ownerId: playerId,
+        avatarId:
+          kind === "avatar" ? cosmeticId : player?.avatarId || "emperor",
+        avatarFrameId: nextInventory.equippedAvatarFrameId || "vip",
+        nameFrameId: nextInventory.equippedNameFrameId || null,
+        version,
+        serverTime: new Date(version).toISOString(),
+      });
       res.json({
         ok: true,
         inventory: nextInventory,
@@ -7729,7 +7950,8 @@ export function createApp() {
   });
   app.post("/api/alliance/aid/:id/claim", requireAuth, async (req, res) => {
     if (!enforceActionLimit(req, res, "alliance:aid:claim", 30, 60_000)) return;
-    const { players, allianceAids, territoryClaims } = await collections();
+    const { players, allianceAids, territoryClaims, saves } =
+      await collections();
     const aid = await allianceAids.findOne({
       _id: req.params.id,
       toPlayerId: req.user!.id,
@@ -7742,10 +7964,14 @@ export function createApp() {
       });
     }
     const resourceState = await collectPlayerResources(req.user!.id);
-    const ownedCount = await territoryClaims.countDocuments({
-      playerId: req.user!.id,
-    });
-    const capacity = resourceCapacityForOwnedTerritories(ownedCount);
+    const [ownedCount, save] = await Promise.all([
+      territoryClaims.countDocuments({ playerId: req.user!.id }),
+      saves.findOne({ playerId: req.user!.id }),
+    ]);
+    const capacity = resourceCapacityForOwnedTerritories(
+      ownedCount,
+      Array.isArray(save?.towns) ? save.towns : [],
+    );
     const nextResources = { ...resourceState.resources };
     STORAGE_RESOURCE_KEYS.forEach((key) => {
       nextResources[key] = Math.min(
@@ -7848,7 +8074,9 @@ export function createApp() {
       let sourceX;
       let sourceY;
       let connectionType;
-      let settlers = 0;
+      // Expansion uses one builder slot plus resources. Legacy population is
+      // retained in saves only for compatibility and is no longer consumed.
+      const settlers = 0;
       if (!isStarterClaim && !existing) {
         const source = nearestExpansionSource(ownedClaimsList, territory);
         if (!source) {
@@ -7863,35 +8091,6 @@ export function createApp() {
         sourceX = source.territory.x;
         sourceY = source.territory.y;
         connectionType = source.connectionType;
-        settlers = 10;
-        const sourceTownIndex = towns.findIndex(
-          (town) =>
-            town?.id === sourceTownId ||
-            Math.hypot((town?.x ?? 0) - sourceX, (town?.y ?? 0) - sourceY) < 96,
-        );
-        const sourceTown = normalizeTownSnapshotForState(
-          sourceTownIndex >= 0
-            ? towns[sourceTownIndex]
-            : defaultTownSnapshotForTerritory(
-                source.territory,
-                req.user!.id,
-                sourceTownId,
-              ),
-          req.user!.id,
-          source.territory,
-          now,
-        );
-        if (sourceTown.population < settlers) {
-          return res.status(409).json({
-            error: "not_enough_population",
-            message: `Pháo đài biên giới cần ${settlers} dân khả dụng để cử đội xây dựng`,
-            town: sourceTown,
-          });
-        }
-        sourceTown.population = Math.max(0, sourceTown.population - settlers);
-        sourceTown.lastPopulationAt = now.toISOString();
-        if (sourceTownIndex >= 0) towns[sourceTownIndex] = sourceTown;
-        else towns.push(sourceTown);
       }
       const gameSettings = await loadGameConfig();
       const clearingSeconds = calcClearingSeconds(
@@ -8235,10 +8434,14 @@ export function createApp() {
       });
     }
     const resourceState = await collectPlayerResources(req.user!.id, now);
-    const ownedCount = await territoryClaims.countDocuments({
-      playerId: req.user!.id,
-    });
-    const capacity = resourceCapacityForOwnedTerritories(ownedCount);
+    const [ownedCount, save] = await Promise.all([
+      territoryClaims.countDocuments({ playerId: req.user!.id }),
+      saves.findOne({ playerId: req.user!.id }),
+    ]);
+    const capacity = resourceCapacityForOwnedTerritories(
+      ownedCount,
+      Array.isArray(save?.towns) ? save.towns : [],
+    );
     const refund = clearingBuildCostForRefund(clearing, territory, ownedCount);
     const nextResources = { ...resourceState.resources };
     STORAGE_RESOURCE_KEYS.forEach((key) => {
@@ -8247,38 +8450,7 @@ export function createApp() {
         Math.floor(nextResources[key] + Math.floor(refund[key] || 0)),
       );
     });
-    const save = await saves.findOne({ playerId: req.user!.id });
     const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
-    if (
-      (clearing.settlers || 0) > 0 &&
-      clearing.sourceTerritoryId !== undefined
-    ) {
-      const sourceTerritory = getStaticTerritory(clearing.sourceTerritoryId);
-      if (sourceTerritory) {
-        const sourceTownIndex = towns.findIndex(
-          (town) =>
-            town?.id === clearing.sourceTownId ||
-            Math.hypot(
-              (town?.x ?? 0) - sourceTerritory.x,
-              (town?.y ?? 0) - sourceTerritory.y,
-            ) < 96,
-        );
-        if (sourceTownIndex >= 0) {
-          const sourceTown = normalizeTownSnapshotForState(
-            towns[sourceTownIndex],
-            req.user!.id,
-            sourceTerritory,
-            now,
-          );
-          sourceTown.population = Math.min(
-            sourceTown.populationCapacity,
-            sourceTown.population + Math.max(0, clearing.settlers || 0),
-          );
-          sourceTown.lastPopulationAt = now.toISOString();
-          towns[sourceTownIndex] = sourceTown;
-        }
-      }
-    }
     await Promise.all([
       territoryClearings.deleteOne({
         territoryId: territory.id,
@@ -8671,6 +8843,138 @@ export function createApp() {
       });
     });
   });
+  app.post(
+    "/api/game/towns/:territoryId/warehouse/upgrade",
+    requireAuth,
+    async (req, res) => {
+      if (!enforceActionLimit(req, res, "game:warehouse:upgrade", 12, 60_000))
+        return;
+      const territoryId = Number(req.params.territoryId);
+      const territory = Number.isInteger(territoryId)
+        ? getStaticTerritory(territoryId)
+        : undefined;
+      if (!territory)
+        return res
+          .status(404)
+          .json({ error: "not_found", message: "Không tìm thấy lãnh thổ" });
+
+      const release = await acquirePlayerMutationLock(req.user!.id);
+      try {
+        const { players, saves, territoryClaims } = await collections();
+        const claim = await territoryClaims.findOne({ territoryId });
+        if (!claim || claim.playerId !== req.user!.id) {
+          return res.status(403).json({
+            error: "not_owner",
+            message: "Bạn không sở hữu thành trì này",
+          });
+        }
+        const now = new Date();
+        const resourceState = await collectPlayerResources(req.user!.id, now, {
+          sendOfflineReport: false,
+        });
+        const [save, claims] = await Promise.all([
+          saves.findOne({ playerId: req.user!.id }),
+          territoryClaims.find({ playerId: req.user!.id }).toArray(),
+        ]);
+        const towns = Array.isArray(save?.towns) ? [...save.towns] : [];
+        const townId = townIdForTerritory(territoryId);
+        const townIndex = towns.findIndex(
+          (town) =>
+            town?.id === townId ||
+            Number(town?.territoryId) === territoryId ||
+            Math.hypot(
+              (town?.x ?? 0) - territory.x,
+              (town?.y ?? 0) - territory.y,
+            ) < 96,
+        );
+        const town = normalizeTownSnapshotForState(
+          townIndex >= 0
+            ? towns[townIndex]
+            : defaultTownSnapshotForTerritory(
+                territory,
+                req.user!.id,
+                townId,
+              ),
+          req.user!.id,
+          { ...territory, settlementKind: claim.settlementKind },
+          now,
+        );
+        const currentLevel = Math.max(
+          0,
+          Math.floor(Number(town.buildings?.warehouse) || 0),
+        );
+        if (currentLevel >= WAREHOUSE_MAX_LEVEL) {
+          return res.status(409).json({
+            error: "warehouse_max_level",
+            message: "Kho đã đạt cấp tối đa",
+            town,
+          });
+        }
+        const targetLevel = currentLevel + 1;
+        const cost = warehouseUpgradeCost(targetLevel);
+        if (!canAfford(resourceState.resources, cost)) {
+          return res.status(409).json({
+            error: "not_enough_resources",
+            message: `Không đủ tài nguyên nâng kho. Cần ${resourceCostMessage(cost)}`,
+            cost,
+            resources: resourceState.resources,
+          });
+        }
+        const upgradedTown = normalizeTownSnapshotForState(
+          {
+            ...town,
+            buildings: { ...town.buildings, warehouse: targetLevel },
+          },
+          req.user!.id,
+          { ...territory, settlementKind: claim.settlementKind },
+          now,
+        );
+        if (townIndex >= 0) towns[townIndex] = upgradedTown;
+        else towns.push(upgradedTown);
+        const resources = subtractCost(resourceState.resources, cost);
+        const resourceCapacity = resourceCapacityForOwnedTerritories(
+          claims.length,
+          towns,
+        );
+        await Promise.all([
+          saves.updateOne(
+            { playerId: req.user!.id },
+            {
+              $set: { towns, resources, updatedAt: now },
+              $setOnInsert: { _id: `save:${req.user!.id}`, playerId: req.user!.id },
+            },
+            { upsert: true },
+          ),
+          players.updateOne(
+            { _id: req.user!.id },
+            { $set: { resources, lastResourceCollectedAt: now } },
+          ),
+        ]);
+        void publishPlayerState(
+          req.user!.id,
+          "warehouse_upgraded",
+          resources,
+          towns,
+          undefined,
+          { claims },
+        );
+        return res.json({
+          ok: true,
+          town: upgradedTown,
+          warehouseLevel: targetLevel,
+          warehouseMaxLevel: WAREHOUSE_MAX_LEVEL,
+          nextUpgradeCost:
+            targetLevel < WAREHOUSE_MAX_LEVEL
+              ? warehouseUpgradeCost(targetLevel + 1)
+              : null,
+          resources,
+          resourceCapacity,
+        });
+      } finally {
+        release();
+      }
+    },
+  );
   app.post("/api/game/recruit", requireAuth, async (req, res) => {
     return res.status(410).json({
       error: "automatic_troop_recovery",
@@ -9015,6 +9319,7 @@ export function createApp() {
     });
   });
   const ConfigSchema = z.object({
+    economyBalanceVersion: z.number().int().min(2).default(2),
     maxBattleDuration: z.number().positive(),
     minBattleDuration: z.number().positive(),
     baseBattleSeconds: z.number().nonnegative(),

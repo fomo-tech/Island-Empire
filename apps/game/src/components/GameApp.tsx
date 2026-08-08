@@ -30,6 +30,7 @@ import {
   markPlayerMailRead,
   sendPlayerMail,
   startClearing,
+  upgradeWarehouse,
   updatePlayerProfile,
 } from "../game/api";
 import { connectGameSocket, sendWorldChat } from "../game/realtime";
@@ -2339,6 +2340,7 @@ export function GameApp({
             ownerEmblem: territory.ownerEmblem,
             ownerArchitectureId: territory.ownerArchitectureId,
             ownerAvatarId: territory.ownerAvatarId,
+            ownerAvatarFrameId: territory.ownerAvatarFrameId,
             ownerVipLevel: territory.ownerVipLevel,
             ownerAllianceTag: territory.ownerAllianceTag,
             ownerAllianceEmblem: territory.ownerAllianceEmblem,
@@ -2742,6 +2744,14 @@ export function GameApp({
             equippedCapitalSkin: event.equippedCapitalSkin,
             equippedDistrictSkin: event.equippedDistrictSkin,
             skinVersion: event.skinVersion,
+          });
+          return;
+        }
+        if (event.type === "profile_cosmetic_updated") {
+          engineRef.current?.handleAction("updateRemoteProfileCosmetic", {
+            ownerId: event.ownerId,
+            avatarId: event.avatarId,
+            avatarFrameId: event.avatarFrameId,
           });
           return;
         }
@@ -3534,6 +3544,7 @@ export function GameApp({
       ownerEmblem: territory.ownerEmblem,
       ownerArchitectureId: territory.ownerArchitectureId,
       ownerAvatarId: territory.ownerAvatarId,
+      ownerAvatarFrameId: territory.ownerAvatarFrameId,
       ownerVipLevel: territory.ownerVipLevel,
       ownerAllianceTag: territory.ownerAllianceTag,
       ownerAllianceEmblem: territory.ownerAllianceEmblem,
@@ -4494,6 +4505,7 @@ export function GameApp({
                 <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
                 <span>Thành trì</span>
               </button>
+              {mobileActionsExpanded && (
               <button
                 type="button"
                 className="hud-command-button mobile-secondary-action"
@@ -4502,6 +4514,7 @@ export function GameApp({
                 <img src="/assets/icons/menu/store.png" alt="" />
                 <span>Kho báu</span>
               </button>
+              )}
               <button
                 type="button"
                 className="hud-command-button mobile-main-action mobile-map-action"
@@ -4522,6 +4535,8 @@ export function GameApp({
                 <img src="/assets/icons/menu/troop.png" alt="" />
                 <span>Chinh phạt</span>
               </button>
+              {mobileActionsExpanded && (
+                <>
               <button
                 type="button"
                 className={`hud-command-button mobile-secondary-action ${activeModal === "warReport" ? "active" : ""}`}
@@ -4580,6 +4595,8 @@ export function GameApp({
                 <img src="/assets/icons/menu/setting.png" alt="" />
                 <span>Cài đặt</span>
               </button>
+                </>
+              )}
               <ChatPanel
                 messages={chatMessages}
                 currentUserId={playerId ?? undefined}
@@ -5245,6 +5262,7 @@ export function GameApp({
                       ownerEmblem: territory.ownerEmblem,
                       ownerArchitectureId: territory.ownerArchitectureId,
                       ownerAvatarId: territory.ownerAvatarId,
+                      ownerAvatarFrameId: territory.ownerAvatarFrameId,
                       ownerVipLevel: territory.ownerVipLevel,
                       ownerAllianceTag: territory.ownerAllianceTag,
                       ownerAllianceEmblem: territory.ownerAllianceEmblem,
@@ -5307,6 +5325,15 @@ export function GameApp({
               (engineRef.current as any).getState?.().newbieFlagColor ||
               "#2563eb"
             }
+            onUpgradeWarehouse={async (territoryId) => {
+              if (!token) throw new Error("Phiên đăng nhập đã hết hạn");
+              const result = await upgradeWarehouse(token, territoryId);
+              applyResourceSnapshot({
+                resources: result.resources,
+                resourceCapacity: result.resourceCapacity,
+              });
+              await refreshGameStateFromServer("warehouse-upgraded", true);
+            }}
             onClose={() => {
               engineRef.current?.handleAction("setUiOverlayActive", {
                 active: false,

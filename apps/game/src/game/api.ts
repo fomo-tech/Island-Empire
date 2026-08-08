@@ -124,11 +124,12 @@ export function getGameConfig(): Promise<GameConfig> {
 export async function loginPlayer(
   username: string,
   password: string,
+  turnstileToken: string,
 ): Promise<AuthResponse> {
   const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/login", {
     method: "POST",
-    body: JSON.stringify({ username, password, ...antiBot }),
+    body: JSON.stringify({ username, password, turnstileToken, ...antiBot }),
   });
 }
 
@@ -141,20 +142,30 @@ export type RegisterProfile = {
 export async function registerPlayer(
   username: string,
   password: string,
-  profile?: RegisterProfile,
+  profile: RegisterProfile | undefined,
+  turnstileToken: string,
 ): Promise<AuthResponse> {
   const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/register", {
     method: "POST",
-    body: JSON.stringify({ username, password, ...profile, ...antiBot }),
+    body: JSON.stringify({
+      username,
+      password,
+      ...profile,
+      turnstileToken,
+      ...antiBot,
+    }),
   });
 }
 
-export async function loginGuest(name?: string): Promise<AuthResponse> {
+export async function loginGuest(
+  name: string | undefined,
+  turnstileToken: string,
+): Promise<AuthResponse> {
   const antiBot = await solveAntiBotChallenge();
   return request<AuthResponse>("/api/auth/player/guest", {
     method: "POST",
-    body: JSON.stringify({ name, ...antiBot }),
+    body: JSON.stringify({ name, turnstileToken, ...antiBot }),
   });
 }
 
@@ -436,6 +447,30 @@ export function cancelClearing(
       headers: {
         Authorization: `Bearer ${token}`,
       },
+    },
+  );
+}
+
+export interface UpgradeWarehouseResult {
+  ok: true;
+  town: Record<string, unknown>;
+  warehouseLevel: number;
+  warehouseMaxLevel: number;
+  nextUpgradeCost: Record<string, number> | null;
+  resources: Record<string, number>;
+  resourceCapacity: Record<string, number>;
+}
+
+export function upgradeWarehouse(
+  token: string,
+  territoryId: number,
+): Promise<UpgradeWarehouseResult> {
+  return request<UpgradeWarehouseResult>(
+    `/api/game/towns/${territoryId}/warehouse/upgrade`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({}),
     },
   );
 }

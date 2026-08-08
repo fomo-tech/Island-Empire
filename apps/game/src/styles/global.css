@@ -4,6 +4,77 @@
   box-sizing: border-box;
 }
 
+.rt-dispatch-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rt-troop-presets {
+  display: flex;
+  gap: 5px;
+}
+
+.rt-troop-presets button {
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid rgba(240, 202, 112, 0.55);
+  border-radius: 7px;
+  background: rgba(9, 24, 30, 0.9);
+  color: #ffe3a0;
+  font: 800 11px/1 inherit;
+}
+
+@media (pointer: coarse) {
+  .rt-troop-presets button {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+
+  .town-modal {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(var(--app-height, 100dvh) - 16px);
+  }
+
+  .town-modal .town-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .town-modal .town-stat-card {
+    min-height: 72px;
+    padding: 8px;
+  }
+
+  .town-modal .town-stat-card:nth-child(3) {
+    grid-column: 1 / -1;
+    min-height: 58px;
+  }
+
+  .town-modal .town-stat-card .stat-label {
+    font-size: 9px;
+  }
+
+  .town-modal .town-stat-card .stat-val,
+  .town-modal .town-stat-card .stat-subline {
+    font-size: 12px;
+  }
+
+  .town-modal .recruitment-section {
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .town-modal .town-modal-actions {
+    position: sticky;
+    bottom: 0;
+    padding-top: 8px;
+    background: linear-gradient(180deg, rgba(9, 19, 24, 0.78), #091318 40%);
+  }
+}
+
 /* European strategy realtime chat */
 .strategy-chat {
   position: fixed;
@@ -9008,6 +9079,34 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.l4-turnstile-wrap {
+  width: 100%;
+  min-height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  box-sizing: border-box;
+  border: 1px solid rgba(184, 147, 68, 0.28);
+  border-radius: 7px;
+  background: rgba(4, 12, 17, 0.72);
+  overflow: hidden;
+}
+
+.l4-turnstile-widget {
+  width: 100%;
+  min-width: 0;
+}
+
+.l4-turnstile-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.65);
+  border-radius: 6px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.25);
+  font-size: 12px;
 }
 
 .l4-input-group {

@@ -726,3 +726,23 @@
     width: min(70%, 170px) !important;
   }
 }
+
+/* The creation flow is split into three steps on touch devices, so controls
+   no longer need to be compressed below a dependable thumb target. */
+@media (max-width: 800px), (pointer: coarse) {
+  .founding-colors button {
+    min-height: 40px !important;
+    height: 40px !important;
+  }
+
+  .founding-architectures button {
+    min-height: 48px !important;
+    height: 48px !important;
+  }
+
+  .founding-card .founding-actions button {
+    min-height: 44px !important;
+    height: 44px !important;
+    font-size: 11px !important;
+  }
+}

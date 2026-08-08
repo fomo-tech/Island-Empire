@@ -1,15 +1,21 @@
 import { hash } from "./random";
 
 const BIOME_YIELDS = [
-  { gold: 0.003, wood: 0.01, stone: 0.006, food: 0.03, iron: 0.0015, coal: 0.0008, sulfur: 0.0004, gems: 0.0002 },
-  { gold: 0.018, wood: 0.001, stone: 0.012, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.001, gems: 0.004 },
-  { gold: 0.002, wood: 0.003, stone: 0.02, food: 0.003, iron: 0.016, coal: 0.008, sulfur: 0.001, gems: 0.002 },
-  { gold: 0.004, wood: 0.001, stone: 0.018, food: 0.001, iron: 0.02, coal: 0.018, sulfur: 0.014, gems: 0.002 },
-  { gold: 0.005, wood: 0.003, stone: 0.01, food: 0.003, iron: 0.005, coal: 0.001, sulfur: 0.002, gems: 0.014 },
-  { gold: 0.01, wood: 0.008, stone: 0.004, food: 0.022, iron: 0.002, coal: 0.001, sulfur: 0.0005, gems: 0.002 },
-  { gold: 0.002, wood: 0.026, stone: 0.012, food: 0.01, iron: 0.004, coal: 0.003, sulfur: 0.0005, gems: 0.0005 },
-  { gold: 0.003, wood: 0.016, stone: 0.003, food: 0.018, iron: 0.002, coal: 0.006, sulfur: 0.004, gems: 0.001 },
+  { gold: 0.007, wood: 0.01, stone: 0.006, food: 0.03, iron: 0.0015, coal: 0.0008, sulfur: 0.0004, gems: 0.0002 },
+  { gold: 0.012, wood: 0.001, stone: 0.012, food: 0.003, iron: 0.003, coal: 0.001, sulfur: 0.001, gems: 0.004 },
+  { gold: 0.0065, wood: 0.003, stone: 0.02, food: 0.003, iron: 0.016, coal: 0.008, sulfur: 0.001, gems: 0.002 },
+  { gold: 0.008, wood: 0.001, stone: 0.018, food: 0.001, iron: 0.02, coal: 0.018, sulfur: 0.014, gems: 0.002 },
+  { gold: 0.008, wood: 0.003, stone: 0.01, food: 0.003, iron: 0.005, coal: 0.001, sulfur: 0.002, gems: 0.014 },
+  { gold: 0.009, wood: 0.008, stone: 0.004, food: 0.022, iron: 0.002, coal: 0.001, sulfur: 0.0005, gems: 0.002 },
+  { gold: 0.0065, wood: 0.026, stone: 0.012, food: 0.01, iron: 0.004, coal: 0.003, sulfur: 0.0005, gems: 0.0005 },
+  { gold: 0.009, wood: 0.016, stone: 0.003, food: 0.018, iron: 0.002, coal: 0.006, sulfur: 0.004, gems: 0.001 },
 ];
+const RESOURCE_YIELD_BALANCE = {
+  gold: 1,
+  wood: 0.8,
+  stone: 0.65,
+  food: 0.7,
+};
 
 export type SelectorDeps = {
   getRegion: (regionId: number) => any;
@@ -44,10 +50,30 @@ export function territoryYield(regionId: number, deps: SelectorDeps) {
     food: isIslet ? 0.45 : 1,
   };
   return {
-    gold: yields.gold * areaFactor * multiplier.gold * quality,
-    wood: yields.wood * areaFactor * multiplier.wood * quality,
-    stone: yields.stone * areaFactor * multiplier.stone * quality,
-    food: yields.food * areaFactor * multiplier.food * quality,
+    gold:
+      yields.gold *
+      RESOURCE_YIELD_BALANCE.gold *
+      areaFactor *
+      multiplier.gold *
+      quality,
+    wood:
+      yields.wood *
+      RESOURCE_YIELD_BALANCE.wood *
+      areaFactor *
+      multiplier.wood *
+      quality,
+    stone:
+      yields.stone *
+      RESOURCE_YIELD_BALANCE.stone *
+      areaFactor *
+      multiplier.stone *
+      quality,
+    food:
+      yields.food *
+      RESOURCE_YIELD_BALANCE.food *
+      areaFactor *
+      multiplier.food *
+      quality,
     gems: hasGemMine ? Math.max(0.004, yields.gems * areaFactor * quality) : 0,
   };
 }
@@ -75,8 +101,8 @@ export function territoryStartingPopulation(
   );
 }
 
-// A territory has one fixed military capacity. It is intentionally independent
-// from town level, population and building levels.
+// A territory has one fixed military capacity. Specialty modifiers mirror the
+// authoritative server and normalize maximum combat power between unit types.
 export function territoryTroopLimit(
   regionOrId: any,
   getRegion: SelectorDeps["getRegion"],
@@ -91,10 +117,19 @@ export function territoryTroopLimit(
   const biomeMultiplier =
     [1.15, 0.82, 0.78, 0.72, 0.95, 1.22, 1, 0.88][region.biome ?? 0] || 1;
   const islandMultiplier = region.isIslet ? 0.7 : 1;
-  return Math.max(
+  const baseCapacity = Math.max(
     40,
     Math.round(100 * areaFactor * biomeMultiplier * islandMultiplier),
   );
+  const specials = Array.isArray(region.specialResources)
+    ? region.specialResources
+    : [];
+  const specialtyMultiplier = specials.includes("Bãi ngựa")
+    ? 0.55
+    : specials.includes("Xưởng rèn")
+      ? 0.32
+      : 1;
+  return Math.max(24, Math.round(baseCapacity * specialtyMultiplier));
 }
 
 export function clearingDuration(

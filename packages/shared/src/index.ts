@@ -5,6 +5,7 @@ export type ResourceBag = Record<ResourceKey, number> &
   Partial<Record<LegacyResourceKey, number>>;
 
 export type GameConfig = {
+  economyBalanceVersion: number;
   maxBattleDuration: number;
   minBattleDuration: number;
   baseBattleSeconds: number;
@@ -127,6 +128,8 @@ export type TownSnapshot = {
     siegeWorkshop?: number;
     warehouse?: number;
   };
+  warehouseMaxLevel?: number;
+  warehouseUpgradeCost?: Partial<ResourceBag> | null;
   storage?: Partial<ResourceBag>;
   storageCapacity?: number | ResourceBag;
   productionPerSecond?: Partial<ResourceBag>;
@@ -406,6 +409,7 @@ export type TerritoryInfo = {
   ownerEmblem?: string;
   ownerArchitectureId?: string;
   ownerAvatarId?: string;
+  ownerAvatarFrameId?: string;
   ownerVipLevel?: number;
   ownerAllianceTag?: string;
   ownerAllianceEmblem?: string;
@@ -750,6 +754,15 @@ export type RealtimeEvent =
   | {
       type: "shop_inventory_updated";
       inventory: ShopInventory;
+      version: number;
+      serverTime: string;
+    }
+  | {
+      type: "profile_cosmetic_updated";
+      ownerId: string;
+      avatarId: string;
+      avatarFrameId: string;
+      nameFrameId: string | null;
       version: number;
       serverTime: string;
     }

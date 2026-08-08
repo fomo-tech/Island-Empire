@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { ResourceBag } from "@island/shared";
 import { getSpecialResourceMeta } from "./SpecialResourceDisplay";
 
@@ -7,11 +7,14 @@ type TrainingSpecialty = "infantry" | "cavalry" | "artillery";
 interface TownManagementModalProps {
   town: {
     id: number;
+    territoryId?: number;
     lvl: number;
     owner: number;
     troops: number;
     population: number;
     buildings?: Record<string, number | undefined>;
+    warehouseMaxLevel?: number;
+    warehouseUpgradeCost?: Partial<ResourceBag> | null;
     storage?: Partial<ResourceBag>;
     storageCapacity?: number | ResourceBag;
     populationCapacity?: number;
@@ -44,6 +47,7 @@ interface TownManagementModalProps {
   specialResources?: string[];
   playerColor?: string;
   onClose: () => void;
+  onUpgradeWarehouse?: (territoryId: number) => Promise<void>;
 }
 
 const SPECIALTY_META: Record<
@@ -108,7 +112,10 @@ export function TownManagementModal({
   gameConfig,
   specialResources = [],
   onClose,
+  onUpgradeWarehouse,
 }: TownManagementModalProps) {
+  const [warehousePending, setWarehousePending] = useState(false);
+  const [warehouseError, setWarehouseError] = useState("");
   const config = gameConfig || {};
   const specialty: TrainingSpecialty = town.trainingSpecialty || "infantry";
   const specialtyMeta = SPECIALTY_META[specialty];
@@ -146,6 +153,19 @@ export function TownManagementModal({
             0,
           ),
         );
+  const warehouseLevel = Math.max(
+    0,
+    Math.floor(Number(town.buildings?.warehouse) || 0),
+  );
+  const warehouseMaxLevel = Math.max(1, town.warehouseMaxLevel || 3);
+  const warehouseUpgradeCost = town.warehouseUpgradeCost || null;
+  const canAffordWarehouse = warehouseUpgradeCost
+    ? Object.entries(warehouseUpgradeCost).every(
+        ([key, value]) =>
+          Number(value || 0) <=
+          Number(resources[key as keyof ResourceBag] || 0),
+      )
+    : false;
   const recoveryCost =
     town.recoveryCost ||
     (specialty === "infantry"
@@ -283,6 +303,87 @@ export function TownManagementModal({
               <span className="stat-val">
                 {Math.floor(storedTotal)} / {Math.floor(storageCap)}
               </span>
+              <span className="stat-subline">
+                Cấp {warehouseLevel}/{warehouseMaxLevel}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="recruitment-section">
+          <div className="section-header-line">
+            <h3 className="section-title">MỞ RỘNG KHO</h3>
+            <span className="line-fill" />
+          </div>
+          <div className="recruit-option auto-recovery-option">
+            <div className="unit-art-box">
+              <AssetIcon src="/assets/icons/icon_chest.png" alt="Kho" />
+            </div>
+            <div className="option-info">
+              <span className="option-name">
+                KHO CẤP {warehouseLevel}/{warehouseMaxLevel}
+              </span>
+              <span className="option-desc">
+                Tăng sức chứa thực của kho quốc gia, tối đa tương đương khoảng
+                24 giờ sản lượng.
+              </span>
+              {warehouseUpgradeCost && (
+                <div className="cost-row">
+                  {(Object.entries(warehouseUpgradeCost) as Array<
+                    [keyof ResourceBag, number]
+                  >)
+                    .filter(([, value]) => value > 0)
+                    .map(([key, value]) => (
+                      <ResourceCost
+                        key={key}
+                        label={costLabels[key]}
+                        value={value}
+                        enough={(resources[key] || 0) >= value}
+                      />
+                    ))}
+                </div>
+              )}
+              {warehouseError && (
+                <span className="option-desc insufficient">
+                  {warehouseError}
+                </span>
+              )}
+            </div>
+            <div className="recruit-action-col auto-recovery-status">
+              <button
+                type="button"
+                className="recruit-btn upgrade-action"
+                disabled={
+                  warehousePending ||
+                  warehouseLevel >= warehouseMaxLevel ||
+                  !canAffordWarehouse ||
+                  !onUpgradeWarehouse
+                }
+                onClick={async () => {
+                  const territoryId = Number(
+                    town.territoryId ?? (town.id >= 9000 ? town.id - 9000 : town.id),
+                  );
+                  setWarehousePending(true);
+                  setWarehouseError("");
+                  try {
+                    await onUpgradeWarehouse?.(territoryId);
+                  } catch (error) {
+                    setWarehouseError(
+                      error instanceof Error
+                        ? error.message
+                        : "Không thể nâng kho lúc này",
+                    );
+                  } finally {
+                    setWarehousePending(false);
+                  }
+                }}
+              >
+                {warehouseLevel >= warehouseMaxLevel
+                  ? "ĐÃ TỐI ĐA"
+                  : warehousePending
+                    ? "ĐANG NÂNG..."
+                    : "NÂNG KHO"}
+              </button>
             </div>
           </div>
         </div>
