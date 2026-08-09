@@ -41,7 +41,8 @@ select,
   max-width: calc(100vw - 20px) !important;
   max-height: calc(100dvh - 20px) !important;
   padding: 12px !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .medieval-modal-container.modal-fit-viewport .medieval-modal-header {
@@ -100,11 +101,13 @@ select,
   }
 }
 
-/* Attack dispatch is an information/action dashboard. Keep every decision on
- * the same viewport instead of placing the troop controls below a scrollbar. */
+/* Attack dispatch is an information/action dashboard. The source-city list is
+ * the only elastic region; keeping it scrollable prevents long empires from
+ * pushing the forecast, march time and confirm action outside the viewport. */
 .attack-dispatch-modal {
   display: grid !important;
-  grid-template-rows: auto auto auto auto auto auto !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: max-content !important;
   gap: 6px !important;
   width: min(900px, 94vw) !important;
   max-height: calc(100dvh - 24px) !important;
@@ -130,9 +133,16 @@ select,
 .attack-dispatch-modal .rt-source-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 7px !important;
-  max-height: none !important;
-  overflow: hidden !important;
+  max-height: clamp(180px, 28dvh, 310px) !important;
+  padding-right: 4px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
+.attack-dispatch-modal .rt-source-card-grid::-webkit-scrollbar { width: 6px; }
+.attack-dispatch-modal .rt-source-card-grid::-webkit-scrollbar-track { background: rgba(3, 13, 18, .72); }
+.attack-dispatch-modal .rt-source-card-grid::-webkit-scrollbar-thumb { background: #8f6c28; border-radius: 999px; }
 .attack-dispatch-modal .rt-source-card {
   grid-template-columns: 44px minmax(0, 1fr) 18px !important;
   gap: 8px !important;
@@ -168,6 +178,12 @@ select,
 .attack-dispatch-modal .rt-march-time-row .info-card { padding: 7px 10px !important; font-size: 9px !important; }
 .attack-dispatch-modal .rt-attack-footer { margin-top: 0 !important; }
 .attack-dispatch-modal .rt-gold-banner-btn { min-height: 34px !important; font-size: 12px !important; }
+.attack-dispatch-modal .rt-error-banner {
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
 
 @media (max-width: 680px) {
   .attack-dispatch-modal {
@@ -177,4 +193,10 @@ select,
     zoom: .72;
   }
   .attack-dispatch-modal .rt-source-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+@media (max-height: 760px) {
+  .attack-dispatch-modal .rt-source-card-grid {
+    max-height: 190px !important;
+  }
 }

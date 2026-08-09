@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@island/shared";
 import { CollapsedChatHud } from "./CollapsedChatHud";
+import { detectDeviceLanguage, translate, type GameLanguage } from "../game/i18n";
 
 type ChatTab = "user" | "system";
 
@@ -16,10 +17,10 @@ type ChatPanelProps = {
   mobileActionsExpanded?: boolean;
 };
 
-function formatTime(value: string) {
+function formatTime(value: string, language: GameLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--:--";
-  return date.toLocaleTimeString("vi-VN", {
+  return date.toLocaleTimeString(language, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -44,6 +45,8 @@ export function ChatPanel({
   onSend,
   mobileActionsExpanded = false,
 }: ChatPanelProps) {
+  const language = detectDeviceLanguage();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const [tab, setTab] = useState<ChatTab>("user");
   const [collapsed, setCollapsed] = useState(
     () =>
@@ -163,9 +166,9 @@ export function ChatPanel({
         >
           <img src="/assets/icons/menu/icon_chat.png" alt="" />
           <span>
-            <strong>QUẢNG TRƯỜNG</strong>
+            <strong>{t("square")}</strong>
             <small className={online ? "is-online" : "is-offline"}>
-              <i /> {online ? "Realtime" : "Đang kết nối lại"}
+              <i /> {online ? "Realtime" : t("reconnecting")}
             </small>
           </span>
           <b>−</b>
@@ -190,7 +193,7 @@ export function ChatPanel({
             <button
               className="mobile-chat-menu-button"
               type="button"
-              aria-label="Mở Quảng Trường"
+              aria-label={t("square")}
               onClick={() => setCollapsed(false)}
             >
               <img src="/assets/icons/menu/icon_chat.png" alt="" />
@@ -207,13 +210,13 @@ export function ChatPanel({
 
       {!collapsed && (
         <>
-          <nav className="strategy-chat__tabs" aria-label="Kênh trò chuyện">
+          <nav className="strategy-chat__tabs" aria-label={t("chatChannels")}>
             <button
               className={tab === "user" ? "active" : ""}
               type="button"
               onClick={() => setTab("user")}
             >
-              <img src="/assets/icons/menu/icon_chat.png" alt="" /> Người chơi
+              <img src="/assets/icons/menu/icon_chat.png" alt="" /> {t("player")}
               {unread.user > 0 && <em>{unread.user}</em>}
             </button>
             <button
@@ -221,7 +224,7 @@ export function ChatPanel({
               type="button"
               onClick={() => setTab("system")}
             >
-              <img src="/assets/icons/menu/icon_chat.png" alt="" /> Hệ thống
+              <img src="/assets/icons/menu/icon_chat.png" alt="" /> {t("system")}
               {unread.system > 0 && <em>{unread.system}</em>}
             </button>
           </nav>
@@ -239,8 +242,8 @@ export function ChatPanel({
             {visibleMessages.length === 0 && (
               <div className="strategy-chat__empty">
                 {tab === "user"
-                  ? "Chưa có quân vương nào lên tiếng."
-                  : "Chưa có thông báo hệ thống."}
+                  ? t("noPlayerMessages")
+                  : t("noSystemMessages")}
               </div>
             )}
             {visibleMessages.map((message) => {
@@ -327,7 +330,7 @@ export function ChatPanel({
                           <strong>
                             {message.kind === "user"
                               ? message.userName
-                              : "Hệ thống"}
+                              : t("system")}
                           </strong>
                           <span>VIP {messageVipLevel}</span>
                         </div>
@@ -337,17 +340,17 @@ export function ChatPanel({
                         <strong>
                           {message.kind === "user"
                             ? message.userName
-                            : "Hệ thống"}
+                            : t("system")}
                         </strong>
                         {message.kind === "user" && (
                           <span>VIP {messageVipLevel}</span>
                         )}
-                        <time>{formatTime(message.sentAt)}</time>
+                        <time>{formatTime(message.sentAt, language)}</time>
                       </div>
                     )}
                     {nameFrameId && (
                       <time className="strategy-chat__premium-time">
-                        {formatTime(message.sentAt)}
+                        {formatTime(message.sentAt, language)}
                       </time>
                     )}
                     <p>{message.text}</p>
@@ -363,7 +366,7 @@ export function ChatPanel({
               type="button"
               onClick={scrollToLatest}
             >
-              ↓ {pendingBelow} tin mới
+              ↓ {pendingBelow} {t("newMessages")}
             </button>
           )}
 
@@ -379,8 +382,8 @@ export function ChatPanel({
                 }}
                 placeholder={
                   online
-                    ? "Truyền lệnh đến mọi người chơi..."
-                    : "Đang kết nối lại..."
+                    ? t("broadcastPlaceholder")
+                    : t("reconnecting")
                 }
                 maxLength={200}
                 disabled={!online}
@@ -389,17 +392,17 @@ export function ChatPanel({
               <button
                 type="submit"
                 disabled={!online || !input.trim()}
-                title="Gửi tin"
+                title={t("send")}
               >
                 <img
                   src="/assets/icons/icon_chat_send_european.png"
-                  alt="Gửi"
+                  alt={t("send")}
                 />
               </button>
             </form>
           ) : (
             <div className="strategy-chat__readonly">
-              Kênh thông báo chính thức · Chỉ đọc
+              {t("officialReadOnly")}
             </div>
           )}
         </>

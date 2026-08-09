@@ -21,6 +21,14 @@ export type GameConfig = {
   townLevelDefense: number;
   fortLevelDefense: number;
   retreatPercent: number;
+  infantryVsCavalryBonusPercent: number;
+  cavalryVsArtilleryBonusPercent: number;
+  artillerySiegeBonusPercent: number;
+  unsupportedArtilleryPenaltyPercent: number;
+  woundedSharePercent: number;
+  isolatedGraceHours: number;
+  attackCooldownSeconds: number;
+  lootPercent: number;
   infantryCostGold: number;
   infantryCostWood: number;
   infantryTroopsValue: number;
@@ -115,6 +123,9 @@ export type TownSnapshot = {
   infantryCount?: number;
   cavalryCount?: number;
   artilleryCount?: number;
+  woundedInfantry?: number;
+  woundedCavalry?: number;
+  woundedArtillery?: number;
   population?: number;
   x?: number;
   y?: number;
@@ -426,6 +437,8 @@ export type TerritoryInfo = {
   coastal?: boolean;
   connectionType?: "land" | "sea";
   isolated?: boolean;
+  isolatedUntil?: string;
+  lastAttackedAt?: string;
   // Computed game balance fields
   clearingSeconds: number; // time to clear (khai hoang)
   yieldGold: number; // gold per second when owned
@@ -538,6 +551,8 @@ export type ActiveBattle = {
   attackerCurrentHp?: number;
   defenderMaxHp?: number;
   defenderCurrentHp?: number;
+  fortificationMaxHp?: number;
+  fortificationCurrentHp?: number;
   hpUpdatedAt?: string;
   battleVersion?: number;
   participants: BattleParticipant[];
@@ -567,6 +582,10 @@ export type MarchSourceOption = {
   cavalry: number;
   artillery: number;
   troops: number;
+  attackerPowerEstimate?: number;
+  defenderPowerEstimate?: number;
+  advantageRatio?: number;
+  forecast?: "favored" | "even" | "risky";
   reason?: string;
 };
 
@@ -797,6 +816,12 @@ export type RealtimeEvent =
       type: "territories_pruned";
       playerId: string;
       prunedTerritoryIds: number[];
+    }
+  | {
+      type: "territories_isolated";
+      playerId: string;
+      isolatedTerritoryIds: number[];
+      isolatedUntil: string;
     }
   | { type: "world_state_hint"; reason: "reconnect" | "server_resync" }
   | { type: "resync_required"; reason: "event_backlog" | "event_gap" };

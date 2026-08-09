@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { loginGuest, loginPlayer, registerPlayer } from "../game/api";
-import { detectDeviceLanguage, translate } from "../game/i18n";
+import {
+  detectDeviceLanguage,
+  GAME_LANGUAGES,
+  saveLanguage,
+  translate,
+  type GameLanguage,
+} from "../game/i18n";
 import { AssetIcon } from "./AssetIcon";
 import { TurnstileWidget } from "./TurnstileWidget";
 
@@ -222,10 +228,20 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const changeLanguage = (next: GameLanguage) => {
+    saveLanguage(next);
+    setLanguage(next);
+    document.documentElement.lang = next;
+  };
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = t("appName");
+  }, [language]);
 
   const requireTurnstileToken = () => {
     if (!turnstileToken) {
-      throw new Error("Vui lòng hoàn tất xác minh bảo mật");
+      throw new Error(t("securityCheck"));
     }
     return turnstileToken;
   };
@@ -249,20 +265,16 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     try {
       const captchaToken = requireTurnstileToken();
       if (!username || !password) {
-        throw new Error(
-          mode === "login"
-            ? "Vui lòng nhập tên đăng nhập và mật khẩu"
-            : "Vui lòng điền đầy đủ thông tin đăng ký"
-        );
+        throw new Error(t("missingAccount"));
       }
-      if (username.length < 3) throw new Error("Tên tài khoản tối thiểu 3 ký tự");
+      if (username.length < 3) throw new Error(t("usernameTooShort"));
       
       if (mode === "login") {
-        if (password.length < 6) throw new Error("Mật khẩu tối thiểu từ 6 ký tự");
+        if (password.length < 6) throw new Error(t("passwordTooShort"));
         const res = await loginPlayer(username, password, captchaToken);
         onSuccess(res.token, res.playerId);
       } else {
-        if (password.length < 8) throw new Error("Mật khẩu đăng ký tối thiểu từ 8 ký tự");
+        if (password.length < 8) throw new Error(t("passwordTooShort"));
         
         // Randomize initial profile features under the hood for faster signups
         const colors = ["#b4232f", "#2459a9", "#d39216", "#26724f", "#6d3ca0", "#147f91"];
@@ -342,14 +354,17 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         <div className="l4-brand-empty-spacer" />
 
         <div className="l4-top-actions">
-          <button type="button" className="l4-lang-btn" onClick={() => setLanguage(language === "vi" ? "en" : "vi")}>
-            <GlobeIcon /> {language === "vi" ? "Tiếng Việt" : "English"} ▾
-          </button>
-          <button type="button" className="l4-top-action-pill" onClick={() => setError("Vui lòng gửi email đến support@hexrivals.com")}>
-            <HeadsetHelpIcon /> Hỗ trợ
+          <label className="l4-lang-btn l4-language-select">
+            <GlobeIcon />
+            <select value={language} onChange={(event) => changeLanguage(event.target.value as GameLanguage)} aria-label={t("language")}>
+              {GAME_LANGUAGES.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+            </select>
+          </label>
+          <button type="button" className="l4-top-action-pill" onClick={() => setError("support@hexrivals.com")}>
+            <HeadsetHelpIcon /> {t("support")}
           </button>
           <button type="button" className="l4-top-action-pill" onClick={() => setError("Bản quyền game Hex Rivals v1.0.0")}>
-            <GearSettingsIcon /> Cài đặt
+            <GearSettingsIcon /> {t("accountSettings")}
           </button>
         </div>
       </div>
@@ -363,10 +378,10 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           <div className="l4-card-header">
             <CrestHeaderEmblem />
             <h2 className="title">
-              {mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ TÀI KHOẢN"}
+              {mode === "login" ? t("loginTitle") : t("registerTitle")}
             </h2>
             <p className="subtitle">
-              {mode === "login" ? "Chào mừng Chúa công trở lại!" : "Khai mở triều đại vương quốc mới"}
+              {mode === "login" ? t("welcomeBack") : t("foundNewKingdom")}
             </p>
           </div>
 
@@ -382,7 +397,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               <span className="icon"><UserIcon /></span>
               <input
                 type="text"
-                placeholder={mode === "register" ? "Tên tài khoản mới (từ 3 ký tự)" : "Tên đăng nhập / Email"}
+                placeholder={t("usernamePlaceholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 spellCheck={false}
@@ -393,7 +408,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               <span className="icon"><LockIcon /></span>
               <input
                 type={showPass ? "text" : "password"}
-                placeholder={mode === "register" ? "Mật khẩu bảo mật (từ 8 ký tự)" : "Mật khẩu"}
+                placeholder={t("passwordPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -410,11 +425,11 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>Ghi nhớ đăng nhập</span>
+                  <span>{t("rememberMe")}</span>
                 </label>
 
-                <button type="button" className="forgot-link" onClick={() => setError("Vui lòng liên hệ CSKH để khôi phục mật khẩu")}>
-                  Quên mật khẩu?
+                <button type="button" className="forgot-link" onClick={() => setError(t("contactSupport"))}>
+                  {t("forgotPassword")}
                 </button>
               </div>
             )}
@@ -428,15 +443,15 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             <div className="l4-action-buttons">
               <button type="submit" className="l4-gold-submit-btn" disabled={loading}>
                 {loading
-                  ? "ĐANG XỬ LÝ..."
+                  ? t("processing")
                   : mode === "login"
-                  ? "VÀO GAME"
-                  : "TẠO TÀI KHOẢN"}
+                  ? t("enterGame")
+                  : t("createAccount")}
               </button>
 
               {mode === "login" && (
                 <button type="button" className="l4-guest-play-btn" onClick={handleGuestPlay} disabled={loading}>
-                  CHƠI NGAY
+                  {t("playNow")}
                 </button>
               )}
             </div>
@@ -445,29 +460,29 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             <div className="l4-bottom-switch">
               <div className="l4-divider">
                 <span className="line" />
-                <span className="text">{mode === "login" ? "LIÊN KẾT & ĐĂNG KÝ" : "HOẶC ĐĂNG NHẬP"}</span>
+                <span className="text">{t("continueWith")}</span>
                 <span className="line" />
               </div>
 
               {/* Google Login Button */}
               <button type="button" className="l4-google-login-btn" onClick={handleGoogleLogin} disabled={loading}>
                 <GoogleIcon />
-                <span>Đăng nhập bằng Google</span>
+                <span>{t("googleLogin")}</span>
               </button>
 
               <div className="l4-switch-prompt">
                 {mode === "login" ? (
                   <>
-                    <span>Chưa có tài khoản thế lực?</span>
+                    <span>{t("noAccount")}</span>
                     <button type="button" className="l4-toggle-mode-btn" onClick={() => switchMode("register")}>
-                      ĐĂNG KÝ NGAY
+                      {t("registerTab").toUpperCase()}
                     </button>
                   </>
                 ) : (
                   <>
-                    <span>Đã có tài khoản tân thủ?</span>
+                    <span>{t("hasAccount")}</span>
                     <button type="button" className="l4-toggle-mode-btn" onClick={() => switchMode("login")}>
-                      QUAY LẠI ĐĂNG NHẬP
+                      {t("loginTab").toUpperCase()}
                     </button>
                   </>
                 )}

@@ -57,6 +57,14 @@ export function AdminApp() {
     townLevelDefense: 40,
     fortLevelDefense: 120,
     retreatPercent: 35,
+    infantryVsCavalryBonusPercent: 20,
+    cavalryVsArtilleryBonusPercent: 20,
+    artillerySiegeBonusPercent: 30,
+    unsupportedArtilleryPenaltyPercent: 25,
+    woundedSharePercent: 20,
+    isolatedGraceHours: 24,
+    attackCooldownSeconds: 30,
+    lootPercent: 15,
     troopRecoveryEnabled: true,
     troopRecoverySeconds: 600,
     troopRecoveryOfflineLimit: 24,
@@ -165,6 +173,14 @@ export function AdminApp() {
       townLevelDefense: Number(form.get("townLevelDefense")),
       fortLevelDefense: Number(form.get("fortLevelDefense")),
       retreatPercent: Number(form.get("retreatPercent")),
+      infantryVsCavalryBonusPercent: Number(form.get("infantryVsCavalryBonusPercent")),
+      cavalryVsArtilleryBonusPercent: Number(form.get("cavalryVsArtilleryBonusPercent")),
+      artillerySiegeBonusPercent: Number(form.get("artillerySiegeBonusPercent")),
+      unsupportedArtilleryPenaltyPercent: Number(form.get("unsupportedArtilleryPenaltyPercent")),
+      woundedSharePercent: Number(form.get("woundedSharePercent")),
+      isolatedGraceHours: Number(form.get("isolatedGraceHours")),
+      attackCooldownSeconds: Number(form.get("attackCooldownSeconds")),
+      lootPercent: Number(form.get("lootPercent")),
       troopRecoveryEnabled: form.get("troopRecoveryEnabled") === "on",
       troopRecoverySeconds: Number(form.get("troopRecoverySeconds")),
       troopRecoveryOfflineLimit: Number(form.get("troopRecoveryOfflineLimit")),
@@ -729,6 +745,38 @@ export function AdminApp() {
                   <label style={{ display: "grid", gap: 6 }}>
                     % quân rút khi thủ thắng
                     <input type="number" name="retreatPercent" defaultValue={configData.retreatPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Bộ binh khắc Kỵ binh (%)
+                    <input type="number" name="infantryVsCavalryBonusPercent" defaultValue={configData.infantryVsCavalryBonusPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Kỵ binh khắc Pháo binh (%)
+                    <input type="number" name="cavalryVsArtilleryBonusPercent" defaultValue={configData.cavalryVsArtilleryBonusPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Pháo binh công thành (%)
+                    <input type="number" name="artillerySiegeBonusPercent" defaultValue={configData.artillerySiegeBonusPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Phạt pháo thiếu bộ binh (%)
+                    <input type="number" name="unsupportedArtilleryPenaltyPercent" defaultValue={configData.unsupportedArtilleryPenaltyPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Tỷ lệ thương binh (%)
+                    <input type="number" name="woundedSharePercent" defaultValue={configData.woundedSharePercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Ân hạn cô lập (giờ)
+                    <input type="number" name="isolatedGraceHours" defaultValue={configData.isolatedGraceHours} min={1} max={168} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Hồi chiêu tấn công (giây)
+                    <input type="number" name="attackCooldownSeconds" defaultValue={configData.attackCooldownSeconds} min={0} max={86400} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Tài nguyên cướp được (%)
+                    <input type="number" name="lootPercent" defaultValue={configData.lootPercent} min={0} max={100} required style={{ padding: 8, background: "#070c14", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#fff" }} />
                   </label>
                   <label style={{ display: "grid", gap: 6 }}>
                     Tốc độ di chuyển Nông dân

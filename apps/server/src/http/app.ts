@@ -852,6 +852,13 @@ function resolvePlayerAttackRoute(_claims, source, target) {
     frontierTerritoryId: source.id,
   };
 }
+async function playersShareAlliance(alliances: any, firstId?: string, secondId?: string) {
+  if (!firstId || !secondId) return false;
+  if (firstId === secondId) return true;
+  return Boolean(
+    await alliances.findOne({ memberIds: { $all: [firstId, secondId] } }),
+  );
+}
 function isTerritoryRootClaim(claim: any) {
   const kind = normalizedClaimKind(claim);
   // Only an actual capital is a connectivity root.  A military district is
@@ -950,42 +957,90 @@ async function pruneDisconnectedClaims(playerId) {
   if (disconnectedClaims.length === 0) {
     await territoryClaims.updateMany(
       { playerId, isolated: true },
-      { $set: { isolated: false } },
+      { $set: { isolated: false }, $unset: { isolatedUntil: "" } },
     );
     return [];
   }
   const disconnectedIds = disconnectedClaims.map((claim) => claim.territoryId);
-  await territoryClaims.updateMany(
-    { playerId, territoryId: { $in: [...connectedIds] as number[] } },
-    { $set: { isolated: false } },
+  const newlyIsolatedIds = disconnectedClaims
+    .filter((claim) => !claim.isolated)
+    .map((claim) => claim.territoryId);
+  const gameConfig = await loadGameConfig();
+  const isolatedUntil = new Date(
+    Date.now() + Math.max(1, gameConfig.isolatedGraceHours) * 3600 * 1000,
   );
-  await Promise.all([
-    territoryClaims.deleteMany({
+  const connectedUpdate = await territoryClaims.updateMany(
+    { playerId, territoryId: { $in: [...connectedIds] as number[] } },
+    { $set: { isolated: false }, $unset: { isolatedUntil: "" } },
+  );
+  const isolatedUpdate = await territoryClaims.updateMany(
+    {
       playerId,
       territoryId: { $in: disconnectedIds },
-    }),
-    territoryClearings.deleteMany({
+      isolated: { $ne: true },
+    },
+    { $set: { isolated: true, isolatedUntil } },
+  );
+  if (newlyIsolatedIds.length > 0) {
+    publishRealtime({
+      type: "territories_isolated",
       playerId,
-      territoryId: { $in: disconnectedIds },
-    }),
-  ]);
-  const saveDoc = await saves.findOne({ playerId });
-  if (saveDoc && Array.isArray(saveDoc.towns)) {
-    const remainingTowns = saveDoc.towns.filter(
-      (town) =>
-        !disconnectedIds.includes(
-          normalizeWorldTerritoryId(town.territoryId ?? town.id),
-        ),
-    );
-    await saves.updateOne({ playerId }, { $set: { towns: remainingTowns } });
+      isolatedTerritoryIds: newlyIsolatedIds,
+      isolatedUntil: isolatedUntil.toISOString(),
+    });
   }
-  publishRealtime({
-    type: "territories_pruned",
-    playerId,
-    prunedTerritoryIds: disconnectedIds,
-  });
-  await bumpWorldCacheVersion();
+  if (connectedUpdate.modifiedCount > 0 || isolatedUpdate.modifiedCount > 0) {
+    await bumpWorldCacheVersion();
+  }
   return disconnectedIds;
+}
+
+async function expireIsolatedClaims(now = new Date()) {
+  const { territoryClaims, territoryClearings, saves } = await collections();
+  const expired = await territoryClaims
+    .find({ isolated: true, isolatedUntil: { $lte: now } })
+    .limit(WORLD_TICK_BATCH_SIZE)
+    .toArray();
+  if (expired.length === 0) return;
+  const byPlayer = new Map<string, number[]>();
+  expired.forEach((claim: any) => {
+    const ids = byPlayer.get(claim.playerId) || [];
+    ids.push(claim.territoryId);
+    byPlayer.set(claim.playerId, ids);
+  });
+  for (const [playerId, territoryIds] of byPlayer) {
+    const save = await saves.findOne({ playerId });
+    const towns = Array.isArray(save?.towns)
+      ? save.towns.filter(
+          (town: any) =>
+            !territoryIds.includes(
+              normalizeWorldTerritoryId(town.territoryId ?? town.id),
+            ),
+        )
+      : [];
+    await Promise.all([
+      territoryClaims.deleteMany({
+        playerId,
+        territoryId: { $in: territoryIds },
+        isolated: true,
+        isolatedUntil: { $lte: now },
+      }),
+      territoryClearings.deleteMany({
+        playerId,
+        territoryId: { $in: territoryIds },
+      }),
+      saves.updateOne(
+        { playerId },
+        { $set: { towns, updatedAt: now } },
+      ),
+    ]);
+    publishRealtime({
+      type: "territories_pruned",
+      playerId,
+      prunedTerritoryIds: territoryIds,
+    });
+  }
+  await bumpWorldCacheVersion();
 }
 function townIdForTerritory(territoryId: any, requestedTownId?: any) {
   return Number.isInteger(requestedTownId) && requestedTownId >= 0
@@ -1152,6 +1207,9 @@ function defaultTownSnapshotForTerritory(
     infantryCount: 24,
     cavalryCount: 0,
     artilleryCount: 0,
+    woundedInfantry: 0,
+    woundedCavalry: 0,
+    woundedArtillery: 0,
     buildings: {
       barracks: 0,
       lumberCamp: 0,
@@ -1283,6 +1341,18 @@ function normalizeTownSnapshotForState(
     infantryCount,
     cavalryCount,
     artilleryCount,
+    woundedInfantry: Math.max(
+      0,
+      Math.floor(Number(town?.woundedInfantry || 0)),
+    ),
+    woundedCavalry: Math.max(
+      0,
+      Math.floor(Number(town?.woundedCavalry || 0)),
+    ),
+    woundedArtillery: Math.max(
+      0,
+      Math.floor(Number(town?.woundedArtillery || 0)),
+    ),
     buildings,
     warehouseMaxLevel: WAREHOUSE_MAX_LEVEL,
     warehouseUpgradeCost:
@@ -1490,20 +1560,20 @@ function advanceBattleHealth(battle, now = new Date()) {
     1,
     Number(battle.defenderMaxHp ?? battle.defenderPower) || 1,
   );
-  const attackerLeads =
-    Number(battle.attackerPower || 0) > Number(battle.defenderPower || 0);
-  const attackerFloor = attackerLeads
-    ? Math.max(1, Math.round(attackerMaxHp * 0.45))
-    : 0;
-  const defenderFloor = attackerLeads
-    ? 0
-    : Math.max(1, Math.round(defenderMaxHp * 0.45));
+  const battleSeed = String(battle._id || battle.id || "battle")
+    .split("")
+    .reduce((value, char) => (value * 33 + char.charCodeAt(0)) >>> 0, 5381);
+  const attackVariance = 0.95 + (battleSeed % 101) / 1000;
+  const defenseVariance = 0.95 + ((battleSeed >>> 8) % 101) / 1000;
   const attackerDamagePerSecond =
-    (attackerMaxHp - attackerFloor) / durationSeconds;
-  const defenderDamagePerSecond =
-    (defenderMaxHp - defenderFloor) / durationSeconds;
+    (Math.max(1, Number(battle.defenderPower || 0)) * defenseVariance) /
+    durationSeconds;
+  const defenderDamageThisTick =
+    (Math.max(1, Number(battle.attackerPower || 0)) * attackVariance *
+      elapsedSeconds) /
+    durationSeconds;
   const attackerCurrentHp = Math.max(
-    attackerFloor,
+    0,
     Math.min(
       attackerMaxHp,
       Math.round(
@@ -1512,13 +1582,29 @@ function advanceBattleHealth(battle, now = new Date()) {
       ),
     ),
   );
+  const fortificationMaxHp = Math.max(
+    0,
+    Number(battle.fortificationMaxHp || 0),
+  );
+  const previousFortificationHp = Math.max(
+    0,
+    Number(battle.fortificationCurrentHp ?? fortificationMaxHp),
+  );
+  const fortificationCurrentHp = Math.max(
+    0,
+    previousFortificationHp - defenderDamageThisTick,
+  );
+  const damagePastFortification = Math.max(
+    0,
+    defenderDamageThisTick - previousFortificationHp,
+  );
   const defenderCurrentHp = Math.max(
-    defenderFloor,
+    0,
     Math.min(
       defenderMaxHp,
       Math.round(
         Number(battle.defenderCurrentHp ?? defenderMaxHp) -
-          defenderDamagePerSecond * elapsedSeconds,
+          damagePastFortification,
       ),
     ),
   );
@@ -1527,6 +1613,8 @@ function advanceBattleHealth(battle, now = new Date()) {
     attackerCurrentHp,
     defenderMaxHp,
     defenderCurrentHp,
+    fortificationMaxHp,
+    fortificationCurrentHp: Math.round(fortificationCurrentHp),
     hpUpdatedAt: now,
     battleVersion: Math.max(1, Math.floor(Number(battle.battleVersion || 1))),
   };
@@ -1647,6 +1735,8 @@ function toPublicBattle(battle) {
     attackerCurrentHp: health.attackerCurrentHp,
     defenderMaxHp: health.defenderMaxHp,
     defenderCurrentHp: health.defenderCurrentHp,
+    fortificationMaxHp: health.fortificationMaxHp,
+    fortificationCurrentHp: health.fortificationCurrentHp,
     hpUpdatedAt: health.hpUpdatedAt.toISOString(),
     battleVersion: health.battleVersion,
     participants: battleParticipants(battle, health),
@@ -2150,16 +2240,67 @@ async function publishPlayerState(
 function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
-function battleAttackPower(units, gameConfig) {
-  return Math.max(
-    0,
-    Math.floor(Number(units.infantry || 0)) * gameConfig.infantryAttackPower +
-      Math.floor(Number(units.cavalry || 0)) * gameConfig.cavalryAttackPower +
-      Math.floor(Number(units.artillery || 0)) *
-        gameConfig.artilleryAttackPower,
+function battleCompositionMultiplier(
+  units,
+  opposingUnits,
+  gameConfig,
+  attacking = false,
+  town: any = null,
+) {
+  const infantry = Math.max(0, Number(units?.infantry || 0));
+  const cavalry = Math.max(0, Number(units?.cavalry || 0));
+  const artillery = Math.max(0, Number(units?.artillery || 0));
+  const total = Math.max(1, infantry + cavalry + artillery);
+  const opposingInfantry = Math.max(0, Number(opposingUnits?.infantry || 0));
+  const opposingCavalry = Math.max(0, Number(opposingUnits?.cavalry || 0));
+  const opposingArtillery = Math.max(0, Number(opposingUnits?.artillery || 0));
+  const opposingTotal = Math.max(
+    1,
+    opposingInfantry + opposingCavalry + opposingArtillery,
+  );
+  const infantryCounter =
+    (infantry / total) *
+    (opposingCavalry / opposingTotal) *
+    (gameConfig.infantryVsCavalryBonusPercent / 100);
+  const cavalryCounter =
+    (cavalry / total) *
+    (opposingArtillery / opposingTotal) *
+    (gameConfig.cavalryVsArtilleryBonusPercent / 100);
+  const fortLevel = Math.max(0, Number(town?.buildings?.fort || 0));
+  const siegeBonus =
+    attacking && fortLevel > 0
+      ? (artillery / total) * (gameConfig.artillerySiegeBonusPercent / 100)
+      : 0;
+  const unsupportedPenalty =
+    artillery > 0 && infantry < artillery * 0.5
+      ? gameConfig.unsupportedArtilleryPenaltyPercent / 100
+      : 0;
+  return clampNumber(
+    1 + infantryCounter + cavalryCounter + siegeBonus - unsupportedPenalty,
+    0.5,
+    1.8,
   );
 }
-function battleDefensePower(units, town, gameConfig) {
+function battleAttackPower(units, gameConfig, opposingUnits: any = {}, town: any = null) {
+  const base =
+    Math.floor(Number(units.infantry || 0)) * gameConfig.infantryAttackPower +
+    Math.floor(Number(units.cavalry || 0)) * gameConfig.cavalryAttackPower +
+    Math.floor(Number(units.artillery || 0)) * gameConfig.artilleryAttackPower;
+  return Math.max(
+    0,
+    Math.floor(
+      base *
+        battleCompositionMultiplier(
+          units,
+          opposingUnits,
+          gameConfig,
+          true,
+          town,
+        ),
+    ),
+  );
+}
+function battleDefensePower(units, town, gameConfig, opposingUnits: any = {}) {
   const unitPower =
     Math.floor(Number(units.infantry || 0)) * gameConfig.infantryDefensePower +
     Math.floor(Number(units.cavalry || 0)) * gameConfig.cavalryDefensePower +
@@ -2171,9 +2312,16 @@ function battleDefensePower(units, town, gameConfig) {
   const fort = Math.max(0, Math.floor(Number(town?.buildings?.fort || 0) || 0));
   return Math.max(
     0,
-    unitPower +
-      level * gameConfig.townLevelDefense +
-      fort * gameConfig.fortLevelDefense,
+    Math.floor(
+      unitPower *
+        battleCompositionMultiplier(
+          units,
+          opposingUnits,
+          gameConfig,
+          false,
+          town,
+        ),
+    ) + level * gameConfig.townLevelDefense,
   );
 }
 function battleDurationSeconds(attackerPower, defenderPower, town, gameConfig) {
@@ -2378,6 +2526,12 @@ async function buildWorldTerritoriesPayload() {
       rootTerritoryId: claim?.rootTerritoryId,
       connectionType: claim?.connectionType,
       isolated: claim?.isolated || false,
+      isolatedUntil: claim?.isolatedUntil
+        ? new Date(claim.isolatedUntil).toISOString()
+        : undefined,
+      lastAttackedAt: claim?.lastAttackedAt
+        ? new Date(claim.lastAttackedAt).toISOString()
+        : undefined,
       equippedCapitalSkin: ownerId
         ? (capitalSkinByOwner.get(ownerId) ?? null)
         : null,
@@ -2397,6 +2551,7 @@ function productionForClaims(claims: any) {
     ]),
   );
   claims.forEach((claim: any) => {
+    if (claim?.isolated) return;
     const territory = staticById.get(claim.territoryId) as any;
     if (!territory) return;
     production.gold += territory.yieldGold * 2.5;
@@ -2868,6 +3023,14 @@ const DEFAULT_CONFIG = {
   townLevelDefense: 40,
   fortLevelDefense: 120,
   retreatPercent: 35,
+  infantryVsCavalryBonusPercent: 20,
+  cavalryVsArtilleryBonusPercent: 20,
+  artillerySiegeBonusPercent: 30,
+  unsupportedArtilleryPenaltyPercent: 25,
+  woundedSharePercent: 20,
+  isolatedGraceHours: 24,
+  attackCooldownSeconds: 30,
+  lootPercent: 15,
   infantryCostGold: 10,
   infantryCostWood: 3,
   infantryCostFood: 8,
@@ -3582,130 +3745,66 @@ async function processArrivedMarches(now = new Date()) {
     const targetClaim = await territoryClaims.findOne({
       territoryId: territory.id,
     });
-    // Case A: Unclaimed wild land -> Instantly capture on march arrival
+    // Case A: A queued military march can become stale if the destination is
+    // wild by arrival time. Wild land is builder-only, so return every unit to
+    // its source instead of preserving the old instant-capture behavior.
     if (!targetClaim || !targetClaim.playerId) {
-      if (march.kind === "attack") {
-        const attackerPlayer = await players.findOne({ _id: march.ownerId });
-        const attackerSave = await saves.findOne({ playerId: march.ownerId });
-        const attackerTowns = Array.isArray(attackerSave?.towns)
-          ? removeTownForTerritory(attackerSave.towns, territory)
-          : [];
-        const newTown = normalizeTownSnapshotForState(
-          {
-            ...defaultTownSnapshotForTerritory(territory, march.ownerId),
-            ownerId: march.ownerId,
-            infantryCount: march.infantry || 50,
-            cavalryCount: march.cavalry || 10,
-            artilleryCount: march.artillery || 5,
-            troops: march.troops || 65,
-          },
+      const sourceTerritory = getStaticTerritory(march.fromTerritoryId);
+      const ownerSave = await saves.findOne({ playerId: march.ownerId });
+      const ownerTowns = Array.isArray(ownerSave?.towns)
+        ? [...ownerSave.towns]
+        : [];
+      if (sourceTerritory) {
+        const sourceTownIndex = ownerTowns.findIndex(
+          (town) =>
+            town?.id ===
+              (march.sourceTownId ||
+                townIdForTerritory(march.fromTerritoryId)) ||
+            Number(town?.territoryId) === march.fromTerritoryId,
+        );
+        const sourceTown = normalizeTownSnapshotForState(
+          sourceTownIndex >= 0
+            ? ownerTowns[sourceTownIndex]
+            : defaultTownSnapshotForTerritory(
+                sourceTerritory,
+                march.ownerId,
+                march.sourceTownId,
+              ),
           march.ownerId,
-          territory,
+          sourceTerritory,
+          now,
         );
-        attackerTowns.push(newTown);
-        const connectionType = march.usesShip
-          ? "sea"
-          : territoryConnectionType(
-              getStaticTerritory(march.fromTerritoryId),
-              territory,
-            ) || "land";
-        const attackerClaims = await territoryClaims
-          .find({ playerId: march.ownerId })
-          .toArray();
-        const settlementKind = settlementKindForClaim(
-          territory,
-          connectionType,
-        );
-        await Promise.all([
-          territoryClaims.updateOne(
-            { territoryId: territory.id },
-            {
-              $set: {
-                playerId: march.ownerId,
-                claimedAt: now,
-                settlementKind,
-                parentTerritoryId: march.fromTerritoryId,
-                rootTerritoryId: rootTerritoryForNewClaim(
-                  attackerClaims,
-                  march.fromTerritoryId,
-                  connectionType,
-                  territory.id,
-                ),
-                connectionType,
-                isolated: false,
-              },
-              $setOnInsert: {
-                _id: `territory:${territory.id}`,
-                territoryId: territory.id,
-              },
-            },
-            { upsert: true },
-          ),
-          saves.updateOne(
-            { playerId: march.ownerId },
-            {
-              $set: { towns: attackerTowns, updatedAt: now },
-              $setOnInsert: {
-                _id: `save:${march.ownerId}`,
-                playerId: march.ownerId,
-                resources: DEFAULT_PLAYER_RESOURCES,
-              },
-            },
-            { upsert: true },
-          ),
-          marchOrders.deleteOne({ _id: march._id }),
-        ]);
-        const publicTerritory = {
-          ...territory,
-          ownerId: march.ownerId,
-          ownerName: attackerPlayer?.name || "Bạn",
-          ownerFlagColor: attackerPlayer?.flagColor || "#2f70d7",
-          ownerEmblem: attackerPlayer?.emblem || "shield",
-          settlementKind,
-          parentTerritoryId: march.fromTerritoryId,
-          rootTerritoryId: rootTerritoryForNewClaim(
-            attackerClaims,
-            march.fromTerritoryId,
-            connectionType,
-            territory.id,
-          ),
-          connectionType,
-          equippedCapitalSkin: normalizeShopInventory(
-            attackerPlayer?.shopInventory,
-            attackerPlayer ?? undefined,
-          ).equippedCapitalSkin,
-          equippedDistrictSkin: normalizeShopInventory(
-            attackerPlayer?.shopInventory,
-            attackerPlayer ?? undefined,
-          ).equippedDistrictSkin,
-        };
-        publishRealtime({
-          type: "territory_claimed",
-          territory: publicTerritory,
-        });
-        publishRealtime({
-          type: "march_removed",
-          marchId: march._id,
-          territoryId: territory.id,
-          reason: "territory_claimed",
-        });
-        await publishPlayerState(
-          march.ownerId,
-          "march_claimed_territory",
-          attackerPlayer?.resources,
-          attackerTowns,
-        );
-        continue;
-      } else {
-        await marchOrders.deleteOne({ _id: march._id });
-        publishRealtime({
-          type: "march_removed",
-          marchId: march._id,
-          territoryId: territory.id,
-          reason: "arrived_home",
-        });
-        continue;
+        sourceTown.infantryCount += Math.max(0, Number(march.infantry || 0));
+        sourceTown.cavalryCount += Math.max(0, Number(march.cavalry || 0));
+        sourceTown.artilleryCount += Math.max(0, Number(march.artillery || 0));
+        sourceTown.troops =
+          sourceTown.infantryCount +
+          sourceTown.cavalryCount +
+          sourceTown.artilleryCount;
+        if (sourceTownIndex >= 0) ownerTowns[sourceTownIndex] = sourceTown;
+        else ownerTowns.push(sourceTown);
       }
+      await Promise.all([
+        marchOrders.deleteOne({ _id: march._id }),
+        saves.updateOne(
+          { playerId: march.ownerId },
+          { $set: { towns: ownerTowns, updatedAt: now } },
+          { upsert: true },
+        ),
+      ]);
+      publishRealtime({
+        type: "march_removed",
+        marchId: march._id,
+        territoryId: territory.id,
+        reason: "builder_required",
+      });
+      await publishPlayerState(
+        march.ownerId,
+        "march_returned_builder_required",
+        undefined,
+        ownerTowns,
+      );
+      continue;
     }
     // Case B: Own town -> Arrived safely
     if (targetClaim.playerId === march.ownerId) {
@@ -3786,8 +3885,75 @@ async function processArrivedMarches(now = new Date()) {
         });
         continue;
       }
-      const isAttackerSide =
-        march.ownerId === existingBattle.attackerId || march.kind === "attack";
+      const wantsDefenderSide =
+        march.kind === "reinforce" && march.battleSide === "defender";
+      const sideOwnerId = wantsDefenderSide
+        ? existingBattle.defenderId
+        : existingBattle.attackerId;
+      const mayJoinBattle = await playersShareAlliance(
+        alliances,
+        march.ownerId,
+        sideOwnerId || undefined,
+      );
+      if (!mayJoinBattle) {
+        const sourceTerritory = getStaticTerritory(march.fromTerritoryId);
+        const ownerSave = await saves.findOne({ playerId: march.ownerId });
+        const ownerTowns = Array.isArray(ownerSave?.towns)
+          ? [...ownerSave.towns]
+          : [];
+        if (sourceTerritory) {
+          const sourceTownIndex = ownerTowns.findIndex(
+            (town) =>
+              town?.id ===
+                (march.sourceTownId ||
+                  townIdForTerritory(march.fromTerritoryId)) ||
+              Number(town?.territoryId) === march.fromTerritoryId,
+          );
+          const sourceTown = normalizeTownSnapshotForState(
+            sourceTownIndex >= 0
+              ? ownerTowns[sourceTownIndex]
+              : defaultTownSnapshotForTerritory(
+                  sourceTerritory,
+                  march.ownerId,
+                  march.sourceTownId,
+                ),
+            march.ownerId,
+            sourceTerritory,
+            now,
+          );
+          sourceTown.infantryCount += Math.max(0, Number(march.infantry || 0));
+          sourceTown.cavalryCount += Math.max(0, Number(march.cavalry || 0));
+          sourceTown.artilleryCount += Math.max(0, Number(march.artillery || 0));
+          sourceTown.troops =
+            sourceTown.infantryCount +
+            sourceTown.cavalryCount +
+            sourceTown.artilleryCount;
+          if (sourceTownIndex >= 0) ownerTowns[sourceTownIndex] = sourceTown;
+          else ownerTowns.push(sourceTown);
+        }
+        await Promise.all([
+          marchOrders.deleteOne({ _id: march._id }),
+          saves.updateOne(
+            { playerId: march.ownerId },
+            { $set: { towns: ownerTowns, updatedAt: now } },
+            { upsert: true },
+          ),
+        ]);
+        publishRealtime({
+          type: "march_removed",
+          marchId: march._id,
+          territoryId: territory.id,
+          reason: "battle_side_forbidden",
+        });
+        await publishPlayerState(
+          march.ownerId,
+          "march_rejected_battle_side",
+          undefined,
+          ownerTowns,
+        );
+        continue;
+      }
+      const isAttackerSide = !wantsDefenderSide;
       const marchInfantry = Math.max(
         0,
         Math.floor(Number(march.infantry || 0) || 0),
@@ -3800,16 +3966,35 @@ async function processArrivedMarches(now = new Date()) {
         0,
         Math.floor(Number(march.artillery || 0) || 0),
       );
-      const addedPower = battleAttackPower(
-        {
-          infantry: marchInfantry,
-          cavalry: marchCavalry,
-          artillery: marchArtillery,
-        },
-        gameConfig,
-      );
       const currentHealth = advanceBattleHealth(existingBattle, now);
       Object.assign(existingBattle, currentHealth);
+      const marchUnits = {
+        infantry: marchInfantry,
+        cavalry: marchCavalry,
+        artillery: marchArtillery,
+      };
+      const opposingUnits = isAttackerSide
+        ? {
+            infantry: existingBattle.defenderInfantry,
+            cavalry: existingBattle.defenderCavalry,
+            artillery: existingBattle.defenderArtillery,
+          }
+        : {
+            infantry: existingBattle.attackerInfantry,
+            cavalry: existingBattle.attackerCavalry,
+            artillery: existingBattle.attackerArtillery,
+          };
+      const addedPower = isAttackerSide
+        ? battleAttackPower(marchUnits, gameConfig, opposingUnits)
+        : Math.max(
+            0,
+            battleDefensePower(
+              marchUnits,
+              { level: 1, buildings: { fort: 0 } },
+              gameConfig,
+              opposingUnits,
+            ) - gameConfig.townLevelDefense,
+          );
       if (isAttackerSide) {
         const participants = Array.isArray(existingBattle.participants)
           ? [...existingBattle.participants]
@@ -3994,6 +4179,12 @@ async function processArrivedMarches(now = new Date()) {
         artillery: attackerArtillery,
       },
       gameConfig,
+      {
+        infantry: defenderInfantry,
+        cavalry: defenderCavalry,
+        artillery: defenderArtillery,
+      },
+      defenderTown,
     );
     const defenderPower = battleDefensePower(
       {
@@ -4003,6 +4194,11 @@ async function processArrivedMarches(now = new Date()) {
       },
       defenderTown,
       gameConfig,
+      {
+        infantry: attackerInfantry,
+        cavalry: attackerCavalry,
+        artillery: attackerArtillery,
+      },
     );
     const durationSeconds = battleDurationSeconds(
       attackerPower,
@@ -4069,6 +4265,14 @@ async function processArrivedMarches(now = new Date()) {
       attackerCurrentHp: Math.max(1, attackerPower),
       defenderMaxHp: Math.max(1, defenderPower),
       defenderCurrentHp: Math.max(1, defenderPower),
+      fortificationMaxHp: Math.max(
+        0,
+        Number(defenderTown.buildings?.fort || 0) * gameConfig.fortLevelDefense,
+      ),
+      fortificationCurrentHp: Math.max(
+        0,
+        Number(defenderTown.buildings?.fort || 0) * gameConfig.fortLevelDefense,
+      ),
       hpUpdatedAt: now,
       battleVersion: 1,
     };
@@ -4120,27 +4324,14 @@ async function processActiveBattles(now = new Date()) {
       await activeBattles.deleteOne({ _id: battle._id });
       continue;
     }
-    const resolvedParticipants = battleParticipants(
-      battle,
-      advanceBattleHealth(battle, now),
-    ).filter((participant) => participant.status === "engaged");
-    const powerByPlayer = new Map<string, number>();
-    resolvedParticipants.forEach((participant) => {
-      powerByPlayer.set(
-        participant.playerId,
-        (powerByPlayer.get(participant.playerId) || 0) + participant.power,
-      );
-    });
-    const siegeLeaderId =
-      [...powerByPlayer.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
-      battle.attackerId;
-    const leaderParticipant = resolvedParticipants.find(
-      (participant) => participant.playerId === siegeLeaderId,
+    const finalHealth = advanceBattleHealth(battle, now);
+    Object.assign(battle, finalHealth);
+    const resolvedParticipants = battleParticipants(battle, finalHealth).filter(
+      (participant) => participant.status === "engaged",
     );
-    battle.attackerId = siegeLeaderId;
-    if (leaderParticipant) {
-      battle.fromTerritoryId = leaderParticipant.sourceTerritoryId;
-    }
+    // Ownership remains with the commander who opened the siege. Allied
+    // reinforcements receive contribution in the report but cannot steal the
+    // territory by arriving late with a larger army.
     const attackingPlayerIds = [
       ...new Set(
         resolvedParticipants.map((participant) => participant.playerId),
@@ -4151,7 +4342,18 @@ async function processActiveBattles(now = new Date()) {
       battle.defenderId,
     ]);
     try {
-      const attackerWins = battle.attackerPower > battle.defenderPower;
+      const attackerHealthRatio =
+        Number(battle.attackerCurrentHp || 0) /
+        Math.max(1, Number(battle.attackerMaxHp || 1));
+      const defenderHealthRatio =
+        (Number(battle.defenderCurrentHp || 0) +
+          Number(battle.fortificationCurrentHp || 0)) /
+        Math.max(
+          1,
+          Number(battle.defenderMaxHp || 1) +
+            Number(battle.fortificationMaxHp || 0),
+        );
+      const attackerWins = attackerHealthRatio > defenderHealthRatio;
       const totalPower = Math.max(
         1,
         battle.attackerPower + battle.defenderPower,
@@ -4227,6 +4429,13 @@ async function processActiveBattles(now = new Date()) {
           artillery: Math.max(0, battle.attackerArtillery - nextArtillery),
           power: Math.max(0, battle.attackerPower - nextTroops),
         };
+        const woundedShare =
+          clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100;
+        const attackerWounded = {
+          infantry: Math.floor(attackerCasualties.infantry * woundedShare),
+          cavalry: Math.floor(attackerCasualties.cavalry * woundedShare),
+          artillery: Math.floor(attackerCasualties.artillery * woundedShare),
+        };
         const attackerSave = await saves.findOne({
           playerId: battle.attackerId,
         });
@@ -4251,6 +4460,9 @@ async function processActiveBattles(now = new Date()) {
             cavalryCount: nextCavalry,
             artilleryCount: nextArtillery,
             troops: nextTroops,
+            woundedInfantry: attackerWounded.infantry,
+            woundedCavalry: attackerWounded.cavalry,
+            woundedArtillery: attackerWounded.artillery,
             storage: emptyResources(),
           },
           battle.attackerId,
@@ -4270,9 +4482,12 @@ async function processActiveBattles(now = new Date()) {
           attackerTowns,
         );
         STORAGE_RESOURCE_KEYS.forEach((key) => {
-          const stored = Math.min(
-            defenderResources[key] || 0,
-            capturedStorage[key] || 0,
+          const stored = Math.floor(
+            Math.min(
+              defenderResources[key] || 0,
+              capturedStorage[key] || 0,
+            ) *
+              (clampNumber(gameConfig.lootPercent, 0, 100) / 100),
           );
           const availableCapacity = Math.max(
             0,
@@ -4309,6 +4524,18 @@ async function processActiveBattles(now = new Date()) {
           territory,
           connectionType,
         );
+        const defenderRemainingClaims = battle.defenderId
+          ? await territoryClaims
+              .find({
+                playerId: battle.defenderId,
+                territoryId: { $ne: territory.id },
+              })
+              .sort({ claimedAt: 1, territoryId: 1 })
+              .toArray()
+          : [];
+        const successorClaim = capturedDefenderCapital
+          ? defenderRemainingClaims[0] || null
+          : null;
         // Gems are premium currency and are never lootable. Update only the
         // four storage resources so this battle snapshot cannot overwrite a
         // newer gem balance from a shop purchase or concurrent sync.
@@ -4341,6 +4568,7 @@ async function processActiveBattles(now = new Date()) {
                 ),
                 connectionType,
                 isolated: false,
+                lastAttackedAt: now,
               },
               $setOnInsert: {
                 _id: `territory:${territory.id}`,
@@ -4367,14 +4595,42 @@ async function processActiveBattles(now = new Date()) {
                 { playerId: battle.defenderId },
                 {
                   $set: {
-                    towns: capturedDefenderCapital ? [] : defenderTowns,
+                    towns: defenderTowns,
                     updatedAt: now,
                   },
                 },
               )
             : Promise.resolve(),
-          battle.defenderId && capturedDefenderCapital
-            ? territoryClaims.deleteMany({ playerId: battle.defenderId })
+          battle.defenderId && successorClaim
+            ? territoryClaims.updateOne(
+                {
+                  playerId: battle.defenderId,
+                  territoryId: successorClaim.territoryId,
+                },
+                {
+                  $set: {
+                    settlementKind: "capital",
+                    rootTerritoryId: successorClaim.territoryId,
+                    isolated: false,
+                  },
+                  $unset: { parentTerritoryId: "", isolatedUntil: "" },
+                },
+              )
+            : Promise.resolve(),
+          battle.defenderId && successorClaim
+            ? territoryClaims.updateMany(
+                {
+                  playerId: battle.defenderId,
+                  parentTerritoryId: territory.id,
+                  territoryId: { $ne: successorClaim.territoryId },
+                },
+                {
+                  $set: {
+                    parentTerritoryId: successorClaim.territoryId,
+                    rootTerritoryId: successorClaim.territoryId,
+                  },
+                },
+              )
             : Promise.resolve(),
           players.updateOne(
             { _id: battle.attackerId },
@@ -4429,13 +4685,12 @@ async function processActiveBattles(now = new Date()) {
             battle.defenderId,
             "battle_resolved",
             defenderResourcesAfterBattle,
-            capturedDefenderCapital ? [] : defenderTowns,
+            defenderTowns,
           );
-          if (!capturedDefenderCapital) {
-            await cancelBrokenRouteClearings(battle.defenderId, now);
-            await pruneDisconnectedClaims(battle.defenderId);
-          }
+          await cancelBrokenRouteClearings(battle.defenderId, now);
+          await pruneDisconnectedClaims(battle.defenderId);
         }
+        await pruneDisconnectedClaims(battle.attackerId);
         if (battle.defenderId) {
           const defenderRemainingClaims = await territoryClaims.countDocuments({
             playerId: battle.defenderId,
@@ -4521,6 +4776,8 @@ async function processActiveBattles(now = new Date()) {
           artillery: Math.max(0, battle.defenderArtillery - nextArtillery),
           power: Math.max(0, battle.defenderPower - nextTroops),
         };
+        const woundedShare =
+          clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100;
         const defenderSave = await saves.findOne({
           playerId: battle.defenderId,
         });
@@ -4539,6 +4796,15 @@ async function processActiveBattles(now = new Date()) {
             cavalryCount: nextCavalry,
             artilleryCount: nextArtillery,
             troops: nextTroops,
+            woundedInfantry: Math.floor(
+              defenderCasualties.infantry * woundedShare,
+            ),
+            woundedCavalry: Math.floor(
+              defenderCasualties.cavalry * woundedShare,
+            ),
+            woundedArtillery: Math.floor(
+              defenderCasualties.artillery * woundedShare,
+            ),
           },
           battle.defenderId,
           territory,
@@ -4555,6 +4821,10 @@ async function processActiveBattles(now = new Date()) {
             },
           },
           { upsert: true },
+        );
+        await territoryClaims.updateOne(
+          { territoryId: territory.id, playerId: battle.defenderId },
+          { $set: { lastAttackedAt: now } },
         );
         const defenderCurrent = defenderPlayer
           ? normalizeResources(defenderPlayer.resources)
@@ -4610,6 +4880,39 @@ async function processActiveBattles(now = new Date()) {
               sourceTown.artilleryCount = Math.max(
                 0,
                 (sourceTown.artilleryCount || 0) + retreatArtillery,
+              );
+              sourceTown.woundedInfantry = Math.max(
+                0,
+                Number(sourceTown.woundedInfantry || 0) +
+                  Math.floor(
+                    Math.max(
+                      0,
+                      battle.attackerInfantry - retreatInfantry,
+                    ) *
+                      (clampNumber(gameConfig.woundedSharePercent, 0, 100) /
+                        100),
+                  ),
+              );
+              sourceTown.woundedCavalry = Math.max(
+                0,
+                Number(sourceTown.woundedCavalry || 0) +
+                  Math.floor(
+                    Math.max(0, battle.attackerCavalry - retreatCavalry) *
+                      (clampNumber(gameConfig.woundedSharePercent, 0, 100) /
+                        100),
+                  ),
+              );
+              sourceTown.woundedArtillery = Math.max(
+                0,
+                Number(sourceTown.woundedArtillery || 0) +
+                  Math.floor(
+                    Math.max(
+                      0,
+                      battle.attackerArtillery - retreatArtillery,
+                    ) *
+                      (clampNumber(gameConfig.woundedSharePercent, 0, 100) /
+                        100),
+                  ),
               );
               sourceTown.troops = troopValue(
                 sourceTown.infantryCount,
@@ -4684,6 +4987,20 @@ async function processActiveBattles(now = new Date()) {
           },
           casualty: attackerCasualties,
           survivors: attackerSurvivors,
+          wounded: {
+            infantry: Math.floor(
+              attackerCasualties.infantry *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+            cavalry: Math.floor(
+              attackerCasualties.cavalry *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+            artillery: Math.floor(
+              attackerCasualties.artillery *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+          },
         },
         defender: {
           initial: {
@@ -4694,7 +5011,27 @@ async function processActiveBattles(now = new Date()) {
           },
           casualty: defenderCasualties,
           survivors: defenderSurvivors,
+          wounded: {
+            infantry: Math.floor(
+              defenderCasualties.infantry *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+            cavalry: Math.floor(
+              defenderCasualties.cavalry *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+            artillery: Math.floor(
+              defenderCasualties.artillery *
+                (clampNumber(gameConfig.woundedSharePercent, 0, 100) / 100),
+            ),
+          },
         },
+        contributions: attackingPlayerIds.map((playerId) => ({
+          playerId,
+          power: resolvedParticipants
+            .filter((participant) => participant.playerId === playerId)
+            .reduce((sum, participant) => sum + participant.power, 0),
+        })),
         lootedResources,
         readBy: [],
         createdAt: now,
@@ -5199,6 +5536,17 @@ async function processDueTroopRecovery(now) {
               ) / 1_000_000,
             );
           });
+          const woundedKey =
+            specialty === "cavalry"
+              ? "woundedCavalry"
+              : specialty === "artillery"
+                ? "woundedArtillery"
+                : "woundedInfantry";
+          town[woundedKey] = Math.max(
+            0,
+            Number(town[woundedKey] || 0) -
+              Math.min(recovered, Number(town[woundedKey] || 0)),
+          );
           if (specialty === "cavalry")
             town.cavalryCount =
               Math.max(0, Number(town.cavalryCount || 0)) + recovered;
@@ -5312,6 +5660,14 @@ async function publishActiveBattleStates(now) {
     const health = advanceBattleHealth(battle, now);
     health.battleVersion = Math.max(1, Number(battle.battleVersion || 1)) + 1;
     Object.assign(battle, health);
+    if (
+      Number(battle.attackerCurrentHp || 0) <= 0 ||
+      Number(battle.defenderCurrentHp || 0) +
+          Number(battle.fortificationCurrentHp || 0) <=
+        0
+    ) {
+      battle.resolvesAt = now;
+    }
     return battle;
   });
   await activeBattles.bulkWrite(
@@ -5324,8 +5680,11 @@ async function publishActiveBattleStates(now) {
             attackerCurrentHp: battle.attackerCurrentHp,
             defenderMaxHp: battle.defenderMaxHp,
             defenderCurrentHp: battle.defenderCurrentHp,
+            fortificationMaxHp: battle.fortificationMaxHp,
+            fortificationCurrentHp: battle.fortificationCurrentHp,
             hpUpdatedAt: battle.hpUpdatedAt,
             battleVersion: battle.battleVersion,
+            resolvesAt: battle.resolvesAt,
           },
         },
       },
@@ -5344,6 +5703,7 @@ async function processWorldTick(now = new Date()) {
     await processArrivedMarches(now);
     await processActiveBattles(new Date());
     await processCompletedClearings(new Date());
+    await expireIsolatedClaims(new Date());
     await processDueTroopRecovery(new Date());
     await publishActiveBattleStates(new Date());
     return true;
@@ -8508,12 +8868,41 @@ export function createApp() {
         message: "Không tìm thấy lãnh thổ mục tiêu",
       });
     const { territoryClaims, saves } = await collections();
-    const [claims, save, gameSettings] = await Promise.all([
+    const [claims, save, gameSettings, targetClaim] = await Promise.all([
       territoryClaims.find({ playerId: req.user.id }).toArray(),
       saves.findOne({ playerId: req.user.id }),
       loadGameConfig(),
+      territoryClaims.findOne({ territoryId: target.id }),
     ]);
     const towns = Array.isArray(save?.towns) ? save.towns : [];
+    const targetSave = targetClaim?.playerId
+      ? await saves.findOne({ playerId: targetClaim.playerId })
+      : null;
+    const defenderTown = targetClaim?.playerId
+      ? normalizeTownSnapshotForState(
+          findTownForTerritory(targetSave?.towns || [], target) ||
+            defaultTownSnapshotForTerritory(target, targetClaim.playerId),
+          targetClaim.playerId,
+          target,
+        )
+      : null;
+    const defenderUnits = defenderTown
+      ? {
+          infantry: defenderTown.infantryCount,
+          cavalry: defenderTown.cavalryCount,
+          artillery: defenderTown.artilleryCount,
+        }
+      : { infantry: 0, cavalry: 0, artillery: 0 };
+    const defenderPowerEstimate = defenderTown
+      ? battleDefensePower(
+          defenderUnits,
+          defenderTown,
+          gameSettings,
+          { infantry: 0, cavalry: 0, artillery: 0 },
+        ) +
+        Math.max(0, Number(defenderTown.buildings?.fort || 0)) *
+          gameSettings.fortLevelDefense
+      : 0;
     const sources = claims
       .map((claim) => {
         const territory = getStaticTerritory(claim.territoryId);
@@ -8528,9 +8917,7 @@ export function createApp() {
           parsed.data.kind === "attack"
             ? resolvePlayerAttackRoute(claims, territory, target)
             : resolveAttackRoute(territory, target);
-        const connected =
-          parsed.data.kind === "attack" ||
-          isClaimConnectedToCapital(claims, territory.id);
+        const connected = isClaimConnectedToCapital(claims, territory.id);
         const infantry = Math.max(
           0,
           Math.floor(Number(town.infantryCount || 0) || 0),
@@ -8544,6 +8931,24 @@ export function createApp() {
           Math.floor(Number(town.artilleryCount || 0) || 0),
         );
         const troops = infantry + cavalry + artillery;
+        const attackerPowerEstimate = battleAttackPower(
+          { infantry, cavalry, artillery },
+          gameSettings,
+          defenderUnits,
+          defenderTown,
+        );
+        const advantageRatio =
+          defenderPowerEstimate > 0
+            ? attackerPowerEstimate / defenderPowerEstimate
+            : attackerPowerEstimate > 0
+              ? 9
+              : 0;
+        const forecast =
+          advantageRatio >= 1.15
+            ? "favored"
+            : advantageRatio >= 0.85
+              ? "even"
+              : "risky";
         const valid = connected && route.valid && troops > 0;
         const travel = calcTravelMetrics(
           territory,
@@ -8567,6 +8972,10 @@ export function createApp() {
           cavalry,
           artillery,
           troops,
+          attackerPowerEstimate,
+          defenderPowerEstimate,
+          advantageRatio: Math.round(advantageRatio * 100) / 100,
+          forecast,
           reason: !connected
             ? "Thành đã bị cô lập khỏi Hoàng Thành"
             : troops <= 0
@@ -8604,7 +9013,14 @@ export function createApp() {
         message: "Không tìm thấy lãnh thổ hành quân",
       });
     return withPlayerMutationLock(req.user!.id, async () => {
-      const { territoryClaims, marchOrders, players, saves } =
+      const {
+        territoryClaims,
+        marchOrders,
+        activeBattles,
+        alliances,
+        players,
+        saves,
+      } =
         await collections();
       if (parsed.data.requestId) {
         const existingMarch = await marchOrders.findOne({
@@ -8631,13 +9047,11 @@ export function createApp() {
       const playerClaims = await territoryClaims
         .find({ playerId: req.user!.id })
         .toArray();
-      if (
-        parsed.data.kind !== "attack" &&
-        !isClaimConnectedToCapital(playerClaims, from.id)
-      ) {
+      if (!isClaimConnectedToCapital(playerClaims, from.id)) {
         return res.status(409).json({
           error: "isolated_stronghold",
-          message: "Pháo đài xuất phát đã bị cô lập khỏi Hoàng Thành",
+          message:
+            "Lãnh thổ xuất phát đang cô lập và không thể điều động quân",
         });
       }
       const gameSettings = await loadGameConfig();
@@ -8669,6 +9083,28 @@ export function createApp() {
       const now = new Date();
       // Check newbie protection shield on target
       const targetClaim = await territoryClaims.findOne({ territoryId: to.id });
+      if (parsed.data.kind === "attack" && !targetClaim?.playerId) {
+        return res.status(409).json({
+          error: "builder_required",
+          message:
+            "Đất hoang phải được khai phá bằng đội công binh, không thể chiếm tức thì bằng quân đội",
+        });
+      }
+      if (
+        parsed.data.kind === "attack" &&
+        targetClaim?.lastAttackedAt &&
+        gameSettings.attackCooldownSeconds > 0
+      ) {
+        const nextAttackAt =
+          new Date(targetClaim.lastAttackedAt).getTime() +
+          gameSettings.attackCooldownSeconds * 1000;
+        if (nextAttackAt > now.getTime()) {
+          return res.status(429).json({
+            error: "territory_attack_cooldown",
+            message: `Lãnh thổ vừa kết thúc giao tranh. Có thể tấn công lại sau ${Math.ceil((nextAttackAt - now.getTime()) / 1000)} giây`,
+          });
+        }
+      }
       if (
         parsed.data.kind === "attack" &&
         targetClaim &&
@@ -8677,10 +9113,38 @@ export function createApp() {
         const targetPlayer = await players.findOne({
           _id: targetClaim.playerId,
         });
-        // Newbie shield check disabled
-        // if (targetPlayer?.newbieShieldUntil && new Date(targetPlayer.newbieShieldUntil).getTime() > now.getTime()) {
-        //   return res.status(403).json({ error: "target_protected", message: "Thành trì đối thủ đang trong thời gian bảo vệ tân thủ" });
-        // }
+        if (
+          targetPlayer?.newbieShieldUntil &&
+          new Date(targetPlayer.newbieShieldUntil).getTime() > now.getTime()
+        ) {
+          return res.status(403).json({
+            error: "target_protected",
+            message: "Thành trì đối thủ đang trong thời gian bảo vệ tân thủ",
+          });
+        }
+      }
+      const activeTargetBattle = await activeBattles.findOne({
+        regionId: to.id,
+        status: "fighting",
+      });
+      if (activeTargetBattle) {
+        const sideOwnerId =
+          parsed.data.kind === "reinforce" &&
+          parsed.data.battleSide === "defender"
+            ? activeTargetBattle.defenderId
+            : activeTargetBattle.attackerId;
+        const allowed = await playersShareAlliance(
+          alliances,
+          req.user!.id,
+          sideOwnerId || undefined,
+        );
+        if (!allowed) {
+          return res.status(403).json({
+            error: "battle_side_forbidden",
+            message:
+              "Bạn không thuộc phe hoặc liên minh đang tham chiến tại mục tiêu này",
+          });
+        }
       }
       // Break attacker's own shield if attacking another player
       const attacker = await players.findOne({ _id: req.user!.id });
@@ -9335,6 +9799,14 @@ export function createApp() {
     townLevelDefense: z.number().nonnegative(),
     fortLevelDefense: z.number().nonnegative(),
     retreatPercent: z.number().min(0).max(100),
+    infantryVsCavalryBonusPercent: z.number().min(0).max(200),
+    cavalryVsArtilleryBonusPercent: z.number().min(0).max(200),
+    artillerySiegeBonusPercent: z.number().min(0).max(300),
+    unsupportedArtilleryPenaltyPercent: z.number().min(0).max(100),
+    woundedSharePercent: z.number().min(0).max(100),
+    isolatedGraceHours: z.number().min(1).max(168),
+    attackCooldownSeconds: z.number().min(0).max(3600),
+    lootPercent: z.number().min(0).max(100),
     infantryCostGold: z.number().nonnegative(),
     infantryCostWood: z.number().nonnegative(),
     infantryCostFood: z.number().nonnegative(),

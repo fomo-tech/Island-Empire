@@ -912,6 +912,8 @@ export function TroopDeploymentModal({
       ) || null,
     [sourceOptions, sourceTown.id, sourceRegionId],
   );
+  const currentSourceValid =
+    !hasServerSourceDecision || Boolean(currentSourceOption?.valid);
   const distanceKm = useMemo(
     () =>
       currentSourceOption?.distanceKm ??
@@ -969,25 +971,29 @@ export function TroopDeploymentModal({
       hasServerSourceDecision,
     ],
   );
+  const hasValidSource =
+    !hasServerSourceDecision || townOptions.some((town) => !town.disabled);
 
   const infantryAvailable = Math.max(
     0,
-    Math.floor(
+    currentSourceValid ? Math.floor(
       currentSourceOption?.infantry ??
         sourceTown.infantryCount ??
         sourceTown.troops ??
         0,
-    ),
+    ) : 0,
   );
   const cavalryAvailable = Math.max(
     0,
-    Math.floor(currentSourceOption?.cavalry ?? sourceTown.cavalryCount ?? 0),
+    currentSourceValid
+      ? Math.floor(currentSourceOption?.cavalry ?? sourceTown.cavalryCount ?? 0)
+      : 0,
   );
   const artilleryAvailable = Math.max(
     0,
-    Math.floor(
+    currentSourceValid ? Math.floor(
       currentSourceOption?.artillery ?? sourceTown.artilleryCount ?? 0,
-    ),
+    ) : 0,
   );
   const totalUnitsAvailable = Math.max(
     0,
@@ -1095,6 +1101,15 @@ export function TroopDeploymentModal({
       : travelSeconds >= 60
         ? `${Math.floor(travelSeconds / 60)}p ${travelSeconds % 60}s`
         : `${travelSeconds}s`;
+  const battleForecast = currentSourceOption?.forecast;
+  const forecastLabel =
+    battleForecast === "favored"
+      ? "LỢI THẾ"
+      : battleForecast === "even"
+        ? "CÂN BẰNG"
+        : battleForecast === "risky"
+          ? "RỦI RO CAO"
+          : "CHƯA CÓ DỮ LIỆU";
 
   return (
     <div className="ob-modal-overlay" onMouseDown={onClose}>
@@ -1126,7 +1141,7 @@ export function TroopDeploymentModal({
         </div>
 
         {/* Section 1: CHỌN THÀNH XUẤT QUÂN */}
-        <div className="rt-dispatch-section">
+        <div className="rt-dispatch-section rt-source-section">
           <div className="rt-dispatch-section-title">CHỌN THÀNH XUẤT QUÂN</div>
           <div
             className="rt-source-card-grid"
@@ -1134,7 +1149,7 @@ export function TroopDeploymentModal({
             aria-label="Chọn thành xuất quân"
           >
             {townOptions.map((town) => {
-              const selected =
+              const selected = !town.disabled &&
                 Number(selectedSourceTownId ?? sourceTown.id) ===
                 Number(town.id);
               return (
@@ -1189,6 +1204,8 @@ export function TroopDeploymentModal({
 
         {errorMessage && <div className="rt-error-banner">{errorMessage}</div>}
 
+        {hasValidSource && (
+          <>
         {/* Section 2: 6 Overview Stat Cards Grid (Zero Emojis - 100% Vector SVGs) */}
         <div className="rt-army-overview-grid">
           <div className="rt-army-stat-card">
@@ -1366,6 +1383,20 @@ export function TroopDeploymentModal({
           )}
         </div>
 
+        {isAttack && currentSourceOption && (
+          <div className={`rt-battle-forecast is-${battleForecast || "unknown"}`}>
+            <span>
+              <ScalesIconSVG /> DỰ BÁO NẾU XUẤT TOÀN BỘ QUÂN
+            </span>
+            <strong>{forecastLabel}</strong>
+            <small>
+              Công {Math.round(currentSourceOption.attackerPowerEstimate || 0)}
+              {" · "}Thủ {Math.round(currentSourceOption.defenderPowerEstimate || 0)}
+              {" · "}Tỷ lệ {Number(currentSourceOption.advantageRatio || 0).toFixed(2)}x
+            </small>
+          </div>
+        )}
+
         {/* Section 4: THỜI GIAN HÀNH QUÂN */}
         <div className="rt-march-time-row">
           <div className="time-card">
@@ -1412,6 +1443,8 @@ export function TroopDeploymentModal({
             <span>{actionLabel}</span>
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

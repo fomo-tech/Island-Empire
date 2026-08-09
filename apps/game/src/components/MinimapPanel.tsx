@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { detectDeviceLanguage, translate } from "../game/i18n";
 
 type MinimapPanelProps = {
   title: string;
@@ -21,6 +22,8 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
     },
     canvasRef,
   ) {
+    const language = detectDeviceLanguage();
+    const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
     return (
       <div
         className={`hud-minimap-card premium-framed ${collapsed ? "collapsed" : ""}`}
@@ -33,15 +36,15 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
             </span>
             <span className="hud-minimap-title-copy">
               <strong>{title}</strong>
-              <small>BẢN ĐỒ VƯƠNG QUỐC</small>
+              <small>{t("kingdomMap")}</small>
             </span>
           </span>
-          <span className="hud-minimap-live">TRỰC TUYẾN</span>
+          <span className="hud-minimap-live">{t("online")}</span>
           <button
             type="button"
             className="hud-mini-icon-btn-plus"
-            title={collapsed ? "Mở rộng bản đồ" : "Thu gọn bản đồ"}
-            aria-label={collapsed ? "Mở rộng bản đồ" : "Thu gọn bản đồ"}
+            title={collapsed ? t("expandMap") : t("collapseMap")}
+            aria-label={collapsed ? t("expandMap") : t("collapseMap")}
             aria-expanded={!collapsed}
             onClick={onToggle}
           >
@@ -75,16 +78,16 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
               width={160}
               height={120}
               className="hud-minimap-canvas"
-              aria-label="Bản đồ thu nhỏ"
+              aria-label={t("minimap")}
             />
           </div>
 
-          <div className="minimap-marker-legend" aria-label="Chú thích bản đồ">
+          <div className="minimap-marker-legend" aria-label={t("mapLegend")}>
             <span>
-              <i className="minimap-marker-dot player" /> Bạn
+              <i className="minimap-marker-dot player" /> {t("you")}
             </span>
             <span>
-              <i className="minimap-marker-dot other" /> Người chơi khác
+              <i className="minimap-marker-dot other" /> {t("otherPlayers")}
             </span>
           </div>
         </div>

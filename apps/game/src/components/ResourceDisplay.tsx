@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ResourceBag, ResourceKey } from "@island/shared";
+import { detectDeviceLanguage, translate } from "../game/i18n";
 
 export const RESOURCE_ORDER: ResourceKey[] = [
   "food",
@@ -22,8 +23,8 @@ export const RESOURCE_META: Record<
 
 export function ResourceIcon({ resource, className = "" }: { resource: ResourceKey; className?: string }) {
   const meta = RESOURCE_META[resource];
-  const isPremium = resource === "gems";
-  return <img className={className} src={meta.icon} alt={meta.label} />;
+  const language = detectDeviceLanguage();
+  return <img className={className} src={meta.icon} alt={translate(language, resource)} />;
 }
 
 function exact(value: number) {
@@ -54,10 +55,16 @@ export function ResourceHudItem({
   onAdd?: () => void;
   className?: string;
 }) {
+  const language = detectDeviceLanguage();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const entryRef = useRef<HTMLDivElement | null>(null);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
-  const meta = RESOURCE_META[resource];
+  const meta = {
+    ...RESOURCE_META[resource],
+    label: t(resource),
+    shortLabel: t(resource),
+  };
   const isPremium = resource === "gems";
   const remaining = Math.max(0, capacity - value);
   const percent = capacity > 0 ? Math.min(100, (value / capacity) * 100) : 0;
@@ -65,12 +72,12 @@ export function ResourceHudItem({
   const nearFull = !full && percent >= 90;
   const secondsToFull = ratePerHour > 0 ? (remaining / ratePerHour) * 3600 : 0;
   const fullEstimate = full
-    ? "Kho đã đầy"
+    ? t("storageFull")
     : ratePerHour <= 0
-      ? "Không có sản lượng"
+      ? t("noProduction")
       : secondsToFull < 3600
-        ? `${Math.max(1, Math.ceil(secondsToFull / 60))} phút nữa đầy`
-        : `${Math.floor(secondsToFull / 3600)} giờ ${Math.ceil((secondsToFull % 3600) / 60)} phút nữa đầy`;
+        ? `${Math.max(1, Math.ceil(secondsToFull / 60))} ${t("minuteUnit")}`
+        : `${Math.floor(secondsToFull / 3600)} ${t("hourUnit")} ${Math.ceil((secondsToFull % 3600) / 60)} ${t("minuteUnit")}`;
 
   const positionTooltip = () => {
     const rect = entryRef.current?.getBoundingClientRect();
@@ -130,7 +137,7 @@ export function ResourceHudItem({
       role="button"
       aria-expanded={tooltipOpen}
       aria-controls={`resource-tooltip-${resource}`}
-      aria-label={`${meta.label}: ${exact(value)}${isPremium ? "" : ` trên ${exact(capacity)}`}`}
+      aria-label={`${meta.label}: ${exact(value)}${isPremium ? "" : ` / ${exact(capacity)}`}`}
       className={`hud-resource-entry res-${resource}${className ? ` ${className}` : ""}${full ? " is-full" : nearFull ? " is-near-full" : ""}${tooltipOpen ? " is-tooltip-open" : ""}`}
       onClick={toggleTooltip}
       onKeyDown={handleEntryKeyDown}
@@ -141,9 +148,9 @@ export function ResourceHudItem({
           <span className="hud-resource-current-value">{compact(value)}</span>
           {!isPremium && <span className="hud-resource-capacity">/{compact(capacity)}</span>}
         </strong>
-        <small>{ratePerHour > 0 ? `+${compact(ratePerHour)}/h` : isPremium ? "Đặc biệt" : "0/h"}</small>
+        <small>{ratePerHour > 0 ? `+${compact(ratePerHour)}/h` : isPremium ? t("special") : "0/h"}</small>
       </span>
-      {onAdd && <button type="button" className="hud-res-add-btn rok-add-btn" onClick={(event) => { event.stopPropagation(); onAdd(); }} aria-label={`Mua ${meta.label}`}>+</button>}
+      {onAdd && <button type="button" className="hud-res-add-btn rok-add-btn" onClick={(event) => { event.stopPropagation(); onAdd(); }} aria-label={`${t("buy")} ${meta.label}`}>+</button>}
       <div
         id={`resource-tooltip-${resource}`}
         className="hud-resource-tooltip"
@@ -153,13 +160,13 @@ export function ResourceHudItem({
       >
         <header><ResourceIcon resource={resource} /><strong>{meta.label}</strong></header>
         <dl>
-          <div><dt>Hiện có</dt><dd>{exact(value)}</dd></div>
-          {!isPremium && <div><dt>Giới hạn</dt><dd>{exact(capacity)}</dd></div>}
-          {!isPremium && <div><dt>Còn trống</dt><dd>{exact(remaining)}</dd></div>}
-          <div><dt>Sản lượng</dt><dd>+{exact(ratePerHour)}/giờ</dd></div>
+          <div><dt>{t("available")}</dt><dd>{exact(value)}</dd></div>
+          {!isPremium && <div><dt>{t("limit")}</dt><dd>{exact(capacity)}</dd></div>}
+          {!isPremium && <div><dt>{t("remaining")}</dt><dd>{exact(remaining)}</dd></div>}
+          <div><dt>{t("production")}</dt><dd>+{exact(ratePerHour)}/{t("hourUnit")}</dd></div>
         </dl>
-        {!isPremium && <p className={full ? "danger" : nearFull ? "warning" : ""}>{connected ? fullEstimate : "Đang chờ đồng bộ server"}</p>}
-        {isPremium && <p>{connected ? "Chỉ có ở Mỏ Ngọc hiếm hoặc cửa hàng" : "Đang chờ đồng bộ server"}</p>}
+        {!isPremium && <p className={full ? "danger" : nearFull ? "warning" : ""}>{connected ? fullEstimate : t("waitingForServer")}</p>}
+        {isPremium && <p>{connected ? t("rareGemSource") : t("waitingForServer")}</p>}
         {onAdd && (
           <button
             type="button"
@@ -169,7 +176,7 @@ export function ResourceHudItem({
               onAdd();
             }}
           >
-            <span>+</span> Mở cửa hàng {meta.shortLabel.toLowerCase()}
+            <span>+</span> {t("openResourceShop")} {meta.shortLabel.toLowerCase()}
           </button>
         )}
       </div>

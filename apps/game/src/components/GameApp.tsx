@@ -1390,14 +1390,23 @@ const LOADING_TIPS = [
   {
     vi: "Chiếm nhiều lãnh thổ để nâng giới hạn tài nguyên.",
     en: "Occupy more territories to raise your resource limits.",
+    ko: "더 많은 영토를 점령하여 자원 한도를 높이세요.",
+    ja: "領土を増やして資源の上限を引き上げましょう。",
+    fr: "Occupez davantage de territoires pour augmenter vos limites de ressources.",
   },
   {
     vi: "Huấn luyện quân tại thành phố để sẵn sàng điều binh xuất trận.",
     en: "Train troops in your town to prepare for military deployment.",
+    ko: "도시에서 병력을 훈련하여 출전에 대비하세요.",
+    ja: "都市で兵士を訓練し、出撃に備えましょう。",
+    fr: "Entraînez des troupes dans votre ville avant de les déployer.",
   },
   {
     vi: "Có thể chiếm nhiều đất ở lục địa khác nếu có Bến tàu.",
     en: "You can occupy lands on other continents if you own a Port.",
+    ko: "항구가 있으면 다른 대륙의 영토를 점령할 수 있습니다.",
+    ja: "港を所有すれば、別の大陸の領土も占領できます。",
+    fr: "Un port vous permet d’occuper des terres sur d’autres continents.",
   },
 ];
 
@@ -2357,6 +2366,9 @@ export function GameApp({
                 ? undefined
                 : serverToEngineTerritoryId(territory.rootTerritoryId),
             connectionType: territory.connectionType,
+            isolated: territory.isolated,
+            isolatedUntil: territory.isolatedUntil,
+            lastAttackedAt: territory.lastAttackedAt,
           }));
           engineRef.current?.handleAction("applyGameState", {
             territories: conquestMode ? [] : territories,
@@ -2560,7 +2572,7 @@ export function GameApp({
             setToken(null);
             setPlayerId(null);
           }
-          enterGame("ĐÃ VÀO GAME CHẾ ĐỘ TRỰC TIẾP");
+          enterGame(t("liveModeReady"));
           refreshGameStateWithRetry("initial-load-retry", 4, 1200);
         });
     } else {
@@ -3236,6 +3248,26 @@ export function GameApp({
             );
           }
         }
+        if (event.type === "territories_isolated") {
+          refreshGameStateFromServer("territories-isolated");
+          if (
+            event.playerId === playerId &&
+            Array.isArray(event.isolatedTerritoryIds)
+          ) {
+            const remaining = Math.max(
+              0,
+              new Date(event.isolatedUntil).getTime() - Date.now(),
+            );
+            const hours = Math.max(1, Math.ceil(remaining / 3_600_000));
+            showGameError(
+              `⚠️ ${event.isolatedTerritoryIds.length} lãnh thổ bị cô lập. Bạn còn khoảng ${hours} giờ để nối lại tuyến tiếp tế.`,
+            );
+            addPrivateReportMail(
+              "Cảnh báo cô lập lãnh thổ",
+              `${event.isolatedTerritoryIds.length} lãnh thổ đã bị cắt khỏi Hoàng Thành. Sản xuất và điều quân tạm dừng; hãy tái chiếm mắt xích trong khoảng ${hours} giờ.`,
+            );
+          }
+        }
         if (event.type === "world_state_hint") {
           refreshGameStateFromServer("socket-hint");
         }
@@ -3561,6 +3593,9 @@ export function GameApp({
           ? undefined
           : serverToEngineTerritoryId(territory.rootTerritoryId),
       connectionType: territory.connectionType,
+      isolated: territory.isolated,
+      isolatedUntil: territory.isolatedUntil,
+      lastAttackedAt: territory.lastAttackedAt,
     }));
     engineRef.current?.handleAction("applyGameState", {
       territories,
@@ -4084,8 +4119,8 @@ export function GameApp({
       : [
           {
             id: "frontier-calm",
-            title: "Biên cương yên ổn",
-            meta: "Thành trì an toàn · Quân đội sẵn sàng",
+            title: t("frontierCalm"),
+            meta: t("castleSafeArmyReady"),
             icon: "/assets/icons/icon_tower.png",
             tone: "calm" as const,
             priority: 9,
@@ -4244,7 +4279,7 @@ export function GameApp({
               <span
                 className={`tip-content-text ${isTipFading ? "fade-out" : "fade-in"}`}
               >
-                {LOADING_TIPS[currentTipIndex][language === "vi" ? "vi" : "en"]}
+                {LOADING_TIPS[currentTipIndex][language]}
               </span>
             </div>
 
@@ -4390,10 +4425,10 @@ export function GameApp({
               />
               <section
                 className="hud-main-missions"
-                aria-label="Tình hình chiến trường"
+                aria-label={t("battlefieldSituation")}
               >
                 <div className="hud-main-missions-header">
-                  <span>TÌNH HÌNH CHIẾN TRƯỜNG</span>
+                  <span>{t("battlefieldSituation")}</span>
                   <i>
                     <img
                       src="/assets/icons/icon_collapse_european.png"
@@ -4454,9 +4489,13 @@ export function GameApp({
               <div className="toast-sub">
                 {selectedRegion
                   ? t("buildFromTooltip")
-                  : language === "vi"
-                    ? "Bấm vào ô lãnh thổ để ra lệnh"
-                    : "Click territory to issue orders"}
+                  : ({
+                      vi: "Bấm vào ô lãnh thổ để ra lệnh",
+                      en: "Click a territory to issue orders",
+                      ko: "영토를 클릭하여 명령을 내리세요",
+                      ja: "領土をクリックして命令を出してください",
+                      fr: "Cliquez sur un territoire pour donner des ordres",
+                    } as const)[language]}
               </div>
             </div>
           </div>
@@ -4487,7 +4526,7 @@ export function GameApp({
           {!conquestMode && (
             <nav
               className={`hud-command-dock hud-interactive ${mobileActionsExpanded ? "is-expanded" : ""}`}
-              aria-label="Lệnh nhanh"
+              aria-label={t("quickCommands")}
             >
               <button
                 type="button"
@@ -4495,7 +4534,7 @@ export function GameApp({
                 onClick={() => openModal("army")}
               >
                 <img src="/assets/icons/menu/troop.png" alt="" />
-                <span>Quân đội</span>
+                <span>{t("army")}</span>
               </button>
               <button
                 type="button"
@@ -4503,7 +4542,7 @@ export function GameApp({
                 onClick={() => openModal("kingdom")}
               >
                 <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
-                <span>Thành trì</span>
+                <span>{t("castle")}</span>
               </button>
               {mobileActionsExpanded && (
               <button
@@ -4512,7 +4551,7 @@ export function GameApp({
                 onClick={() => openModal("treasure")}
               >
                 <img src="/assets/icons/menu/store.png" alt="" />
-                <span>Kho báu</span>
+                <span>{t("treasure")}</span>
               </button>
               )}
               <button
@@ -4525,7 +4564,7 @@ export function GameApp({
                 }}
               >
                 <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
-                <span>Bản đồ</span>
+                <span>{t("map")}</span>
               </button>
               <button
                 type="button"
@@ -4533,7 +4572,7 @@ export function GameApp({
                 onClick={onOpenConquest}
               >
                 <img src="/assets/icons/menu/troop.png" alt="" />
-                <span>Chinh phạt</span>
+                <span>{t("conquest")}</span>
               </button>
               {mobileActionsExpanded && (
                 <>
@@ -4543,7 +4582,7 @@ export function GameApp({
                 onClick={() => openModal("warReport")}
               >
                 <img src="/assets/icons/menu/report.png" alt="" />
-                <span>Chiến báo</span>
+                <span>{t("warReport")}</span>
                 {reportUnreadCount > 0 && (
                   <b className="hud-command-badge">
                     {Math.min(99, reportUnreadCount)}
@@ -4556,7 +4595,7 @@ export function GameApp({
                 onClick={() => openModal("mail")}
               >
                 <img src="/assets/icons/menu/letter.png" alt="" />
-                <span>Thư tín</span>
+                <span>{t("personalMailShort")}</span>
                 {unreadMailCount > 0 && (
                   <b className="hud-command-badge">
                     {Math.min(99, unreadMailCount)}
@@ -4569,7 +4608,7 @@ export function GameApp({
                 onClick={() => openModal("treasure")}
               >
                 <img src="/assets/icons/menu/envent.png" alt="" />
-                <span>Sự kiện</span>
+                <span>{t("events")}</span>
               </button>
               <button
                 type="button"
@@ -4577,7 +4616,7 @@ export function GameApp({
                 onClick={openShop}
               >
                 <img src="/assets/icons/menu/store.png" alt="" />
-                <span>Cửa hàng</span>
+                <span>{t("shop")}</span>
               </button>
               <button
                 type="button"
@@ -4585,7 +4624,7 @@ export function GameApp({
                 onClick={() => openModal("ranking")}
               >
                 <img src="/assets/icons/menu/rank.png" alt="" />
-                <span>BXH</span>
+                <span>{t("ranking")}</span>
               </button>
               <button
                 type="button"
@@ -4593,7 +4632,7 @@ export function GameApp({
                 onClick={() => openModal("settings")}
               >
                 <img src="/assets/icons/menu/setting.png" alt="" />
-                <span>Cài đặt</span>
+                <span>{t("settings")}</span>
               </button>
                 </>
               )}
@@ -4623,7 +4662,7 @@ export function GameApp({
                   src={`/assets/icons/menu/${mobileActionsExpanded ? "close" : "more"}.png`}
                   alt=""
                 />
-                <span>{mobileActionsExpanded ? "Thu gọn" : "Thêm"}</span>
+                <span>{mobileActionsExpanded ? t("collapse") : t("more")}</span>
               </button>
             </nav>
           )}
@@ -4633,10 +4672,10 @@ export function GameApp({
               type="button"
               className="hud-capital-shortcut hud-interactive"
               onClick={() => openModal("kingdom")}
-              title="Mở Thành chính"
+              title={t("mainCity")}
             >
               <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
-              <span>Thành chính</span>
+              <span>{t("mainCity")}</span>
               <b>
                 <img src="/assets/icons/icon_collapse_european.png" alt="" />
               </b>
@@ -4649,44 +4688,44 @@ export function GameApp({
             <div
               className="rok-badge-item rok-badge-item-event"
               onClick={() => openModal("treasure")}
-              title="Sự kiện đặc biệt"
+              title={t("events")}
             >
               <div className="rok-badge-icon-wrap rok-badge-event">
                 <img
                   src="/assets/icons/menu/envent.png"
-                  alt="Sự kiện"
+                  alt={t("events")}
                   className="rok-badge-img"
                 />
               </div>
-              <span className="rok-badge-subtext">Sự kiện</span>
+              <span className="rok-badge-subtext">{t("events")}</span>
             </div>
 
             {/* 2. Quân đội (Army / Military) */}
             <div
               className="rok-badge-item rok-badge-item-army"
               onClick={() => openModal("army")}
-              title="Quản lý quân đội"
+              title={t("army")}
             >
               <div className="rok-badge-icon-wrap rok-badge-army">
                 <img
                   src="/assets/icons/menu/troop.png"
-                  alt="Quân đội"
+                  alt={t("army")}
                   className="rok-badge-img"
                 />
               </div>
-              <span className="rok-badge-subtext">Quân đội</span>
+              <span className="rok-badge-subtext">{t("army")}</span>
             </div>
 
             {/* 3. Chiến báo (Battle Reports) */}
             <div
               className="rok-badge-item rok-badge-item-war"
               onClick={() => openModal("warReport")}
-              title="Chiến báo & Quân sự"
+              title={t("warReport")}
             >
               <div className="rok-badge-icon-wrap rok-badge-war">
                 <img
                   src="/assets/icons/menu/report.png"
-                  alt="Chiến báo"
+                  alt={t("warReport")}
                   className="rok-badge-img"
                 />
                 {reportUnreadCount > 0 && (
@@ -4695,14 +4734,14 @@ export function GameApp({
                   </b>
                 )}
               </div>
-              <span className="rok-badge-subtext">Chiến báo</span>
+              <span className="rok-badge-subtext">{t("warReport")}</span>
             </div>
 
             {/* 4. Thư tín (Mail) */}
             <div
               className="rok-badge-item rok-badge-item-mail"
               onClick={() => openModal("mail")}
-              title="Thư tín"
+              title={t("personalMail")}
             >
               <div className="rok-badge-icon-wrap rok-badge-mail">
                 <img
@@ -4716,19 +4755,19 @@ export function GameApp({
                   </b>
                 )}
               </div>
-              <span className="rok-badge-subtext">Thư tín</span>
+              <span className="rok-badge-subtext">{t("personalMailShort")}</span>
             </div>
 
             {/* 5. Cửa hàng (Shop / Offers) */}
             <div
               className="rok-badge-item rok-badge-item-shop"
               onClick={openShop}
-              title="Cửa hàng & Gói ưu đãi"
+              title={t("shop")}
             >
               <div className="rok-badge-icon-wrap rok-badge-shop">
                 <img
                   src="/assets/icons/menu/store.png"
-                  alt="Cửa hàng"
+                  alt={t("shop")}
                   className="rok-badge-img"
                 />
                 {shopCatalog.filter(
@@ -4747,30 +4786,30 @@ export function GameApp({
                   </b>
                 )}
               </div>
-              <span className="rok-badge-subtext">Cửa hàng</span>
+              <span className="rok-badge-subtext">{t("shop")}</span>
             </div>
 
             {/* 6. Bảng xếp hạng (Ranking) */}
             <div
               className="rok-badge-item rok-badge-item-ranking"
               onClick={() => openModal("ranking")}
-              title="Bảng xếp hạng vương quốc"
+              title={t("ranking")}
             >
               <div className="rok-badge-icon-wrap rok-badge-ranking">
                 <img
                   src="/assets/icons/menu/rank.png"
-                  alt="Bảng xếp hạng"
+                  alt={t("ranking")}
                   className="rok-badge-img"
                 />
               </div>
-              <span className="rok-badge-subtext">BXH</span>
+              <span className="rok-badge-subtext">{t("ranking")}</span>
             </div>
 
             {/* 7. Cài đặt (Settings) */}
             <div
               className="rok-badge-item rok-badge-item-settings"
               onClick={() => openModal("settings")}
-              title="Cài đặt hệ thống"
+              title={t("settings")}
             >
               <div className="rok-badge-icon-wrap rok-badge-settings">
                 <img
@@ -4779,7 +4818,7 @@ export function GameApp({
                   className="rok-badge-img"
                 />
               </div>
-              <span className="rok-badge-subtext">Cài đặt</span>
+              <span className="rok-badge-subtext">{t("settings")}</span>
             </div>
           </div>
 
@@ -5271,6 +5310,9 @@ export function GameApp({
                         territory.equippedCapitalSkin ?? null,
                       equippedDistrictSkin:
                         territory.equippedDistrictSkin ?? null,
+                      isolated: territory.isolated,
+                      isolatedUntil: territory.isolatedUntil,
+                      lastAttackedAt: territory.lastAttackedAt,
                     }));
                     engineRef.current?.handleAction("applyWorldOwnership", {
                       territories,

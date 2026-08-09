@@ -19,11 +19,7 @@ import type {
 } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 import {
-  EuroFlourishLeft,
-  EuroFlourishRight,
   EuroInfoIcon,
-  EuroClockIcon,
-  EuroRefreshIcon,
 } from "./EuroIcons";
 import { kingdomArchitectureFromSkin } from "../game/kingdomArchitecture";
 import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
@@ -1136,11 +1132,23 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   const availableTabs = SHOP_TABS.filter((tab) => {
     if (tab.id === "gems")
       return enabledGemPacks.length > 0 && gemPackPaymentConfigured;
-    if (tab.id === "resources") return resourcePacks.length > 0;
     if (tab.id === "offers") return liveOfferResourcePacks.length > 0;
-    if (tab.id === "skins") return skinPacks.length > 0;
-    return profilePacks.length > 0;
+    return true;
   });
+  const activeTabDetails =
+    availableTabs.find((tab) => tab.id === activeTab) || availableTabs[0];
+  const visibleProductCount = showingGemCatalog
+    ? enabledGemPacks.length
+    : showingProfileCatalog
+      ? profilePacks.length
+      : showingSkinCatalog
+        ? skinPacks.length
+        : orderedVisibleResourcePacks.length;
+  const ownedCollectibleCount =
+    (inventory.ownedSkins?.length || 0) +
+    (inventory.ownedAvatars?.length || 0) +
+    (inventory.ownedAvatarFrames?.length || 0) +
+    (inventory.ownedNameFrames?.length || 0);
 
   useEffect(() => {
     if (
@@ -1177,7 +1185,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       onClose={onClose}
       width="95vw"
       maxWidth="1180px"
-      className="shop-modal-v2"
+      className="shop-modal-v2 shop-v3"
       fitViewport={false}
     >
       <div className="euro-shop-modal-body euro-shop-split-layout medieval-wood-panel shop-modal-v2__body">
@@ -1304,6 +1312,20 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
           {/* Independent scrollable body container */}
           <div className="shop-scrollable-content parchment-bg-scroll shop-modal-v2__content">
+            <header className="shop-catalog-header">
+              <div className="shop-catalog-heading">
+                <span>{activeTabDetails?.sublabel || "VẬT PHẨM"}</span>
+                <h3>{activeTabDetails?.label || "CỬA HÀNG"}</h3>
+              </div>
+              <div className="shop-catalog-summary" aria-label="Thông tin danh mục">
+                <span>
+                  <strong>{visibleProductCount}</strong> vật phẩm
+                </span>
+                <span>
+                  <strong>{ownedCollectibleCount}</strong> đã sở hữu
+                </span>
+              </div>
+            </header>
             {showingGemCatalog ? (
               <div className="euro-cards-grid">
                 {enabledGemPacks.length > 0 ? (
@@ -1361,7 +1383,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                   </div>
                 )}
               </div>
-            ) : showingProfileCatalog ? (
+            ) : showingProfileCatalog && profilePacks.length > 0 ? (
               <div className="profile-shop-grid">
                 {profilePacks.map((profile) => {
                   const kind = profile.profileCosmeticKind;
@@ -1459,7 +1481,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                   );
                 })}
               </div>
-            ) : !showingSkinCatalog ? (
+            ) : !showingSkinCatalog && orderedVisibleResourcePacks.length > 0 ? (
               <div className="euro-cards-grid">
                 {orderedVisibleResourcePacks.map((pack, packIndex) => {
                   const isStarter = packIndex % 2 === 0;
@@ -1733,9 +1755,19 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               </div>
             ) : (
               <div className="shop-empty-state">
-                <img src="/assets/store/skin.png" alt="" aria-hidden="true" />
-                <strong>CHƯA CÓ NGOẠI TRANG</strong>
-                <span>Hãy mua một ngoại trang để mở bộ sưu tập của bạn.</span>
+                <img
+                  src={activeTabDetails?.icon || "/assets/store/resource.png"}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <strong>
+                  {showingProfileCatalog
+                    ? "CHƯA CÓ VẬT PHẨM HỒ SƠ"
+                    : showingSkinCatalog
+                      ? "CHƯA CÓ NGOẠI TRANG"
+                      : "CHƯA CÓ GÓI QUÂN NHU"}
+                </strong>
+                <span>Danh mục này đang được cập nhật. Hãy quay lại sau.</span>
               </div>
             )}
           </div>
@@ -1745,22 +1777,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({
             <div className="euro-footer-info">
               <EuroInfoIcon size={18} />
               <span>
-                Các vật phẩm mua trong Cửa Hàng Hoàng Gia sẽ được gửi vào kho
-                quốc gia của bạn.
+                Vật phẩm được chuyển vào kho ngay sau khi giao dịch hoàn tất.
               </span>
             </div>
-            <div className="euro-footer-refresh">
-              <EuroClockIcon size={18} />
-              <span>
-                Làm mới sau: <strong>11:42:33</strong>
-              </span>
-              <button
-                type="button"
-                className="euro-refresh-btn"
-                title="Làm mới cửa hàng"
-              >
-                <EuroRefreshIcon size={16} />
-              </button>
+            <div className="shop-footer-balance" aria-label="Số dư ngọc">
+              <span>Số dư</span>
+              <ResourceIcon resource="gems" />
+              <strong>{Math.floor(resources.gems || 0).toLocaleString()}</strong>
             </div>
           </footer>
         </div>

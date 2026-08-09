@@ -761,6 +761,7 @@ export function createIslandEmpireGame(
     regionParentTerritoryIds: {} as Record<number, number>,
     regionRootTerritoryIds: {} as Record<number, number>,
     regionConnectionTypes: {} as Record<number, "land" | "sea">,
+    regionIsolatedUntil: {} as Record<number, string>,
     regionSpecialResources: {} as Record<number, string[]>,
     regionOwnerCapitalSkins: {} as Record<number, string | null>,
     regionOwnerDistrictSkins: {} as Record<number, string | null>,
@@ -919,6 +920,7 @@ export function createIslandEmpireGame(
     state.regionParentTerritoryIds = {};
     state.regionRootTerritoryIds = {};
     state.regionConnectionTypes = {};
+    state.regionIsolatedUntil = {};
     state.regionSpecialResources = {};
     state.regionOwnerCapitalSkins = {};
     state.regionOwnerDistrictSkins = {};
@@ -8318,6 +8320,14 @@ export function createIslandEmpireGame(
       0,
       Number(lead.defenderCurrentHp ?? defenderMax),
     );
+    const fortificationMax = Math.max(
+      0,
+      Number(lead.fortificationMaxHp || 0),
+    );
+    const fortificationHp = Math.max(
+      0,
+      Number(lead.fortificationCurrentHp ?? fortificationMax),
+    );
     const rem = lead.resolvesAt
       ? Math.max(
           0,
@@ -8573,10 +8583,10 @@ export function createIslandEmpireGame(
     );
     drawBattleSide(
       rightSide,
-      "THỦ",
+      fortificationMax > 0 ? "THỦ + THÀNH" : "PHÒNG THỦ",
       defendTone,
-      defenderHp,
-      defenderMax,
+      defenderHp + fortificationHp,
+      defenderMax + fortificationMax,
       defenderTroops,
       defenderPower,
     );
@@ -12043,6 +12053,33 @@ export function createIslandEmpireGame(
       castleSize,
       equippedSkin,
     );
+    const isolatedUntil = state.regionIsolatedUntil[regionId];
+    if (isolatedUntil && state.zoom >= 0.45) {
+      const hoursLeft = Math.max(
+        1,
+        Math.ceil(
+          (new Date(isolatedUntil).getTime() - Date.now()) / 3_600_000,
+        ),
+      );
+      ctx.save();
+      ctx.fillStyle = "rgba(31, 15, 5, .94)";
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(buildingAnchor.x - 30, buildingAnchor.y + 7, 60, 14, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "800 7px system-ui, sans-serif";
+      ctx.fillStyle = "#fde68a";
+      ctx.fillText(
+        `CÔ LẬP · ${hoursLeft}H`,
+        buildingAnchor.x,
+        buildingAnchor.y + 14,
+      );
+      ctx.restore();
+    }
     if (buildingType === "capital" || buildingType === "district") {
       // The world renderer has no alliance lookup in its hot path. Remote
       // rulers use the enemy frame here; alliance screens can still render
@@ -16465,6 +16502,7 @@ export function createIslandEmpireGame(
         state.regionParentTerritoryIds = {};
         state.regionRootTerritoryIds = {};
         state.regionConnectionTypes = {};
+        state.regionIsolatedUntil = {};
         state.regionSpecialResources = {};
         state.regionOwnerCapitalSkins = {};
         state.regionOwnerDistrictSkins = {};
@@ -16543,6 +16581,7 @@ export function createIslandEmpireGame(
         state.regionParentTerritoryIds = {};
         state.regionRootTerritoryIds = {};
         state.regionConnectionTypes = {};
+        state.regionIsolatedUntil = {};
         state.regionSpecialResources = {};
         state.regionOwnerCapitalSkins = {};
         state.regionOwnerDistrictSkins = {};
@@ -16609,6 +16648,8 @@ export function createIslandEmpireGame(
           if (territory.connectionType)
             state.regionConnectionTypes[territory.id] =
               territory.connectionType;
+          if (territory.isolated && territory.isolatedUntil)
+            state.regionIsolatedUntil[territory.id] = territory.isolatedUntil;
           if (Array.isArray(territory.specialResources))
             state.regionSpecialResources[territory.id] =
               territory.specialResources;
@@ -16719,6 +16760,7 @@ export function createIslandEmpireGame(
           state.regionParentTerritoryIds = {};
           state.regionRootTerritoryIds = {};
           state.regionConnectionTypes = {};
+          state.regionIsolatedUntil = {};
           state.regionSpecialResources = {};
           state.regionOwnerCapitalSkins = {};
           state.regionOwnerDistrictSkins = {};
@@ -16794,6 +16836,9 @@ export function createIslandEmpireGame(
             state.regionConnectionTypes[territory.id] =
               territory.connectionType;
           else delete state.regionConnectionTypes[territory.id];
+          if (territory.isolated && territory.isolatedUntil)
+            state.regionIsolatedUntil[territory.id] = territory.isolatedUntil;
+          else delete state.regionIsolatedUntil[territory.id];
           if (Array.isArray(territory.specialResources))
             state.regionSpecialResources[territory.id] =
               territory.specialResources;

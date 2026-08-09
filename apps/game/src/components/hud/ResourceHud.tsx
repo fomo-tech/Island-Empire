@@ -1,5 +1,6 @@
 import type { ResourceBag, ResourceKey } from "@island/shared";
 import { RESOURCE_ORDER, ResourceHudItem } from "../ResourceDisplay";
+import { detectDeviceLanguage, translate } from "../../game/i18n";
 
 type ResourceHudProps = {
   resources: ResourceBag;
@@ -16,8 +17,10 @@ export function ResourceHud({
   rateFor,
   onOpenResourceShop,
 }: ResourceHudProps) {
+  const language = detectDeviceLanguage();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   return (
-    <section className="rok-ref-resources" aria-label="Tài nguyên vương quốc">
+    <section className="rok-ref-resources" aria-label={t("kingdom")}>
       <div className="rok-ref-resource-strip">
         {RESOURCE_ORDER.map((resource) => (
           <ResourceHudItem

@@ -30,6 +30,8 @@ export function ProfileHud({
   onOpenProfile,
   onChangeAvatar,
 }: ProfileHudProps) {
+  const language = detectDeviceLanguage();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const frameAsset =
     {
       vip: "/assets/ui/vip-avatar-frame.webp",
@@ -42,17 +44,17 @@ export function ProfileHud({
     }[avatarFrameId || "vip"];
 
   return (
-    <section className="rok-ref-profile" aria-label="Hồ sơ người chơi">
+    <section className="rok-ref-profile" aria-label={t("playerProfile")}>
       <button
         type="button"
         className="rok-ref-avatar"
         onClick={onChangeAvatar}
-        title="Thay đổi đại diện"
+        title={t("changeAvatar")}
       >
         <img
           className="rok-ref-avatar-portrait"
           src={`/assets/avatars/${avatarId}.png`}
-          alt="Đại diện người chơi"
+          alt={t("playerAvatar")}
           onError={(event) => {
             event.currentTarget.src = "/assets/avatars/emperor.png";
           }}
@@ -70,7 +72,7 @@ export function ProfileHud({
           <img src="/assets/icons/icons-button/attack.png" alt="" />
           {compact(Math.round(power))}
         </button>
-        <div className="rok-ref-vip" title="Cấp VIP hiện tại">
+        <div className="rok-ref-vip" title={t("currentVipLevel")}>
           <img src="/assets/ui/profile-vip-shield.webp" alt="" />
           <strong>VIP {vipLevel}</strong>
           <span aria-hidden="true">›</span>
@@ -87,3 +89,4 @@ export function ProfileHud({
     </section>
   );
 }
+import { detectDeviceLanguage, translate } from "../../game/i18n";

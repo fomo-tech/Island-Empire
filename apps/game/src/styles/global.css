@@ -8957,6 +8957,32 @@ canvas {
   color: #ffd34d;
 }
 
+.l4-language-select {
+  position: relative;
+  padding-right: 9px;
+}
+
+.l4-language-select select {
+  max-width: 132px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.l4-language-select option {
+  background: #0b1820;
+  color: #f5e7bd;
+}
+
+.settings-v2__language-choices {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .l4-icon-btn {
   width: 38px;
   height: 38px;
@@ -36754,6 +36780,60 @@ html[data-touch="true"] [role="button"] {
   font:
     600 10px/1.35 Arial,
     sans-serif;
+}
+
+.attack-dispatch-modal .rt-battle-forecast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 12px;
+  align-items: center;
+  margin: 10px 18px;
+  padding: 9px 12px;
+  border: 1px solid rgba(217, 180, 94, 0.58);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(9, 19, 28, 0.96), rgba(15, 27, 36, 0.9));
+  color: #dce8ec;
+}
+
+.attack-dispatch-modal .rt-battle-forecast span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #e6cf91;
+}
+
+.attack-dispatch-modal .rt-battle-forecast strong {
+  font-size: 12px;
+  color: #f7c96a;
+}
+
+.attack-dispatch-modal .rt-battle-forecast small {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: #9fb2bc;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-favored {
+  border-left-color: #2dd4a8;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-favored strong {
+  color: #6ee7c4;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-even {
+  border-left-color: #f5bd52;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-risky {
+  border-left-color: #ef625c;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-risky strong {
+  color: #ff8d85;
 }
 
 @media (max-width: 680px) {

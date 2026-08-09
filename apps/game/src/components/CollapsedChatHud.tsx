@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@island/shared";
+import { detectDeviceLanguage, translate } from "../game/i18n";
 
 type CollapsedChatHudProps = {
   messages: ChatMessage[];
@@ -15,14 +16,16 @@ export function CollapsedChatHud({
   unreadCount,
   onOpen,
 }: CollapsedChatHudProps) {
+  const language = detectDeviceLanguage();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const previewMessages = messages.slice(-3);
 
   return (
-    <div className="collapsed-chat" aria-label="Tin nhắn gần đây">
+    <div className="collapsed-chat" aria-label={t("recentMessages")}>
       <button
         className="collapsed-chat__badge"
         type="button"
-        aria-label="Mở Quảng Trường"
+        aria-label={t("openSquare")}
         onClick={(e) => {
           console.log("[CollapsedChatHud] Badge clicked -> opening chat");
           onOpen();
@@ -36,7 +39,7 @@ export function CollapsedChatHud({
       <button
         className="collapsed-chat__feed"
         type="button"
-        aria-label="Mở Quảng Trường"
+        aria-label={t("openSquare")}
         onClick={(e) => {
           console.log("[CollapsedChatHud] Chat feed clicked -> opening chat");
           onOpen();
@@ -47,14 +50,14 @@ export function CollapsedChatHud({
             return (
               <span className="collapsed-chat__row" key={message.id}>
                 <strong>
-                  {message.kind === "system" ? "Hệ thống" : message.userName}
+                  {message.kind === "system" ? t("system") : message.userName}
                 </strong>
                 <span className="collapsed-chat__message">{message.text}</span>
               </span>
             );
           })
         ) : (
-          <span className="collapsed-chat__empty">Chạm để mở Quảng Trường</span>
+          <span className="collapsed-chat__empty">{t("tapToOpenSquare")}</span>
         )}
       </button>
     </div>

@@ -86,6 +86,8 @@ export type TerritoryClaimDocument = {
   rootTerritoryId?: number;
   connectionType?: "land" | "sea";
   isolated?: boolean;
+  isolatedUntil?: Date;
+  lastAttackedAt?: Date;
 };
 
 export type TerritoryClearingDocument = {
