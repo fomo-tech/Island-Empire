@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import type { ArmyStateSnapshot } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 import { AssetIcon } from "./AssetIcon";
+import { settlementHasLevel } from "../game/settlementClassification";
 
 interface Town {
   id: number;
   x: number;
   y: number;
   lvl: number;
+  kind: "capital" | "sub_capital" | "military_district" | "flag";
   owner: number;
   troops: number;
 }
@@ -355,6 +357,7 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({
     x: town.x,
     y: town.y,
     lvl: town.level,
+    kind: town.kind,
     owner: 0,
     troops: town.troops,
   }));
@@ -497,7 +500,9 @@ export const ArmyModal: React.FC<ArmyModalProps> = ({
                             <span className="city-title">
                               Thành phố #{town.id}
                             </span>
-                            <span className="level">(Cấp {town.lvl})</span>
+                            {settlementHasLevel(town.kind) && (
+                              <span className="level">(Cấp {town.lvl})</span>
+                            )}
                           </div>
                           <div className="owner-row">⭐ Chủ thành</div>
                         </div>

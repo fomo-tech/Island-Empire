@@ -15,7 +15,7 @@ function getWsBaseUrl() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${window.location.host}`;
   }
-  return "ws://127.0.0.1:4000";
+  return "ws://127.0.0.1:4001";
 }
 
 const WS_BASE_URL = getWsBaseUrl();

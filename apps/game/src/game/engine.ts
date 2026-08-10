@@ -8401,16 +8401,20 @@ export function createIslandEmpireGame(
         1,
     );
     const targetGround = territoryGroundPoint(territoryId, { x, y });
-    const panelWidth = compact ? 150 : 184;
-    const panelHeight = compact ? 64 : 78;
+    // Keep enough horizontal room for both the role and power value. The old
+    // compact card tried to fit “PHÒNG THỦ” and the power number into a 62px
+    // column, which made the labels collide on phones.
+    const panelWidth = compact ? 178 : 222;
+    const panelHeight = compact ? 86 : 108;
     // Anchor from the building's ground contact so every territory type gets
     // the same clear, floating battle banner above its sprite.
     const top = -(panelHeight + (compact ? 38 : 48));
     const left = -panelWidth / 2;
-    const headerHeight = compact ? 19 : 23;
-    const footerHeight = compact ? 10 : 12;
-    const bodyTop = top + headerHeight + 4;
-    const sideWidth = (panelWidth - (compact ? 26 : 30)) / 2;
+    const headerHeight = compact ? 24 : 29;
+    const footerHeight = compact ? 14 : 17;
+    const bodyTop = top + headerHeight + 5;
+    const sideGap = compact ? 16 : 20;
+    const sideWidth = (panelWidth - 12 - sideGap) / 2;
     const leftSide = left + 6;
     const rightSide = left + panelWidth - sideWidth - 6;
     const attackTone = "#e65a4f";
@@ -8439,50 +8443,64 @@ export function createIslandEmpireGame(
     // Strong shadow and restrained gold trim keep the HUD readable over trees,
     // units, borders, and bright territory colours.
     ctx.shadowColor = "rgba(0, 0, 0, .78)";
-    ctx.shadowBlur = compact ? 5 : 8;
+    ctx.shadowBlur = compact ? 8 : 12;
     ctx.shadowOffsetY = 3;
     ctx.fillStyle = "rgba(0, 0, 0, .5)";
     ctx.beginPath();
-    ctx.roundRect(left + 3, top + 4, panelWidth, panelHeight, 9);
+    ctx.roundRect(left + 3, top + 5, panelWidth, panelHeight, 11);
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
     const panelGradient = ctx.createLinearGradient(0, top, 0, top + panelHeight);
-    panelGradient.addColorStop(0, "rgba(23, 32, 43, .99)");
-    panelGradient.addColorStop(1, "rgba(5, 11, 18, .99)");
+    panelGradient.addColorStop(0, "rgba(19, 39, 52, .99)");
+    panelGradient.addColorStop(0.44, "rgba(9, 22, 32, .99)");
+    panelGradient.addColorStop(1, "rgba(3, 10, 16, .99)");
     ctx.fillStyle = panelGradient;
     ctx.beginPath();
-    ctx.roundRect(left, top, panelWidth, panelHeight, 9);
+    ctx.roundRect(left, top, panelWidth, panelHeight, 11);
     ctx.fill();
-    ctx.strokeStyle = `rgba(241, 187, 72, ${0.86 + pulse * 0.12})`;
-    ctx.lineWidth = 1.45;
+    ctx.strokeStyle = `rgba(241, 187, 72, ${0.9 + pulse * 0.1})`;
+    ctx.lineWidth = 1.6;
     ctx.stroke();
-    ctx.strokeStyle = "rgba(116, 77, 29, .9)";
-    ctx.lineWidth = 0.65;
+    ctx.strokeStyle = "rgba(255, 232, 159, .28)";
+    ctx.lineWidth = 0.7;
     ctx.beginPath();
-    ctx.roundRect(left + 3, top + 3, panelWidth - 6, panelHeight - 6, 6);
+    ctx.roundRect(left + 4, top + 4, panelWidth - 8, panelHeight - 8, 8);
     ctx.stroke();
+
+    // Small corner rivets give the panel a crafted RTS/HUD silhouette.
+    ctx.fillStyle = "rgba(255, 225, 137, .8)";
+    for (const corner of [
+      [left + 8, top + 8],
+      [left + panelWidth - 8, top + 8],
+      [left + 8, top + panelHeight - 8],
+      [left + panelWidth - 8, top + panelHeight - 8],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(corner[0], corner[1], 1, 0, TAU);
+      ctx.fill();
+    }
 
     // Two-tone header communicates the opposing sides before the player reads
     // any number.
     const headerGradient = ctx.createLinearGradient(left, 0, left + panelWidth, 0);
-    headerGradient.addColorStop(0, "#8f2630");
-    headerGradient.addColorStop(0.5, "#3a222b");
-    headerGradient.addColorStop(1, "#174f70");
+    headerGradient.addColorStop(0, "#7d2930");
+    headerGradient.addColorStop(0.48, "#28313a");
+    headerGradient.addColorStop(1, "#174d6d");
     ctx.fillStyle = headerGradient;
     ctx.beginPath();
-    ctx.roundRect(left + 1, top + 1, panelWidth - 2, headerHeight, 8);
+    ctx.roundRect(left + 1, top + 1, panelWidth - 2, headerHeight, 10);
     ctx.fill();
     ctx.fillStyle = "rgba(255, 255, 255, .16)";
-    ctx.fillRect(left + 8, top + headerHeight - 2, panelWidth - 16, 1);
+    ctx.fillRect(left + 10, top + headerHeight - 2, panelWidth - 20, 1);
 
     // Crossed-sword emblem.
-    const iconX = left + (compact ? 11 : 13);
+    const iconX = left + (compact ? 13 : 16);
     const iconY = top + headerHeight / 2;
     ctx.save();
     ctx.strokeStyle = "#ffe6a6";
     ctx.lineCap = "round";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = compact ? 2.1 : 2.5;
     ctx.beginPath();
     ctx.moveTo(iconX - 5, iconY - 6);
     ctx.lineTo(iconX + 5, iconY + 5);
@@ -8500,21 +8518,26 @@ export function createIslandEmpireGame(
 
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.font = `800 ${compact ? 7.4 : 9}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
+    ctx.font = `800 ${compact ? 8.1 : 10}px 'Noto Serif', 'Noto Serif KR', 'Noto Serif JP', serif`;
     ctx.fillStyle = "#fff0c2";
-    ctx.fillText("GIAO TRANH", left + (compact ? 21 : 25), iconY);
+    ctx.fillText("GIAO TRANH", left + (compact ? 27 : 32), iconY);
 
-    const timerWidth = compact ? 38 : 46;
+    ctx.textAlign = "left";
+    ctx.font = `700 ${compact ? 4.8 : 5.8}px system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255, 232, 175, .72)";
+    ctx.fillText("TRẬN ĐẤU THỜI GIAN THỰC", left + (compact ? 27 : 32), top + headerHeight - 5);
+
+    const timerWidth = compact ? 48 : 58;
     const timerX = left + panelWidth - timerWidth - 5;
     ctx.fillStyle = "rgba(4, 10, 16, .78)";
     ctx.beginPath();
-    ctx.roundRect(timerX, top + 4, timerWidth, headerHeight - 8, 4);
+    ctx.roundRect(timerX, top + 5, timerWidth, headerHeight - 10, 5);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 211, 106, .7)";
-    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = "rgba(255, 211, 106, .82)";
+    ctx.lineWidth = 0.9;
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `800 ${compact ? 6.2 : 7.2}px ui-monospace, monospace`;
+    ctx.font = `800 ${compact ? 7 : 8}px ui-monospace, monospace`;
     ctx.fillStyle = "#ffe08a";
     ctx.fillText(formatTime(rem), timerX + timerWidth / 2, iconY);
 
@@ -8528,45 +8551,60 @@ export function createIslandEmpireGame(
       power: number,
     ) => {
       const sideY = bodyTop;
-      const sideH = panelHeight - headerHeight - footerHeight - 7;
-      ctx.fillStyle = tone === attackTone
-        ? "rgba(145, 39, 38, .22)"
-        : "rgba(25, 90, 135, .22)";
+      const sideH = panelHeight - headerHeight - footerHeight - 8;
+      const sideGradient = ctx.createLinearGradient(0, sideY, 0, sideY + sideH);
+      if (tone === attackTone) {
+        sideGradient.addColorStop(0, "rgba(137, 40, 43, .4)");
+        sideGradient.addColorStop(1, "rgba(54, 17, 24, .72)");
+      } else {
+        sideGradient.addColorStop(0, "rgba(28, 101, 147, .42)");
+        sideGradient.addColorStop(1, "rgba(10, 37, 61, .76)");
+      }
+      ctx.fillStyle = sideGradient;
       ctx.beginPath();
-      ctx.roundRect(sideX, sideY, sideWidth, sideH, 6);
+      ctx.roundRect(sideX, sideY, sideWidth, sideH, 7);
       ctx.fill();
+      ctx.strokeStyle = tone;
+      ctx.globalAlpha = 0.58;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
       ctx.fillStyle = tone;
       ctx.beginPath();
-      ctx.arc(sideX + 7, sideY + 7, 2.2, 0, TAU);
+      ctx.arc(sideX + 7, sideY + 7, 2.4, 0, TAU);
       ctx.fill();
       ctx.textAlign = "left";
-      ctx.font = `800 ${compact ? 5.8 : 6.7}px system-ui, sans-serif`;
+      ctx.font = `900 ${compact ? 6.3 : 7.4}px system-ui, sans-serif`;
       ctx.fillStyle = tone === attackTone ? "#ffb2a7" : "#b8e1ff";
-      ctx.fillText(label, sideX + 12, sideY + 7);
+      ctx.fillText(label === "PHÒNG THỦ" ? (compact ? "THỦ" : label) : label, sideX + 13, sideY + 7);
       ctx.textAlign = "right";
-      ctx.font = `800 ${compact ? 5.5 : 6.3}px system-ui, sans-serif`;
-      ctx.fillStyle = "#f5e4b3";
+      ctx.font = `900 ${compact ? 6.1 : 7.2}px system-ui, sans-serif`;
+      ctx.fillStyle = "#f9e7b0";
       ctx.fillText(
-        `LỰC ${formatStat(power)}`,
+        formatStat(power),
         sideX + sideWidth - 5,
         sideY + 7,
       );
+      ctx.fillStyle = "rgba(255, 231, 170, .56)";
+      ctx.font = `700 ${compact ? 4.2 : 5}px system-ui, sans-serif`;
+      ctx.fillText("LỰC", sideX + sideWidth - 5, sideY + 13);
       drawBattleBar(
         sideX + 5,
-        sideY + (compact ? 13 : 15),
+        sideY + (compact ? 17 : 19),
         sideWidth - 10,
         hp / maxHp,
         tone,
-        compact ? 5 : 6,
+        compact ? 6 : 7,
       );
-      const statY = sideY + sideH - (compact ? 5 : 6);
+      const statY = sideY + sideH - (compact ? 6 : 7);
       ctx.textAlign = "left";
-      ctx.font = `700 ${compact ? 5.2 : 6}px system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(238, 244, 247, .92)";
+      ctx.font = `800 ${compact ? 4.9 : 5.8}px system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(238, 244, 247, .94)";
       ctx.fillText(`QUÂN ${formatStat(troops)}`, sideX + 5, statY);
       ctx.textAlign = "right";
+      ctx.fillStyle = tone === attackTone ? "#ffb2a7" : "#b8e1ff";
       ctx.fillText(
-        `${formatStat(hp)} / ${formatStat(maxHp)} HP`,
+        `${Math.round((hp / maxHp) * 100)}% HP`,
         sideX + sideWidth - 5,
         statY,
       );
@@ -8593,31 +8631,59 @@ export function createIslandEmpireGame(
 
     // Compact VS seal separates both cards without an extra column.
     const vsY = bodyTop +
-      (panelHeight - headerHeight - footerHeight - 7) / 2;
-    ctx.fillStyle = "rgba(6, 12, 18, .96)";
+      (panelHeight - headerHeight - footerHeight - 8) / 2;
+    ctx.fillStyle = "rgba(5, 12, 19, .98)";
     ctx.beginPath();
-    ctx.arc(0, vsY, compact ? 6 : 7, 0, TAU);
+    ctx.arc(0, vsY, compact ? 7 : 8, 0, TAU);
     ctx.fill();
-    ctx.strokeStyle = "rgba(241, 187, 72, .78)";
-    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = "rgba(241, 187, 72, .9)";
+    ctx.lineWidth = 1;
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `900 ${compact ? 5.4 : 6}px system-ui, sans-serif`;
+    ctx.font = `900 ${compact ? 5.8 : 6.6}px system-ui, sans-serif`;
     ctx.fillStyle = "#ffe19a";
     ctx.fillText("VS", 0, vsY + 0.3);
 
-    // Live-state footer: one red pulse and one short line are enough to convey
-    // that combat is active without repeating the title.
-    const footerY = top + panelHeight - footerHeight / 2 - 1;
+    // Live-state footer: the progress track is separated from the copy so the
+    // timer and the “units engaged” message never fight for the same baseline.
+    const footerY = top + panelHeight - footerHeight / 2 + 1;
+    const progressTrackX = left + 7;
+    const progressTrackW = panelWidth - 14;
+    const progressTrackY = top + panelHeight - footerHeight + 2;
+    ctx.fillStyle = "rgba(0, 0, 0, .56)";
+    ctx.beginPath();
+    ctx.roundRect(progressTrackX, progressTrackY, progressTrackW, 3, 2);
+    ctx.fill();
+    const dur = Math.max(1, lead.duration ?? lead.durationSeconds ?? 25);
+    const progress = Math.max(0, Math.min(1, rem / dur));
+    const progressGradient = ctx.createLinearGradient(
+      progressTrackX,
+      0,
+      progressTrackX + progressTrackW,
+      0,
+    );
+    progressGradient.addColorStop(0, "#e5534d");
+    progressGradient.addColorStop(1, "#f4c65d");
+    ctx.fillStyle = progressGradient;
+    ctx.beginPath();
+    ctx.roundRect(
+      progressTrackX,
+      progressTrackY,
+      Math.max(3, progressTrackW * progress),
+      3,
+      2,
+    );
+    ctx.fill();
+
     ctx.fillStyle = `rgba(239, 68, 68, ${0.65 + pulse * 0.3})`;
     ctx.beginPath();
-    ctx.arc(-(compact ? 34 : 40), footerY, 1.7, 0, TAU);
+    ctx.arc(-(compact ? 57 : 73), footerY, 1.7, 0, TAU);
     ctx.fill();
-    ctx.font = `750 ${compact ? 5.5 : 6.2}px system-ui, sans-serif`;
+    ctx.font = `800 ${compact ? 5.5 : 6.4}px system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255, 224, 151, .9)";
     ctx.fillText(
       `${engagedCount} ĐẠO QUÂN ĐANG THAM CHIẾN`,
-      compact ? 3 : 4,
+      compact ? 4 : 5,
       footerY,
     );
     ctx.restore();
@@ -11364,11 +11430,9 @@ export function createIslandEmpireGame(
       ? easedRouteProgress(travelP)
       : travelP;
     const directRouteDistance = Math.hypot(r.x - origin.x, r.y - origin.y);
-    // Advance the walk cycle from elapsed time as well as route progress so
-    // the engineer keeps stepping smoothly when the interpolated position is
-    // unchanged for a frame (low FPS/mobile).
-    const builderMotionCycle =
-      state.tick * 5.8 + (renderedTravelP * directRouteDistance) / 28;
+    // Keep the engineer visually static while its position still follows the
+    // route. This matches the idle march sprites used by the other units.
+    const builderMotionCycle = 0;
     const builderShipCycle =
       state.tick * 2.4 + (renderedTravelP * directRouteDistance) / 72;
 
@@ -11412,7 +11476,7 @@ export function createIslandEmpireGame(
     }
 
     const walk = Math.round(Math.sin(state.tick * 10) * 2);
-    const bob = inTravelPhase ? Math.round(Math.sin(state.tick * 8) * 1.5) : 0;
+    const bob = 0;
     const flagColor = state.newbieFlagColor || "#2563eb";
 
     if (onShip) {
@@ -11431,7 +11495,9 @@ export function createIslandEmpireGame(
 
     ctx.save();
     ctx.translate(x, y);
-    const builderMapScale = 1.05;
+    // Match the regular infantry footprint instead of the old oversized
+    // engineer-specific scale.
+    const builderMapScale = 1;
     ctx.scale(builderMapScale, builderMapScale);
 
     ctx.fillStyle = "rgba(0,0,0,0.34)";
@@ -11439,16 +11505,8 @@ export function createIslandEmpireGame(
     ctx.ellipse(0, 6, 17, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Royal engineer pennant.
-    pxRect(12, -37 + bob, 3, 53, "#583717");
-    pxRect(15, -36 + bob, 29, 17, "#d9aa43");
-    pxRect(16, -35 + bob, 27, 14, flagColor);
-    pxRect(37, -31 + bob, 8, 6, flagColor);
-    pxRect(15, -21 + bob, 30, 2, "#f1cd6e");
-    drawFlagEmblem(28, -28 + bob, state.newbieEmblem || "crown", 0.5);
-
     const builderFrame = inTravelPhase
-      ? "walk"
+      ? "idle"
       : buildP >= 0.985
         ? "complete"
         : Math.floor(state.tick * 5) % 2 === 0
@@ -11458,7 +11516,7 @@ export function createIslandEmpireGame(
       "builder",
       0,
       4,
-      44,
+      42,
       flagColor,
       builderFrame,
       builderMotionCycle,

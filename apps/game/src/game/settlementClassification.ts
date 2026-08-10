@@ -21,6 +21,25 @@ export type SettlementClassificationInput = {
   capitalTownConfirmed?: boolean;
 };
 
+/**
+ * Only developed settlements have a player-facing progression level.
+ * A territory flag can still carry an internal town snapshot for troops and
+ * production calculations, but that implementation value must never leak
+ * into the UI as “Trụ Cờ cấp N”.
+ */
+export function settlementHasLevel(settlementKind?: string | null): boolean {
+  switch (settlementKind) {
+    case "capital":
+    case "sub_capital":
+    case "military":
+    case "military_district":
+    case "stronghold":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function classifySettlement({
   isIslet = false,
   settlementKind,

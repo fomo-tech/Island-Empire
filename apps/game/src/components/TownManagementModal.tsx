@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { ResourceBag } from "@island/shared";
 import { getSpecialResourceMeta } from "./SpecialResourceDisplay";
+import { settlementHasLevel } from "../game/settlementClassification";
 
 type TrainingSpecialty = "infantry" | "cavalry" | "artillery";
 
@@ -41,6 +42,7 @@ interface TownManagementModalProps {
       | "military_district"
       | "flag"
       | "stronghold";
+    settlementKind?: string | null;
   };
   resources: ResourceBag;
   gameConfig?: any;
@@ -114,6 +116,9 @@ export function TownManagementModal({
   onClose,
   onUpgradeWarehouse,
 }: TownManagementModalProps) {
+  const hasSettlementLevel = settlementHasLevel(
+    town.kind ?? town.settlementKind,
+  );
   const [warehousePending, setWarehousePending] = useState(false);
   const [warehouseError, setWarehouseError] = useState("");
   const config = gameConfig || {};
@@ -249,9 +254,12 @@ export function TownManagementModal({
               <AssetIcon src="/assets/icons/icon_tower.png" />
             </div>
             <div className="stat-info">
-              <span className="stat-label">CẤP ĐỘ / GIỚI HẠN QUÂN</span>
+              <span className="stat-label">
+                {hasSettlementLevel ? "CẤP ĐỘ / " : ""}GIỚI HẠN QUÂN
+              </span>
               <span className="stat-val text-gold">
-                Lv. {town.lvl} · {Math.floor(committedTroops)}/
+                {hasSettlementLevel && `Lv. ${town.lvl} · `}
+                {Math.floor(committedTroops)}/
                 {Math.floor(troopCapacity)} quân
               </span>
             </div>

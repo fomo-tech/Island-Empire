@@ -84,6 +84,9 @@ export function nationUnitAction(
   kind: NationUnitKind,
   animationName?: string,
 ): NationUnitAction {
+  // Engineers use a static travel pose. Keep this guard at atlas level so a
+  // legacy caller cannot accidentally re-enable the walking animation.
+  if (kind === "builder" && animationName?.includes("walk")) return "idle";
   if (!animationName || animationName === "idle") return "idle";
   if (animationName.includes("walk")) return "walk";
   if (kind === "builder") return "work";

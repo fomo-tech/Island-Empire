@@ -813,8 +813,8 @@ const SHOP_TABS: Array<{
   },
   {
     id: "offers",
-    label: "ƯU ĐÃI",
-    sublabel: "GIÁ TÂN THỦ",
+    label: "KHAI QUỐC",
+    sublabel: "ƯU ĐÃI TÂN THỦ",
     icon: "/assets/store/profile.png",
   },
   {
@@ -830,6 +830,14 @@ const SHOP_TABS: Array<{
     icon: "/assets/store/profile.png",
   },
 ];
+
+type ShopPhase = "newbie" | "royal";
+
+const SHOP_PHASE_STEPS = [
+  { id: "supply", label: "Nhận quân nhu", shortLabel: "QUÂN NHU" },
+  { id: "skin", label: "Chọn skin thử", shortLabel: "NGOẠI TRANG" },
+  { id: "build", label: "Dựng vương quốc", shortLabel: "KHAI QUỐC" },
+] as const;
 
 export const ShopModal: React.FC<ShopModalProps> = ({
   onClose,
@@ -854,6 +862,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   const [previewSkin, setPreviewSkin] = useState<any | null>(null);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [trial, setTrial] = useState<NewbieSkinTrialState | null>(null);
+  const [trialLoaded, setTrialLoaded] = useState(false);
   const [trialNow, setTrialNow] = useState(Date.now());
   const [pendingTrialSkin, setPendingTrialSkin] = useState<any | null>(null);
   const expirySyncRef = useRef(false);
@@ -880,7 +889,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       .then((result) => {
         if (!cancelled) setTrial(result.trial);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setTrialLoaded(true);
+      });
     const timer = window.setInterval(() => setTrialNow(Date.now()), 1000);
     return () => {
       cancelled = true;
@@ -1110,6 +1122,22 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   const liveOfferResourcePacks = resourcePacks.filter(
     (pack) => pack.isNewbiePrice && !purchasedProductIds.includes(pack.id),
   );
+  const isNewbiePhase =
+    trial?.status === "eligible" ||
+    trial?.status === "active" ||
+    liveOfferResourcePacks.length > 0;
+  const shopPhase: ShopPhase =
+    trialLoaded && isNewbiePhase ? "newbie" : "royal";
+  const hasBoughtNewbieResource = resourcePacks.some(
+    (pack) =>
+      pack.isNewbiePrice && purchasedProductIds.includes(pack.id),
+  );
+  const newbiePhaseStep =
+    trial?.status === "active"
+      ? 1
+      : hasBoughtNewbieResource
+        ? 1
+        : 0;
   const visibleResourcePacks =
     activeTab === "offers" && liveOfferResourcePacks.length > 0
       ? liveOfferResourcePacks
@@ -1159,6 +1187,15 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     }
   }, [activeTab, availableTabs]);
 
+  useEffect(() => {
+    if (initialResource || !trialLoaded) return;
+    const nextTab =
+      shopPhase === "newbie" && availableTabs.some((tab) => tab.id === "offers")
+        ? "offers"
+        : "resources";
+    setActiveTab(nextTab);
+  }, [availableTabs, initialResource, shopPhase, trialLoaded]);
+
   const handleBuy = async (productId: string) => {
     setBusyProductId(productId);
     try {
@@ -1188,7 +1225,9 @@ export const ShopModal: React.FC<ShopModalProps> = ({
       className="shop-modal-v2 shop-v3"
       fitViewport={false}
     >
-      <div className="euro-shop-modal-body euro-shop-split-layout medieval-wood-panel shop-modal-v2__body">
+      <div
+        className={`euro-shop-modal-body euro-shop-split-layout medieval-wood-panel shop-modal-v2__body shop-phase--${shopPhase}`}
+      >
         {/* Left Side: Merchant Character Panel (Hidden on mobile) */}
         <div className="euro-shop-sidebar shop-modal-v2__sidebar">
           {/* Scroll themed merchant bubble */}
@@ -1265,9 +1304,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 />
                 <div>
                   <span className="shop-hero-kicker">GIAO DỊCH HOÀNG GIA</span>
-                  <h2 className="euro-hero-title">CỬA HÀNG</h2>
+                  <h2 className="euro-hero-title">
+                    {shopPhase === "newbie" ? "KHO KHAI QUỐC" : "CHỢ HOÀNG GIA"}
+                  </h2>
                   <p className="euro-hero-subtitle">
-                    Mở rương quân nhu • trang bị ngoại trang thành trì
+                    {shopPhase === "newbie"
+                      ? "Bắt đầu đủ mạnh • chọn dấu ấn cho vương quốc"
+                      : "Quân nhu, ngoại trang và vật phẩm hồ sơ cho lãnh chúa"}
                   </p>
                 </div>
               </div>
@@ -1309,6 +1352,61 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               </span>
             </div>
           )}
+
+          <section
+            className={`shop-phase-card shop-phase-card--${shopPhase}`}
+            aria-label={
+              shopPhase === "newbie"
+                ? "Hành trình khai quốc"
+                : "Trạng thái cửa hàng hoàng gia"
+            }
+          >
+            <div className="shop-phase-card__copy">
+              <span className="shop-phase-card__eyebrow">
+                {shopPhase === "newbie"
+                  ? "HÀNH TRÌNH TÂN THỦ"
+                  : "CỬA HÀNG ĐỊNH KỲ"}
+              </span>
+              <h3>
+                {shopPhase === "newbie"
+                  ? "Ba bước dựng cơ đồ"
+                  : "Sẵn sàng cho chiến dịch tiếp theo"}
+              </h3>
+              <p>
+                {shopPhase === "newbie"
+                  ? "Mỗi lựa chọn đều có giá trị: lấy quân nhu, thử một ngoại trang và bắt đầu xây lãnh địa."
+                  : "Mua đúng thứ cần, trang bị bộ sưu tập và tích lũy lợi thế cho các trận chiến lớn hơn."}
+              </p>
+            </div>
+            {shopPhase === "newbie" ? (
+              <ol className="shop-phase-steps">
+                {SHOP_PHASE_STEPS.map((step, index) => {
+                  const isDone = index < newbiePhaseStep;
+                  const isCurrent = index === newbiePhaseStep;
+                  return (
+                    <li
+                      className={`${isDone ? "is-done" : ""} ${isCurrent ? "is-current" : ""}`}
+                      key={step.id}
+                    >
+                      <span className="shop-phase-step__number">
+                        {isDone ? "✓" : index + 1}
+                      </span>
+                      <span className="shop-phase-step__label">
+                        <strong>{step.shortLabel}</strong>
+                        <small>{step.label}</small>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <div className="shop-royal-highlights" aria-label="Danh mục cửa hàng">
+                <span>QUÂN NHU</span>
+                <span>NGOẠI TRANG</span>
+                <span>HỒ SƠ</span>
+              </div>
+            )}
+          </section>
 
           {/* Independent scrollable body container */}
           <div className="shop-scrollable-content parchment-bg-scroll shop-modal-v2__content">

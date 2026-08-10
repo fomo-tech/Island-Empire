@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { NationStatusSnapshot, NationTownStatus } from "@island/shared";
 import { MedievalModal } from "./MedievalModal";
 import { AssetIcon, type IconAssetId } from "./AssetIcon";
+import { settlementHasLevel } from "../game/settlementClassification";
 
 type Props = {
   nation: NationStatusSnapshot | null;
@@ -289,7 +290,9 @@ export function NationModal({
                               <span className="city-title">
                                 {townName(town)}
                               </span>
-                              <span className="level">Cấp {town.level}</span>
+                              {settlementHasLevel(town.kind) && (
+                                <span className="level">Cấp {town.level}</span>
+                              )}
                             </div>
                             <div className="owner-row">
                               Lãnh thổ #{town.territoryId}

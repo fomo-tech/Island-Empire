@@ -14,6 +14,7 @@ import {
 } from "./SpecialResourceDisplay";
 import { AssetIcon } from "./AssetIcon";
 import { ConfirmModal } from "./ConfirmModal";
+import { settlementHasLevel } from "../game/settlementClassification";
 
 // --- PREMIUM MEDIEVAL SPRITE ICON HELPER ---
 interface SpriteIconProps {
@@ -221,6 +222,7 @@ export function TerritoryTooltip({
   const [now, setNow] = useState(() => Date.now());
   const [hudBottomInset, setHudBottomInset] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const yieldLedgerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const dock = document.querySelector<HTMLElement>(".hud-command-dock");
@@ -280,7 +282,12 @@ export function TerritoryTooltip({
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose?.();
+      if (event.key !== "Escape") return;
+      if (selectedYield) {
+        setSelectedYield(null);
+        return;
+      }
+      onClose?.();
     }
 
     // Register listener after a micro delay to avoid capturing the activation click
@@ -294,7 +301,29 @@ export function TerritoryTooltip({
       document.removeEventListener("pointerdown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [confirmCancelClearing, onClose]);
+  }, [confirmCancelClearing, onClose, selectedYield]);
+
+  useEffect(() => {
+    if (!selectedYield) return;
+
+    const handleYieldClickOutside = (event: PointerEvent) => {
+      const ledger = yieldLedgerRef.current;
+      if (ledger && !ledger.contains(event.target as Node)) {
+        setSelectedYield(null);
+      }
+    };
+
+    // Capture phase makes the close reliable for buttons and controls inside
+    // the tooltip without interfering with the resource button's click.
+    document.addEventListener("pointerdown", handleYieldClickOutside, true);
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handleYieldClickOutside,
+        true,
+      );
+    };
+  }, [selectedYield]);
 
   const { id, ownership } = region;
   const engineState = engine.getState();
@@ -490,6 +519,8 @@ export function TerritoryTooltip({
     engineState.activeBattles?.some((b: any) => b.regionId === id);
   const settlementKind =
     territory?.settlementKind ?? engineState.regionSettlementKinds?.[id];
+  const townSettlementKind = town?.kind ?? settlementKind;
+  const hasSettlementLevel = settlementHasLevel(townSettlementKind);
   const territoryConnectionType =
     territory?.connectionType ?? engineState.regionConnectionTypes?.[id];
   const isCapital =
@@ -1316,7 +1347,9 @@ export function TerritoryTooltip({
                         Công trình:
                       </span>
                       <span className="val">
-                        {settlementKindLabel} cấp {town.level ?? 1}
+                        {hasSettlementLevel
+                          ? `${settlementKindLabel} cấp ${town.level ?? 1}`
+                          : settlementKindLabel}
                       </span>
                     </div>
                     <div className="rt-stat-item">
@@ -1420,7 +1453,7 @@ export function TerritoryTooltip({
               </div>
 
               {/* Server-authoritative territory yields */}
-              <div className="rt-yield-ledger">
+              <div ref={yieldLedgerRef} className="rt-yield-ledger">
                 {resourceRows.map((row) => (
                   <button
                     type="button"

@@ -258,7 +258,7 @@ if (!settlers.includes("builderMotionCycle")
   throw new Error("Công binh chưa có nhịp theo quãng đường và tiến độ xây nhiều giai đoạn");
 }
 for (const frame of [
-  '"walk"',
+  '"idle"',
   '"hammer_up"',
   '"hammer_down"',
   '"complete"',

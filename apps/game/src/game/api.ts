@@ -26,7 +26,7 @@ function getApiUrl() {
   if (configured) return configured.replace(/\/$/, "");
   // Keep requests on the page origin. In production Nginx forwards /api;
   // in local development Vite proxies it to the API process. This also avoids
-  // HTTPS mixed-content failures and unreachable :4000 URLs on mobile.
+  // HTTPS mixed-content failures and unreachable backend ports on mobile.
   return "";
 }
 
