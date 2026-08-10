@@ -298,6 +298,130 @@ html
   }
 }
 
+/* Compact open state: preserve the information hierarchy without letting the
+   right rail consume the map. */
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions {
+  max-height: min(218px, calc(var(--app-height, 100dvh) - 330px)) !important;
+  border-radius: 10px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 9px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title {
+  gap: 5px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title > img {
+  width: 15px !important;
+  height: 15px !important;
+  flex-basis: 15px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title em {
+  min-width: 15px !important;
+  height: 15px !important;
+  font-size: 8px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-toggle {
+  flex-basis: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-list {
+  padding: 1px 7px 3px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission {
+  min-height: 42px !important;
+  grid-template-columns: 28px minmax(0, 1fr) auto !important;
+  gap: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon img {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-copy {
+  gap: 2px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-copy b {
+  font-size: 8px !important;
+  line-height: 1.1 !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-meta {
+  font-size: 7px !important;
+  line-height: 1.1 !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-locate {
+  width: 19px !important;
+  height: 19px !important;
+  border-radius: 6px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-locate img {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+@media (max-width: 767px), (max-height: 599px) and (pointer: coarse) {
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions {
+    max-height: min(178px, calc(var(--app-height, 100dvh) - 390px)) !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission {
+    min-height: 37px !important;
+    grid-template-columns: 25px minmax(0, 1fr) auto !important;
+    gap: 5px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon {
+    width: 23px !important;
+    height: 23px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon img {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-copy b {
+    font-size: 7px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-meta {
+    font-size: 6px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-locate {
+    width: 17px !important;
+    height: 17px !important;
+  }
+}
+
 @media (max-width: 767px) and (orientation: landscape) {
   .hud-wrapper .hud-right-side {
     top: calc(86px + var(--safe-top, 0px)) !important;
@@ -779,4 +903,127 @@ html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed
 html[data-touch="true"] body .game-shell .hud-wrapper .hud-right-side .hud-mini-icon-btn-plus,
 html[data-touch="true"] body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card.collapsed {
   display: none !important;
+}
+
+/* Battlefield situation: the header is a real control, not a decorative
+   arrow. The panel keeps its header visible while the activity rows collapse. */
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed {
+  flex: 0 0 38px !important;
+  max-height: 38px !important;
+  overflow: hidden !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header {
+  display: flex !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(211, 169, 87, 0.3) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #f2d790 !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  text-align: left !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header:hover,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header:focus-visible {
+  background: rgba(202, 151, 55, 0.1) !important;
+  outline: 1px solid rgba(222, 177, 83, 0.32) !important;
+  outline-offset: -1px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title {
+  display: flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title > img {
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 18px !important;
+  object-fit: contain !important;
+  mix-blend-mode: normal !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title > span {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title em {
+  display: inline-grid !important;
+  min-width: 17px !important;
+  height: 17px !important;
+  place-items: center !important;
+  padding: 0 4px !important;
+  border: 1px solid rgba(239, 119, 88, 0.7) !important;
+  border-radius: 999px !important;
+  background: rgba(117, 31, 27, 0.78) !important;
+  color: #ffd0a8 !important;
+  font: 800 9px/1 Arial, sans-serif !important;
+  font-style: normal !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-toggle {
+  display: grid !important;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  place-items: center !important;
+  border: 1px solid rgba(211, 169, 87, 0.42) !important;
+  border-radius: 7px !important;
+  background: rgba(18, 42, 48, 0.72) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-toggle img {
+  width: 13px !important;
+  height: 13px !important;
+  object-fit: contain !important;
+  mix-blend-mode: normal !important;
+  transition: transform 160ms ease !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-toggle img {
+  transform: rotate(180deg) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-icon img,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-mission-locate img {
+  mix-blend-mode: normal !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)) !important;
+}
+
+@media (max-width: 767px), (max-height: 599px) and (pointer: coarse) {
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed {
+    flex-basis: 36px !important;
+    max-height: 36px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header {
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0 10px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-header-title > img {
+    width: 16px !important;
+    height: 16px !important;
+    flex-basis: 16px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-main-missions-toggle {
+    flex-basis: 22px !important;
+    width: 22px !important;
+    height: 22px !important;
+  }
 }

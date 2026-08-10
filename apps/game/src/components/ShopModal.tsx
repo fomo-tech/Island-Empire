@@ -1163,6 +1163,11 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     if (tab.id === "offers") return liveOfferResourcePacks.length > 0;
     return true;
   });
+  // Keep effects keyed by the actual catalog shape, not by a freshly-created
+  // array reference. Otherwise clicking a tab triggers the newbie default-tab
+  // effect again and immediately jumps back to the first tab.
+  const availableTabIds = availableTabs.map((tab) => tab.id).join("|");
+  const firstAvailableTab = availableTabs[0]?.id;
   const activeTabDetails =
     availableTabs.find((tab) => tab.id === activeTab) || availableTabs[0];
   const visibleProductCount = showingGemCatalog
@@ -1180,21 +1185,21 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
   useEffect(() => {
     if (
-      availableTabs.length > 0 &&
-      !availableTabs.some((tab) => tab.id === activeTab)
+      firstAvailableTab &&
+      !availableTabIds.split("|").includes(activeTab)
     ) {
-      setActiveTab(availableTabs[0].id);
+      setActiveTab(firstAvailableTab);
     }
-  }, [activeTab, availableTabs]);
+  }, [activeTab, availableTabIds, firstAvailableTab]);
 
   useEffect(() => {
     if (initialResource || !trialLoaded) return;
     const nextTab =
-      shopPhase === "newbie" && availableTabs.some((tab) => tab.id === "offers")
+      shopPhase === "newbie" && availableTabIds.split("|").includes("offers")
         ? "offers"
         : "resources";
-    setActiveTab(nextTab);
-  }, [availableTabs, initialResource, shopPhase, trialLoaded]);
+    setActiveTab((currentTab) => (currentTab === nextTab ? currentTab : nextTab));
+  }, [availableTabIds, initialResource, shopPhase, trialLoaded]);
 
   const handleBuy = async (productId: string) => {
     setBusyProductId(productId);

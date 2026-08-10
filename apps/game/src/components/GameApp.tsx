@@ -82,6 +82,7 @@ const PLAYER_ID_KEY = "island_empire_playerId";
 const CLAIM_KEY = "island_empire_onboarding_claim";
 const ONBOARDING_KEY = "island_empire_onboarding_pending";
 const MINIMAP_COLLAPSED_KEY = "island_empire_minimap_collapsed";
+const BATTLEFIELD_COLLAPSED_KEY = "island_empire_battlefield_collapsed";
 let didApplyNewbieReset = false;
 
 const BASE_PROFILE_AVATARS = [
@@ -1792,6 +1793,18 @@ export function GameApp({
   const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
+  const [battlefieldCollapsed, setBattlefieldCollapsed] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      localStorage.getItem(BATTLEFIELD_COLLAPSED_KEY) === "true",
+  );
+  const toggleBattlefieldCollapsed = useCallback(() => {
+    setBattlefieldCollapsed((previous) => {
+      const next = !previous;
+      localStorage.setItem(BATTLEFIELD_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  }, []);
   // Keep the player's ROK-style minimap preference across orientation changes.
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(() =>
     typeof window !== "undefined"
@@ -3992,10 +4005,10 @@ export function GameApp({
         id: `defend-${battle.id || territoryId}`,
         title: `${activityTerritoryLabel(territoryId)} đang bị công thành`,
         meta: `Địch ${formatNum(battle.attackerPower || battle.attPower || 0)} · còn ${battleTimeLeft(battle)}`,
-        icon: getBattlefieldTroopIcon(
-          battle,
-          "/assets/icons/icon_defender_dragon_shield.png",
-        ),
+        // A battle row describes the front line, not the dominant troop type.
+        // Keep the defender crest even when the payload contains infantry or
+        // artillery data so the status icon remains semantically correct.
+        icon: "/assets/icons/icon_defender_dragon_shield.png",
         tone: "danger",
         priority: 0,
         territoryId,
@@ -4007,10 +4020,7 @@ export function GameApp({
         id: `attack-${battle.id || territoryId}`,
         title: `Quân ta đang công ${activityTerritoryLabel(territoryId)}`,
         meta: `Công ${formatNum(battle.attackerPower || battle.attPower || 0)} · còn ${battleTimeLeft(battle)}`,
-        icon: getBattlefieldTroopIcon(
-          battle,
-          "/assets/icons/icon_attacker_lion_shield.png",
-        ),
+        icon: "/assets/icons/icon_attacker_lion_shield.png",
         tone: "active",
         priority: 1,
         territoryId,
@@ -4033,10 +4043,7 @@ export function GameApp({
         id: `incoming-${marchId || territoryId}`,
         title: `Quân địch đang tiến đến ${activityTerritoryLabel(territoryId)}`,
         meta: `${formatNum(march.troops || 0)} quân · tới sau ${formatTimeLeft(march.arrivesAt)}`,
-        icon: getBattlefieldTroopIcon(
-          march,
-          "/assets/icons/icon_defender_dragon_shield.png",
-        ),
+        icon: "/assets/icons/icon_defender_dragon_shield.png",
         tone: "danger",
         priority: 0,
         territoryId,
@@ -4055,12 +4062,14 @@ export function GameApp({
           ? `Tiếp viện đang đến ${activityTerritoryLabel(territoryId)}`
           : `Quân đang di chuyển đến ${activityTerritoryLabel(territoryId)}`,
       meta: `${formatNum(march.troops || 0)} quân · ${march.usesShip ? "đường biển" : "đường bộ"} · ${formatTimeLeft(march.arrivesAt)}`,
-      icon: getBattlefieldTroopIcon(
-        march,
-        isAttack
-          ? "/assets/icon-troops/sprite_01.webp"
-          : "/assets/icon-troops/sprite_03.webp",
-      ),
+      icon: isAttack
+        ? "/assets/icons/icon_attacker_lion_shield.png"
+        : isReinforce
+          ? "/assets/icons/icon_defender_dragon_shield.png"
+          : getBattlefieldTroopIcon(
+              march,
+              "/assets/icon-troops/sprite_03.webp",
+            ),
       tone: isAttack ? "warning" : "active",
       priority: isAttack ? 2 : 3,
       territoryId,
@@ -4115,7 +4124,7 @@ export function GameApp({
   battlefieldActivities.sort((a, b) => a.priority - b.priority);
   const visibleBattlefieldActivities =
     battlefieldActivities.length > 0
-      ? battlefieldActivities.slice(0, 4)
+      ? battlefieldActivities.slice(0, 3)
       : [
           {
             id: "frontier-calm",
@@ -4424,55 +4433,72 @@ export function GameApp({
                 searchTitle={t("search")}
               />
               <section
-                className="hud-main-missions"
+                className={`hud-main-missions ${battlefieldCollapsed ? "is-collapsed" : ""}`}
                 aria-label={t("battlefieldSituation")}
               >
-                <div className="hud-main-missions-header">
-                  <span>{t("battlefieldSituation")}</span>
-                  <i>
+                <button
+                  type="button"
+                  className="hud-main-missions-header"
+                  onClick={toggleBattlefieldCollapsed}
+                  aria-expanded={!battlefieldCollapsed}
+                  aria-controls="battlefield-situation-list"
+                >
+                  <span className="hud-main-missions-header-title">
+                    <AssetIcon asset="battleVs" size={18} alt="" />
+                    <span>{t("battlefieldSituation")}</span>
+                    {battlefieldActivities.length > 0 && (
+                      <em>{battlefieldActivities.length}</em>
+                    )}
+                  </span>
+                  <span className="hud-main-missions-toggle" aria-hidden="true">
                     <img
                       src="/assets/icons/icon_collapse_european.png"
                       alt=""
                     />
-                  </i>
-                </div>
-                <div className="hud-main-missions-list">
-                  {visibleBattlefieldActivities.map((activity) => (
-                    <button
-                      type="button"
-                      className={`hud-main-mission battlefield-${activity.tone}`}
-                      key={activity.id}
-                      disabled={!activity.focus}
-                      onClick={() => focusBattlefieldActivity(activity)}
-                      title={
-                        activity.focus
-                          ? `Định vị ${activity.title.toLowerCase()}`
-                          : activity.meta
-                      }
-                    >
-                      <span className="hud-main-mission-icon">
-                        <img src={activity.icon} alt="" />
-                      </span>
-                      <span className="hud-main-mission-copy">
-                        <b>{activity.title}</b>
-                        <span className="hud-main-mission-meta">
-                          {activity.meta}
+                  </span>
+                </button>
+                {!battlefieldCollapsed && (
+                  <div
+                    className="hud-main-missions-list"
+                    id="battlefield-situation-list"
+                  >
+                    {visibleBattlefieldActivities.map((activity) => (
+                      <button
+                        type="button"
+                        className={`hud-main-mission battlefield-${activity.tone}`}
+                        key={activity.id}
+                        disabled={!activity.focus}
+                        onClick={() => focusBattlefieldActivity(activity)}
+                        title={
+                          activity.focus
+                            ? `Định vị ${activity.title.toLowerCase()}`
+                            : activity.meta
+                        }
+                      >
+                        <span className="hud-main-mission-icon">
+                          <img src={activity.icon} alt="" />
                         </span>
-                      </span>
-                      {activity.focus && (
-                        <span
-                          className="hud-main-mission-locate"
-                          aria-hidden="true"
-                        >
-                          <img
-                            src="/assets/icons/icon_search_european.png"
-                            alt=""
-                          />
+                        <span className="hud-main-mission-copy">
+                          <b>{activity.title}</b>
+                          <span className="hud-main-mission-meta">
+                            {activity.meta}
+                          </span>
                         </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        {activity.focus && (
+                          <span
+                            className="hud-main-mission-locate"
+                            aria-hidden="true"
+                          >
+                            <img
+                              src="/assets/icons/icon_search_european.png"
+                              alt=""
+                            />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
           </div>
