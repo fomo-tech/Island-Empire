@@ -219,9 +219,12 @@ export function TownManagementModal({
   };
 
   return (
-    <div className="ob-modal-overlay town-modal-overlay" onClick={onClose}>
+    <div
+      className="ob-modal-overlay town-modal-overlay town-management-overlay"
+      onClick={onClose}
+    >
       <div
-        className="ob-modal-container town-modal"
+        className="ob-modal-container town-modal town-management-shell"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -237,18 +240,19 @@ export function TownManagementModal({
           <AssetIcon src="/assets/ui/hud_lion_crest.png" />
         </div>
 
-        <div className="ob-modal-header town-modal-header">
-          <h2 className="ob-modal-title town-title">
-            QUẢN LÝ THÀNH TRÌ #{town.id}
-          </h2>
-          <p className="ob-modal-subtitle town-subtitle">
-            MỖI THÀNH TRÌ CHỈ BỔ SUNG MỘT BINH CHỦNG
-          </p>
-        </div>
+        <div className="town-management-content">
+          <div className="ob-modal-header town-modal-header">
+            <h2 className="ob-modal-title town-title">
+              QUẢN LÝ THÀNH TRÌ #{town.id}
+            </h2>
+            <p className="ob-modal-subtitle town-subtitle">
+              MỖI THÀNH TRÌ CHỈ BỔ SUNG MỘT BINH CHỦNG
+            </p>
+          </div>
 
-        <div className="town-divider" />
+          <div className="town-divider" />
 
-        <div className="town-stats-grid">
+          <div className="town-stats-grid">
           <div className="town-stat-card">
             <div className="stat-icon-wrapper">
               <AssetIcon src="/assets/icons/icon_tower.png" />
@@ -316,9 +320,9 @@ export function TownManagementModal({
               </span>
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="recruitment-section">
+          <div className="recruitment-section">
           <div className="section-header-line">
             <h3 className="section-title">MỞ RỘNG KHO</h3>
             <span className="line-fill" />
@@ -394,9 +398,9 @@ export function TownManagementModal({
               </button>
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="recruitment-section">
+          <div className="recruitment-section">
           <div className="section-header-line">
             <h3 className="section-title">BỔ SUNG QUÂN TỰ ĐỘNG</h3>
             <span className="line-fill" />
@@ -442,16 +446,17 @@ export function TownManagementModal({
             Máy chủ chỉ bổ sung {specialtyMeta.title.toLocaleLowerCase("vi-VN")}{" "}
             cho thành trì này.
           </p>
-        </div>
+          </div>
 
-        <div className="ob-modal-actions town-modal-actions">
-          <button
-            type="button"
-            className="ob-action-btn secondary town-footer-btn"
-            onClick={onClose}
-          >
-            ĐÓNG QUẢN LÝ
-          </button>
+          <div className="ob-modal-actions town-modal-actions">
+            <button
+              type="button"
+              className="ob-action-btn secondary town-footer-btn"
+              onClick={onClose}
+            >
+              ĐÓNG QUẢN LÝ
+            </button>
+          </div>
         </div>
       </div>
     </div>

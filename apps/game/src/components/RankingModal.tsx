@@ -10,7 +10,6 @@ const FRAME_BY_RANK: Record<number, string> = {
   3: "/assets/leaderboard/leaderboard_frame_bronze.png",
 };
 const AVATARS = ["emperor", "warlord", "queen", "knight", "merchant", "scholar", "nomad", "alchemist"];
-const PAGE_SIZE = 7;
 
 function avatarFor(playerId: string) {
   let value = 0;
@@ -22,20 +21,24 @@ function prestige(value: number) {
   return Math.max(0, value).toLocaleString("vi-VN");
 }
 
+function kingdomName(entry: LeaderboardEntry) {
+  return entry.cityName?.trim() || entry.name;
+}
+
 function TopCommander({ entry }: { entry: LeaderboardEntry }) {
-  return <article className={`prestige-champion rank-${entry.rank}${entry.isCurrentPlayer ? " is-player" : ""}`}>
-    <div className="prestige-frame-wrap">
-      <div className="prestige-avatar" style={{ "--player-color": entry.flagColor } as React.CSSProperties}>
-        <img src={avatarFor(entry.playerId)} alt="" />
-      </div>
-      <img className="prestige-rank-frame" src={FRAME_BY_RANK[entry.rank]} alt={`Khung hạng ${entry.rank}`} />
+  const title = entry.rank === 1 ? "BÁ CHỦ ĐẠI LỤC" : entry.rank === 2 ? "ĐỆ NHỊ VƯƠNG" : "ĐỆ TAM VƯƠNG";
+  return <article className={`kr-champion kr-rank-${entry.rank}${entry.isCurrentPlayer ? " is-player" : ""}`}>
+    <header className="kr-champion-ribbon"><span>{title}</span><b>0{entry.rank}</b></header>
+    <div className="kr-champion-crest" style={{ "--player-color": entry.flagColor } as React.CSSProperties}>
+      <div className="kr-champion-avatar"><img src={avatarFor(entry.playerId)} alt="" /></div>
+      <img className="kr-champion-frame" src={FRAME_BY_RANK[entry.rank]} alt="" />
     </div>
-    <div className="prestige-champion-copy">
-      <span>{entry.rank === 1 ? "BÁ CHỦ UY THẾ" : entry.rank === 2 ? "ĐỆ NHỊ VƯƠNG" : "ĐỆ TAM VƯƠNG"}</span>
-      <strong>{entry.name}</strong>
-      <small>{entry.cityName} · Thành cấp {entry.capitalLevel}</small>
-      <b>{prestige(entry.prestige)} <i>UY THẾ</i></b>
+    <div className="kr-champion-copy">
+      <strong>{kingdomName(entry)}</strong>
+      <small>Lãnh chúa {entry.name}</small>
+      <div><span>UY THẾ</span><b>{prestige(entry.prestige)}</b></div>
     </div>
+    {entry.isCurrentPlayer && <span className="kr-you-badge">BẠN</span>}
   </article>;
 }
 
@@ -44,7 +47,6 @@ export function RankingModal({ token, onClose }: Props) {
   const [currentPlayer, setCurrentPlayer] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -59,31 +61,31 @@ export function RankingModal({ token, onClose }: Props) {
 
   const topThree = useMemo(() => leaderboard.filter((entry) => entry.rank <= 3), [leaderboard]);
   const remaining = useMemo(() => leaderboard.filter((entry) => entry.rank > 3), [leaderboard]);
-  const pageCount = Math.max(1, Math.ceil(remaining.length / PAGE_SIZE));
-  const visibleRanks = useMemo(() => remaining.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [remaining, page]);
+  const visibleRanks = remaining;
   const nextPrestige = currentPlayer && currentPlayer.rank > 1
     ? leaderboard.find((entry) => entry.rank === currentPlayer.rank - 1)?.prestige
     : undefined;
 
-  return <MedievalModal title="BẢNG UY THẾ VƯƠNG QUỐC" subtitle="Vinh danh những đế chế hùng mạnh nhất lục địa" onClose={onClose} width="1040px" maxWidth="96vw">
-    <section className="prestige-board">
-      {loading ? <div className="prestige-state">Đang mở Sổ Vàng Đế Quốc...</div> : error ? <div className="prestige-state error">{error}</div> : leaderboard.length === 0 ? <div className="prestige-state">Chưa có Vương quốc nào được ghi danh.</div> : <>
-        <div className="prestige-podium" aria-label="Ba Vương quốc dẫn đầu">
+  return <MedievalModal className="ranking-modal-royal kingdom-ranking-v4" title="BẢNG UY THẾ VƯƠNG QUỐC" subtitle="Vinh danh những đế chế hùng mạnh nhất lục địa" onClose={onClose} width="920px" maxWidth="96vw">
+    <section className="kr-board">
+      {loading ? <div className="kr-state">Đang mở Sổ Vàng Đế Quốc...</div> : error ? <div className="kr-state is-error">{error}</div> : leaderboard.length === 0 ? <div className="kr-state">Chưa có Vương quốc nào được ghi danh.</div> : <>
+        <div className="kr-podium" aria-label="Ba Vương quốc dẫn đầu">
           {topThree.filter((entry) => entry.rank === 2).map((entry) => <TopCommander key={entry.playerId} entry={entry}/>)}
           {topThree.filter((entry) => entry.rank === 1).map((entry) => <TopCommander key={entry.playerId} entry={entry}/>)}
           {topThree.filter((entry) => entry.rank === 3).map((entry) => <TopCommander key={entry.playerId} entry={entry}/>)}
         </div>
-        <div className="prestige-list-head"><span>HẠNG</span><span>VƯƠNG QUỐC</span><span>THÀNH TRÌ</span><span>LÃNH ĐỊA</span><span>UY THẾ</span></div>
-        <div className="prestige-list">
-          {visibleRanks.map((entry) => <div className={`prestige-row${entry.isCurrentPlayer ? " is-player" : ""}`} key={entry.playerId}>
-            <b className="prestige-rank">{String(entry.rank).padStart(2, "0")}</b>
-            <div className="prestige-player"><span style={{ "--player-color": entry.flagColor } as React.CSSProperties}><img src={avatarFor(entry.playerId)} alt=""/></span><div><strong>{entry.name}</strong><small>{entry.cityName}</small></div></div>
-            <span>Cấp {entry.capitalLevel}</span><span>{entry.townCount}</span><strong>{prestige(entry.prestige)}</strong>
+        <div className="kr-list-title"><span>DANH SÁCH QUYỀN LỰC</span><small>{leaderboard.length} vương quốc được ghi danh</small></div>
+        <div className="kr-list-head"><span>HẠNG</span><span>VƯƠNG QUỐC</span><span>THÀNH TRÌ</span><span>LÃNH ĐỊA</span><span>UY THẾ</span></div>
+        <div className="kr-list">
+          {visibleRanks.map((entry) => <div className={`kr-row${entry.isCurrentPlayer ? " is-player" : ""}`} key={entry.playerId}>
+            <b className="kr-row-rank">{String(entry.rank).padStart(2, "0")}</b>
+            <div className="kr-kingdom"><span style={{ "--player-color": entry.flagColor } as React.CSSProperties}><img src={avatarFor(entry.playerId)} alt=""/></span><div><strong>{kingdomName(entry)}</strong><small>Lãnh chúa {entry.name}</small></div></div>
+            <span className="kr-level">Cấp {entry.capitalLevel}</span><span className="kr-lands">{entry.townCount}</span><strong className="kr-score">{prestige(entry.prestige)}</strong>
           </div>)}
         </div>
-        {currentPlayer && <aside className="prestige-self"><div><small>HẠNG CỦA BẠN</small><strong>#{currentPlayer.rank} · {currentPlayer.name}</strong></div><b>{prestige(currentPlayer.prestige)} <span>UY THẾ</span></b>{nextPrestige !== undefined && <p>Cần thêm <strong>{prestige(Math.max(0, nextPrestige - currentPlayer.prestige + 1))}</strong> để vượt hạng trên</p>}</aside>}
+        {currentPlayer && <aside className="kr-self"><div className="kr-self-rank"><small>HẠNG CỦA BẠN</small><strong>#{currentPlayer.rank}</strong></div><div className="kr-self-name"><strong>{kingdomName(currentPlayer)}</strong><small>Lãnh chúa {currentPlayer.name}</small></div><div className="kr-self-score"><b>{prestige(currentPlayer.prestige)}</b><span>UY THẾ</span></div>{nextPrestige !== undefined && <p>Cần thêm <strong>{prestige(Math.max(0, nextPrestige - currentPlayer.prestige + 1))}</strong> để thăng hạng</p>}</aside>}
       </>}
-      <footer className="prestige-footer"><p>Uy Thế gồm quân sự, lãnh thổ, thành trì và công trình.</p>{!loading && !error && remaining.length > PAGE_SIZE && <nav className="prestige-pages" aria-label="Trang bảng xếp hạng"><button type="button" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={page === 0} aria-label="Trang trước">‹</button><span>{page + 1} / {pageCount}</span><button type="button" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={page >= pageCount - 1} aria-label="Trang sau">›</button></nav>}<button type="button" onClick={onClose}>ĐÓNG BẢNG XẾP HẠNG</button></footer>
+      <footer className="kr-footer"><p>Uy Thế tổng hợp sức mạnh quân sự, lãnh thổ và thành trì.</p><button type="button" onClick={onClose}>ĐÓNG</button></footer>
     </section>
   </MedievalModal>;
 }

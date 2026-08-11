@@ -1,0 +1,157 @@
+/* Resource HUD has one layout contract: five independent compact pills.
+   Each pill uses a fixed icon / value / action grid so the amount never clips. */
+html body .game-shell .hud-wrapper .rok-ref-resources {
+  width: clamp(520px, 42vw, 620px) !important;
+  height: 34px !important;
+  padding: 0 !important;
+  filter: none !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip {
+  display: grid !important;
+  width: 100% !important;
+  height: 34px !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource,
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+  position: relative !important;
+  display: grid !important;
+  min-width: 0 !important;
+  height: 29px !important;
+  min-height: 29px !important;
+  grid-template-columns: 21px minmax(0, 1fr) 17px !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 0 4px !important;
+  overflow: visible !important;
+  border: 1px solid rgba(187, 147, 68, .56) !important;
+  border-radius: 7px !important;
+  background: linear-gradient(180deg, rgba(26, 45, 39, .96), rgba(7, 18, 20, .96)) !important;
+  box-shadow: inset 0 1px rgba(255, 235, 170, .1), 0 3px 7px rgba(0, 0, 0, .34) !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-gems {
+  border-color: rgba(176, 88, 76, .72) !important;
+  background: linear-gradient(180deg, rgba(54, 31, 33, .96), rgba(20, 15, 19, .96)) !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:hover,
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:focus-visible,
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.is-tooltip-open {
+  z-index: 4 !important;
+  outline: 0 !important;
+  border-color: #e0b55a !important;
+  background: linear-gradient(180deg, rgba(55, 66, 39, .98), rgba(12, 25, 23, .98)) !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-icon {
+  position: static !important;
+  grid-column: 1 !important;
+  width: 21px !important;
+  height: 21px !important;
+  max-width: 21px !important;
+  max-height: 21px !important;
+  transform: none !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .75)) !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .res-gems .hud-resource-entry-icon {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy {
+  display: block !important;
+  grid-column: 2 !important;
+  min-width: 0 !important;
+  height: 29px !important;
+  line-height: 29px !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy strong,
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-current-value {
+  display: block !important;
+  width: max-content !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  overflow: visible !important;
+  color: #f5e9c6 !important;
+  font: 800 11px/29px Georgia, serif !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: .01em !important;
+  text-overflow: clip !important;
+  text-shadow: 0 1px 2px #000 !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-capacity,
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy small {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn {
+  position: static !important;
+  grid-column: 3 !important;
+  display: grid !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  place-items: center !important;
+  padding: 0 0 1px !important;
+  transform: none !important;
+  border: 1px solid rgba(138, 205, 111, .75) !important;
+  border-radius: 4px !important;
+  color: #eff8d6 !important;
+  background: linear-gradient(180deg, #4b923f, #28602e) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .2), 0 2px 3px rgba(0,0,0,.36) !important;
+  font: 800 12px/1 Arial, sans-serif !important;
+}
+
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn:hover {
+  border-color: #d6f0aa !important;
+  filter: brightness(1.12) !important;
+}
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  html body .game-shell .hud-wrapper .rok-ref-resources { width: clamp(500px, 49vw, 560px) !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip { gap: 3px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource,
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+    grid-template-columns: 19px minmax(0, 1fr) 15px !important;
+    gap: 2px !important;
+    padding: 0 3px !important;
+  }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-icon { width: 19px !important; height: 19px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy strong,
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-current-value { font-size: 10px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn { width: 14px !important; min-width: 14px !important; height: 14px !important; font-size: 11px !important; }
+}
+
+@media (max-width: 767px) {
+  html body .game-shell .hud-wrapper .rok-ref-resources { width: auto !important; height: 30px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip { height: 30px !important; gap: 2px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource,
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:nth-child(n) {
+    height: 26px !important;
+    min-height: 26px !important;
+    grid-template-columns: 18px minmax(0, 1fr) !important;
+    gap: 1px !important;
+    padding: 0 2px !important;
+    border-radius: 5px !important;
+  }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-icon { width: 18px !important; height: 18px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy { height: 26px !important; line-height: 26px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-copy strong,
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-current-value { font-size: clamp(7px, 1.9vw, 9px) !important; line-height: 26px !important; }
+  html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn { display: none !important; }
+}

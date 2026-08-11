@@ -1,0 +1,645 @@
+/*
+ * Town management owns its visual system.
+ *
+ * This file is imported after the legacy global stylesheet and every selector
+ * is scoped to .town-management-shell so generic modal/recruitment rules
+ * cannot change the geometry of this screen.
+ */
+.town-management-overlay,
+.town-management-overlay * {
+  box-sizing: border-box;
+}
+
+.town-management-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 3000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 16px !important;
+  overflow: visible !important;
+  background: rgba(1, 8, 13, 0.78) !important;
+  backdrop-filter: blur(9px) saturate(0.82) !important;
+}
+
+.town-management-shell {
+  position: relative !important;
+  display: flex !important;
+  width: min(860px, calc(100vw - 32px)) !important;
+  max-width: 860px !important;
+  max-height: min(820px, calc(100dvh - 32px)) !important;
+  min-height: 0 !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 1px solid rgba(218, 170, 65, 0.92) !important;
+  border-radius: 15px !important;
+  outline: 1px solid rgba(111, 76, 18, 0.86) !important;
+  outline-offset: 3px !important;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(114, 24, 24, 0.3), transparent 38%),
+    linear-gradient(160deg, #0c1b28 0%, #061019 54%, #03090f 100%) !important;
+  box-shadow:
+    0 28px 85px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 227, 137, 0.12),
+    inset 0 1px 0 rgba(255, 240, 174, 0.18),
+    inset 0 0 38px rgba(0, 0, 0, 0.54) !important;
+  color: #f0e4c7 !important;
+}
+
+.town-management-content {
+  display: flex !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  padding: 28px 30px 18px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  border-radius: inherit !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.town-management-content::-webkit-scrollbar {
+  width: 7px !important;
+}
+
+.town-management-content::-webkit-scrollbar-track {
+  background: rgba(2, 9, 14, 0.72) !important;
+}
+
+.town-management-content::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(2, 9, 14, 0.72) !important;
+  border-radius: 999px !important;
+  background: #8d692b !important;
+}
+
+.town-management-shell .town-close-btn {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  z-index: 8 !important;
+  display: grid !important;
+  width: 36px !important;
+  height: 36px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(243, 202, 93, 0.9) !important;
+  border-radius: 7px !important;
+  background: linear-gradient(160deg, #20384a, #0b1723) !important;
+  color: #ffe89d !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+.town-management-shell .town-close-btn:hover,
+.town-management-shell .town-close-btn:focus-visible {
+  border-color: #fff0b6 !important;
+  background: linear-gradient(160deg, #31566c, #132536) !important;
+  color: #fff7dc !important;
+  outline: 2px solid rgba(255, 221, 121, 0.24) !important;
+  outline-offset: 2px !important;
+}
+
+.town-management-shell .town-modal-crest {
+  position: absolute !important;
+  top: -22px !important;
+  left: 50% !important;
+  z-index: 40 !important;
+  width: 66px !important;
+  height: 45px !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  pointer-events: none !important;
+}
+
+.town-management-shell .town-modal-crest::before,
+.town-management-shell .town-modal-crest::after {
+  top: 24px !important;
+  width: min(250px, 28vw) !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent, #be8a31, transparent) !important;
+}
+
+.town-management-shell .town-modal-crest .town-png-icon {
+  width: 42px !important;
+  height: 42px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.86)) !important;
+}
+
+.town-management-shell .town-modal-header {
+  position: relative !important;
+  z-index: 1 !important;
+  display: flex !important;
+  min-width: 0 !important;
+  min-height: 75px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  padding: 13px 58px 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(212, 156, 53, 0.8) !important;
+  border-radius: 6px !important;
+  background:
+    linear-gradient(90deg, rgba(29, 8, 16, 0.98), rgba(157, 20, 25, 0.98) 46%, rgba(62, 10, 18, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 228, 152, 0.16),
+    inset 0 -20px 35px rgba(58, 3, 10, 0.24) !important;
+  text-align: center !important;
+}
+
+.town-management-shell .town-title {
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: #f2cf67 !important;
+  font: 800 clamp(20px, 3vw, 30px)/1.05 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.035em !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 2px 0 #3a1306, 0 0 15px rgba(255, 212, 91, 0.22) !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .town-subtitle {
+  max-width: 100% !important;
+  margin: 7px 0 0 !important;
+  overflow: hidden !important;
+  color: rgba(255, 220, 177, 0.78) !important;
+  font: 800 9px/1.2 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.1em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .town-divider {
+  flex: 0 0 10px !important;
+  height: 10px !important;
+  margin: 9px 0 10px !important;
+  background:
+    linear-gradient(90deg, transparent, rgba(211, 161, 67, 0.7), transparent) center / 100% 1px no-repeat,
+    radial-gradient(circle, #d7a853 0 2px, transparent 2.8px) center / 9px 9px no-repeat !important;
+}
+
+.town-management-shell .town-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+  min-width: 0 !important;
+  margin: 0 0 8px !important;
+}
+
+.town-management-shell .town-stat-card {
+  display: grid !important;
+  min-width: 0 !important;
+  min-height: 82px !important;
+  grid-template-columns: 38px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 12px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(208, 155, 52, 0.54) !important;
+  border-radius: 6px !important;
+  background: linear-gradient(150deg, rgba(13, 32, 48, 0.96), rgba(4, 12, 20, 0.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 170, 0.06), inset 0 0 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.town-management-shell .town-stat-card:hover {
+  border-color: rgba(241, 193, 85, 0.88) !important;
+  background: linear-gradient(150deg, rgba(18, 46, 65, 0.98), rgba(5, 15, 24, 0.98)) !important;
+}
+
+.town-management-shell .stat-icon-wrapper {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  place-items: center !important;
+}
+
+.town-management-shell .stat-icon-wrapper .town-png-icon {
+  width: 30px !important;
+  height: 30px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.64)) !important;
+}
+
+.town-management-shell .stat-info {
+  display: flex !important;
+  min-width: 0 !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.town-management-shell .stat-label {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #c5b78f !important;
+  font: 800 8px/1.1 Arial, sans-serif !important;
+  letter-spacing: 0.08em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .stat-val {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #f4ead3 !important;
+  font: 900 17px/1.08 Georgia, "Times New Roman", serif !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .stat-val.text-gold {
+  color: #ffd36e !important;
+}
+
+.town-management-shell .stat-subline {
+  color: #8ea2ad !important;
+  font: 700 8px/1.15 Arial, sans-serif !important;
+}
+
+.town-management-shell .recruitment-section {
+  display: flex !important;
+  min-width: 0 !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.town-management-shell .section-header-line {
+  display: flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 8px 0 2px !important;
+  padding: 0 !important;
+}
+
+.town-management-shell .section-header-line .section-title {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: #dca83f !important;
+  font: 900 12px/1 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.08em !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .section-header-line .line-fill {
+  flex: 1 1 auto !important;
+  min-width: 20px !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, rgba(205, 155, 62, 0.7), transparent) !important;
+}
+
+.town-management-shell .recruit-option {
+  display: grid !important;
+  min-width: 0 !important;
+  min-height: 88px !important;
+  grid-template-columns: 112px minmax(0, 1fr) 136px !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 8px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(200, 151, 65, 0.62) !important;
+  border-radius: 6px !important;
+  background: linear-gradient(150deg, rgba(18, 40, 56, 0.96), rgba(4, 12, 20, 0.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 239, 171, 0.08) !important;
+}
+
+.town-management-shell .recruit-option.is-blocked {
+  border-color: rgba(181, 78, 61, 0.72) !important;
+  background: linear-gradient(150deg, rgba(53, 28, 31, 0.95), rgba(18, 10, 15, 0.98)) !important;
+}
+
+.town-management-shell .unit-art-box {
+  display: grid !important;
+  width: 112px !important;
+  height: 70px !important;
+  place-items: center !important;
+  border: 1px solid rgba(205, 158, 71, 0.48) !important;
+  border-radius: 5px !important;
+  background: radial-gradient(circle at 50% 40%, rgba(111, 158, 177, 0.18), transparent 58%), #071621 !important;
+}
+
+.town-management-shell .town-png-icon,
+.town-management-shell .town-specialty-image {
+  max-width: 100% !important;
+  object-fit: contain !important;
+  mix-blend-mode: normal !important;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.68)) !important;
+}
+
+.town-management-shell .town-specialty-image {
+  width: 104px !important;
+  height: 64px !important;
+}
+
+.town-management-shell .option-info {
+  display: flex !important;
+  min-width: 0 !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.town-management-shell .option-name {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #f1c65f !important;
+  font: 900 15px/1.1 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.02em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .option-desc {
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  color: #aebdca !important;
+  font: 500 10px/1.25 Arial, sans-serif !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.town-management-shell .cost-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  margin-top: 2px !important;
+}
+
+.town-management-shell .cost-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 3px 6px !important;
+  border: 1px solid rgba(181, 137, 66, 0.38) !important;
+  border-radius: 4px !important;
+  background: rgba(2, 8, 13, 0.64) !important;
+  color: #e7dac1 !important;
+  font: 800 8px/1 Arial, sans-serif !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .res-dot {
+  width: 9px !important;
+  height: 9px !important;
+  flex: 0 0 9px !important;
+}
+
+.town-management-shell .recruit-action-col {
+  display: flex !important;
+  min-width: 0 !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 5px !important;
+}
+
+.town-management-shell .recruit-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 36px !important;
+  padding: 0 8px !important;
+  border: 1px solid #c18a31 !important;
+  border-radius: 5px !important;
+  background: linear-gradient(180deg, #a86d17, #5c340b) !important;
+  color: #fff0c9 !important;
+  font: 900 11px/1 Georgia, "Times New Roman", serif !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .recruit-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #c78a2b, #774815) !important;
+  filter: none !important;
+}
+
+.town-management-shell .recruit-btn:disabled {
+  border-color: rgba(115, 126, 136, 0.5) !important;
+  background: linear-gradient(180deg, #3b4650, #17212a) !important;
+  color: #a9b0b4 !important;
+}
+
+.town-management-shell .auto-recovery-status {
+  min-width: 0 !important;
+  align-items: flex-end !important;
+  text-align: right !important;
+}
+
+.town-management-shell .auto-recovery-status strong {
+  color: #ffd66d !important;
+  font: 900 11px/1.15 Georgia, "Times New Roman", serif !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .is-blocked .auto-recovery-status strong {
+  color: #ff9a82 !important;
+}
+
+.town-management-shell .owned-count {
+  color: #9caeb8 !important;
+  font: 700 8px/1.2 Arial, sans-serif !important;
+  white-space: nowrap !important;
+}
+
+.town-management-shell .auto-recovery-note {
+  margin: 0 2px !important;
+  color: #8ea2ad !important;
+  font: 600 8px/1.3 Arial, sans-serif !important;
+}
+
+.town-management-shell .town-modal-actions {
+  display: flex !important;
+  justify-content: center !important;
+  margin-top: 10px !important;
+  padding: 10px 0 0 !important;
+  border-top: 1px solid rgba(183, 138, 57, 0.42) !important;
+}
+
+.town-management-shell .town-footer-btn {
+  width: min(240px, 100%) !important;
+  height: 36px !important;
+  border: 1px solid #bf8c3b !important;
+  border-radius: 5px !important;
+  background: linear-gradient(180deg, #172d42, #091623) !important;
+  color: #f7deb0 !important;
+  font: 900 11px/1 Georgia, "Times New Roman", serif !important;
+}
+
+@media (max-width: 760px) {
+  .town-management-overlay {
+    align-items: flex-start !important;
+    padding: 12px 10px !important;
+  }
+
+  .town-management-shell {
+    width: min(100%, 640px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  .town-management-content {
+    padding: 24px 14px 14px !important;
+  }
+
+  .town-management-shell .town-close-btn {
+    top: 10px !important;
+    right: 10px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .town-management-shell .town-modal-header {
+    min-height: 66px !important;
+    padding: 10px 44px 8px !important;
+  }
+
+  .town-management-shell .town-title {
+    font-size: clamp(17px, 5vw, 24px) !important;
+  }
+
+  .town-management-shell .town-subtitle {
+    margin-top: 5px !important;
+    font-size: 7px !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .town-management-shell .town-stats-grid {
+    gap: 6px !important;
+  }
+
+  .town-management-shell .town-stat-card {
+    min-height: 70px !important;
+    grid-template-columns: 30px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 8px !important;
+  }
+
+  .town-management-shell .stat-icon-wrapper {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .town-management-shell .stat-icon-wrapper .town-png-icon {
+    width: 25px !important;
+    height: 25px !important;
+  }
+
+  .town-management-shell .stat-label {
+    font-size: 7px !important;
+  }
+
+  .town-management-shell .stat-val {
+    font-size: 13px !important;
+  }
+
+  .town-management-shell .stat-subline {
+    font-size: 7px !important;
+  }
+
+  .town-management-shell .section-header-line {
+    margin-top: 7px !important;
+  }
+
+  .town-management-shell .section-header-line .section-title {
+    font-size: 10px !important;
+  }
+
+  .town-management-shell .recruit-option {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+    padding: 7px !important;
+  }
+
+  .town-management-shell .unit-art-box {
+    width: 72px !important;
+    height: 58px !important;
+  }
+
+  .town-management-shell .town-specialty-image {
+    width: 68px !important;
+    height: 54px !important;
+  }
+
+  .town-management-shell .option-name {
+    font-size: 12px !important;
+  }
+
+  .town-management-shell .option-desc {
+    font-size: 8px !important;
+  }
+
+  .town-management-shell .cost-pill {
+    padding: 3px 5px !important;
+    font-size: 7px !important;
+  }
+
+  .town-management-shell .recruit-action-col {
+    grid-column: 2 !important;
+    align-items: stretch !important;
+    text-align: left !important;
+  }
+
+  .town-management-shell .recruit-btn {
+    height: 32px !important;
+    font-size: 10px !important;
+  }
+
+  .town-management-shell .auto-recovery-status {
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .town-management-shell .auto-recovery-status strong {
+    font-size: 9px !important;
+  }
+
+  .town-management-shell .town-modal-actions {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+  }
+}
+
+@media (max-width: 440px) {
+  .town-management-shell .town-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .town-management-shell .town-stat-card {
+    min-height: 58px !important;
+  }
+
+  .town-management-shell .town-modal-header {
+    padding-inline: 34px !important;
+  }
+
+  .town-management-shell .town-title {
+    font-size: 17px !important;
+  }
+
+  .town-management-shell .town-subtitle {
+    max-width: 230px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-management-shell *,
+  .town-management-shell *::before,
+  .town-management-shell *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

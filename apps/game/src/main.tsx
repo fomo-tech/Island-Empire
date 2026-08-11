@@ -17,6 +17,14 @@ import "./styles/battle-report.css";
 import "./styles/typography.css";
 import "./styles/hud-mobile.css";
 import "./styles/tooltip-redesign.css";
+import "./styles/town-management.css";
+import "./styles/ranking.css";
+import "./styles/attack-dispatch.css";
+import "./styles/battle-report-redesign.css";
+import "./styles/shop-compact.css";
+import "./styles/ranking-redesign.css";
+import "./styles/ranking-v4.css";
+import "./styles/resource-hud-v2.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");

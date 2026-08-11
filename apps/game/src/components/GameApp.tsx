@@ -4445,7 +4445,12 @@ export function GameApp({
                 >
                   <span className="hud-main-missions-header-title">
                     <AssetIcon asset="battleVs" size={18} alt="" />
-                    <span>{t("battlefieldSituation")}</span>
+                    <span className="hud-battlefield-full-label">
+                      {t("battlefieldSituation")}
+                    </span>
+                    <span className="hud-battlefield-compact-label">
+                      {t("battlefieldShort")}
+                    </span>
                     {battlefieldActivities.length > 0 && (
                       <em>{battlefieldActivities.length}</em>
                     )}

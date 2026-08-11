@@ -1,0 +1,720 @@
+/* Ranking modal visual system. It is scoped so the reusable prestige classes
+   remain safe for other lists and future leaderboard variants. */
+.ranking-modal-royal {
+  --ranking-gold: #f3c866;
+  --ranking-gold-soft: #b78b3b;
+  --ranking-ink: #071018;
+  --ranking-panel: #0b1923;
+  --ranking-blue: #63c5d3;
+  width: min(1040px, 96vw) !important;
+  max-width: 1040px !important;
+  max-height: min(820px, calc(100dvh - 32px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  padding: 17px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(245, 196, 83, 0.9) !important;
+  border-radius: 16px !important;
+  background:
+    radial-gradient(circle at 50% -24%, rgba(44, 123, 137, 0.24), transparent 43%),
+    linear-gradient(160deg, #102631 0%, #07131c 48%, #040a10 100%) !important;
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.92),
+    0 0 0 1px rgba(97, 193, 204, 0.12),
+    inset 0 1px rgba(255, 239, 165, 0.18),
+    inset 0 0 42px rgba(0, 0, 0, 0.45) !important;
+}
+
+.ranking-modal-royal::before,
+.ranking-modal-royal::after {
+  position: absolute;
+  z-index: 0;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(237, 186, 77, 0.45);
+  content: "";
+  pointer-events: none;
+}
+
+.ranking-modal-royal::before {
+  top: 7px;
+  left: 7px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 9px 0 0;
+}
+
+.ranking-modal-royal::after {
+  right: 7px;
+  bottom: 7px;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 9px;
+}
+
+.ranking-modal-royal .medieval-modal-close-btn {
+  z-index: 5 !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  border: 1px solid rgba(238, 194, 94, 0.8) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #1d4350, #0a1822) !important;
+  color: #ffe7a2 !important;
+  font-size: 25px !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), 0 5px 15px #0008 !important;
+}
+
+.ranking-modal-royal .medieval-modal-close-btn:hover,
+.ranking-modal-royal .medieval-modal-close-btn:focus-visible {
+  border-color: #fff1b3 !important;
+  background: linear-gradient(145deg, #2d6872, #102b37) !important;
+  color: #fff7da !important;
+  outline: 2px solid rgba(245, 199, 103, 0.23) !important;
+  outline-offset: 2px !important;
+}
+
+.ranking-modal-royal .medieval-modal-header {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  margin: 0 0 13px !important;
+  padding: 13px 58px 12px !important;
+  border: 1px solid rgba(214, 159, 54, 0.76) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(90deg, rgba(9, 24, 32, 0.1), rgba(126, 23, 31, 0.94) 24%, rgba(154, 28, 32, 0.98) 50%, rgba(126, 23, 31, 0.94) 76%, rgba(9, 24, 32, 0.1)),
+    radial-gradient(circle at 50% 100%, rgba(255, 184, 72, 0.15), transparent 55%) !important;
+  box-shadow: inset 0 1px rgba(255, 232, 154, 0.18), 0 8px 20px #0007 !important;
+}
+
+.ranking-modal-royal .medieval-modal-title {
+  color: var(--ranking-gold) !important;
+  font-size: clamp(18px, 2.3vw, 27px) !important;
+  letter-spacing: 0.08em !important;
+  text-shadow: 0 2px #42140a, 0 0 18px rgba(255, 211, 95, 0.3) !important;
+}
+
+.ranking-modal-royal .medieval-modal-subtitle {
+  margin-top: 6px !important;
+  color: rgba(255, 225, 178, 0.8) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em;
+}
+
+.ranking-modal-royal .medieval-modal-body {
+  position: relative;
+  z-index: 1;
+  display: flex !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.ranking-modal-royal .ranking-board-royal {
+  width: 100%;
+  height: min(680px, calc(100dvh - 180px));
+  max-height: none !important;
+  min-height: 0;
+  gap: 10px;
+  overflow: hidden;
+  color: #dce3df;
+  background:
+    linear-gradient(180deg, rgba(11, 28, 37, 0.82), rgba(4, 11, 17, 0.92)),
+    radial-gradient(circle at 50% 0, rgba(44, 131, 144, 0.16), transparent 48%);
+}
+
+.ranking-modal-royal .prestige-podium {
+  position: relative;
+  flex: 0 0 250px;
+  min-height: 0 !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  padding: 17px 24px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(111, 185, 194, 0.24);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, rgba(4, 17, 24, 0.2), rgba(2, 8, 13, 0.9)),
+    radial-gradient(ellipse at 50% 100%, rgba(230, 174, 65, 0.17), transparent 62%);
+  box-shadow: inset 0 1px rgba(255, 232, 165, 0.1), inset 0 -22px 40px rgba(0, 0, 0, 0.27);
+}
+
+.ranking-modal-royal .prestige-podium::before {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 54%;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(231, 185, 76, 0.76), transparent);
+  content: "";
+}
+
+.ranking-modal-royal .prestige-champion {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 207px;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px 8px 9px;
+  border: 1px solid rgba(100, 157, 164, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(165deg, rgba(25, 54, 64, 0.68), rgba(4, 14, 21, 0.94));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 17px rgba(0, 0, 0, 0.32);
+}
+
+.ranking-modal-royal .prestige-champion::before {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  padding: 3px 8px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(191, 151, 72, 0.46);
+  border-radius: 999px;
+  color: #c5a35e;
+  background: rgba(5, 13, 18, 0.7);
+  content: "";
+  font: 800 7px/1 Arial, sans-serif;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.ranking-modal-royal .prestige-champion.rank-1 {
+  min-height: 231px;
+  border-color: rgba(244, 199, 95, 0.82);
+  background: linear-gradient(165deg, rgba(77, 61, 27, 0.72), rgba(7, 19, 24, 0.97));
+  box-shadow: inset 0 1px rgba(255, 243, 186, 0.2), 0 0 22px rgba(237, 185, 66, 0.16), 0 12px 22px #0008;
+}
+
+.ranking-modal-royal .prestige-champion.rank-1::before {
+  color: #ffe09a;
+  border-color: rgba(248, 203, 102, 0.74);
+  background: rgba(83, 53, 18, 0.72);
+  content: "VƯƠNG MIỆN";
+}
+
+.ranking-modal-royal .prestige-champion.rank-2 {
+  border-color: rgba(186, 208, 212, 0.48);
+}
+
+.ranking-modal-royal .prestige-champion.rank-2::before {
+  content: "Á QUÂN";
+}
+
+.ranking-modal-royal .prestige-champion.rank-3 {
+  border-color: rgba(190, 125, 76, 0.56);
+}
+
+.ranking-modal-royal .prestige-champion.rank-3::before {
+  content: "TOP 3";
+}
+
+.ranking-modal-royal .prestige-frame-wrap,
+.ranking-modal-royal .rank-1 .prestige-frame-wrap {
+  width: 112px !important;
+  height: 112px !important;
+  flex: 0 0 112px;
+}
+
+.ranking-modal-royal .rank-1 .prestige-frame-wrap {
+  width: 137px !important;
+  height: 137px !important;
+  flex-basis: 137px;
+}
+
+.ranking-modal-royal .prestige-rank-frame {
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.72));
+}
+
+.ranking-modal-royal .prestige-avatar {
+  box-shadow: inset 0 0 0 1px rgba(255, 233, 159, 0.28), 0 0 16px color-mix(in srgb, var(--player-color), transparent 45%);
+}
+
+.ranking-modal-royal .prestige-champion-copy {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  margin: 3px 0 0;
+  padding: 0;
+}
+
+.ranking-modal-royal .prestige-champion-copy > span {
+  display: block;
+  overflow: hidden;
+  color: #b6c9c9;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-modal-royal .prestige-champion-copy > strong,
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #f4ead0;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong {
+  color: #ffe49b;
+  font-size: 16px;
+}
+
+.ranking-modal-royal .prestige-champion-copy small {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #8aa7ad;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-modal-royal .prestige-champion-copy b {
+  display: block;
+  margin-top: 5px;
+  color: var(--ranking-gold);
+  font-size: 12px;
+}
+
+.ranking-modal-royal .prestige-champion-copy b i {
+  color: #a7b8b5;
+}
+
+.ranking-modal-royal .prestige-champion.is-player .prestige-champion-copy::after {
+  top: auto;
+  right: 5px;
+  bottom: 3px;
+  border-color: rgba(111, 211, 184, 0.54);
+  border-radius: 999px;
+  color: #8df0c9;
+  background: rgba(15, 91, 72, 0.38);
+  font-size: 6px;
+}
+
+.ranking-modal-royal .prestige-list-head,
+.ranking-modal-royal .prestige-row {
+  grid-template-columns: 48px minmax(220px, 1fr) 104px 86px 132px;
+}
+
+.ranking-modal-royal .prestige-list-head {
+  flex: 0 0 31px;
+  min-height: 31px;
+  padding: 0 12px;
+  border: 1px solid rgba(99, 180, 191, 0.2);
+  border-radius: 8px 8px 0 0;
+  color: #829da0;
+  background: rgba(3, 12, 18, 0.88);
+  font-size: 8px;
+}
+
+.ranking-modal-royal .prestige-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(7, minmax(39px, 1fr));
+  overflow: hidden;
+  border-right: 1px solid rgba(99, 180, 191, 0.13);
+  border-bottom: 1px solid rgba(99, 180, 191, 0.18);
+  border-left: 1px solid rgba(99, 180, 191, 0.13);
+  border-radius: 0 0 8px 8px;
+  background: rgba(2, 9, 14, 0.54);
+}
+
+.ranking-modal-royal .prestige-row {
+  min-height: 0;
+  height: auto;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(107, 154, 157, 0.13);
+  background: rgba(10, 25, 32, 0.58);
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.ranking-modal-royal .prestige-row:nth-child(even) {
+  background: rgba(13, 31, 39, 0.76);
+}
+
+.ranking-modal-royal .prestige-row:hover {
+  background: rgba(35, 78, 82, 0.52);
+  box-shadow: inset 3px 0 rgba(100, 207, 197, 0.75);
+}
+
+.ranking-modal-royal .prestige-row.is-player {
+  background: linear-gradient(90deg, rgba(103, 72, 23, 0.56), rgba(24, 56, 57, 0.58));
+  box-shadow: inset 3px 0 var(--ranking-gold), inset 0 0 20px rgba(221, 167, 53, 0.08);
+}
+
+.ranking-modal-royal .prestige-rank {
+  color: #8da7aa;
+  font-size: 12px;
+}
+
+.ranking-modal-royal .prestige-row:nth-child(-n + 3) .prestige-rank {
+  color: var(--ranking-gold);
+}
+
+.ranking-modal-royal .prestige-player {
+  gap: 10px;
+}
+
+.ranking-modal-royal .prestige-player > span {
+  flex-basis: 32px;
+  width: 32px;
+  height: 32px;
+  border-color: rgba(210, 170, 83, 0.58);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28), 0 4px 10px #0008;
+}
+
+.ranking-modal-royal .prestige-player strong {
+  color: #e7e1d1;
+  font-size: 10px;
+}
+
+.ranking-modal-royal .prestige-player small {
+  margin-top: 2px;
+  color: #7fa3aa;
+  font-size: 8px;
+}
+
+.ranking-modal-royal .prestige-row > span {
+  color: #a5b7b5;
+  font-size: 9px;
+}
+
+.ranking-modal-royal .prestige-row > strong:last-child {
+  color: #f0ce77;
+  font-size: 12px;
+}
+
+.ranking-modal-royal .prestige-self {
+  position: relative;
+  flex: 0 0 57px;
+  min-height: 57px;
+  grid-template-columns: 1fr auto minmax(190px, auto);
+  gap: 16px;
+  padding: 7px 13px;
+  overflow: hidden;
+  border: 1px solid rgba(221, 172, 69, 0.58);
+  border-radius: 9px;
+  background: linear-gradient(100deg, rgba(83, 55, 20, 0.74), rgba(16, 48, 52, 0.8) 72%, rgba(9, 23, 29, 0.9));
+  box-shadow: inset 0 1px rgba(255, 237, 161, 0.15), 0 7px 14px #0005;
+}
+
+.ranking-modal-royal .prestige-self::after {
+  position: absolute;
+  top: -38px;
+  right: 9%;
+  width: 120px;
+  height: 120px;
+  border: 1px solid rgba(235, 188, 77, 0.16);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.ranking-modal-royal .prestige-self small {
+  color: #d4ad61;
+  font-size: 7px;
+}
+
+.ranking-modal-royal .prestige-self > div strong {
+  color: #fff0b3;
+  font-size: 11px;
+}
+
+.ranking-modal-royal .prestige-self > b {
+  position: relative;
+  z-index: 1;
+  color: #ffdc78;
+  font-size: 15px;
+}
+
+.ranking-modal-royal .prestige-self p {
+  position: relative;
+  z-index: 1;
+  color: #9ab0ae;
+  font-size: 8px;
+}
+
+.ranking-modal-royal .prestige-footer {
+  flex: 0 0 46px;
+  min-height: 46px;
+  gap: 10px;
+  padding: 5px 2px 0;
+  background: transparent;
+}
+
+.ranking-modal-royal .prestige-footer p {
+  color: #799296;
+  font-size: 8px;
+}
+
+.ranking-modal-royal .prestige-footer > button:last-child {
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid rgba(226, 171, 64, 0.84);
+  border-radius: 7px;
+  color: #ffe8a4;
+  background: linear-gradient(180deg, #76323a, #39191f);
+  font-size: 8px;
+  box-shadow: inset 0 1px rgba(255, 233, 171, 0.16), 0 5px 12px #0006;
+}
+
+.ranking-modal-royal .prestige-footer > button:last-child:hover {
+  border-color: #fff0b0;
+  background: linear-gradient(180deg, #96444a, #4e2028);
+}
+
+.ranking-modal-royal .prestige-pages {
+  gap: 5px;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.ranking-modal-royal .prestige-pages button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(108, 180, 187, 0.42);
+  border-radius: 6px;
+  color: #dce99e;
+  background: #102832;
+}
+
+.ranking-modal-royal .prestige-pages span {
+  color: #9dbab5;
+}
+
+@media (max-width: 720px) {
+  .ranking-modal-royal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: var(--mobile-modal-max-h, calc(100dvh - 172px)) !important;
+    padding: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .ranking-modal-royal .medieval-modal-header {
+    margin-bottom: 9px !important;
+    padding: 10px 45px 9px 13px !important;
+  }
+
+  .ranking-modal-royal .medieval-modal-title {
+    font-size: 15px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .ranking-modal-royal .medieval-modal-subtitle {
+    font-size: 8px !important;
+  }
+
+  .ranking-modal-royal .ranking-board-royal {
+    height: 100% !important;
+    gap: 7px;
+  }
+
+  .ranking-modal-royal .prestige-podium {
+    flex-basis: 186px;
+    gap: 5px;
+    padding: 10px 5px 7px;
+  }
+
+  .ranking-modal-royal .prestige-champion {
+    min-height: 155px;
+    padding: 7px 4px 6px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-1 {
+    min-height: 177px;
+  }
+
+  .ranking-modal-royal .prestige-frame-wrap,
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap {
+    width: 79px !important;
+    height: 79px !important;
+    flex-basis: 79px;
+  }
+
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap {
+    width: 98px !important;
+    height: 98px !important;
+    flex-basis: 98px;
+  }
+
+  .ranking-modal-royal .prestige-champion-copy > span {
+    font-size: 6px;
+  }
+
+  .ranking-modal-royal .prestige-champion-copy > strong,
+  .ranking-modal-royal .rank-1 .prestige-champion-copy > strong {
+    font-size: 9px;
+  }
+
+  .ranking-modal-royal .rank-1 .prestige-champion-copy > strong {
+    font-size: 11px;
+  }
+
+  .ranking-modal-royal .prestige-champion-copy small {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-champion-copy b {
+    font-size: 9px;
+  }
+
+  .ranking-modal-royal .prestige-list-head {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-list {
+    grid-template-rows: repeat(5, minmax(34px, 1fr));
+    border: 1px solid rgba(99, 180, 191, 0.17);
+    border-radius: 8px;
+  }
+
+  .ranking-modal-royal .prestige-row {
+    grid-template-columns: 35px minmax(0, 1fr) 52px 75px;
+    padding: 0 7px;
+  }
+
+  .ranking-modal-royal .prestige-row:nth-child(n + 6) {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-row > span:nth-of-type(2) {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-player {
+    gap: 7px;
+  }
+
+  .ranking-modal-royal .prestige-player > span {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+
+  .ranking-modal-royal .prestige-player strong {
+    font-size: 9px;
+  }
+
+  .ranking-modal-royal .prestige-player small,
+  .ranking-modal-royal .prestige-row > span {
+    font-size: 7px;
+  }
+
+  .ranking-modal-royal .prestige-row > strong:last-child {
+    font-size: 10px;
+  }
+
+  .ranking-modal-royal .prestige-self {
+    flex-basis: 47px;
+    min-height: 47px;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .ranking-modal-royal .prestige-self p {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-self > b {
+    font-size: 12px;
+  }
+
+  .ranking-modal-royal .prestige-footer {
+    flex-basis: 40px;
+    min-height: 40px;
+  }
+
+  .ranking-modal-royal .prestige-footer p {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-footer > button:last-child {
+    height: 32px;
+    margin-left: auto;
+    padding: 0 11px;
+    font-size: 7px;
+  }
+
+  .ranking-modal-royal .prestige-pages {
+    margin-left: 0;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .ranking-modal-royal .prestige-podium {
+    flex-basis: 205px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 1fr 0.72fr;
+    align-items: end;
+    padding-inline: 9px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-1 {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    min-height: 154px;
+    margin-bottom: -6px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-2 {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 84px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-3 {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 84px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-2::before,
+  .ranking-modal-royal .prestige-champion.rank-3::before {
+    top: 5px;
+    padding: 2px 5px;
+    font-size: 5px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-2 .prestige-frame-wrap,
+  .ranking-modal-royal .prestige-champion.rank-3 .prestige-frame-wrap {
+    width: 49px !important;
+    height: 49px !important;
+    flex-basis: 49px;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-2 .prestige-champion-copy,
+  .ranking-modal-royal .prestige-champion.rank-3 .prestige-champion-copy {
+    display: none;
+  }
+
+  .ranking-modal-royal .prestige-champion.rank-1 .prestige-champion-copy b {
+    margin-top: 2px;
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ranking-modal-royal .prestige-champion,
+  .ranking-modal-royal .prestige-rank-frame,
+  .ranking-modal-royal .prestige-row {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -46,7 +46,11 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
             title={collapsed ? t("expandMap") : t("collapseMap")}
             aria-label={collapsed ? t("expandMap") : t("collapseMap")}
             aria-expanded={!collapsed}
-            onClick={onToggle}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle();
+            }}
           >
             <img
               className={collapsed ? "is-collapsed" : ""}

@@ -3,6 +3,7 @@ import { EuroFlourishLeft, EuroFlourishRight } from "./EuroIcons";
 import { ICON_ASSETS } from "./AssetIcon";
 import { BattleTroopComparison } from "./reports/BattleTroopComparison";
 import { ResourceIcon } from "./ResourceDisplay";
+import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 
 export interface BattleReportData {
   _id?: string;
@@ -11,9 +12,11 @@ export interface BattleReportData {
   attackerId: string;
   attackerName: string;
   attackerCityName?: string;
+  attackerKingdomArchitectureId?: string;
   defenderId: string | null;
   defenderName: string;
   defenderCityName?: string;
+  defenderKingdomArchitectureId?: string;
   winnerId: string;
   isAttackerWin: boolean;
   attacker: {
@@ -133,7 +136,9 @@ export function BattleReportModal({
   return (
     <div className="br-modal-overlay" onMouseDown={onClose}>
       <div
-        className="br-modal-container"
+        className={`br-modal-container battle-report-command ${
+          isWinner ? "is-victory" : "is-defeat"
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Top-Right Circular Close Button (X) */}
@@ -153,6 +158,9 @@ export function BattleReportModal({
 
         {/* Top Header Title */}
         <div className="br-header-title-box">
+          <span className="br-result-overline">
+            {isWinner ? "KẾT QUẢ · CHIẾN THẮNG" : "KẾT QUẢ · THẤT BẠI"}
+          </span>
           <div className="br-header-main-title">
             <EuroFlourishLeft color="#ffd700" />
             <span>
@@ -171,17 +179,12 @@ export function BattleReportModal({
         <div className="br-versus-banner">
           {/* Attacker Side (Blue Theme with Cut Angle) */}
           <div className="br-side-card-cut br-side-card--attacker">
-            <span
-              className="br-flag br-flag--attacker"
-              role="img"
-              aria-label="Cờ phe tấn công"
-            >
-              <span className="br-flag__cloth">
-                <img src={ICON_ASSETS.castle} alt="" />
-              </span>
-              <span className="br-flag__pole" />
-              <span className="br-flag__base" />
-            </span>
+            <KingdomBuildingSprite
+              architectureId={report.attackerKingdomArchitectureId}
+              buildingType="flag"
+              className="br-territory-flag"
+              label="Trụ cờ phe tấn công"
+            />
             <div className="br-side-info">
               <span className="br-side-name">
                 <img src={ICON_ASSETS.castle} alt="" />
@@ -191,6 +194,7 @@ export function BattleReportModal({
                 <span className="br-side-player">{report.attackerName}</span>
               )}
               <span className="br-role-tag">PHE TẤN CÔNG</span>
+              <span className="br-power-label">QUÂN CÒN LẠI</span>
               <span className="br-power-val">
                 {attSurvivorsTotal.toLocaleString()}
               </span>
@@ -231,6 +235,7 @@ export function BattleReportModal({
                 <span className="br-side-player">{report.defenderName}</span>
               )}
               <span className="br-role-tag">PHE PHÒNG THỦ</span>
+              <span className="br-power-label">QUÂN CÒN LẠI</span>
               <span className="br-power-val">
                 {defSurvivorsTotal.toLocaleString()}
               </span>
@@ -249,17 +254,12 @@ export function BattleReportModal({
                 {!report.isAttackerWin ? "THẮNG LỢI" : "THẤT THỦ"}
               </span>
             </div>
-            <span
-              className="br-flag br-flag--defender"
-              role="img"
-              aria-label="Cờ phe phòng thủ"
-            >
-              <span className="br-flag__cloth">
-                <img src={ICON_ASSETS.castle} alt="" />
-              </span>
-              <span className="br-flag__pole" />
-              <span className="br-flag__base" />
-            </span>
+            <KingdomBuildingSprite
+              architectureId={report.defenderKingdomArchitectureId}
+              buildingType="flag"
+              className="br-territory-flag"
+              label="Trụ cờ phe phòng thủ"
+            />
           </div>
         </div>
 
@@ -597,7 +597,7 @@ export function BattleReportModal({
             className="br-confirm-amber-btn"
             onClick={onClose}
           >
-            XÁC NHẬN ĐÃ ĐỌC CHIẾN BÁO
+            ĐÓNG CHIẾN BÁO
           </button>
         </div>
       </div>

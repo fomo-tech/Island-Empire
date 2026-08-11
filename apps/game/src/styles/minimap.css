@@ -1027,3 +1027,156 @@ html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-mai
     height: 22px !important;
   }
 }
+
+/* Collapsed battlefield is an actionable status glyph. The full title is
+   available again immediately after tapping it, so it does not need to keep
+   occupying the entire right rail. */
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed {
+  align-self: flex-end !important;
+  flex: 0 0 112px !important;
+  width: 112px !important;
+  min-width: 112px !important;
+  height: 36px !important;
+  max-height: 36px !important;
+  min-height: 36px !important;
+  overflow: visible !important;
+  border-color: rgba(220, 168, 69, 0.76) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(145deg, #1b3b48, #09151e) !important;
+  box-shadow: 0 7px 16px rgba(0, 0, 0, 0.48), inset 0 1px rgba(255, 233, 160, 0.14) !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header {
+  position: relative !important;
+  justify-content: flex-start !important;
+  width: 112px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header-title {
+  position: static !important;
+  flex: 1 1 auto !important;
+  gap: 7px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions .hud-battlefield-compact-label {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-battlefield-full-label,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-toggle {
+  display: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-battlefield-compact-label {
+  display: block !important;
+  overflow: visible !important;
+  color: #f6d98b !important;
+  font: 900 8px/1 Cinzel, Georgia, serif !important;
+  letter-spacing: 0.08em !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header-title > img {
+  width: 17px !important;
+  height: 17px !important;
+  flex-basis: 17px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header-title em {
+  position: absolute !important;
+  top: -5px !important;
+  right: -5px !important;
+  z-index: 2 !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 3px !important;
+  border: 1px solid rgba(255, 213, 136, 0.72) !important;
+  color: #fff0cb !important;
+  background: #8f3027 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.62) !important;
+  font-size: 8px !important;
+}
+
+@media (max-width: 767px), (max-height: 599px) and (pointer: coarse) {
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed,
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header {
+    flex-basis: 106px !important;
+    width: 106px !important;
+    min-width: 106px !important;
+    height: 34px !important;
+    max-height: 34px !important;
+    min-height: 34px !important;
+  }
+}
+
+/* Final interaction contract: collapsing the map is an immediate layout
+   state change. Animating the card's width/height makes the right rail and
+   the canvas compete for layout on every frame, which reads as a jump on
+   touch devices. Only the visual icon state changes now. */
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card {
+  contain: layout paint !important;
+  isolation: isolate !important;
+  will-change: auto !important;
+  transition: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card .minimap-panel-body,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card .hud-minimap-title,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card .hud-minimap-header,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card .hud-mini-icon-btn-plus,
+html body .game-shell .hud-wrapper .hud-right-side > .hud-minimap-card .hud-mini-icon-btn-plus img {
+  transition: none !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed {
+  flex: 0 0 30px !important;
+  height: 30px !important;
+  max-height: 30px !important;
+  min-height: 30px !important;
+  border-radius: 8px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header-title > img {
+  width: 14px !important;
+  height: 14px !important;
+  flex-basis: 14px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-toggle {
+  width: 18px !important;
+  height: 18px !important;
+  flex-basis: 18px !important;
+  border-radius: 5px !important;
+}
+
+html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-toggle img {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+@media (max-width: 767px), (max-height: 599px) and (pointer: coarse) {
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed {
+    flex-basis: 28px !important;
+    height: 28px !important;
+    max-height: 28px !important;
+    min-height: 28px !important;
+  }
+
+  html body .game-shell .hud-wrapper .hud-right-side > .hud-main-missions.is-collapsed .hud-main-missions-header {
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 7px !important;
+  }
+}

@@ -3629,7 +3629,7 @@ function toPublicMail(mail) {
     readAt: mail.readAt ? new Date(mail.readAt).toISOString() : null,
   };
 }
-async function loadBattleReportCityNames(reports, players) {
+async function loadBattleReportPlayerVisuals(reports, players) {
   const playerIds = [
     ...new Set(
       reports.flatMap((report) => [report.attackerId, report.defenderId]),
@@ -3639,16 +3639,20 @@ async function loadBattleReportCityNames(reports, players) {
 
   const playerDocs = await players
     .find({ _id: { $in: playerIds } })
-    .project({ cityName: 1 })
+    .project({ cityName: 1, kingdomArchitectureId: 1 })
     .toArray();
   return new Map(
-    playerDocs
-      .filter((player) => player.cityName)
-      .map((player) => [player._id, player.cityName]),
+    playerDocs.map((player) => [
+      player._id,
+      {
+        cityName: player.cityName,
+        kingdomArchitectureId: player.kingdomArchitectureId,
+      },
+    ]),
   );
 }
 
-function toPublicReport(report, playerId, cityNames?) {
+function toPublicReport(report, playerId, playerVisuals?) {
   return {
     id: String(report._id || report.id),
     regionId: report.regionId,
@@ -3656,11 +3660,17 @@ function toPublicReport(report, playerId, cityNames?) {
     attackerId: report.attackerId,
     attackerName: report.attackerName,
     attackerCityName:
-      report.attackerCityName || cityNames?.get(report.attackerId),
+      report.attackerCityName || playerVisuals?.get(report.attackerId)?.cityName,
+    attackerKingdomArchitectureId:
+      report.attackerKingdomArchitectureId ||
+      playerVisuals?.get(report.attackerId)?.kingdomArchitectureId,
     defenderId: report.defenderId,
     defenderName: report.defenderName,
     defenderCityName:
-      report.defenderCityName || cityNames?.get(report.defenderId),
+      report.defenderCityName || playerVisuals?.get(report.defenderId)?.cityName,
+    defenderKingdomArchitectureId:
+      report.defenderKingdomArchitectureId ||
+      playerVisuals?.get(report.defenderId)?.kingdomArchitectureId,
     winnerId: report.winnerId,
     isAttackerWin: Boolean(report.isAttackerWin),
     attacker: report.attacker,
@@ -4968,12 +4978,16 @@ async function processActiveBattles(now = new Date()) {
           attackerPlayer?.cityName ||
           attackerPlayer?.name ||
           "Vương quốc tấn công",
+        attackerKingdomArchitectureId:
+          attackerPlayer?.kingdomArchitectureId || "vietnam",
         defenderId: battle.defenderId || null,
         defenderName: defenderPlayer?.name || "Thủ Thành",
         defenderCityName:
           defenderPlayer?.cityName ||
           defenderPlayer?.name ||
           "Thành trì phòng thủ",
+        defenderKingdomArchitectureId:
+          defenderPlayer?.kingdomArchitectureId || "vietnam",
         winnerId: attackerWins
           ? battle.attackerId
           : battle.defenderId || "defender",
@@ -6620,11 +6634,11 @@ export function createApp() {
         $or: [{ attackerId: playerId }, { defenderId: playerId }],
         readBy: { $ne: playerId },
       });
-      const cityNames = await loadBattleReportCityNames(reports, players);
+      const playerVisuals = await loadBattleReportPlayerVisuals(reports, players);
       res.json({
         ok: true,
         reports: reports.map((report) =>
-          toPublicReport(report, playerId, cityNames),
+          toPublicReport(report, playerId, playerVisuals),
         ),
         unreadCount,
       });
@@ -6646,10 +6660,10 @@ export function createApp() {
       return res
         .status(404)
         .json({ error: "not_found", message: "Không tìm thấy chiến báo" });
-    const cityNames = await loadBattleReportCityNames([report], players);
+    const playerVisuals = await loadBattleReportPlayerVisuals([report], players);
     res.json({
       ok: true,
-      report: toPublicReport(report, req.user!.id, cityNames),
+      report: toPublicReport(report, req.user!.id, playerVisuals),
     });
   });
   app.post("/api/reports/:id/read", requireAuth, async (req, res) => {
@@ -7111,7 +7125,7 @@ export function createApp() {
         shopPurchases.find({ playerId }).toArray(),
       ]);
       const version = Date.now();
-      const cityNames = await loadBattleReportCityNames(reports, players);
+      const playerVisuals = await loadBattleReportPlayerVisuals(reports, players);
       const payload = {
         ok: true,
         gameState,
@@ -7120,7 +7134,7 @@ export function createApp() {
         reportUnreadCount,
         mailUnreadCount,
         reports: reports.map((report) =>
-          toPublicReport(report, playerId, cityNames),
+          toPublicReport(report, playerId, playerVisuals),
         ),
         inbox: inbox.map(toPublicMail),
         sent: sent.map(toPublicMail),

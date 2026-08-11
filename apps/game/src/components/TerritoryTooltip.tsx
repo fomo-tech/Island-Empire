@@ -504,6 +504,8 @@ export function TerritoryTooltip({
     isSettlerTraveling ||
     isRemoteClearing;
   const timing = clearing || engineState.activeClearingTimings?.[id];
+  const actionHasError =
+    effectiveOwnership === 0 && !isCurrentlyClearing && !canBuildStronghold;
 
   const formatTime = (secs: number) => {
     if (secs >= 60) {
@@ -1527,7 +1529,11 @@ export function TerritoryTooltip({
         </div>
 
         {/* Action Button Section */}
-        <div className="rt-tooltip-action-section">{renderActionButtons()}</div>
+        <div
+          className={`rt-tooltip-action-section${actionHasError ? " has-error" : ""}`}
+        >
+          {renderActionButtons()}
+        </div>
       </div>
     </div>
   );

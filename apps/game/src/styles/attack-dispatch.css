@@ -1,0 +1,1016 @@
+/* Command-center treatment for troop deployment. This layer deliberately
+   scopes every rule to the dispatch modal so town and army screens retain
+   their own visual language. */
+.attack-dispatch-modal {
+  --dispatch-gold: #efc65e;
+  --dispatch-gold-muted: #9b7430;
+  --dispatch-ink: #071218;
+  --dispatch-panel: #0a1b24;
+  --dispatch-line: rgba(182, 147, 67, 0.42);
+  width: min(920px, calc(100vw - 32px)) !important;
+  max-width: 920px !important;
+  gap: 9px !important;
+  padding: 16px 18px 18px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(238, 191, 76, 0.86) !important;
+  border-radius: 15px !important;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(129, 36, 37, 0.22), transparent 36%),
+    linear-gradient(155deg, #102630 0%, #07131b 52%, #03090e 100%) !important;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.9),
+    0 0 0 3px rgba(117, 79, 19, 0.42),
+    inset 0 1px rgba(255, 236, 166, 0.16),
+    inset 0 0 44px rgba(0, 0, 0, 0.5) !important;
+}
+
+.attack-dispatch-modal::before,
+.attack-dispatch-modal::after {
+  position: absolute;
+  z-index: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(247, 201, 92, 0.65);
+  content: "";
+  pointer-events: none;
+}
+
+.attack-dispatch-modal::before {
+  top: 6px;
+  left: 6px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 7px 0 0;
+}
+
+.attack-dispatch-modal::after {
+  right: 6px;
+  bottom: 6px;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 7px;
+}
+
+.attack-dispatch-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.attack-dispatch-modal .rt-attack-header {
+  min-height: 64px;
+  margin: 0 !important;
+  padding: 8px 56px 9px !important;
+  overflow: hidden;
+  border: 1px solid rgba(205, 150, 51, 0.72);
+  border-radius: 9px;
+  background:
+    linear-gradient(90deg, rgba(15, 33, 42, 0.12), rgba(123, 28, 33, 0.94) 32%, rgba(143, 32, 36, 0.98) 50%, rgba(123, 28, 33, 0.94) 68%, rgba(15, 33, 42, 0.12)),
+    radial-gradient(circle at 50% 0, rgba(255, 224, 129, 0.17), transparent 55%);
+  box-shadow: inset 0 1px rgba(255, 232, 157, 0.19), 0 7px 16px rgba(0, 0, 0, 0.42);
+}
+
+.attack-dispatch-modal .rt-attack-header::before {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 229, 167, 0.78);
+  content: "MỆNH LỆNH QUÂN SỰ";
+  font: 800 7px/1 Arial, sans-serif;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-attack-header-title-box {
+  gap: 9px;
+  margin-top: 9px;
+}
+
+.attack-dispatch-modal .rt-command-seal,
+.attack-dispatch-modal .swords-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255, 219, 126, 0.5);
+  border-radius: 7px;
+  background: rgba(12, 22, 29, 0.42);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 3px 7px rgba(0, 0, 0, 0.34);
+}
+
+.attack-dispatch-modal .rt-command-seal img {
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.68));
+}
+
+.attack-dispatch-modal .swords-icon img {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.attack-dispatch-modal .rt-attack-header-title-box .title {
+  color: #ffe092 !important;
+  font: 900 clamp(19px, 2.5vw, 26px)/1 Cinzel, Georgia, serif !important;
+  letter-spacing: 0.075em !important;
+  text-shadow: 0 2px #42140d, 0 0 16px rgba(255, 211, 95, 0.26) !important;
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 0 !important;
+  color: #e3c995;
+  font: 800 9px/1 Arial, sans-serif !important;
+  letter-spacing: 0.07em;
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle span {
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 224, 140, 0.22);
+  border-radius: 999px;
+  background: rgba(7, 16, 22, 0.24);
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle i {
+  color: #f5c85e;
+  font-size: 14px;
+  font-style: normal;
+}
+
+.attack-dispatch-modal .rt-close-btn.pos-top-right {
+  top: 12px !important;
+  right: 12px !important;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(250, 212, 112, 0.72);
+  border-radius: 8px;
+  color: #ffe9a8;
+  background: linear-gradient(145deg, #223d48, #0c1921);
+  font-size: 19px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.attack-dispatch-modal .rt-dispatch-section {
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--dispatch-line);
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(16, 39, 49, 0.9), rgba(5, 14, 20, 0.93));
+  box-shadow: inset 0 1px rgba(255, 238, 177, 0.06), inset 0 0 22px rgba(0, 0, 0, 0.2);
+}
+
+.attack-dispatch-modal .rt-dispatch-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px !important;
+  color: #f7d581 !important;
+  font: 900 10px/1 Cinzel, Georgia, serif !important;
+  letter-spacing: 0.085em;
+}
+
+.attack-dispatch-modal .rt-dispatch-section-title::after {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, rgba(221, 172, 70, 0.58), transparent);
+  content: "";
+}
+
+.attack-dispatch-modal .rt-source-card-grid {
+  gap: 8px !important;
+  max-height: clamp(176px, 27dvh, 282px) !important;
+  padding: 2px 5px 2px 2px !important;
+}
+
+.attack-dispatch-modal .rt-source-card {
+  min-height: 66px !important;
+  padding: 8px !important;
+  border-color: rgba(143, 176, 174, 0.29) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(14, 34, 43, 0.97), rgba(4, 13, 18, 0.98)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045), 0 2px 5px rgba(0, 0, 0, 0.18) !important;
+}
+
+.attack-dispatch-modal .rt-source-card:hover:not(:disabled) {
+  border-color: rgba(100, 201, 192, 0.78) !important;
+  background: linear-gradient(135deg, rgba(25, 64, 70, 0.98), rgba(6, 18, 23, 0.98)) !important;
+  box-shadow: inset 3px 0 #54c7bd, 0 5px 13px rgba(0, 0, 0, 0.24) !important;
+}
+
+.attack-dispatch-modal .rt-source-card.is-selected {
+  border-color: #f0bf52 !important;
+  background: linear-gradient(135deg, rgba(72, 53, 22, 0.85), rgba(14, 43, 42, 0.98)) !important;
+  box-shadow: inset 3px 0 #f0bf52, inset 0 0 18px rgba(232, 181, 70, 0.08), 0 5px 13px rgba(0, 0, 0, 0.26) !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem {
+  border-color: rgba(242, 195, 89, 0.58) !important;
+  background-color: #10242c !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy strong {
+  color: #f5d37b !important;
+  font-size: 12px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy span {
+  color: #dde7df !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy small {
+  color: #86aaa9 !important;
+}
+
+.attack-dispatch-modal .rt-source-card-check {
+  color: #ffe18d !important;
+  font-size: 18px !important;
+  text-shadow: 0 0 8px rgba(255, 203, 82, 0.52);
+}
+
+.attack-dispatch-modal .rt-army-overview-grid {
+  gap: 7px !important;
+  margin: 0 !important;
+}
+
+.attack-dispatch-modal .rt-army-stat-card {
+  position: relative;
+  min-height: 58px !important;
+  padding: 7px 8px !important;
+  overflow: hidden;
+  border-color: rgba(89, 165, 174, 0.32) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(150deg, rgba(15, 40, 51, 0.94), rgba(4, 13, 19, 0.98)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.075), inset 0 -15px 25px rgba(0, 0, 0, 0.2) !important;
+}
+
+.attack-dispatch-modal .rt-army-stat-card::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 58%;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(232, 189, 85, 0.62), transparent);
+  content: "";
+}
+
+.attack-dispatch-modal .rt-army-stat-card .label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #91adaf !important;
+  font-size: 8px !important;
+  letter-spacing: 0.055em;
+}
+
+.attack-dispatch-modal .rt-army-stat-card .label img {
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.56));
+}
+
+.attack-dispatch-modal .rt-army-stat-card .val {
+  color: #ffdc7a !important;
+  font: 900 15px/1.1 Cinzel, Georgia, serif !important;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.65);
+}
+
+.attack-dispatch-modal .rt-dispatch-section.margin-top {
+  margin-top: 0 !important;
+}
+
+.attack-dispatch-modal .rt-dispatch-section-heading {
+  align-items: center;
+}
+
+.attack-dispatch-modal .rt-troop-presets {
+  gap: 5px;
+}
+
+.attack-dispatch-modal .rt-troop-presets button {
+  min-height: 31px;
+  padding: 4px 9px;
+  border-color: rgba(238, 192, 85, 0.66);
+  border-radius: 7px;
+  color: #ffe5a1;
+  background: linear-gradient(145deg, #193846, #0a1820);
+  font-size: 10px;
+}
+
+.attack-dispatch-modal .rt-troop-presets button:hover,
+.attack-dispatch-modal .rt-troop-presets button:focus-visible {
+  border-color: #ffebad;
+  color: #fff4ce;
+  background: linear-gradient(145deg, #315d65, #112b34);
+}
+
+.attack-dispatch-modal .rt-troop-slider-row {
+  min-height: 52px;
+  gap: 10px !important;
+  padding: 5px 0 !important;
+  border-bottom-color: rgba(121, 164, 164, 0.16) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.attack-dispatch-modal .rt-troop-slider-row * {
+  font-family: var(--hex-medieval-font) !important;
+}
+
+.attack-dispatch-modal .rt-troop-avatar-card {
+  width: 42px !important;
+  height: 42px !important;
+  border-color: rgba(209, 165, 75, 0.55) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #1c3b44, #091720) !important;
+}
+
+.attack-dispatch-modal .rt-slider-header .unit-name {
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-slider-header .unit-count {
+  color: #e9eee3 !important;
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-range-slider {
+  height: 7px;
+  border: 1px solid rgba(102, 159, 161, 0.25);
+  background: #071219;
+}
+
+.attack-dispatch-modal .rt-num-input {
+  width: 44px !important;
+  height: 29px !important;
+  border-color: rgba(209, 166, 78, 0.5) !important;
+  border-radius: 7px !important;
+  color: #ffdf85 !important;
+  background: #061118 !important;
+  font-size: 11px !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast {
+  margin: 0 !important;
+  padding: 9px 12px !important;
+  border: 1px solid rgba(191, 153, 67, 0.55) !important;
+  border-left: 4px solid #d9a83f !important;
+  border-radius: 8px !important;
+  background: linear-gradient(100deg, rgba(17, 41, 48, 0.96), rgba(6, 15, 21, 0.98)) !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast.is-risky {
+  border-color: rgba(226, 90, 81, 0.72) !important;
+  border-left-color: #f26057 !important;
+  background: linear-gradient(100deg, rgba(76, 26, 29, 0.72), rgba(14, 20, 24, 0.98)) !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast span {
+  color: #e7d4a3 !important;
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast strong {
+  letter-spacing: 0.06em;
+}
+
+.attack-dispatch-modal .rt-march-time-row {
+  gap: 7px !important;
+  margin: 0 !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .time-card {
+  min-width: 145px !important;
+  padding: 7px 10px !important;
+  border-color: rgba(220, 176, 76, 0.5) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #173640, #09171e) !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .info-card {
+  padding: 7px 10px !important;
+  border-color: rgba(101, 164, 166, 0.25) !important;
+  border-radius: 8px !important;
+  color: #a4b8b6 !important;
+  background: rgba(4, 13, 18, 0.78) !important;
+}
+
+.attack-dispatch-modal .rt-attack-footer {
+  margin: 1px 0 0 !important;
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn {
+  width: min(330px, 100%) !important;
+  min-height: 42px !important;
+  height: 42px !important;
+  gap: 8px !important;
+  border: 1px solid #ffdf76 !important;
+  border-radius: 8px !important;
+  color: #fff2c7 !important;
+  background: linear-gradient(180deg, #c34942 0%, #7c252a 52%, #42171e 100%) !important;
+  box-shadow: 0 8px 17px rgba(0, 0, 0, 0.48), inset 0 1px rgba(255, 242, 179, 0.3), 0 0 0 2px rgba(124, 41, 37, 0.35) !important;
+  font: 900 12px/1 Cinzel, Georgia, serif !important;
+  letter-spacing: 0.06em !important;
+  text-shadow: 0 2px 2px rgba(47, 7, 8, 0.86) !important;
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn:hover:not(:disabled),
+.attack-dispatch-modal .rt-gold-banner-btn:focus-visible {
+  border-color: #fff1b1 !important;
+  background: linear-gradient(180deg, #de5b4e 0%, #923036 54%, #511921 100%) !important;
+  transform: translateY(-1px);
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn:disabled {
+  filter: grayscale(0.55);
+  opacity: 0.58;
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn img {
+  width: 23px !important;
+  height: 23px !important;
+  filter: drop-shadow(0 2px 2px rgba(43, 5, 6, 0.72));
+}
+
+@media (max-width: 680px) {
+  .attack-dispatch-modal {
+    width: calc((100vw - 12px) / 0.76) !important;
+    max-width: none !important;
+    max-height: calc((100dvh - 12px) / 0.76) !important;
+    padding: 13px 14px 15px !important;
+    zoom: 0.76;
+  }
+
+  .attack-dispatch-modal .rt-attack-header {
+    min-height: 60px;
+  }
+
+  .attack-dispatch-modal .rt-source-card-grid {
+    grid-template-columns: 1fr !important;
+    max-height: 176px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attack-dispatch-modal .rt-source-card,
+  .attack-dispatch-modal .rt-gold-banner-btn {
+    transition: none !important;
+  }
+}
+
+/* Compact online-game pass: the command window should feel like a fast,
+   repeatable action—not a decorative full-screen ceremony. */
+.attack-dispatch-modal {
+  width: min(760px, calc(100vw - 28px)) !important;
+  max-width: 760px !important;
+  gap: 7px !important;
+  padding: 12px 14px 14px !important;
+  border-color: rgba(205, 168, 79, 0.72) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(150deg, #0c2029, #050e14 58%, #03080d) !important;
+  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.78), inset 0 1px rgba(255, 236, 172, 0.1) !important;
+}
+
+.attack-dispatch-modal::before,
+.attack-dispatch-modal::after {
+  display: none;
+}
+
+.attack-dispatch-modal .rt-attack-header {
+  min-height: 49px;
+  padding: 7px 44px 6px !important;
+  border: 0;
+  border-bottom: 1px solid rgba(213, 171, 74, 0.42);
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, rgba(107, 28, 32, 0.56), transparent) !important;
+  box-shadow: none;
+}
+
+.attack-dispatch-modal .rt-attack-header::before {
+  display: none;
+}
+
+.attack-dispatch-modal .rt-attack-header-title-box {
+  gap: 6px;
+  margin-top: 0;
+}
+
+.attack-dispatch-modal .rt-command-seal,
+.attack-dispatch-modal .swords-icon {
+  width: 21px;
+  height: 21px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.attack-dispatch-modal .rt-command-seal img,
+.attack-dispatch-modal .swords-icon img {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.attack-dispatch-modal .rt-attack-header-title-box .title {
+  font-size: 18px !important;
+  letter-spacing: 0.055em !important;
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle {
+  gap: 5px;
+  margin-top: 4px !important;
+  color: #9eb7b4;
+  font-size: 8px !important;
+  letter-spacing: 0.035em;
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle span {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.attack-dispatch-modal .rt-attack-header .subtitle i {
+  font-size: 11px;
+}
+
+.attack-dispatch-modal .rt-close-btn.pos-top-right {
+  top: 7px !important;
+  right: 2px !important;
+  width: 28px;
+  height: 28px;
+  border-color: rgba(213, 175, 85, 0.5);
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.attack-dispatch-modal .rt-dispatch-section {
+  padding: 8px 9px !important;
+  border-color: rgba(91, 148, 153, 0.3);
+  border-radius: 7px;
+  background: rgba(7, 20, 27, 0.72);
+  box-shadow: none;
+}
+
+.attack-dispatch-modal .rt-dispatch-section-title {
+  gap: 6px;
+  margin-bottom: 6px !important;
+  color: #d8bd75 !important;
+  font-size: 9px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-grid {
+  gap: 6px !important;
+  max-height: 144px !important;
+  padding-right: 3px !important;
+}
+
+.attack-dispatch-modal .rt-source-card {
+  min-height: 54px !important;
+  grid-template-columns: 36px minmax(0, 1fr) 14px !important;
+  gap: 6px !important;
+  padding: 6px !important;
+  border-color: rgba(107, 149, 152, 0.3) !important;
+  border-radius: 6px !important;
+  background: rgba(10, 28, 36, 0.86) !important;
+  box-shadow: none !important;
+}
+
+.attack-dispatch-modal .rt-source-card.is-selected {
+  border-color: rgba(234, 183, 73, 0.92) !important;
+  background: linear-gradient(90deg, rgba(100, 61, 22, 0.62), rgba(13, 40, 43, 0.9)) !important;
+  box-shadow: inset 2px 0 #eab749 !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem,
+.attack-dispatch-modal .town-sprite-thumbnail {
+  width: 36px !important;
+  height: 29px !important;
+  border-radius: 4px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem svg {
+  width: 49px !important;
+  height: 32px !important;
+  transform: translateX(-6px) !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy {
+  gap: 0 !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy strong {
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy span,
+.attack-dispatch-modal .rt-source-card-copy small,
+.attack-dispatch-modal .rt-source-card-copy em {
+  font-size: 8px !important;
+  line-height: 1.16 !important;
+}
+
+.attack-dispatch-modal .rt-source-card-check {
+  font-size: 14px !important;
+}
+
+.attack-dispatch-modal .rt-army-overview-grid {
+  gap: 5px !important;
+}
+
+.attack-dispatch-modal .rt-army-stat-card {
+  min-height: 45px !important;
+  padding: 5px !important;
+  border-color: rgba(91, 151, 156, 0.3) !important;
+  border-radius: 6px !important;
+  background: rgba(9, 27, 35, 0.82) !important;
+  box-shadow: none !important;
+}
+
+.attack-dispatch-modal .rt-army-stat-card::before {
+  display: none;
+}
+
+.attack-dispatch-modal .rt-army-stat-card .label {
+  font-size: 7px !important;
+  letter-spacing: 0.025em;
+}
+
+.attack-dispatch-modal .rt-army-stat-card .label img {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.attack-dispatch-modal .rt-army-stat-card .val {
+  font-size: 12px !important;
+}
+
+.attack-dispatch-modal .rt-troop-presets button {
+  min-height: 26px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.attack-dispatch-modal .rt-troop-slider-row {
+  min-height: 40px;
+  gap: 7px !important;
+  padding: 3px 0 !important;
+}
+
+.attack-dispatch-modal .rt-troop-avatar-card {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 6px !important;
+}
+
+.attack-dispatch-modal .rt-troop-avatar-card svg,
+.attack-dispatch-modal .rt-troop-avatar-card img {
+  width: 27px !important;
+  height: 27px !important;
+}
+
+.attack-dispatch-modal .rt-slider-header .unit-name,
+.attack-dispatch-modal .rt-slider-header .unit-count {
+  font-size: 9px !important;
+}
+
+.attack-dispatch-modal .rt-range-slider {
+  height: 5px;
+}
+
+.attack-dispatch-modal .rt-num-input {
+  width: 36px !important;
+  height: 25px !important;
+  border-radius: 5px !important;
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast {
+  padding: 7px 9px !important;
+  border-left-width: 3px !important;
+  border-radius: 6px !important;
+}
+
+.attack-dispatch-modal .rt-battle-forecast span,
+.attack-dispatch-modal .rt-battle-forecast strong,
+.attack-dispatch-modal .rt-battle-forecast small {
+  font-size: 8px !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row {
+  gap: 5px !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .time-card {
+  min-width: 112px !important;
+  padding: 5px 7px !important;
+  border-radius: 6px !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .time-card .label,
+.attack-dispatch-modal .rt-march-time-row .info-card,
+.attack-dispatch-modal .rt-march-time-row .info-sub {
+  font-size: 7px !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .time-card .val {
+  font-size: 12px !important;
+}
+
+.attack-dispatch-modal .rt-march-time-row .info-card {
+  padding: 5px 7px !important;
+  border-radius: 6px !important;
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn {
+  width: min(260px, 100%) !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-gold-banner-btn img {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+@media (max-width: 680px) {
+  .attack-dispatch-modal {
+    width: calc((100vw - 12px) / 0.84) !important;
+    max-height: calc((100dvh - 12px) / 0.84) !important;
+    zoom: 0.84;
+  }
+}
+
+/* Source picker: scan first, decide second. Each card exposes only the city,
+   available force and travel data required to choose a launch point. */
+.attack-dispatch-modal .rt-source-section {
+  padding: 7px 8px !important;
+}
+
+.attack-dispatch-modal .rt-source-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.attack-dispatch-modal .rt-source-section-heading .rt-dispatch-section-title {
+  flex: 1;
+  margin: 0 !important;
+}
+
+.attack-dispatch-modal .rt-source-availability {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid rgba(96, 183, 170, 0.38);
+  border-radius: 999px;
+  color: #9ce1cc;
+  background: rgba(16, 94, 76, 0.18);
+  font: 800 7px/1 Arial, sans-serif;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-source-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  max-height: 116px !important;
+  padding: 1px 3px 1px 1px !important;
+}
+
+.attack-dispatch-modal .rt-source-card {
+  min-height: 48px !important;
+  grid-template-columns: 31px minmax(0, 1fr) 12px !important;
+  gap: 5px !important;
+  padding: 5px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem,
+.attack-dispatch-modal .town-sprite-thumbnail {
+  width: 31px !important;
+  height: 25px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem svg {
+  width: 42px !important;
+  height: 28px !important;
+  transform: translateX(-5px) !important;
+}
+
+.attack-dispatch-modal .rt-source-card-copy {
+  display: grid !important;
+  min-width: 0;
+  gap: 3px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-primary {
+  display: flex !important;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.attack-dispatch-modal .rt-source-card-primary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f4d47c !important;
+  font-size: 9px !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-source-card-primary b {
+  flex: 0 0 auto;
+  color: #dce8dc !important;
+  font: 800 8px/1 Arial, sans-serif !important;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-source-card-route {
+  display: block;
+  overflow: hidden;
+  color: #7fa5a6 !important;
+  font-size: 7px !important;
+  line-height: 1 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-source-card.is-selected .rt-source-card-route {
+  color: #beded3 !important;
+}
+
+.attack-dispatch-modal .rt-source-card.is-disabled .rt-source-card-route {
+  color: #dc8b83 !important;
+}
+
+.attack-dispatch-modal .rt-source-card-check {
+  align-self: center;
+  font-size: 12px !important;
+}
+
+@media (max-width: 680px) {
+  .attack-dispatch-modal .rt-source-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-height: 118px !important;
+  }
+}
+
+/* Source thumbnails are atlas cells with different native ratios. A fixed
+   rectangular box was stretching flags and square buildings alike. */
+.attack-dispatch-modal .rt-source-card-emblem {
+  display: grid !important;
+  width: 34px !important;
+  height: 34px !important;
+  place-items: center !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail {
+  display: block !important;
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  background-repeat: no-repeat !important;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail.building-capital,
+.attack-dispatch-modal .town-sprite-thumbnail.building-district {
+  width: 30px !important;
+  height: 30px !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail.building-flag {
+  width: 20px !important;
+  height: 30px !important;
+  aspect-ratio: 418 / 627 !important;
+}
+
+/* Three tactical summaries replace the six tiny tiles: less noise, larger
+   values and a clearer answer to “what happens if I send this army?”. */
+.attack-dispatch-modal .rt-command-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.attack-dispatch-modal .rt-command-summary-card {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(85, 153, 159, 0.38);
+  border-radius: 7px;
+  background: linear-gradient(145deg, rgba(12, 35, 44, 0.94), rgba(5, 15, 21, 0.96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.attack-dispatch-modal .rt-command-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #9ebbbc;
+  font: 900 8px/1 Arial, sans-serif;
+  letter-spacing: 0.075em;
+}
+
+.attack-dispatch-modal .rt-command-summary-title img,
+.attack-dispatch-modal .rt-command-summary-title svg {
+  width: 14px !important;
+  height: 14px !important;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.58));
+}
+
+.attack-dispatch-modal .rt-command-summary-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.attack-dispatch-modal .rt-command-summary-values > span {
+  min-width: 0;
+  padding-left: 6px;
+  border-left: 1px solid rgba(222, 180, 78, 0.35);
+}
+
+.attack-dispatch-modal .rt-command-summary-values small,
+.attack-dispatch-modal .rt-command-summary-values b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack-dispatch-modal .rt-command-summary-values small {
+  color: #829c9e;
+  font: 800 6px/1 Arial, sans-serif;
+  letter-spacing: 0.035em;
+}
+
+.attack-dispatch-modal .rt-command-summary-values b {
+  margin-top: 3px;
+  color: #ffda73;
+  font: 900 13px/1 Cinzel, Georgia, serif;
+}
+
+.attack-dispatch-modal .rt-source-card-grid {
+  max-height: 130px !important;
+}
+
+.attack-dispatch-modal .rt-source-card {
+  min-height: 54px !important;
+  grid-template-columns: 34px minmax(0, 1fr) 13px !important;
+  padding: 6px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-emblem {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail.building-capital,
+.attack-dispatch-modal .town-sprite-thumbnail.building-district {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.attack-dispatch-modal .town-sprite-thumbnail.building-flag {
+  width: 21px !important;
+  height: 32px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-primary strong {
+  font-size: 10px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-primary b {
+  font-size: 9px !important;
+}
+
+.attack-dispatch-modal .rt-source-card-route {
+  font-size: 8px !important;
+}
+
+@media (max-width: 680px) {
+  .attack-dispatch-modal .rt-command-summary-grid {
+    gap: 5px;
+  }
+
+  .attack-dispatch-modal .rt-command-summary-card {
+    padding: 6px;
+  }
+
+  .attack-dispatch-modal .rt-command-summary-values b {
+    font-size: 11px;
+  }
+}

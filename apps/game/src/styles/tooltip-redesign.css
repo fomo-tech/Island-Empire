@@ -912,3 +912,40 @@ html body .rt-yield-ledger-item.is-open .rt-yield-popover {
     transition: none !important;
   }
 }
+
+/* A blocked command is a compact status notice, not a full-size action row. */
+html body .rt-tooltip-action-section.has-error {
+  gap: 6px !important;
+  padding: 8px 10px 9px !important;
+  font-size: 9px !important;
+}
+
+html body .rt-tooltip-action-section.has-error .rt-busy-builder-notice {
+  min-height: 0 !important;
+  padding: 5px 7px !important;
+  gap: 5px !important;
+  border-radius: 7px !important;
+}
+
+html body .rt-tooltip-action-section.has-error .rt-busy-builder-notice img {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+html body .rt-tooltip-action-section.has-error .rt-busy-builder-notice .text {
+  color: #f3a7a7 !important;
+  font-size: 8px !important;
+  line-height: 1.18 !important;
+  letter-spacing: 0.01em !important;
+}
+
+@media (max-width: 767px) {
+  html body .rt-tooltip-action-section.has-error {
+    gap: 5px !important;
+    padding: 6px 8px 8px !important;
+  }
+
+  html body .rt-tooltip-action-section.has-error .rt-busy-builder-notice .text {
+    font-size: 7px !important;
+  }
+}

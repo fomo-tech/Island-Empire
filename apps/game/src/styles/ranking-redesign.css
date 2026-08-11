@@ -1,0 +1,223 @@
+/* Kingdom prestige board: compact podium and an independently scrollable rank list. */
+.ranking-modal-royal {
+  width: min(900px, calc(100vw - 28px)) !important;
+  max-width: 900px !important;
+  max-height: min(740px, calc(100dvh - 28px)) !important;
+  padding: 12px !important;
+}
+
+.ranking-modal-royal .medieval-modal-header { margin-bottom: 9px !important; padding: 10px 54px 9px !important; }
+.ranking-modal-royal .medieval-modal-title { font-size: clamp(17px, 2.1vw, 23px) !important; }
+.ranking-modal-royal .medieval-modal-subtitle { margin-top: 3px !important; font-size: 9px !important; }
+.ranking-modal-royal .ranking-board-royal { height: min(620px, calc(100dvh - 148px)) !important; gap: 7px !important; }
+
+.ranking-modal-royal .prestige-podium { flex-basis: 164px !important; gap: 7px !important; padding: 10px 16px 8px !important; }
+.ranking-modal-royal .prestige-champion { min-height: 132px !important; padding: 7px 7px 6px !important; }
+.ranking-modal-royal .prestige-champion.rank-1 { min-height: 148px !important; }
+.ranking-modal-royal .prestige-frame-wrap,
+.ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 69px !important; height: 69px !important; flex-basis: 69px !important; }
+.ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 85px !important; height: 85px !important; flex-basis: 85px !important; }
+.ranking-modal-royal .prestige-champion-copy > strong,
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { font-size: 11px !important; }
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { font-size: 13px !important; }
+.ranking-modal-royal .prestige-champion-copy small { font-size: 7px !important; }
+.ranking-modal-royal .prestige-champion-copy b { margin-top: 3px !important; font-size: 10px !important; }
+
+.ranking-modal-royal .prestige-list-head,
+.ranking-modal-royal .prestige-row { grid-template-columns: 42px minmax(190px, 1fr) 82px 68px 105px !important; }
+.ranking-modal-royal .prestige-list-head { flex-basis: 28px !important; min-height: 28px !important; padding: 0 9px !important; }
+.ranking-modal-royal .prestige-list {
+  display: block !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #bc9850 rgba(4, 14, 19, 0.78) !important;
+}
+.ranking-modal-royal .prestige-list::-webkit-scrollbar { width: 8px !important; }
+.ranking-modal-royal .prestige-list::-webkit-scrollbar-track { background: rgba(4, 14, 19, 0.78) !important; }
+.ranking-modal-royal .prestige-list::-webkit-scrollbar-thumb { border: 2px solid rgba(4, 14, 19, 0.78) !important; border-radius: 999px !important; background: #bc9850 !important; }
+.ranking-modal-royal .prestige-row { display: grid !important; min-height: 48px !important; padding: 7px 9px !important; }
+.ranking-modal-royal .prestige-row:last-child { border-bottom: 0 !important; }
+.ranking-modal-royal .prestige-player strong { font-size: 11px !important; }
+.ranking-modal-royal .prestige-player small { font-size: 8px !important; }
+.ranking-modal-royal .prestige-self { flex-basis: 51px !important; min-height: 51px !important; padding: 6px 10px !important; }
+.ranking-modal-royal .prestige-footer { flex-basis: 37px !important; min-height: 37px !important; padding-top: 3px !important; }
+.ranking-modal-royal .prestige-footer > button:last-child { height: 30px !important; font-size: 8px !important; }
+
+/* Top three read as command dossiers, not three overlapping avatar ornaments. */
+.ranking-modal-royal .prestige-podium {
+  align-items: stretch !important;
+  padding: 10px !important;
+  background:
+    linear-gradient(180deg, rgba(16, 43, 52, 0.76), rgba(4, 13, 19, 0.96)),
+    radial-gradient(ellipse at 50% 0, rgba(219, 169, 61, 0.16), transparent 62%) !important;
+}
+
+.ranking-modal-royal .prestige-champion,
+.ranking-modal-royal .prestige-champion.rank-1 {
+  display: grid !important;
+  grid-template-columns: 64px minmax(0, 1fr) !important;
+  align-items: center !important;
+  min-height: 0 !important;
+  padding: 13px 10px 9px !important;
+  overflow: hidden !important;
+  text-align: left !important;
+}
+
+.ranking-modal-royal .prestige-champion::before {
+  top: 6px !important;
+  left: 9px !important;
+  transform: none !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-size: 6px !important;
+}
+
+.ranking-modal-royal .prestige-champion.rank-1 {
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+  border-color: rgba(246, 201, 89, 0.86) !important;
+  background:
+    linear-gradient(115deg, rgba(82, 64, 26, 0.94), rgba(29, 38, 32, 0.94) 58%, rgba(12, 30, 36, 0.96)) !important;
+  box-shadow: inset 3px 0 #f0c65a, inset 0 1px rgba(255, 244, 194, 0.2), 0 10px 21px rgba(0, 0, 0, 0.4) !important;
+}
+
+.ranking-modal-royal .prestige-champion.rank-2 { box-shadow: inset 3px 0 #b9cbd1, inset 0 1px rgba(255,255,255,.08), 0 8px 16px rgba(0,0,0,.26) !important; }
+.ranking-modal-royal .prestige-champion.rank-3 { box-shadow: inset 3px 0 #c8834b, inset 0 1px rgba(255,255,255,.08), 0 8px 16px rgba(0,0,0,.26) !important; }
+
+.ranking-modal-royal .prestige-frame-wrap,
+.ranking-modal-royal .rank-1 .prestige-frame-wrap {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 6px 0 0 !important;
+  flex: none !important;
+}
+.ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 64px !important; height: 64px !important; }
+.ranking-modal-royal .prestige-rank-frame { opacity: 0.72 !important; filter: drop-shadow(0 4px 5px rgba(0,0,0,.64)) !important; }
+.ranking-modal-royal .prestige-avatar { inset: 20% !important; }
+
+.ranking-modal-royal .prestige-champion-copy { align-self: center !important; margin: 6px 0 0 !important; padding: 0 0 0 8px !important; text-align: left !important; }
+.ranking-modal-royal .prestige-champion-copy > span { color: #aebfc0 !important; font-size: 7px !important; letter-spacing: .08em !important; }
+.ranking-modal-royal .prestige-champion-copy > strong,
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { margin-top: 3px !important; color: #f5ead0 !important; font-size: 12px !important; }
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { color: #ffe29a !important; font-size: 14px !important; }
+.ranking-modal-royal .prestige-champion-copy small { margin-top: 3px !important; font-size: 7px !important; }
+.ranking-modal-royal .prestige-champion-copy b { margin-top: 4px !important; color: #f1c95d !important; font-size: 11px !important; }
+.ranking-modal-royal .prestige-champion-copy b i { color: #98aaa8 !important; font-size: 6px !important; }
+.ranking-modal-royal .prestige-champion.is-player .prestige-champion-copy::after { right: 0 !important; bottom: -4px !important; }
+
+/* Fantasy podium — crests, banners and rank pedestals instead of dashboard cards. */
+.ranking-modal-royal .prestige-podium {
+  align-items: end !important;
+  padding: 12px 22px 7px !important;
+  background:
+    radial-gradient(ellipse at 50% 112%, rgba(237, 181, 62, 0.24), transparent 54%),
+    linear-gradient(180deg, rgba(17, 43, 49, 0.92), rgba(4, 14, 19, 0.98)) !important;
+}
+
+.ranking-modal-royal .prestige-champion,
+.ranking-modal-royal .prestige-champion.rank-1 {
+  display: flex !important;
+  min-height: 0 !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  padding: 9px 7px 7px !important;
+  overflow: visible !important;
+  border-radius: 0 !important;
+  border-width: 0 1px 1px !important;
+  background:
+    linear-gradient(180deg, transparent 0 22%, rgba(12, 29, 36, 0.62) 55%, rgba(4, 13, 18, 0.92) 100%) !important;
+  box-shadow: none !important;
+  text-align: center !important;
+}
+
+.ranking-modal-royal .prestige-champion::after {
+  position: absolute !important;
+  z-index: 0 !important;
+  right: 10% !important;
+  bottom: -1px !important;
+  left: 10% !important;
+  height: 4px !important;
+  border: 1px solid rgba(224, 181, 91, 0.42) !important;
+  border-bottom: 0 !important;
+  border-radius: 4px 4px 0 0 !important;
+  background: linear-gradient(90deg, #50320e, #d0a445 50%, #50320e) !important;
+  box-shadow: 0 -4px 16px rgba(212, 163, 55, 0.16) !important;
+  content: "" !important;
+}
+
+.ranking-modal-royal .prestige-champion.rank-1 {
+  min-height: 153px !important;
+  transform: translateY(-8px) !important;
+  border-color: rgba(241, 196, 79, 0.86) !important;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(245, 200, 82, 0.22), transparent 42%),
+    linear-gradient(180deg, transparent 0 18%, rgba(64, 50, 22, 0.72) 54%, rgba(28, 24, 14, 0.96) 100%) !important;
+}
+
+.ranking-modal-royal .prestige-champion.rank-2 { min-height: 132px !important; border-color: rgba(185, 207, 211, 0.56) !important; }
+.ranking-modal-royal .prestige-champion.rank-3 { min-height: 132px !important; border-color: rgba(193, 124, 68, 0.62) !important; }
+
+.ranking-modal-royal .prestige-champion::before {
+  z-index: 4 !important;
+  top: 0 !important;
+  left: 50% !important;
+  padding: 3px 9px !important;
+  transform: translateX(-50%) !important;
+  border-color: rgba(231, 185, 81, 0.72) !important;
+  border-radius: 0 0 7px 7px !important;
+  background: linear-gradient(180deg, #4e3411, #23190c) !important;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.48) !important;
+  font-size: 6px !important;
+}
+
+.ranking-modal-royal .prestige-frame-wrap,
+.ranking-modal-royal .rank-1 .prestige-frame-wrap {
+  z-index: 2 !important;
+  width: 63px !important;
+  height: 63px !important;
+  margin: 8px 0 -3px !important;
+}
+.ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 79px !important; height: 79px !important; margin-top: 5px !important; }
+.ranking-modal-royal .prestige-rank-frame { z-index: 3 !important; opacity: 1 !important; filter: drop-shadow(0 6px 5px rgba(0,0,0,.7)) !important; }
+.ranking-modal-royal .prestige-avatar { z-index: 2 !important; inset: 19% 20% 20% !important; }
+
+.ranking-modal-royal .prestige-champion-copy {
+  z-index: 3 !important;
+  align-self: stretch !important;
+  margin: 0 !important;
+  padding: 0 2px !important;
+  text-align: center !important;
+}
+.ranking-modal-royal .prestige-champion-copy > span { color: #bea264 !important; font-size: 6px !important; letter-spacing: .12em !important; }
+.ranking-modal-royal .prestige-champion-copy > strong,
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { margin-top: 2px !important; color: #f3e2bb !important; font-size: 11px !important; }
+.ranking-modal-royal .rank-1 .prestige-champion-copy > strong { color: #ffe39a !important; font-size: 13px !important; }
+.ranking-modal-royal .prestige-champion-copy small { display: none !important; }
+.ranking-modal-royal .prestige-champion-copy b { margin-top: 3px !important; color: #f3cb61 !important; font-size: 10px !important; }
+.ranking-modal-royal .prestige-champion-copy b i { color: #a4a299 !important; font-size: 6px !important; }
+.ranking-modal-royal .prestige-champion.is-player .prestige-champion-copy::after { right: 50% !important; bottom: -14px !important; transform: translateX(50%) !important; }
+
+@media (max-width: 720px) {
+  .ranking-modal-royal { width: 100% !important; max-height: var(--mobile-modal-max-h, calc(100dvh - 116px)) !important; padding: 8px !important; }
+  .ranking-modal-royal .ranking-board-royal { height: 100% !important; }
+  .ranking-modal-royal .prestige-podium { flex-basis: 142px !important; }
+  .ranking-modal-royal .prestige-champion { min-height: 116px !important; }
+  .ranking-modal-royal .prestige-champion.rank-1 { min-height: 130px !important; }
+  .ranking-modal-royal .prestige-frame-wrap,
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 55px !important; height: 55px !important; flex-basis: 55px !important; }
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 66px !important; height: 66px !important; flex-basis: 66px !important; }
+  .ranking-modal-royal .prestige-list { border-radius: 8px !important; }
+  .ranking-modal-royal .prestige-row { min-height: 44px !important; padding: 6px 7px !important; }
+
+  .ranking-modal-royal .prestige-podium { padding: 6px !important; }
+  .ranking-modal-royal .prestige-champion,
+  .ranking-modal-royal .prestige-champion.rank-1 { grid-template-columns: 47px minmax(0, 1fr) !important; padding: 11px 6px 6px !important; }
+  .ranking-modal-royal .prestige-champion.rank-1 { grid-template-columns: 54px minmax(0, 1fr) !important; }
+  .ranking-modal-royal .prestige-frame-wrap,
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 42px !important; height: 42px !important; }
+  .ranking-modal-royal .rank-1 .prestige-frame-wrap { width: 49px !important; height: 49px !important; }
+  .ranking-modal-royal .prestige-champion-copy { padding-left: 4px !important; }
+  .ranking-modal-royal .prestige-champion-copy small { display: none !important; }
+}

@@ -1,0 +1,137 @@
+/* Compact shop shell: preserve catalog content while reducing decorative chrome. */
+.shop-modal-v2.medieval-modal-container {
+  width: min(780px, calc(100vw - 24px)) !important;
+  max-width: 780px !important;
+  height: min(590px, calc(100dvh - 24px)) !important;
+  max-height: calc(100dvh - 24px) !important;
+}
+
+.shop-modal-v2__body { grid-template-columns: 126px minmax(0, 1fr) !important; }
+.shop-modal-v2__sidebar { gap: 6px !important; padding: 8px 6px !important; }
+.shop-modal-v2__sidebar .merchant-bubble { display: none !important; }
+.shop-modal-v2__sidebar .gothic-arched-frame { height: 68px !important; border-width: 1px !important; }
+.shop-modal-v2__tabs { gap: 4px !important; padding: 3px !important; }
+.shop-modal-v2__tabs .euro-tab-btn { min-height: 34px !important; gap: 5px !important; padding: 4px 5px !important; }
+.shop-modal-v2__tabs .euro-tab-btn img { width: 18px !important; height: 18px !important; flex-basis: 18px !important; }
+.shop-modal-v2 .shop-tab-copy strong { font-size: 8px !important; }
+.shop-modal-v2 .shop-tab-copy small { display: none !important; }
+
+.shop-modal-v2__main { padding: 8px 8px 7px !important; }
+.shop-modal-v2__hero { min-height: 54px !important; padding: 7px 122px 7px 39px !important; border-radius: 5px !important; }
+.shop-modal-v2 .royal-shield-emblem { left: 9px !important; width: 20px !important; height: 27px !important; }
+.shop-modal-v2 .euro-hero-title-group { gap: 7px !important; }
+.shop-modal-v2 .euro-crown-icon { width: 18px !important; height: 18px !important; }
+.shop-modal-v2 .shop-hero-kicker { display: none !important; }
+.shop-modal-v2 .euro-hero-title { font-size: clamp(16px, 2vw, 21px) !important; }
+.shop-modal-v2 .euro-hero-subtitle { margin-top: 2px !important; font-size: 7px !important; }
+.shop-modal-v2 .euro-gems-capsule { right: 48px !important; min-height: 27px !important; padding: 3px 6px !important; }
+.shop-modal-v2 .euro-gems-label { font-size: 7px !important; }
+.shop-modal-v2 .euro-red-gem-icon { width: 17px !important; height: 17px !important; }
+.shop-modal-v2 .euro-gems-val { font-size: 11px !important; }
+
+.shop-modal-v2 .shop-newbie-offer-strip { min-height: 22px !important; margin-top: 5px !important; padding: 3px 6px !important; font-size: 7px !important; }
+.shop-modal-v2 .shop-phase-card { min-height: 40px !important; margin-top: 5px !important; padding: 5px 8px !important; }
+.shop-modal-v2 .shop-phase-card__copy { display: grid !important; grid-template-columns: auto auto 1fr !important; align-items: center !important; gap: 8px !important; }
+.shop-modal-v2 .shop-phase-card__eyebrow { margin: 0 !important; font-size: 7px !important; }
+.shop-modal-v2 .shop-phase-card h3 { margin: 0 !important; font-size: 10px !important; white-space: nowrap !important; }
+.shop-modal-v2 .shop-phase-card p { margin: 0 !important; overflow: hidden !important; font-size: 7px !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+.shop-modal-v2 .shop-phase-steps, .shop-modal-v2 .shop-royal-highlights { margin: 3px 0 0 !important; }
+.shop-modal-v2 .shop-phase-steps li { min-height: 20px !important; padding: 2px 4px !important; }
+.shop-modal-v2 .shop-phase-step__label small { display: none !important; }
+
+.shop-modal-v2__content { margin-top: 5px !important; padding: 6px !important; }
+.shop-modal-v2 .shop-catalog-header { min-height: 27px !important; margin-bottom: 5px !important; }
+.shop-modal-v2 .shop-catalog-heading span { font-size: 7px !important; }
+.shop-modal-v2 .shop-catalog-heading h3 { font-size: 15px !important; }
+.shop-modal-v2 .shop-catalog-summary { gap: 7px !important; font-size: 8px !important; }
+.shop-modal-v2__content .euro-cards-grid { gap: 8px !important; }
+.shop-modal-v2__content .rk-card { min-height: 184px !important; padding: 7px !important; }
+.shop-modal-v2 .rk-card-top { grid-template-columns: 50px minmax(0, 1fr) !important; gap: 7px !important; padding-top: 4px !important; }
+.shop-modal-v2 .rk-chest-slot { width: 50px !important; height: 50px !important; }
+.shop-modal-v2 .rk-chest-img { width: 43px !important; height: 43px !important; }
+.shop-modal-v2 .rk-card-title { font-size: 11px !important; }
+.shop-modal-v2 .rk-res-grid { gap: 4px !important; padding-top: 7px !important; }
+.shop-modal-v2 .rk-res-cell { padding: 4px !important; }
+.shop-modal-v2 .rk-res-icon, .shop-modal-v2 .rk-res-icon .shop-resource-icon { width: 23px !important; height: 23px !important; }
+.shop-modal-v2 .rk-res-icon { flex-basis: 23px !important; }
+.shop-modal-v2 .rk-btn, .shop-modal-v2 .sk-btn { min-height: 30px !important; font-size: 8px !important; }
+.shop-modal-v2__content .sk-card { min-height: 250px !important; gap: 4px !important; padding: 7px !important; }
+.shop-modal-v2 .sk-preview { min-height: 88px !important; flex-basis: 88px !important; }
+.shop-modal-v2 .sk-title { font-size: 13px !important; }
+.shop-modal-v2 .sk-perks { display: none !important; }
+.shop-modal-v2 .euro-shop-footer { min-height: 26px !important; margin-top: 6px !important; padding: 4px 7px !important; }
+
+/* The v3 rules use a more specific selector, so the shell needs the same scope. */
+.shop-modal-v2.shop-v3.medieval-modal-container {
+  width: min(780px, calc(100vw - 24px)) !important;
+  max-width: 780px !important;
+  height: min(590px, calc(100dvh - 24px)) !important;
+  max-height: calc(100dvh - 24px) !important;
+}
+.shop-modal-v2.shop-v3 .shop-modal-v2__body { grid-template-columns: 126px minmax(0, 1fr) !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__sidebar { gap: 6px !important; padding: 8px 6px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__sidebar .gothic-arched-frame { height: 68px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__tabs .euro-tab-btn { min-height: 34px !important; padding: 4px 5px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__main { padding: 8px 8px 7px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__hero { min-height: 54px !important; padding: 7px 122px 7px 39px !important; }
+.shop-modal-v2.shop-v3 .euro-gems-capsule { right: 48px !important; }
+.shop-modal-v2.shop-v3 .shop-newbie-offer-strip { min-height: 22px !important; margin-top: 5px !important; padding: 3px 6px !important; }
+.shop-modal-v2.shop-v3 .shop-phase-card { min-height: 40px !important; margin-top: 5px !important; padding: 5px 8px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__content { margin-top: 5px !important; padding: 6px !important; }
+.shop-modal-v2.shop-v3 .shop-catalog-header { min-height: 27px !important; margin-bottom: 5px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__content .rk-card { min-height: 184px !important; padding: 7px !important; }
+.shop-modal-v2.shop-v3 .shop-modal-v2__content .sk-card { min-height: 250px !important; padding: 7px !important; }
+.shop-modal-v2.shop-v3 .euro-shop-footer { min-height: 26px !important; margin-top: 6px !important; padding: 4px 7px !important; }
+
+/* Skin sprites are square atlas cells: never stretch them to fill a landscape preview. */
+@media (min-width: 701px) {
+  .shop-modal-v2.shop-v3 .shop-modal-v2__content .sk-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    justify-items: start !important;
+  }
+
+  .shop-modal-v2.shop-v3 .shop-modal-v2__content .sk-card,
+  .shop-modal-v2.shop-v3 .shop-modal-v2__content .sk-card:nth-last-child(2):nth-child(3n + 1) {
+    grid-column: auto !important;
+    width: 100% !important;
+  }
+}
+
+.shop-modal-v2.shop-v3 .sk-preview {
+  min-height: 0 !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9 !important;
+  flex: 0 0 auto !important;
+}
+
+.shop-modal-v2.shop-v3 .sk-preview .premium-castle-building {
+  width: min(82%, 118px) !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1 !important;
+  bottom: -6% !important;
+}
+
+@media (max-width: 700px) {
+  .shop-modal-v2.shop-v3.medieval-modal-container { width: 100vw !important; height: min(92dvh, 760px) !important; }
+  .shop-modal-v2.medieval-modal-container { width: 100vw !important; height: min(92dvh, 760px) !important; }
+  .shop-modal-v2__body { padding: 5px 5px max(6px, env(safe-area-inset-bottom)) !important; }
+  .shop-modal-v2__tabs { margin-bottom: 5px !important; }
+  .shop-modal-v2__tabs .euro-tab-btn { flex-basis: 94px !important; min-width: 94px !important; min-height: 36px !important; }
+  .shop-modal-v2__hero { min-height: 60px !important; padding: 8px 72px 8px 45px !important; }
+  .shop-modal-v2 .euro-gems-capsule { right: 44px !important; }
+  .shop-modal-v2 .mobile-merchant-badge { left: 7px !important; width: 34px !important; }
+  .shop-modal-v2 .mobile-merchant-img { width: 34px !important; height: 34px !important; }
+  .shop-modal-v2 .euro-crown-icon { display: none !important; }
+  .shop-modal-v2 .euro-hero-title { font-size: 16px !important; }
+  .shop-modal-v2 .euro-hero-subtitle { -webkit-line-clamp: 1 !important; display: -webkit-box !important; -webkit-box-orient: vertical !important; overflow: hidden !important; }
+  .shop-modal-v2 .shop-phase-card { min-height: 0 !important; padding: 6px 8px !important; }
+  .shop-modal-v2 .shop-phase-card__copy { display: block !important; }
+  .shop-modal-v2 .shop-phase-card__eyebrow, .shop-modal-v2 .shop-phase-card p, .shop-modal-v2 .shop-phase-steps, .shop-modal-v2 .shop-royal-highlights { display: none !important; }
+  .shop-modal-v2 .shop-phase-card h3 { font-size: 10px !important; }
+  .shop-modal-v2__content { margin-top: 5px !important; padding: 6px !important; }
+  .shop-modal-v2 .shop-catalog-header { min-height: 27px !important; margin-bottom: 5px !important; }
+  .shop-modal-v2__content .rk-card { min-height: 0 !important; }
+  .shop-modal-v2__content .sk-card { min-height: 248px !important; }
+  .shop-modal-v2 .sk-preview { min-height: 100px !important; flex-basis: 100px !important; }
+  .shop-modal-v2 .euro-shop-footer { display: none !important; }
+}

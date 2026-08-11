@@ -261,9 +261,11 @@ export type BattleReport = {
   attackerId: string;
   attackerName: string;
   attackerCityName?: string;
+  attackerKingdomArchitectureId?: string;
   defenderId: string | null;
   defenderName: string;
   defenderCityName?: string;
+  defenderKingdomArchitectureId?: string;
   winnerId: string;
   isAttackerWin: boolean;
   attacker: any;

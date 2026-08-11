@@ -121,13 +121,6 @@ const HourglassIcon = () => {
 // 6 Overview Stat Vector SVGs (Zero Emojis)
 const HelmetIconSVG = () => {
   return (
-    <AssetIcon
-      asset="troopTotal"
-      size={16}
-      style={{ marginRight: 4, verticalAlign: "middle" }}
-    />
-  );
-  return (
     <svg
       viewBox="0 0 64 64"
       width="16"
@@ -179,13 +172,6 @@ const CrossedSwordsSVG = () => {
 };
 
 const ShieldIconSVG = () => {
-  return (
-    <AssetIcon
-      asset="defender"
-      size={16}
-      style={{ marginRight: 4, verticalAlign: "middle" }}
-    />
-  );
   return (
     <svg
       viewBox="0 0 64 64"
@@ -280,13 +266,6 @@ const TargetIconSVG = () => {
 };
 
 const ScalesIconSVG = () => {
-  return (
-    <AssetIcon
-      asset="settingsInfo"
-      size={16}
-      style={{ marginRight: 4, verticalAlign: "middle" }}
-    />
-  );
   return (
     <svg
       viewBox="0 0 64 64"
@@ -759,7 +738,7 @@ const CastleThumbnail = ({
       : kingdomBuildingSpriteStyle(architectureId, buildingType);
   return (
     <span
-      className="town-sprite-thumbnail"
+      className={`town-sprite-thumbnail building-${buildingType}`}
       aria-hidden="true"
       style={{
         ...spriteStyle,
@@ -973,6 +952,7 @@ export function TroopDeploymentModal({
   );
   const hasValidSource =
     !hasServerSourceDecision || townOptions.some((town) => !town.disabled);
+  const availableSourceCount = townOptions.filter((town) => !town.disabled).length;
 
   const infantryAvailable = Math.max(
     0,
@@ -1114,14 +1094,17 @@ export function TroopDeploymentModal({
   return (
     <div className="ob-modal-overlay" onMouseDown={onClose}>
       <div
-        className="ob-modal-container town-modal attack-dispatch-modal"
+        className={`ob-modal-container town-modal attack-dispatch-modal ${isAttack ? "is-attack" : "is-reinforce"}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Top Header Banner (100% Matching Reference Art) */}
         <div className="rt-attack-header">
           <div className="rt-attack-header-title-box">
-            <span className="swords-icon">
-              <FlagIcon />
+            <span className="rt-command-seal" aria-hidden="true">
+              <AssetIcon
+                asset={isAttack ? "attackButton" : "defender"}
+                size={24}
+              />
             </span>
             <h2 className="title">{actionLabel}</h2>
             <span className="swords-icon">
@@ -1129,7 +1112,9 @@ export function TroopDeploymentModal({
             </span>
           </div>
           <p className="subtitle">
-            Từ Thành trì #{sourceTown.id} đến LÃNH THỔ #{targetTownId + 1}
+            <span>THÀNH #{sourceTown.id}</span>
+            <i aria-hidden="true">→</i>
+            <span>LÃNH THỔ #{targetTownId + 1}</span>
           </p>
           <button
             type="button"
@@ -1142,7 +1127,12 @@ export function TroopDeploymentModal({
 
         {/* Section 1: CHỌN THÀNH XUẤT QUÂN */}
         <div className="rt-dispatch-section rt-source-section">
-          <div className="rt-dispatch-section-title">CHỌN THÀNH XUẤT QUÂN</div>
+          <div className="rt-source-section-heading">
+            <div className="rt-dispatch-section-title">CHỌN THÀNH XUẤT QUÂN</div>
+            <span className="rt-source-availability">
+              {availableSourceCount}/{townOptions.length} khả dụng
+            </span>
+          </div>
           <div
             className="rt-source-card-grid"
             role="list"
@@ -1174,17 +1164,15 @@ export function TroopDeploymentModal({
                     />
                   </span>
                   <span className="rt-source-card-copy">
-                    <strong>Thành #{town.id}</strong>
-                    <span>{town.unitCount} quân</span>
-                    <small>
-                      {town.routeLabel} ·{" "}
-                      {town.option
-                        ? `${town.option.distanceKm} km · ${town.option.travelSeconds}s`
-                        : "Đang kiểm tra"}
+                    <span className="rt-source-card-primary">
+                      <strong>Thành #{town.id}</strong>
+                      <b>{town.unitCount} quân</b>
+                    </span>
+                    <small className="rt-source-card-route">
+                      {town.disabled
+                        ? "Không có tuyến xuất quân"
+                        : `${town.routeLabel} · ${town.option ? `${town.option.distanceKm} km · ${town.option.travelSeconds}s` : "Đang kiểm tra"}`}
                     </small>
-                    {town.disabled && (
-                      <em>{town.option?.reason || "Không thể xuất quân"}</em>
-                    )}
                   </span>
                   <span className="rt-source-card-check" aria-hidden="true">
                     {selected ? "✓" : ""}
@@ -1206,46 +1194,53 @@ export function TroopDeploymentModal({
 
         {hasValidSource && (
           <>
-        {/* Section 2: 6 Overview Stat Cards Grid (Zero Emojis - 100% Vector SVGs) */}
-        <div className="rt-army-overview-grid">
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <HelmetIconSVG /> QUÂN TRONG THÀNH
+        {/* Section 2: compact tactical summary */}
+        <div className="rt-command-summary-grid">
+          <article className="rt-command-summary-card">
+            <span className="rt-command-summary-title">
+              <HelmetIconSVG /> QUÂN SỰ
             </span>
-            <span className="val text-gold">{totalUnitsAvailable} quân</span>
-          </div>
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <FlagIcon /> LỰC LƯỢNG XUẤT CHINH
+            <div className="rt-command-summary-values">
+              <span>
+                <small>KHẢ DỤNG</small>
+                <b>{totalUnitsAvailable}</b>
+              </span>
+              <span>
+                <small>XUẤT CHINH</small>
+                <b>{currentUnitsSent}</b>
+              </span>
+            </div>
+          </article>
+          <article className="rt-command-summary-card">
+            <span className="rt-command-summary-title">
+              <ShieldIconSVG /> BỐ TRÍ
             </span>
-            <span className="val text-gold">{currentUnitsSent} quân</span>
-          </div>
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <ShieldIconSVG /> BÌNH LÍNH Ở LẠI THỦ THÀNH
+            <div className="rt-command-summary-values">
+              <span>
+                <small>THỦ THÀNH</small>
+                <b>{unitsRemaining}</b>
+              </span>
+              <span>
+                <small>HÀNH QUÂN</small>
+                <b>{currentUnitsSent}</b>
+              </span>
+            </div>
+          </article>
+          <article className="rt-command-summary-card">
+            <span className="rt-command-summary-title">
+              <ScalesIconSVG /> HIỆU NĂNG
             </span>
-            <span className="val text-gold">{unitsRemaining} quân</span>
-          </div>
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <HorseHeadSVG /> BÌNH LÍNH HÀNH QUÂN
-            </span>
-            <span className="val text-gold">{currentUnitsSent} quân</span>
-          </div>
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <TargetIconSVG /> SỨC MẠNH XUẤT CHIẾN
-            </span>
-            <span className="val text-gold">{currentPowerSent}</span>
-          </div>
-          <div className="rt-army-stat-card">
-            <span className="label">
-              <ScalesIconSVG /> TẢI TRỌNG HÀNH QUÂN
-            </span>
-            <span className="val text-gold">
-              {currentUnitsSent * 23} / {totalUnitsAvailable * 100}
-            </span>
-          </div>
+            <div className="rt-command-summary-values">
+              <span>
+                <small>SỨC MẠNH</small>
+                <b>{currentPowerSent}</b>
+              </span>
+              <span>
+                <small>TẢI TRỌNG</small>
+                <b>{currentUnitsSent * 23}/{totalUnitsAvailable * 100}</b>
+              </span>
+            </div>
+          </article>
         </div>
 
         {/* Section 3: CHỈNH ĐỊNH LỰC LƯỢNG (Sliders) */}
