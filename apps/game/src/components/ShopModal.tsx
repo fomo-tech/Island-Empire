@@ -26,7 +26,7 @@ import { KingdomBuildingSprite } from "./KingdomBuildingSprite";
 import { AssetIcon } from "./AssetIcon";
 import { RESOURCE_META, ResourceIcon } from "./ResourceDisplay";
 
-type SkinVariant = "gold" | "fire" | "wind" | "ice" | "shadow";
+type SkinVariant = "gold" | "fire" | "wind" | "ice" | "shadow" | "storm";
 
 const SKIN_PRESENTATION: Record<
   string,
@@ -37,13 +37,15 @@ const SKIN_PRESENTATION: Record<
   skin_phong_long_cac: { variant: "wind", themeColor: "#73aeb8" },
   skin_bang_vuong: { variant: "ice", themeColor: "#69c8ed" },
   skin_hac_nguyet: { variant: "shadow", themeColor: "#a987ef" },
+  skin_thien_loi_than_dien: { variant: "storm", themeColor: "#73e8ff" },
+  skin_thien_long_de_do: { variant: "gold", themeColor: "#f6bd55" },
 };
 
-const PROFILE_AVATAR_ASSETS: Record<string, string> = {
-  "dragon-empress": "/assets/avatars/dragon-empress.png",
-  "storm-warlord": "/assets/avatars/storm-warlord.png",
-  "moon-oracle": "/assets/avatars/moon-oracle.png",
-};
+function skinTargetLabel(target?: ShopProduct["skinTarget"]) {
+  if (target === "capital") return "HOÀNG THÀNH";
+  if (target === "military_district") return "QUÂN KHU";
+  return "BỘ VƯƠNG QUỐC";
+}
 
 const PROFILE_FRAME_ASSETS: Record<string, string> = {
   vip: "/assets/ui/vip-avatar-frame.webp",
@@ -53,12 +55,16 @@ const PROFILE_FRAME_ASSETS: Record<string, string> = {
   dragonfire: "/assets/cosmetics/frames/dragonfire.png",
   stormcrown: "/assets/cosmetics/frames/stormcrown.png",
   voidmoon: "/assets/cosmetics/frames/voidmoon.png",
+  dragon_sovereign: "/assets/cosmetics/generated/dragon-sovereign-frame.png",
+  eclipse_warden: "/assets/cosmetics/generated/eclipse-warden-frame.png",
 };
 
 const PROFILE_NAME_FRAME_ASSETS: Record<string, string> = {
   imperial: "/assets/cosmetics/nameplates/imperial.png",
   tempest: "/assets/cosmetics/nameplates/tempest.png",
   astral: "/assets/cosmetics/nameplates/astral.png",
+  celestial_tempest: "/assets/cosmetics/generated/celestial-tempest-nameplate.png",
+  imperial_dragon: "/assets/cosmetics/generated/imperial-dragon-nameplate.png",
 };
 
 function KingdomSkinAsset({
@@ -194,6 +200,14 @@ function CastleSkinArt({ variant }: { variant: SkinVariant }) {
       roofB: "#7957bd",
       auraA: "#d8c4ff",
       auraB: "#6336aa",
+    },
+    storm: {
+      wallA: "#132c3a",
+      wallB: "#d3f8ff",
+      roofA: "#125a7b",
+      roofB: "#50e8ff",
+      auraA: "#e2fcff",
+      auraB: "#159be1",
     },
   } as const;
   const palette = palettes[variant];
@@ -825,8 +839,8 @@ const SHOP_TABS: Array<{
   },
   {
     id: "profile",
-    label: "HỒ SƠ",
-    sublabel: "AVATAR & KHUNG TÊN",
+    label: "KHUNG HỒ SƠ",
+    sublabel: "KHUNG AVATAR & TÊN",
     icon: "/assets/store/profile.png",
   },
 ];
@@ -1032,9 +1046,9 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     if (busyProductId) return;
     setBusyProductId(skinId);
     try {
-      const result = await equipShopSkin(token, skinId, "capital");
+      const result = await equipShopSkin(token, skinId, "kingdom");
       onInventory(result.inventory);
-      onNotify("Đã trang bị ngoại trang Hoàng Thành");
+      onNotify("Đã trang bị skin cho Hoàng Thành và Quân Khu");
     } catch (error: any) {
       onNotify(error?.message || "Không thể trang bị ngoại trang");
     } finally {
@@ -1113,10 +1127,11 @@ export const ShopModal: React.FC<ShopModalProps> = ({
     (
       product,
     ): product is ShopProduct & {
-      profileCosmeticKind: "avatar" | "avatar_frame" | "name_frame";
+      profileCosmeticKind: "avatar_frame" | "name_frame";
     } =>
       product.type === "profile_cosmetic" &&
-      Boolean(product.profileCosmeticKind),
+      (product.profileCosmeticKind === "avatar_frame" ||
+        product.profileCosmeticKind === "name_frame"),
   );
 
   const liveOfferResourcePacks = resourcePacks.filter(
@@ -1490,24 +1505,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               <div className="profile-shop-grid">
                 {profilePacks.map((profile) => {
                   const kind = profile.profileCosmeticKind;
-                  const isAvatar = kind === "avatar";
                   const isNameFrame = kind === "name_frame";
-                  const cosmeticId = isAvatar
-                    ? profile.avatarId
-                    : isNameFrame
-                      ? profile.nameFrameId
-                      : profile.avatarFrameId;
+                  const cosmeticId = isNameFrame
+                    ? profile.nameFrameId
+                    : profile.avatarFrameId;
                   if (!cosmeticId) return null;
-                  const isOwned = isAvatar
-                    ? inventory.ownedAvatars.includes(cosmeticId)
-                    : isNameFrame
-                      ? inventory.ownedNameFrames.includes(cosmeticId)
-                      : inventory.ownedAvatarFrames.includes(cosmeticId);
-                  const isEquipped = isAvatar
-                    ? currentAvatarId === cosmeticId
-                    : isNameFrame
-                      ? inventory.equippedNameFrameId === cosmeticId
-                      : inventory.equippedAvatarFrameId === cosmeticId;
+                  const isOwned = isNameFrame
+                    ? inventory.ownedNameFrames.includes(cosmeticId)
+                    : inventory.ownedAvatarFrames.includes(cosmeticId);
+                  const isEquipped = isNameFrame
+                    ? inventory.equippedNameFrameId === cosmeticId
+                    : inventory.equippedAvatarFrameId === cosmeticId;
 
                   return (
                     <article
@@ -1515,24 +1523,12 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       key={profile.id}
                     >
                       <span className="profile-shop-badge">
-                        {isAvatar
-                          ? "AVATAR PREMIUM"
-                          : isNameFrame
-                            ? "KHUNG TÊN PREMIUM"
-                            : "KHUNG AVATAR PREMIUM"}
+                        {isNameFrame ? "KHUNG TÊN PREMIUM" : "KHUNG AVATAR PREMIUM"}
                       </span>
                       <div
-                        className={`profile-shop-preview ${isAvatar ? "is-avatar" : isNameFrame ? "is-name-frame" : "is-frame"} premium-${cosmeticId}`}
+                        className={`profile-shop-preview ${isNameFrame ? "is-name-frame" : "is-frame"} premium-${cosmeticId}`}
                       >
-                        {isAvatar ? (
-                          <img
-                            src={
-                              PROFILE_AVATAR_ASSETS[cosmeticId] ||
-                              "/assets/avatars/emperor.png"
-                            }
-                            alt={profile.name}
-                          />
-                        ) : isNameFrame ? (
+                        {isNameFrame ? (
                           <div className="premium-nameplate">
                             <img src={PROFILE_NAME_FRAME_ASSETS[cosmeticId]} alt={profile.name} />
                             <span>LÃNH CHÚA</span>
@@ -1710,7 +1706,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               <div className="sk-grid">
                 {skinPacks.map((skin) => {
                   const isEquipped =
-                    inventory.equippedCapitalSkin === skin.skinId;
+                    inventory.equippedCapitalSkin === skin.skinId &&
+                    inventory.equippedDistrictSkin === skin.skinId;
                   const isOwned = (inventory.ownedSkins || []).includes(
                     skin.skinId,
                   );
@@ -1771,9 +1768,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       <div className="sk-info">
                         <div className="sk-rarity-row">
                           <span className="sk-rarity-tag">
-                            {skin.skinTarget === "capital"
-                              ? "HOÀNG THÀNH"
-                              : "QUÂN KHU"}
+                            {skinTargetLabel(skin.skinTarget)}
                           </span>
                         </div>
                         <h4
@@ -1985,9 +1980,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
               <div className="skin-modal-info">
                 <span className="skin-rarity-tag">
-                  {previewSkin.skinTarget === "capital"
-                    ? "HOÀNG THÀNH"
-                    : "QUÂN KHU"}
+                  {skinTargetLabel(previewSkin.skinTarget)}
                 </span>
                 <h3
                   className="skin-modal-title"
@@ -2015,7 +2008,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       />
                       MUA VĨNH VIỄN · {previewSkin.price.toLocaleString()}
                     </button>
-                  ) : inventory.equippedCapitalSkin === previewSkin.skinId ? (
+                  ) : inventory.equippedCapitalSkin === previewSkin.skinId &&
+                    inventory.equippedDistrictSkin === previewSkin.skinId ? (
                     <button
                       type="button"
                       className="euro-btn-equipped btn-3d-grey"

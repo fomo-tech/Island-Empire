@@ -123,12 +123,15 @@ rejectCalls("Bản đồ thành trì", castles, [
 if (!castles.includes("drawKingdomBuildingSprite(")) {
   throw new Error("Thành trì chưa dùng asset vuông có pivot");
 }
-if (!buildingSizing.includes("const MAINLAND_CAPITAL_RENDER_SIZE = 240")
-  || !buildingSizing.includes("const ISLET_DISTRICT_RENDER_SIZE = 170")
+if (!buildingSizing.includes("const CAPITAL_PREFERRED_RENDER_SIZE = 190")
+  || !buildingSizing.includes("const DISTRICT_PREFERRED_RENDER_SIZE = 165")
+  || !buildingSizing.includes("return territoryBuildingSize(territory, buildingType, preferredSize)")
   || !castles.includes("standardTerritoryBuildingSize(")) {
-  throw new Error("Kích thước Hoàng Thành, Quân Khu và trụ cờ chưa được chuẩn hóa");
+  throw new Error("Kích thước công trình chưa tự thích ứng theo lãnh thổ");
 }
-if (!castles.includes("const x = r.x;") || !castles.includes("const y = r.y;")) {
+if (!castles.includes("const territoryCenter = territoryVisualCenter(")
+  || !castles.includes("const x = territoryCenter.x;")
+  || !castles.includes("const y = territoryCenter.y;")) {
   throw new Error("Thành trì chưa được căn giữa lãnh thổ");
 }
 if (onboarding.includes("getCastleSprite") || onboarding.includes("<canvas")) {
@@ -182,14 +185,14 @@ if (!source.includes("const useLowDetail =")
   || !source.includes("state.zoom < 0.42")) {
   throw new Error("Hành quân chưa khóa điều kiện LOD theo tải render");
 }
-if (!source.includes("return { x: r.x, y: r.y }")) {
+if (!source.includes("return territoryVisualCenter(regionId, { x: r.x, y: r.y });")) {
   throw new Error("Công trình chưa được khóa vào tâm lãnh thổ");
 }
 if ((source.match(/territoryBuildingAnchor\(/g) || []).length < 3
-  || !source.includes("kingdomBuildingVisualMetrics")
-  || !source.includes("layout.pivotX - metrics.footX")
-  || !source.includes("layout.pivotY - metrics.footY")) {
-  throw new Error("Chân công trình chưa được căn giữa lãnh thổ ở đủ hai nhánh render");
+  || !source.includes("kingdomBuildingVisualCenter")
+  || !source.includes("layout.pivotX - visualCenter.x")
+  || !source.includes("layout.pivotY - visualCenter.y")) {
+  throw new Error("Tâm thị giác công trình chưa được căn giữa lãnh thổ ở đủ hai nhánh render");
 }
 if (source.includes('const buildingLabel = isCapital')) {
   throw new Error("Bảng tên công trình vẫn còn hiển thị dòng loại công trình");

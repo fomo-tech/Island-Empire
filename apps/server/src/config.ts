@@ -5,6 +5,7 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   MONGO_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/island_empire"),
   PORT: z.coerce.number().int().positive().default(4001),
+  HOST: z.string().trim().optional(),
   CORS_ORIGIN: z.string().default("http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175,http://localhost:5173,http://localhost:5174,http://localhost:5175"),
   JWT_SECRET: z.string().min(24).default("dev-only-change-this-long-random-secret"),
   ADMIN_USER: z.string().min(3).default("admin"),
@@ -17,7 +18,15 @@ const EnvSchema = z.object({
   SHOP_TEST_MODE: z.enum(["true", "false"]).default("true").transform((value) => value === "true"),
 });
 
-export const config = EnvSchema.parse(process.env);
+const parsedConfig = EnvSchema.parse(process.env);
+
+export const config = {
+  ...parsedConfig,
+  // Production traffic must enter through Nginx, not directly through Node.
+  HOST:
+    parsedConfig.HOST ||
+    (parsedConfig.NODE_ENV === "production" ? "127.0.0.1" : "0.0.0.0"),
+};
 
 export const corsOrigins = config.CORS_ORIGIN.split(",")
   .map((origin) => origin.trim())

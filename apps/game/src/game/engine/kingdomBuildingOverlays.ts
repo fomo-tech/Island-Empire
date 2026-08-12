@@ -81,13 +81,15 @@ export function drawKingdomBuildingAura(options: {
 
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = 0.23 * pulse;
+  const auraIntensity = effect?.auraIntensity ?? 1;
+  ctx.globalAlpha = 0.23 * pulse * auraIntensity;
   ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX, geometry.radiusY, 0, 0, TAU);
   ctx.fill();
-  ctx.globalAlpha = 0.72;
-  for (let index = 0; index < 5; index += 1) {
+  ctx.globalAlpha = 0.72 * auraIntensity;
+  const emberCount = effect?.orbitingEmbers ?? 5;
+  for (let index = 0; index < emberCount; index += 1) {
     const phase = tick * (0.35 + index * 0.025) + index * 1.31;
     ctx.fillStyle = index % 2 ? highlight : accent;
     ctx.beginPath();
@@ -102,13 +104,20 @@ export function drawKingdomBuildingAura(options: {
     const skinPulse = 0.72 + Math.sin(tick * 2.8) * 0.16;
     ctx.globalAlpha = 0.62 + skinPulse * 0.18;
     ctx.shadowColor = effect.glow;
-    ctx.shadowBlur = size * 0.07;
+    ctx.shadowBlur = size * 0.085 * auraIntensity;
     ctx.strokeStyle = effect.border;
     ctx.lineWidth = Math.max(1.5, size * 0.012);
     ctx.setLineDash([size * 0.055, size * 0.035]);
     ctx.lineDashOffset = -tick * size * 0.035;
     ctx.beginPath();
     ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX * 0.98, geometry.radiusY * 0.94, 0, 0, TAU);
+    ctx.stroke();
+    ctx.globalAlpha = 0.26 * skinPulse;
+    ctx.lineWidth = Math.max(1, size * 0.007);
+    ctx.setLineDash([size * 0.025, size * 0.09]);
+    ctx.lineDashOffset = tick * size * 0.052;
+    ctx.beginPath();
+    ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX * 1.13, geometry.radiusY * 1.18, 0, 0, TAU);
     ctx.stroke();
   }
   ctx.restore();

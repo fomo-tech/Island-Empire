@@ -313,7 +313,7 @@ export function purchaseShopProduct(
   token: string,
   productId: string,
   requestId: string,
-  equipTarget?: "capital" | "military_district",
+  equipTarget?: "capital" | "military_district" | "kingdom",
 ): Promise<{
   ok: true;
   duplicate?: boolean;
@@ -355,7 +355,7 @@ export function claimShopGemPack(
 export function equipShopSkin(
   token: string,
   skinId: string,
-  target: "capital" | "military_district",
+  target: "capital" | "military_district" | "kingdom",
 ): Promise<{
   ok: true;
   inventory: ShopInventory;

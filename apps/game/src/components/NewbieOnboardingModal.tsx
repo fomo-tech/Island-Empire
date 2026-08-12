@@ -247,14 +247,18 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
           <div className="header-title-wrap">
             <OpenBookLaurelIcon />
             <div className="title-text-group">
-              <h2 className="title">✧ HƯỚNG DẪN TÂN VƯƠNG ✧</h2>
-              <p className="subtitle">Nắm vững 5 bước cơ bản để xây dựng đế chế hùng mạnh!</p>
+              <span className="guide-kicker">CẨM NANG TÂN VƯƠNG</span>
+              <h2 className="title">5 BƯỚC LẬP QUỐC</h2>
+              <p className="subtitle">Nắm luật chơi trong một phút, rồi bắt đầu khai hoang.</p>
             </div>
           </div>
 
-          <button type="button" className="guide-close-btn" onClick={onClose} title="Đóng">
+          <div className="guide-header-actions">
+            <span className="guide-step-counter">{activeStepIndex + 1} / {STEPS_DATA.length}</span>
+            <button type="button" className="guide-close-btn" onClick={onClose} title="Đóng hướng dẫn" aria-label="Đóng hướng dẫn">
             ✕
-          </button>
+            </button>
+          </div>
         </div>
 
         {/* Main Body (Left Steps List + Right Detail Preview Area) */}
@@ -270,6 +274,8 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
                   type="button"
                   className={`guide-step-card ${isActive ? "active" : ""}`}
                   onClick={() => setActiveStepIndex(idx)}
+                  aria-pressed={isActive}
+                  aria-label={`Bước ${step.id}: ${step.title}`}
                 >
                   <div
                     className="step-number-badge"
@@ -312,6 +318,7 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
 
             {/* Step Heading & Rich Description */}
             <div className="guide-detail-content">
+              <div className="guide-detail-eyebrow">BƯỚC {activeStep.id} · CẨM NANG VƯƠNG QUỐC</div>
               <h3 className="detail-title">{activeStep.detailTitle}</h3>
               <p className="detail-desc">{activeStep.detailDesc}</p>
 
@@ -329,21 +336,24 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
             {/* Pagination Controls */}
             <div className="guide-pagination-bar">
               <button type="button" className="nav-arrow-btn" onClick={handlePrevStep} title="Trang trước">
-                ❮
+                <span aria-hidden="true">❮</span><span>TRƯỚC</span>
               </button>
 
               <div className="indicator-dots">
                 {STEPS_DATA.map((_, dIdx) => (
-                  <span
+                  <button
+                    type="button"
                     key={dIdx}
                     className={`dot ${dIdx === activeStepIndex ? "active" : ""}`}
                     onClick={() => setActiveStepIndex(dIdx)}
+                    aria-label={`Chuyển đến bước ${dIdx + 1}`}
+                    aria-current={dIdx === activeStepIndex ? "step" : undefined}
                   />
                 ))}
               </div>
 
               <button type="button" className="nav-arrow-btn" onClick={handleNextStep} title="Trang sau">
-                ❯
+                <span>TIẾP</span><span aria-hidden="true">❯</span>
               </button>
             </div>
 
@@ -363,7 +373,7 @@ export function NewbieOnboardingModal({ onClose, onConfirm, architectureId }: Ne
           </label>
 
           <button type="button" className="guide-start-btn" onClick={handleStartNow}>
-            BẮT ĐẦU NGAY
+            <AssetIcon asset="map" size={18} /> VÀO BẢN ĐỒ
           </button>
         </div>
 

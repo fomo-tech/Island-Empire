@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 import { generateWorldTerritories } from "@island/shared";
 import type { ResourceKey, ShopGemPack, ShopProduct } from "@island/shared";
+import { getDb } from "../db/client.js";
 import { collections } from "../db/collections.js";
 import { config, isAllowedCorsOrigin } from "../config.js";
 import { requireAdmin, requireAuth, signToken } from "../security/auth.js";
@@ -105,7 +106,7 @@ const ShopPurchaseSchema = z
   .object({
     productId: z.string().trim().min(3).max(80),
     requestId: z.string().trim().min(12).max(120),
-    equipTarget: z.enum(["capital", "military_district"]).optional(),
+    equipTarget: z.enum(["capital", "military_district", "kingdom"]).optional(),
   })
   .strict();
 const GemPackClaimSchema = z
@@ -117,7 +118,7 @@ const GemPackClaimSchema = z
 const ShopEquipSchema = z
   .object({
     skinId: z.string().trim().min(3).max(80),
-    target: z.enum(["capital", "military_district"]),
+    target: z.enum(["capital", "military_district", "kingdom"]),
   })
   .strict();
 const ProfileCosmeticEquipSchema = z
@@ -3065,20 +3066,23 @@ const DEFAULT_CONFIG = {
   battleStateBroadcastSeconds: 2,
   shopResourcePackAmount: 50000,
   shopResourcePackPriceGems: 100,
-  shopSkinLongBaoThanhPrice: 1500,
-  shopSkinHoaLongDienPrice: 2000,
-  shopSkinPhongLongCacPrice: 1800,
-  shopSkinBangVuongPrice: 2200,
-  shopSkinHacNguyetPrice: 2500,
-  shopAvatarDragonEmpressPrice: 980,
-  shopAvatarStormWarlordPrice: 1080,
-  shopAvatarMoonOraclePrice: 1180,
-  shopAvatarFrameDragonfirePrice: 1350,
-  shopAvatarFrameStormcrownPrice: 1550,
-  shopAvatarFrameVoidmoonPrice: 1750,
-  shopNameFrameImperialPrice: 1250,
-  shopNameFrameTempestPrice: 1450,
-  shopNameFrameAstralPrice: 1650,
+  shopSkinLongBaoThanhPrice: 2800,
+  shopSkinHoaLongDienPrice: 3600,
+  shopSkinPhongLongCacPrice: 3400,
+  shopSkinBangVuongPrice: 4200,
+  shopSkinHacNguyetPrice: 4800,
+  shopSkinThienLoiThanDienPrice: 7200,
+  shopSkinThienLongDeDoPrice: 9800,
+  shopAvatarFrameDragonfirePrice: 2400,
+  shopAvatarFrameStormcrownPrice: 2800,
+  shopAvatarFrameVoidmoonPrice: 3200,
+  shopAvatarFrameDragonSovereignPrice: 4600,
+  shopAvatarFrameEclipseWardenPrice: 5000,
+  shopNameFrameImperialPrice: 2200,
+  shopNameFrameTempestPrice: 2600,
+  shopNameFrameAstralPrice: 3000,
+  shopNameFrameCelestialTempestPrice: 4400,
+  shopNameFrameImperialDragonPrice: 5200,
   powerConnectedTerritory: 100,
   powerIsolatedTerritory: 25,
   powerNaturalHarborBonus: 30,
@@ -3310,11 +3314,11 @@ function shopCatalog(
       id: "skin_long_bao_thanh",
       type: "skin",
       name: "Long Bảo Thành",
-      description: "Ngoại trang Hoàng Thành rồng vàng.",
+      description: "Bộ ngoại trang rồng vàng cho Hoàng Thành và Quân Khu.",
       priceGems: gameConfig.shopSkinLongBaoThanhPrice,
       testPrice: false,
       skinId: "skin_long_bao_thanh",
-      skinTarget: "capital",
+      skinTarget: "kingdom",
       ...(newbieSkinFree && {
         isNewbieFree: true,
         newbieFreeExpiresAt: newbiePriceExpiresAt,
@@ -3324,11 +3328,11 @@ function shopCatalog(
       id: "skin_hoa_long_dien",
       type: "skin",
       name: "Hỏa Long Điện",
-      description: "Ngoại trang Hoàng Thành dung nham.",
+      description: "Bộ ngoại trang dung nham cho Hoàng Thành và Quân Khu.",
       priceGems: gameConfig.shopSkinHoaLongDienPrice,
       testPrice: false,
       skinId: "skin_hoa_long_dien",
-      skinTarget: "capital",
+      skinTarget: "kingdom",
       ...(newbieSkinFree && {
         isNewbieFree: true,
         newbieFreeExpiresAt: newbiePriceExpiresAt,
@@ -3338,11 +3342,11 @@ function shopCatalog(
       id: "skin_phong_long_cac",
       type: "skin",
       name: "Phong Long Các",
-      description: "Ngoại trang Hoàng Thành phong lôi.",
+      description: "Bộ ngoại trang phong lôi cho Hoàng Thành và Quân Khu.",
       priceGems: gameConfig.shopSkinPhongLongCacPrice,
       testPrice: false,
       skinId: "skin_phong_long_cac",
-      skinTarget: "capital",
+      skinTarget: "kingdom",
       ...(newbieSkinFree && {
         isNewbieFree: true,
         newbieFreeExpiresAt: newbiePriceExpiresAt,
@@ -3356,7 +3360,7 @@ function shopCatalog(
       priceGems: gameConfig.shopSkinBangVuongPrice,
       testPrice: false,
       skinId: "skin_bang_vuong",
-      skinTarget: "capital",
+      skinTarget: "kingdom",
       ...(newbieSkinFree && {
         isNewbieFree: true,
         newbieFreeExpiresAt: newbiePriceExpiresAt,
@@ -3370,30 +3374,28 @@ function shopCatalog(
       priceGems: gameConfig.shopSkinHacNguyetPrice,
       testPrice: false,
       skinId: "skin_hac_nguyet",
-      skinTarget: "capital",
+      skinTarget: "kingdom",
       ...(newbieSkinFree && {
         isNewbieFree: true,
         newbieFreeExpiresAt: newbiePriceExpiresAt,
       }),
     },
-    ...[
-      ["dragon_empress", "Long Hậu Thiên Mệnh", "Chân dung Long Hậu độc quyền, ánh kim đỏ hoàng gia.", gameConfig.shopAvatarDragonEmpressPrice],
-      ["storm_warlord", "Lôi Sư Chiến Vương", "Chiến vương sư tử giữa lôi quang bạch kim.", gameConfig.shopAvatarStormWarlordPrice],
-      ["moon_oracle", "Nguyệt Thần Tiên Tri", "Tiên tri thạch anh tím dưới ánh trăng huyền bí.", gameConfig.shopAvatarMoonOraclePrice],
-    ].map(([id, name, description, priceGems]) => ({
-      id: `profile_avatar_${id}`,
-      type: "profile_cosmetic" as const,
-      name: String(name),
-      description: String(description),
-      priceGems: Number(priceGems),
+    {
+      id: "skin_thien_long_de_do",
+      type: "skin",
+      name: "Xích Long Thiên Thành",
+      description: "Skin Thần Thoại đồng bộ góc map: Hoàng Thành Xích Long, Quân Khu và trụ cờ hoàng gia.",
+      priceGems: gameConfig.shopSkinThienLongDeDoPrice,
       testPrice: false,
-      profileCosmeticKind: "avatar" as const,
-      avatarId: String(id).replaceAll("_", "-"),
-    })),
+      skinId: "skin_thien_long_de_do",
+      skinTarget: "kingdom",
+    },
     ...[
       ["dragonfire", "Long Diệm Chí Tôn", "Khung avatar rồng vàng với lõi hỏa ngọc chuyển động.", gameConfig.shopAvatarFrameDragonfirePrice],
       ["stormcrown", "Lôi Miện Bạch Kim", "Khung avatar bạch kim được bao quanh bởi lôi quang.", gameConfig.shopAvatarFrameStormcrownPrice],
       ["voidmoon", "Nguyệt Thực Hư Không", "Khung avatar hắc tím hiếm với hào quang nguyệt thực.", gameConfig.shopAvatarFrameVoidmoonPrice],
+      ["dragon_sovereign", "Long Diệm Tối Thượng", "Khung rồng song long huyền kim, hỏa ngọc đỏ và viền ember phát sáng.", gameConfig.shopAvatarFrameDragonSovereignPrice],
+      ["eclipse_warden", "Nguyệt Thực Hộ Vệ", "Khung hắc diệu thạch, mảnh tinh thể tím và nguyệt thực vĩnh hằng.", gameConfig.shopAvatarFrameEclipseWardenPrice],
     ].map(([id, name, description, priceGems]) => ({
       id: `profile_frame_${id}`,
       type: "profile_cosmetic" as const,
@@ -3408,6 +3410,8 @@ function shopCatalog(
       ["imperial", "Đế Vương Kim Ấn", "Khung tên vàng đen chạm rồng dành cho bậc quân vương.", gameConfig.shopNameFrameImperialPrice],
       ["tempest", "Vương Miện Bão Tố", "Khung tên lam bạc với tia sét chạy dọc viền.", gameConfig.shopNameFrameTempestPrice],
       ["astral", "Tinh Nguyệt Vĩnh Hằng", "Khung tên tím thiên hà với bụi sao phát sáng.", gameConfig.shopNameFrameAstralPrice],
+      ["celestial_tempest", "Thiên Lôi Vương Miện", "Khung tên bạch kim, năng lượng sấm sét chạy dọc vương miện.", gameConfig.shopNameFrameCelestialTempestPrice],
+      ["imperial_dragon", "Long Ấn Đế Vương", "Khung tên song long huyền kim, hồng ngọc hoàng gia và tàn lửa chuyển động.", gameConfig.shopNameFrameImperialDragonPrice],
     ].map(([id, name, description, priceGems]) => ({
       id: `profile_name_frame_${id}`,
       type: "profile_cosmetic" as const,
@@ -6382,13 +6386,23 @@ export function createApp() {
     keyGenerator: (req) => String(req.user?.id || req.ip || "anonymous"),
     skip: isDevLoopback,
   });
-  app.get("/api/health", (_req, res) => {
-    const payload = {
-      ok: true,
-      service: "island-empire-api",
-      time: new Date().toISOString(),
-    };
-    res.json(payload);
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await (await getDb()).command({ ping: 1 });
+      res.json({
+        ok: true,
+        service: "island-empire-api",
+        database: "ready",
+        time: new Date().toISOString(),
+      });
+    } catch {
+      res.status(503).json({
+        ok: false,
+        service: "island-empire-api",
+        database: "unavailable",
+        time: new Date().toISOString(),
+      });
+    }
   });
   app.get("/api/realtime/stats", requireAuth, requireAdmin, (_req, res) => {
     res.json(realtimeStats());
@@ -7571,19 +7585,24 @@ export function createApp() {
         const needsEquipRepair = Boolean(
           existing.grantedSkinId &&
           parsed.data.equipTarget &&
-          (parsed.data.equipTarget === "capital"
-            ? currentInventory.equippedCapitalSkin !== existing.grantedSkinId
-            : currentInventory.equippedDistrictSkin !== existing.grantedSkinId),
+          (parsed.data.equipTarget === "kingdom"
+            ? currentInventory.equippedCapitalSkin !== existing.grantedSkinId ||
+              currentInventory.equippedDistrictSkin !== existing.grantedSkinId
+            : parsed.data.equipTarget === "capital"
+              ? currentInventory.equippedCapitalSkin !== existing.grantedSkinId
+              : currentInventory.equippedDistrictSkin !== existing.grantedSkinId),
         );
         const repairedInventory: any = needsEquipRepair
           ? normalizeShopInventory({
               ...currentInventory,
               equippedCapitalSkin:
-                parsed.data.equipTarget === "capital"
+                parsed.data.equipTarget === "capital" ||
+                parsed.data.equipTarget === "kingdom"
                   ? existing.grantedSkinId
                   : currentInventory.equippedCapitalSkin,
               equippedDistrictSkin:
-                parsed.data.equipTarget === "military_district"
+                parsed.data.equipTarget === "military_district" ||
+                parsed.data.equipTarget === "kingdom"
                   ? existing.grantedSkinId
                   : currentInventory.equippedDistrictSkin,
               version: currentInventory.version + 1,
@@ -7798,11 +7817,15 @@ export function createApp() {
           equippedNameFrameId:
             productNameFrameId || inventory.equippedNameFrameId,
           equippedCapitalSkin:
-            productSkinId && parsed.data.equipTarget === "capital"
+            productSkinId &&
+            (parsed.data.equipTarget === "capital" ||
+              parsed.data.equipTarget === "kingdom")
               ? productSkinId
               : inventory.equippedCapitalSkin,
           equippedDistrictSkin:
-            productSkinId && parsed.data.equipTarget === "military_district"
+            productSkinId &&
+            (parsed.data.equipTarget === "military_district" ||
+              parsed.data.equipTarget === "kingdom")
               ? productSkinId
               : inventory.equippedDistrictSkin,
           version: inventory.version + 1,
@@ -7980,11 +8003,12 @@ export function createApp() {
       const nextInventory: any = {
         ...inventory,
         equippedCapitalSkin:
-          parsed.data.target === "capital"
+          parsed.data.target === "capital" || parsed.data.target === "kingdom"
             ? parsed.data.skinId
             : inventory.equippedCapitalSkin,
         equippedDistrictSkin:
-          parsed.data.target === "military_district"
+          parsed.data.target === "military_district" ||
+          parsed.data.target === "kingdom"
             ? parsed.data.skinId
             : inventory.equippedDistrictSkin,
         version: inventory.version + 1,
@@ -9860,15 +9884,18 @@ export function createApp() {
     shopSkinPhongLongCacPrice: z.number().int().positive(),
     shopSkinBangVuongPrice: z.number().int().positive(),
     shopSkinHacNguyetPrice: z.number().int().positive(),
-    shopAvatarDragonEmpressPrice: z.number().int().positive(),
-    shopAvatarStormWarlordPrice: z.number().int().positive(),
-    shopAvatarMoonOraclePrice: z.number().int().positive(),
+    shopSkinThienLoiThanDienPrice: z.number().int().positive(),
+    shopSkinThienLongDeDoPrice: z.number().int().positive(),
     shopAvatarFrameDragonfirePrice: z.number().int().positive(),
     shopAvatarFrameStormcrownPrice: z.number().int().positive(),
     shopAvatarFrameVoidmoonPrice: z.number().int().positive(),
+    shopAvatarFrameDragonSovereignPrice: z.number().int().positive(),
+    shopAvatarFrameEclipseWardenPrice: z.number().int().positive(),
     shopNameFrameImperialPrice: z.number().int().positive(),
     shopNameFrameTempestPrice: z.number().int().positive(),
     shopNameFrameAstralPrice: z.number().int().positive(),
+    shopNameFrameCelestialTempestPrice: z.number().int().positive(),
+    shopNameFrameImperialDragonPrice: z.number().int().positive(),
     powerConnectedTerritory: z.number().nonnegative(),
     powerIsolatedTerritory: z.number().nonnegative(),
     powerNaturalHarborBonus: z.number().nonnegative(),

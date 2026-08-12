@@ -193,6 +193,68 @@
   color: #ffe3a0;
 }
 
+.founding-country-hint {
+  margin: -1px 0 8px;
+  color: #839295;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.founding-country-section {
+  border-bottom: 0;
+  margin-bottom: 7px;
+}
+
+/* ImageGen heraldry atlas: one distinct, readable national mark per nation. */
+.founding-architectures .founding-nation-emblem {
+  display: block;
+  width: 31px;
+  height: 34px;
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: auto;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .82));
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.founding-nation-emblem--vietnam { background-image: url("/assets/kingdoms/generated/vietnam-heraldry.png"); }
+.founding-nation-emblem--china { background-image: url("/assets/kingdoms/generated/china-heraldry.png"); }
+.founding-nation-emblem--japan { background-image: url("/assets/kingdoms/generated/japan-heraldry.png"); }
+.founding-nation-emblem--england { background-image: url("/assets/kingdoms/generated/england-heraldry.png"); }
+.founding-nation-emblem--viking { background-image: url("/assets/kingdoms/generated/viking-heraldry.png"); }
+.founding-nation-emblem--ottoman { background-image: url("/assets/kingdoms/generated/ottoman-heraldry.png"); }
+.founding-nation-emblem--france { background-image: url("/assets/kingdoms/generated/france-heraldry.png"); }
+.founding-nation-emblem--rome { background-image: url("/assets/kingdoms/generated/rome-heraldry.png"); }
+
+.founding-architectures button {
+  height: 56px !important;
+}
+
+.founding-territory-color-section {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.founding-territory-color-section .founding-country-hint {
+  margin-bottom: 6px;
+}
+
+.founding-architectures button:hover .founding-nation-emblem,
+.founding-architectures button.selected .founding-nation-emblem {
+  filter: drop-shadow(0 0 5px rgba(244, 203, 102, .66));
+  transform: translateY(-1px);
+}
+
+@media (max-width: 800px) {
+  .founding-architectures .founding-nation-emblem {
+    width: 26px;
+    height: 28px;
+  }
+}
+
 .founding-actions {
   background: linear-gradient(90deg, #091318, #142229);
 }

@@ -1,0 +1,22 @@
+[Unit]
+Description=Hex Rivals game API
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hexrivals
+Group=hexrivals
+WorkingDirectory=/var/www/hexrivals
+EnvironmentFile=/var/www/hexrivals/apps/server/.env
+ExecStart=/usr/bin/node /var/www/hexrivals/apps/server/dist/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/hexrivals
+
+[Install]
+WantedBy=multi-user.target

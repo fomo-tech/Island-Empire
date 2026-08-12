@@ -20,7 +20,7 @@ Mặc định:
 
 - Game: `http://127.0.0.1:5173`
 - Admin: `http://127.0.0.1:5174`
-- API: `http://127.0.0.1:4000/api/health`
+- API: `http://127.0.0.1:4001/api/health`
 
 ## Test trên điện thoại cùng mạng LAN
 
@@ -29,14 +29,14 @@ Mặc định:
 3. Chạy `npm run dev` để khởi động server và game cùng lúc.
 4. Mở địa chỉ `Network` mà Vite in ra, thường là `http://<IP-máy-tính>:5173`.
 
-Game sẽ chuyển tiếp `/api` và `/ws` tới backend ở cổng `4000`, nên điện thoại có thể đăng nhập và dùng realtime qua LAN.
+Game sẽ chuyển tiếp `/api` và `/ws` tới backend ở cổng `4001`, nên điện thoại có thể đăng nhập và dùng realtime qua LAN.
 
 ## Bảo mật
 
 - API tắt `x-powered-by`, dùng `helmet`, CORS allowlist, JSON size limit và rate limit.
 - Admin login dùng env `ADMIN_USER`, `ADMIN_PASSWORD`, JWT secret từ `JWT_SECRET`.
 - MongoDB URI lấy từ `MONGO_URI`, không hard-code secret.
-- Production phải đặt Nginx/WAF trước Node theo [`deploy/nginx/island-empire.conf`](deploy/nginx/island-empire.conf). Chỉ mở cổng `80/443`; cổng Node `4000` và MongoDB không được public. Khi Nginx là đường vào duy nhất, đặt `TRUST_PROXY=true`.
+- Production phải đặt Nginx/WAF trước Node theo [`deploy/nginx/island-empire.conf`](deploy/nginx/island-empire.conf). Chỉ mở cổng `80/443`; cổng Node `4001` và MongoDB không được public. Khi Nginx là đường vào duy nhất, đặt `TRUST_PROXY=true`. Quy trình VPS đầy đủ nằm tại [`deploy/README.md`](deploy/README.md).
 
 ## Kiểm tra
 

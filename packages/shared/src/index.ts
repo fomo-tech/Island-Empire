@@ -296,7 +296,7 @@ export type ShopProduct = {
   testPrice: boolean;
   resources?: Partial<ResourceBag>;
   skinId?: string;
-  skinTarget?: "capital" | "military_district";
+  skinTarget?: "capital" | "military_district" | "kingdom";
   profileCosmeticKind?: "avatar" | "avatar_frame" | "name_frame";
   avatarId?: string;
   avatarFrameId?: string;
@@ -791,7 +791,7 @@ export type RealtimeEvent =
       type: "territory_skin_updated";
       ownerId: string;
       skinId: string;
-      target: "capital" | "military_district";
+      target: "capital" | "military_district" | "kingdom";
       equippedCapitalSkin: string | null;
       equippedDistrictSkin: string | null;
       skinVersion: number;

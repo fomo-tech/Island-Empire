@@ -1,0 +1,429 @@
+/* Kingdom Army — compact command-center UI. Loaded after legacy global styles. */
+.army-command-center.medieval-modal-container {
+  --army-gold: #e8bd55;
+  --army-gold-soft: #9b7531;
+  --army-line: rgba(211, 169, 77, 0.28);
+  --army-panel: rgba(7, 21, 28, 0.94);
+  --army-panel-2: rgba(13, 35, 43, 0.92);
+  width: min(980px, calc(100vw - 32px)) !important;
+  max-width: none !important;
+  max-height: min(720px, calc(var(--app-height, 100vh) - 28px)) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid #a77b28 !important;
+  border-radius: 14px !important;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(48, 101, 104, 0.26), transparent 48%),
+    linear-gradient(145deg, #071117 0%, #091b22 58%, #050d12 100%) !important;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.72), inset 0 0 0 3px #061017,
+    inset 0 0 0 4px rgba(221, 178, 73, 0.2) !important;
+}
+
+.army-command-center .medieval-modal-header {
+  min-height: 66px !important;
+  margin: 0 !important;
+  padding: 14px 72px 12px !important;
+  display: grid !important;
+  place-content: center !important;
+  background:
+    linear-gradient(90deg, transparent, rgba(105, 30, 30, 0.7) 28%, rgba(128, 36, 35, 0.75) 50%, rgba(105, 30, 30, 0.7) 72%, transparent),
+    linear-gradient(180deg, rgba(18, 40, 49, 0.95), rgba(7, 18, 25, 0.96)) !important;
+  border-bottom: 1px solid var(--army-gold-soft) !important;
+}
+
+.army-command-center .medieval-modal-title {
+  margin: 0 !important;
+  color: #f5d77d !important;
+  font-family: Georgia, serif !important;
+  font-size: clamp(20px, 2.2vw, 27px) !important;
+  line-height: 1 !important;
+  letter-spacing: 1.6px !important;
+  text-shadow: 0 2px 0 #4a260e, 0 0 18px rgba(240, 185, 61, 0.2) !important;
+}
+
+.army-command-center .medieval-modal-subtitle {
+  margin: 6px 0 0 !important;
+  color: #9eb0b4 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.9px !important;
+}
+
+.army-command-center .medieval-modal-close-btn {
+  top: 13px !important;
+  right: 14px !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(180deg, #203945, #0a1820) !important;
+  border: 1px solid #a98035 !important;
+  z-index: 5 !important;
+}
+
+.army-command-center .medieval-modal-body {
+  padding: 14px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.ka-command-layout {
+  display: grid;
+  grid-template-rows: auto auto minmax(150px, 1fr) auto;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.army-command-center .ka-top-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+}
+
+.army-command-center .ka-stat-card {
+  min-width: 0 !important;
+  min-height: 62px !important;
+  padding: 8px 10px !important;
+  gap: 9px !important;
+  color: #eef5f3 !important;
+  background: linear-gradient(145deg, rgba(19, 49, 58, 0.97), rgba(7, 23, 30, 0.98)) !important;
+  border: 1px solid var(--army-line) !important;
+  border-radius: 9px !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.18) !important;
+}
+
+.army-command-center .ka-stat-card > img {
+  width: 27px !important;
+  height: 27px !important;
+  flex: 0 0 27px !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+.army-command-center .ka-stat-card .info { min-width: 0; }
+.army-command-center .ka-stat-card .label {
+  color: #91a6aa !important;
+  font-size: 8px !important;
+  letter-spacing: 0.7px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.army-command-center .ka-stat-card .val {
+  color: #f3d477 !important;
+  font: 700 18px/1.15 Georgia, serif !important;
+}
+.army-command-center .ka-stat-card .val small {
+  color: #93a8ac !important;
+  font: 500 9px/1 sans-serif !important;
+}
+
+.army-command-center .ka-filter-bar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 7px !important;
+  background: rgba(4, 16, 22, 0.75) !important;
+  border: 1px solid rgba(112, 149, 151, 0.2) !important;
+  border-radius: 9px !important;
+}
+
+.army-command-center .ka-tabs-group { gap: 5px !important; min-width: 0; }
+.army-command-center .ka-tab-btn {
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  color: #9cb0b2 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  font-size: 9px !important;
+  letter-spacing: 0.5px;
+}
+.army-command-center .ka-tab-btn:hover { color: #f0d37c !important; background: rgba(210, 166, 67, 0.08) !important; }
+.army-command-center .ka-tab-btn.active {
+  color: #171007 !important;
+  background: linear-gradient(180deg, #f1cf6b, #aa741b) !important;
+  border-color: #f3d374 !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.45), 0 3px 8px rgba(0,0,0,.35) !important;
+}
+
+.army-command-center .ka-search-controls { gap: 6px !important; }
+.army-command-center .ka-search-input-box {
+  width: 220px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  color: #9eb1b5 !important;
+  background: #07161d !important;
+  border: 1px solid #294650 !important;
+  border-radius: 7px !important;
+}
+.army-command-center .ka-search-input-box input { color: #e7efed !important; font-size: 11px !important; }
+.army-command-center .ka-search-input-box input::placeholder { color: #73898e; }
+.army-command-center .ka-filter-dropdown-btn {
+  height: 34px !important;
+  color: #d5bd77 !important;
+  background: #0c222b !important;
+  border-color: #36535a !important;
+}
+
+.army-command-center .ka-table-container {
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  background: rgba(3, 14, 20, 0.72) !important;
+  border: 1px solid rgba(144, 112, 48, 0.48) !important;
+  border-radius: 9px !important;
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.24) !important;
+  scrollbar-width: thin;
+  scrollbar-color: #9a732d #08171d;
+}
+
+.army-command-center .ka-table { min-width: 820px !important; }
+.army-command-center .ka-table th {
+  padding: 9px 10px !important;
+  color: #b4c2c3 !important;
+  background: #102831 !important;
+  border-bottom: 1px solid var(--army-gold-soft) !important;
+  font: 700 8px/1 sans-serif !important;
+  letter-spacing: 1px !important;
+}
+.army-command-center .ka-table td {
+  padding: 9px 10px !important;
+  color: #d8e2e0 !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(101, 138, 142, 0.16) !important;
+}
+.army-command-center .ka-table td * { color: inherit !important; }
+.army-command-center .ka-table tbody tr { transition: background .16s ease, box-shadow .16s ease; }
+.army-command-center .ka-table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(204, 159, 60, 0.1), rgba(36, 81, 85, 0.09)) !important;
+  box-shadow: inset 3px 0 #d1a94d;
+}
+.army-command-center .ka-city-cell { gap: 9px !important; }
+.army-command-center img {
+  opacity: 1 !important;
+  image-rendering: auto;
+  transform: translateZ(0);
+}
+.army-command-center .ka-city-emblem {
+  display: grid;
+  width: 54px;
+  height: 48px;
+  flex: 0 0 54px;
+  place-items: center;
+  border: 1px solid rgba(225, 180, 75, .55);
+  border-radius: 8px;
+  background: radial-gradient(circle, rgba(56, 89, 91, .5), rgba(3, 15, 21, .96) 72%);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, .5);
+}
+.army-command-center .ka-city-emblem img {
+  width: 39px !important;
+  height: 39px !important;
+  filter: contrast(1.12) saturate(1.12) drop-shadow(0 2px 3px #000) !important;
+}
+.army-command-center .ka-city-details .title-row > img {
+  width: 16px !important;
+  height: 16px !important;
+  filter: contrast(1.14) saturate(1.08) !important;
+}
+.army-command-center .ka-city-details .owner-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.army-command-center .ka-city-details .owner-row img {
+  width: 12px !important;
+  height: 12px !important;
+  filter: contrast(1.18) saturate(1.2) !important;
+}
+.army-command-center .ka-city-details .city-title { color: #f2dfaa !important; font-size: 12px !important; }
+.army-command-center .ka-city-details .level,
+.army-command-center .ka-city-details .owner-row,
+.army-command-center .ka-coords-cell,
+.army-command-center .ka-garrison-cell .sub,
+.army-command-center .ka-troops-cell .sub,
+.army-command-center .ka-status-cell .sub-status { color: #81979b !important; }
+.army-command-center .ka-garrison-cell .count.green { color: #7ee0ac !important; }
+.army-command-center .ka-troops-cell .count.white { color: #f0d47c !important; }
+.army-command-center .ka-status-cell .status-dot.green { color: #92e0ad !important; }
+.army-command-center .ka-status-cell .status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.army-command-center .ka-status-orb {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  background: #49d978;
+  border: 1px solid #a8f2bd;
+  box-shadow: 0 0 7px rgba(73, 217, 120, .72);
+}
+.army-command-center .ka-type-cell img,
+.army-command-center .ka-garrison-cell img,
+.army-command-center .ka-troops-cell img {
+  width: 20px !important;
+  height: 20px !important;
+  margin-right: 5px !important;
+  vertical-align: middle !important;
+  filter: contrast(1.15) saturate(1.12) drop-shadow(0 1px 2px rgba(0,0,0,.8)) !important;
+}
+.army-command-center .ka-detail-btn img,
+.army-command-center .ka-search-input-box img,
+.army-command-center .ka-filter-dropdown-btn img {
+  width: 16px !important;
+  height: 16px !important;
+  filter: contrast(1.2) saturate(1.1) !important;
+}
+.army-command-center .ka-detail-btn {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  color: #f1d37b !important;
+  background: linear-gradient(180deg, #203b43, #0d2028) !important;
+  border: 1px solid #7d6534 !important;
+  border-radius: 7px !important;
+}
+
+.army-command-center .ka-footer-bar {
+  display: grid !important;
+  grid-template-columns: minmax(150px, .8fr) minmax(330px, 1.4fr) auto !important;
+  gap: 14px !important;
+  min-height: 62px !important;
+  padding: 8px 10px !important;
+  background: linear-gradient(90deg, #0b2028, #152d32 52%, #0a1d25) !important;
+  border: 1px solid var(--army-line) !important;
+  border-radius: 9px !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.03) !important;
+}
+.army-command-center .ka-footer-bar * { color: inherit !important; }
+.army-command-center .ka-footer-left .title,
+.army-command-center .ka-footer-stats .label { color: #84999d !important; }
+.army-command-center .ka-footer-left .date { color: #c6d2d0 !important; }
+.army-command-center .ka-footer-stats { justify-content: space-between !important; gap: 10px !important; }
+.army-command-center .ka-footer-stats .stat { min-width: 0; gap: 6px !important; }
+.army-command-center .ka-footer-stats .stat > img { width: 24px !important; height: 24px !important; filter: contrast(1.15) saturate(1.12) !important; }
+.army-command-center .ka-footer-stats .val { color: #f0cf68 !important; }
+.army-command-center .ka-footer-stats .val.green { color: #73dda0 !important; }
+.army-command-center .ka-action-banner-btn {
+  min-height: 42px !important;
+  padding: 0 15px !important;
+  color: #fff0b9 !important;
+  background: linear-gradient(180deg, #9e2d2d, #5f181b) !important;
+  border: 1px solid #e0ad45 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.14), 0 4px 12px rgba(0,0,0,.35) !important;
+}
+
+@media (max-width: 720px) {
+  .army-command-center.medieval-modal-container {
+    width: calc(100vw - 10px) !important;
+    height: calc(var(--app-height, 100vh) - 10px) !important;
+    max-height: none !important;
+    border-radius: 10px !important;
+  }
+  .army-command-center .medieval-modal-header {
+    min-height: 52px !important;
+    padding: 9px 52px 8px 12px !important;
+    place-content: center start !important;
+  }
+  .army-command-center .medieval-modal-title { font-size: 16px !important; letter-spacing: .8px !important; }
+  .army-command-center .medieval-modal-subtitle { margin-top: 3px !important; font-size: 8px !important; letter-spacing: .35px !important; }
+  .army-command-center .medieval-modal-close-btn { top: 8px !important; right: 8px !important; width: 34px !important; height: 34px !important; }
+  .army-command-center .medieval-modal-body { padding: 8px !important; }
+  .ka-command-layout { grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 7px; }
+
+  .army-command-center .ka-top-stats-grid {
+    grid-template-columns: repeat(5, minmax(76px, 1fr)) !important;
+    gap: 5px !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+  .army-command-center .ka-stat-card { min-height: 50px !important; padding: 6px 7px !important; gap: 5px !important; scroll-snap-align: start; }
+  .army-command-center .ka-stat-card > img { width: 22px !important; height: 22px !important; flex-basis: 22px !important; }
+  .army-command-center .ka-stat-card .label { font-size: 6.5px !important; letter-spacing: .25px !important; }
+  .army-command-center .ka-stat-card .val { font-size: 14px !important; }
+  .army-command-center .ka-stat-card .val small { display: none; }
+
+  .army-command-center .ka-filter-bar { grid-template-columns: 1fr !important; gap: 6px !important; padding: 5px !important; }
+  .army-command-center .ka-tabs-group { overflow-x: auto; }
+  .army-command-center .ka-tab-btn { flex: 1 0 auto; min-height: 30px !important; padding: 0 9px !important; font-size: 7.5px !important; }
+  .army-command-center .ka-search-controls { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; }
+  .army-command-center .ka-search-input-box { width: auto !important; height: 31px !important; }
+  .army-command-center .ka-filter-dropdown-btn { height: 31px !important; font-size: 0 !important; width: 36px; padding: 0 !important; }
+  .army-command-center .ka-filter-dropdown-btn img { width: 17px !important; height: 17px !important; }
+
+  .army-command-center .ka-table-container { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+  .army-command-center .ka-table { display: block; min-width: 0 !important; }
+  .army-command-center .ka-table thead { display: none; }
+  .army-command-center .ka-table tbody { display: grid; gap: 7px; }
+  .army-command-center .ka-table tbody tr {
+    display: grid;
+    grid-template-columns: 1.35fr .8fr .8fr;
+    gap: 0;
+    padding: 7px;
+    background: linear-gradient(145deg, rgba(15, 42, 50, .98), rgba(5, 20, 27, .98));
+    border: 1px solid rgba(183, 143, 59, .38);
+    border-radius: 9px;
+  }
+  .army-command-center .ka-table tbody tr:hover { box-shadow: none; }
+  .army-command-center .ka-table td {
+    display: flex;
+    min-width: 0;
+    padding: 6px !important;
+    align-items: center;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+  .army-command-center .ka-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: #718a8e;
+    font: 700 6px/1 sans-serif;
+    letter-spacing: .45px;
+    text-transform: uppercase;
+  }
+  .army-command-center .ka-table td:first-child { grid-column: 1 / -1; border-bottom: 1px solid rgba(117, 146, 147, .18) !important; }
+  .army-command-center .ka-table td:first-child::before,
+  .army-command-center .ka-table td:nth-child(3),
+  .army-command-center .ka-table td:nth-child(5) { display: none; }
+  .army-command-center .ka-table td:nth-child(2),
+  .army-command-center .ka-table td:nth-child(4),
+  .army-command-center .ka-table td:nth-child(6) { flex-direction: column; align-items: flex-start; justify-content: center; }
+  .army-command-center .ka-table td:last-child { padding: 4px !important; }
+  .army-command-center .ka-city-emblem { width: 42px; height: 38px; flex-basis: 42px; }
+  .army-command-center .ka-city-emblem img { width: 31px !important; height: 31px !important; }
+  .army-command-center .ka-city-details .city-title { font-size: 11px !important; }
+  .army-command-center .ka-detail-btn { width: 100%; min-height: 34px !important; padding: 0 6px !important; font-size: 8px !important; justify-content: center; }
+
+  .army-command-center .ka-footer-bar {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    min-height: 48px !important;
+    gap: 7px !important;
+    padding: 6px !important;
+  }
+  .army-command-center .ka-footer-left { display: none !important; }
+  .army-command-center .ka-footer-stats { gap: 8px !important; }
+  .army-command-center .ka-footer-stats .stat > img { display: none !important; }
+  .army-command-center .ka-footer-stats .label { font-size: 5.8px !important; }
+  .army-command-center .ka-footer-stats .val { font-size: 11px !important; }
+  .army-command-center .ka-action-banner-btn { min-height: 36px !important; padding: 0 10px !important; font-size: 0 !important; }
+  .army-command-center .ka-action-banner-btn span { font-size: 8px !important; }
+  .army-command-center .ka-action-banner-btn img { width: 20px !important; height: 20px !important; }
+}
+
+@media (max-width: 420px) {
+  .army-command-center .ka-top-stats-grid { grid-template-columns: repeat(5, 82px) !important; }
+  .army-command-center .ka-table tbody tr { grid-template-columns: 1.1fr .9fr .85fr; }
+  .army-command-center .ka-footer-stats .stat:nth-child(2) { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .army-command-center .medieval-modal-header { min-height: 46px !important; padding-block: 6px !important; }
+  .army-command-center .medieval-modal-body { padding: 7px !important; }
+  .ka-command-layout { gap: 6px; }
+  .army-command-center .ka-stat-card { min-height: 43px !important; padding-block: 4px !important; }
+  .army-command-center .ka-footer-bar { min-height: 42px !important; }
+}

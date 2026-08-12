@@ -5,7 +5,7 @@ import {
 } from "@island/shared";
 import {
   kingdomArchitectureFromEmblem,
-  kingdomBuildingVisualMetrics,
+  kingdomBuildingVisualCenter,
   kingdomBuildingSprite,
   KINGDOM_BUILDING_LAYOUT,
   normalizeKingdomArchitecture,
@@ -24,8 +24,6 @@ import {
 } from "./engine/unitAtlas";
 import { unitAttackPhase } from "./engine/unitAnimator";
 import {
-  ISLET_DISTRICT_RENDER_SIZE,
-  MAINLAND_CAPITAL_RENDER_SIZE,
   standardTerritoryBuildingSize,
 } from "./engine/buildingSizing";
 import {
@@ -836,6 +834,10 @@ export function createIslandEmpireGame(
     string,
     Array<[number, number]>
   >();
+  const territoryVisualCenterCache = new Map<
+    number,
+    { x: number; y: number }
+  >();
 
   let hideTerritoryAssets = false;
 
@@ -1593,7 +1595,7 @@ export function createIslandEmpireGame(
     skinId: string | null = null,
   ) {
     const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-    const metrics = kingdomBuildingVisualMetrics(
+    const visualCenter = kingdomBuildingVisualCenter(
       architectureId,
       buildingType,
       skinId,
@@ -1606,12 +1608,12 @@ export function createIslandEmpireGame(
           : size * (frame.sw / frame.sh)
         : size;
     return {
-      // A territory's canonical point represents the centre of its usable
-      // ground. Align the sprite's footprint—not the centre of its transparent
-      // atlas cell—to that point so every building stands in the middle of
-      // the province regardless of nation artwork or equipped skin.
-      x: centerX + drawWidth * (layout.pivotX - metrics.footX),
-      y: centerY + size * (layout.pivotY - metrics.footY),
+      // The atlas cells include tall roofs, shadows and transparent margins.
+      // Aligning the footprint to the territory centre therefore makes the
+      // actual building look visibly high or low. Each nation has a measured
+      // visual centre; put that point at the displayed territory centroid.
+      x: centerX + drawWidth * (layout.pivotX - visualCenter.x),
+      y: centerY + size * (layout.pivotY - visualCenter.y),
     };
   }
 
@@ -2619,6 +2621,58 @@ export function createIslandEmpireGame(
     });
     territoryDisplayPolygonCache.set(key, smoothed);
     return smoothed;
+  }
+
+  function polygonVisualCenter(points: Array<[number, number]>) {
+    let twiceArea = 0;
+    let weightedX = 0;
+    let weightedY = 0;
+    for (let index = 0; index < points.length; index += 1) {
+      const [x1, y1] = points[index];
+      const [x2, y2] = points[(index + 1) % points.length];
+      const cross = x1 * y2 - x2 * y1;
+      twiceArea += cross;
+      weightedX += (x1 + x2) * cross;
+      weightedY += (y1 + y2) * cross;
+    }
+    if (Math.abs(twiceArea) > 0.001) {
+      return {
+        x: weightedX / (3 * twiceArea),
+        y: weightedY / (3 * twiceArea),
+      };
+    }
+    const total = Math.max(1, points.length);
+    return points.reduce(
+      (center, [x, y]) => ({ x: center.x + x / total, y: center.y + y / total }),
+      { x: 0, y: 0 },
+    );
+  }
+
+  /**
+   * Buildings must use the centroid of the displayed, clipped territory—not
+   * the pre-generation grid point. Coastal clipping and organic edge warping
+   * can move a tile's visible centre by dozens of pixels.
+   */
+  function territoryVisualCenter(
+    regionId: number,
+    fallback: { x: number; y: number },
+  ) {
+    const cached = territoryVisualCenterCache.get(regionId);
+    if (cached) return cached;
+    const region = landById(regionId);
+    if (!region) return fallback;
+    const base = getSharedRegionPolygon(region, regionId, Boolean(region.isIslet));
+    const visible = organicTerritoryDisplayPolygon(
+      base,
+      region,
+      regionId,
+      Boolean(region.isIslet),
+    );
+    const center = polygonVisualCenter(visible);
+    const resolved =
+      Number.isFinite(center.x) && Number.isFinite(center.y) ? center : fallback;
+    territoryVisualCenterCache.set(regionId, resolved);
+    return resolved;
   }
 
   function drawStrategyContinentLayer(
@@ -7787,8 +7841,14 @@ export function createIslandEmpireGame(
         : regionAtCoords(t.x, t.y);
     const castleLand = castleRegionId >= 0 ? landById(castleRegionId) : null;
     const isIslet = Boolean(castleLand?.isIslet);
-    const drawX = castleLand ? castleLand.x : t.x;
-    const drawY = castleLand ? castleLand.y : t.y;
+    const territoryCenter = castleLand
+      ? territoryVisualCenter(castleRegionId, {
+          x: castleLand.x,
+          y: castleLand.y,
+        })
+      : { x: t.x, y: t.y };
+    const drawX = territoryCenter.x;
+    const drawY = territoryCenter.y;
 
     // Viewport Culling Optimization: Skip rendering castles completely offscreen!
     const viewport = getWorldViewport();
@@ -10536,9 +10596,10 @@ export function createIslandEmpireGame(
         : isDistrict
           ? state.regionOwnerDistrictSkins[regionId]
           : state.regionOwnerCapitalSkins[regionId];
+    const territoryCenter = territoryVisualCenter(regionId, fallback);
     const anchor = territoryBuildingAnchor(
-      region.x,
-      region.y,
+      territoryCenter.x,
+      territoryCenter.y,
       architectureId,
       buildingType,
       size,
@@ -11380,29 +11441,34 @@ export function createIslandEmpireGame(
           : r.isIslet || timing?.connectionType === "sea"
             ? "district"
             : "flag";
-      const constructionSize =
-        constructionType === "capital"
-          ? MAINLAND_CAPITAL_RENDER_SIZE
-          : constructionType === "district"
-            ? r.isIslet
-              ? ISLET_DISTRICT_RENDER_SIZE
-              : 158
-            : 118;
+      const constructionSize = standardTerritoryBuildingSize(
+        r,
+        constructionType,
+        Boolean(r.isIslet),
+      );
       ctx.save();
       ctx.globalAlpha = 0.42 + buildP * 0.58;
       if (lightweightAssetRenderMode) {
         if (state.zoom <= OVERVIEW_ICON_THRESHOLD) {
+          const territoryCenter = territoryVisualCenter(regionId, {
+            x: r.x,
+            y: r.y,
+          });
           drawLightweightTerritoryMarker(
-            r.x,
-            r.y,
+            territoryCenter.x,
+            territoryCenter.y,
             state.newbieFlagColor || "#2563eb",
             constructionType,
           );
         }
       } else {
+        const territoryCenter = territoryVisualCenter(regionId, {
+          x: r.x,
+          y: r.y,
+        });
         const constructionAnchor = territoryBuildingAnchor(
-          r.x,
-          r.y,
+          territoryCenter.x,
+          territoryCenter.y,
           constructionArchitecture,
           constructionType,
           constructionSize,
@@ -11995,8 +12061,12 @@ export function createIslandEmpireGame(
     if (!r) return;
 
     // Visual placement is centered; authoritative town coordinates stay untouched.
-    const x = r.x;
-    const y = r.y;
+    const territoryCenter = territoryVisualCenter(regionId, {
+      x: r.x,
+      y: r.y,
+    });
+    const x = territoryCenter.x;
+    const y = territoryCenter.y;
 
     // Viewport Culling Optimization: Skip rendering territories completely offscreen!
     const viewport = getWorldViewport();
@@ -14031,7 +14101,7 @@ export function createIslandEmpireGame(
   function getOptimalTownCenter(regionId: number): { x: number; y: number } {
     const r = landById(regionId);
     if (!r) return { x: 0, y: 0 };
-    return { x: r.x, y: r.y };
+    return territoryVisualCenter(regionId, { x: r.x, y: r.y });
   }
 
   function centerTownInRegion(town: any, regionId: number) {

@@ -40,6 +40,20 @@ const PREMIUM_COLUMNS: Record<string, number> = {
   skin_phong_long_cac: 3,
   skin_hac_nguyet: 4,
 };
+const PREMIUM_BUILDING_FILES: Partial<
+  Record<string, Record<"capital" | "district" | "flag", string>>
+> = {
+  skin_thien_loi_than_dien: {
+    capital: "/assets/kingdoms/premium/stormgod/capital.png",
+    district: "/assets/kingdoms/premium/stormgod/district.png",
+    flag: "/assets/kingdoms/premium/stormgod/flag.png",
+  },
+  skin_thien_long_de_do: {
+    capital: "/assets/kingdoms/premium/thousand-dragons/capital.png",
+    district: "/assets/kingdoms/premium/thousand-dragons/district.png",
+    flag: "/assets/kingdoms/premium/thousand-dragons/flag.png",
+  },
+};
 
 export const KINGDOM_BUILDING_LAYOUT: Record<KingdomBuildingType, {
   pivotX: number;
@@ -97,6 +111,21 @@ const PREMIUM_BUILDING_METRICS: Record<
   },
 };
 
+const CUSTOM_PREMIUM_BUILDING_METRICS: Partial<
+  Record<string, Record<"capital" | "district" | "flag", KingdomBuildingVisualMetrics>>
+> = {
+  skin_thien_loi_than_dien: {
+    capital: { footX: 0.5, footY: 0.94, roofX: 0.5, roofY: 0.025, footprintWidth: 0.72, footprintHeight: 0.12 },
+    district: { footX: 0.5, footY: 0.86, roofX: 0.5, roofY: 0.11, footprintWidth: 0.72, footprintHeight: 0.12 },
+    flag: { footX: 0.5, footY: 0.985, roofX: 0.5, roofY: 0.025, footprintWidth: 0.28, footprintHeight: 0.1 },
+  },
+  skin_thien_long_de_do: {
+    capital: { footX: 0.5, footY: 0.91, roofX: 0.5, roofY: 0.07, footprintWidth: 0.84, footprintHeight: 0.12 },
+    district: { footX: 0.5, footY: 0.84, roofX: 0.5, roofY: 0.16, footprintWidth: 0.78, footprintHeight: 0.11 },
+    flag: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.035, footprintWidth: 0.4, footprintHeight: 0.1 },
+  },
+};
+
 const DEFAULT_BUILDING_METRICS: Record<KingdomBuildingType, KingdomBuildingVisualMetrics> = {
   capital: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.08, footprintWidth: 0.78, footprintHeight: 0.18 },
   fortress: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.1, footprintWidth: 0.76, footprintHeight: 0.17 },
@@ -148,6 +177,10 @@ export function kingdomBuildingVisualCenter(
   buildingType: KingdomBuildingType,
   skinId?: string | null,
 ) {
+  if ((buildingType === "capital" || buildingType === "district" || buildingType === "flag") &&
+    skinId && PREMIUM_BUILDING_FILES[skinId]?.[buildingType]) {
+    return { x: 0.5, y: 0.51 };
+  }
   if ((buildingType === "capital" || buildingType === "district" || buildingType === "flag")
     && skinId && PREMIUM_COLUMNS[skinId] !== undefined) {
     return { x: 0.5, y: 0.51 };
@@ -167,6 +200,11 @@ export function kingdomBuildingVisualMetrics(
   buildingType: KingdomBuildingType,
   skinId?: string | null,
 ): KingdomBuildingVisualMetrics {
+  const customMetrics = skinId &&
+    (buildingType === "capital" || buildingType === "district" || buildingType === "flag")
+      ? CUSTOM_PREMIUM_BUILDING_METRICS[skinId]?.[buildingType]
+      : undefined;
+  if (customMetrics) return customMetrics;
   const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
   if (
     frame.premium &&
@@ -203,6 +241,22 @@ export function kingdomBuildingSprite(
   skinId?: string | null,
 ) {
   const nationIndex = kingdomArchitectureIndex(architectureId);
+  const customPremiumFile = skinId &&
+    (buildingType === "capital" || buildingType === "district" || buildingType === "flag")
+      ? PREMIUM_BUILDING_FILES[skinId]?.[buildingType]
+      : undefined;
+  if (customPremiumFile) {
+    return {
+      src: customPremiumFile,
+      sx: 0,
+      sy: 0,
+      sw: KINGDOM_PREMIUM_SPRITE_CELL,
+      sh: KINGDOM_PREMIUM_SPRITE_CELL,
+      columns: 1,
+      rows: 1,
+      premium: true,
+    };
+  }
   const premiumColumn = (buildingType === "capital" || buildingType === "district" || buildingType === "flag") && skinId
     ? PREMIUM_COLUMNS[skinId]
     : undefined;

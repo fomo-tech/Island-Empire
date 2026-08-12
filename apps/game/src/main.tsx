@@ -25,6 +25,10 @@ import "./styles/shop-compact.css";
 import "./styles/ranking-redesign.css";
 import "./styles/ranking-v4.css";
 import "./styles/resource-hud-v2.css";
+import "./styles/onboarding-v2.css";
+import "./styles/founding-v3.css";
+import "./styles/onboarding-v3.css";
+import "./styles/army-v2.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");

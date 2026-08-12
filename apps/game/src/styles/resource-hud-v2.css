@@ -1,7 +1,7 @@
 /* Resource HUD has one layout contract: five independent compact pills.
    Each pill uses a fixed icon / value / action grid so the amount never clips. */
 html body .game-shell .hud-wrapper .rok-ref-resources {
-  width: clamp(520px, 42vw, 620px) !important;
+  width: clamp(540px, 42vw, 640px) !important;
   height: 34px !important;
   padding: 0 !important;
   filter: none !important;
@@ -13,7 +13,7 @@ html body .game-shell .hud-wrapper .rok-ref-resource-strip {
   height: 34px !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   align-items: center !important;
-  gap: 5px !important;
+  gap: 6px !important;
   padding: 0 !important;
   overflow: visible !important;
   border: 0 !important;
@@ -33,15 +33,28 @@ html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:nth
   gap: 3px !important;
   padding: 0 4px !important;
   overflow: visible !important;
-  border: 1px solid rgba(187, 147, 68, .56) !important;
-  border-radius: 7px !important;
-  background: linear-gradient(180deg, rgba(26, 45, 39, .96), rgba(7, 18, 20, .96)) !important;
-  box-shadow: inset 0 1px rgba(255, 235, 170, .1), 0 3px 7px rgba(0, 0, 0, .34) !important;
+  border: 1px solid rgba(197, 157, 76, .66) !important;
+  border-radius: 4px !important;
+  background:
+    linear-gradient(90deg, rgba(222, 177, 82, .12), transparent 18%),
+    linear-gradient(180deg, #1c332f, #0b1a1c 82%) !important;
+  box-shadow:
+    inset 0 1px rgba(255, 238, 176, .12),
+    inset 0 -1px rgba(0, 0, 0, .55),
+    0 3px 7px rgba(0, 0, 0, .42) !important;
 }
 
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-food { border-left-color: #d5b95c !important; }
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-wood { border-left-color: #b57a42 !important; }
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-stone { border-left-color: #a7b4b2 !important; }
+html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-gold { border-left-color: #e2b84e !important; }
+
 html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.res-gems {
-  border-color: rgba(176, 88, 76, .72) !important;
-  background: linear-gradient(180deg, rgba(54, 31, 33, .96), rgba(20, 15, 19, .96)) !important;
+  border-color: rgba(186, 98, 83, .78) !important;
+  border-left-color: #dc7161 !important;
+  background:
+    linear-gradient(90deg, rgba(206, 75, 61, .16), transparent 22%),
+    linear-gradient(180deg, #3c2429, #191116 82%) !important;
 }
 
 html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:hover,
@@ -49,8 +62,8 @@ html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource:foc
 html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-ref-resource.is-tooltip-open {
   z-index: 4 !important;
   outline: 0 !important;
-  border-color: #e0b55a !important;
-  background: linear-gradient(180deg, rgba(55, 66, 39, .98), rgba(12, 25, 23, .98)) !important;
+  border-color: #f0c866 !important;
+  background: linear-gradient(180deg, #304238, #10221f 82%) !important;
 }
 
 html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-entry-icon {
@@ -85,8 +98,8 @@ html body .game-shell .hud-wrapper .rok-ref-resource-strip .hud-resource-current
   min-width: 0 !important;
   max-width: none !important;
   overflow: visible !important;
-  color: #f5e9c6 !important;
-  font: 800 11px/29px Georgia, serif !important;
+  color: #fff0c5 !important;
+  font: 800 12px/29px Georgia, serif !important;
   font-variant-numeric: tabular-nums !important;
   letter-spacing: .01em !important;
   text-overflow: clip !important;
@@ -109,16 +122,16 @@ html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn {
   place-items: center !important;
   padding: 0 0 1px !important;
   transform: none !important;
-  border: 1px solid rgba(138, 205, 111, .75) !important;
-  border-radius: 4px !important;
-  color: #eff8d6 !important;
-  background: linear-gradient(180deg, #4b923f, #28602e) !important;
-  box-shadow: inset 0 1px rgba(255, 255, 255, .2), 0 2px 3px rgba(0,0,0,.36) !important;
+  border: 1px solid rgba(221, 180, 82, .62) !important;
+  border-radius: 3px !important;
+  color: #f8dc89 !important;
+  background: linear-gradient(180deg, #2b3d32, #15241f) !important;
+  box-shadow: inset 0 1px rgba(255, 245, 196, .14), 0 2px 3px rgba(0,0,0,.44) !important;
   font: 800 12px/1 Arial, sans-serif !important;
 }
 
 html body .game-shell .hud-wrapper .rok-ref-resource-strip .rok-add-btn:hover {
-  border-color: #d6f0aa !important;
+  border-color: #ffe39a !important;
   filter: brightness(1.12) !important;
 }
 

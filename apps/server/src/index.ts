@@ -8,8 +8,8 @@ async function main() {
   await ensureIndexes();
   await repairLegacyMarchTerritoryIds();
   const app = createApp();
-  const server = app.listen(config.PORT, "0.0.0.0", () => {
-    console.log(`API listening on http://0.0.0.0:${config.PORT}`);
+  const server = app.listen(config.PORT, config.HOST, () => {
+    console.log(`API listening on http://${config.HOST}:${config.PORT}`);
   });
   server.headersTimeout = 10_000;
   server.requestTimeout = 15_000;
