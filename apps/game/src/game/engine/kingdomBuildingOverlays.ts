@@ -1,10 +1,8 @@
 import {
-  KINGDOM_BUILDING_LAYOUT,
-  kingdomBuildingSprite,
-  kingdomBuildingVisualMetrics,
   type KingdomBuildingType,
 } from "../kingdomArchitecture";
 import { territorySkinEffect } from "../cosmetics/territorySkinEffects";
+import { resolveIsometricBuildingPlacementFromAnchor } from "./isometricBuildingPlacement";
 
 const TAU = Math.PI * 2;
 const avatarImages = new Map<string, HTMLImageElement>();
@@ -26,6 +24,7 @@ const knownAvatars = new Set([
 export type BuildingOverlayGeometry = {
   groundX: number;
   groundY: number;
+  footprintCenterY: number;
   roofX: number;
   roofY: number;
   radiusX: number;
@@ -40,19 +39,22 @@ export function buildingOverlayGeometry(
   size: number,
   skinId: string | null = null,
 ): BuildingOverlayGeometry {
-  const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-  const metrics = kingdomBuildingVisualMetrics(architectureId, buildingType, skinId);
-  const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
-  const width = buildingType === "flag"
-    ? frame.premium ? size * 1.12 : size * (frame.sw / frame.sh)
-    : size;
+  const placement = resolveIsometricBuildingPlacementFromAnchor(
+    architectureId,
+    buildingType,
+    x,
+    y,
+    size,
+    skinId,
+  );
   return {
-    groundX: x + width * (metrics.footX - layout.pivotX),
-    groundY: y + size * (metrics.footY - layout.pivotY),
-    roofX: x + width * (metrics.roofX - layout.pivotX),
-    roofY: y + size * (metrics.roofY - layout.pivotY),
-    radiusX: size * metrics.footprintWidth * 0.5,
-    radiusY: size * metrics.footprintHeight,
+    groundX: placement.groundX,
+    groundY: placement.groundY,
+    footprintCenterY: placement.footprintCenterY,
+    roofX: placement.roofX,
+    roofY: placement.roofY,
+    radiusX: placement.footprintRadiusX,
+    radiusY: placement.footprintRadiusY,
   };
 }
 
@@ -85,7 +87,7 @@ export function drawKingdomBuildingAura(options: {
   ctx.globalAlpha = 0.23 * pulse * auraIntensity;
   ctx.fillStyle = accent;
   ctx.beginPath();
-  ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX, geometry.radiusY, 0, 0, TAU);
+  ctx.ellipse(geometry.groundX, geometry.footprintCenterY, geometry.radiusX, geometry.radiusY, 0, 0, TAU);
   ctx.fill();
   ctx.globalAlpha = 0.72 * auraIntensity;
   const emberCount = effect?.orbitingEmbers ?? 5;
@@ -110,14 +112,14 @@ export function drawKingdomBuildingAura(options: {
     ctx.setLineDash([size * 0.055, size * 0.035]);
     ctx.lineDashOffset = -tick * size * 0.035;
     ctx.beginPath();
-    ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX * 0.98, geometry.radiusY * 0.94, 0, 0, TAU);
+    ctx.ellipse(geometry.groundX, geometry.footprintCenterY, geometry.radiusX * 0.98, geometry.radiusY * 0.94, 0, 0, TAU);
     ctx.stroke();
     ctx.globalAlpha = 0.26 * skinPulse;
     ctx.lineWidth = Math.max(1, size * 0.007);
     ctx.setLineDash([size * 0.025, size * 0.09]);
     ctx.lineDashOffset = tick * size * 0.052;
     ctx.beginPath();
-    ctx.ellipse(geometry.groundX, geometry.groundY, geometry.radiusX * 1.13, geometry.radiusY * 1.18, 0, 0, TAU);
+    ctx.ellipse(geometry.groundX, geometry.footprintCenterY, geometry.radiusX * 1.13, geometry.radiusY * 1.18, 0, 0, TAU);
     ctx.stroke();
   }
   ctx.restore();

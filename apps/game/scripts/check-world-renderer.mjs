@@ -17,6 +17,13 @@ const buildingSizing = readFileSync(
   new URL("../src/game/engine/buildingSizing.ts", import.meta.url),
   "utf8",
 );
+const isometricBuildingPlacement = readFileSync(
+  new URL(
+    "../src/game/engine/isometricBuildingPlacement.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const marchDirection = readFileSync(
   new URL("../src/game/engine/marchDirection.ts", import.meta.url),
   "utf8",
@@ -146,6 +153,11 @@ if (!architecture.includes("/kingdoms/nations/") || !architecture.includes("king
 if (!architecture.includes("KINGDOM_PREMIUM_SPRITE_CELL = 512")) {
   throw new Error("Skin premium chưa dùng đúng grid 512px");
 }
+if (!architecture.includes("NATION_BUILDING_VERTICAL_BOUNDS")
+  || !architecture.includes("nationBuildingMetrics")
+  || !architecture.includes("footY")) {
+  throw new Error("Atlas công trình chưa có metadata chân/đỉnh theo từng nền văn minh");
+}
 if (!architecture.includes('if (buildingType === "flag")')
   || !architecture.includes('buildingType === "capital" || buildingType === "district" || buildingType === "flag"')) {
   throw new Error("Skin multiplayer chưa tách đúng Hoàng Thành, Quân Khu và trụ cờ");
@@ -168,8 +180,12 @@ rejectCalls("Quân hành quân", troops, [
   "drawPixelInfantry(",
 ]);
 const requiredTroopKinds = ["infantry", "cavalry", "artillery"];
-if (!requiredTroopKinds.every((kind) =>
-  new RegExp(`drawMedievalUnitSprite\\(\\s*"${kind}"`).test(troops))) {
+const usesExplicitTroopKinds = requiredTroopKinds.every((kind) =>
+  new RegExp(`drawMedievalUnitSprite\\(\\s*"${kind}"`).test(troops));
+const usesFormationTroopKinds = requiredTroopKinds.every((kind) =>
+  troops.includes(`availableKinds.push("${kind}")`))
+  && troops.includes("drawMedievalUnitSprite(\n            unit.kind,");
+if (!usesExplicitTroopKinds && !usesFormationTroopKinds) {
   throw new Error("Quân hành quân chưa dùng đủ atlas bộ binh, kỵ binh và pháo binh");
 }
 if (!source.includes("createNationUnitAtlases")
@@ -189,10 +205,16 @@ if (!source.includes("return territoryVisualCenter(regionId, { x: r.x, y: r.y })
   throw new Error("Công trình chưa được khóa vào tâm lãnh thổ");
 }
 if ((source.match(/territoryBuildingAnchor\(/g) || []).length < 3
-  || !source.includes("kingdomBuildingVisualCenter")
-  || !source.includes("layout.pivotX - visualCenter.x")
-  || !source.includes("layout.pivotY - visualCenter.y")) {
-  throw new Error("Tâm thị giác công trình chưa được căn giữa lãnh thổ ở đủ hai nhánh render");
+  || !source.includes("resolveIsometricBuildingPlacementOnSurface")
+  || !isometricBuildingPlacement.includes("metrics.footX - layout.pivotX")
+  || !isometricBuildingPlacement.includes("metrics.footY - layout.pivotY")
+  || !isometricBuildingPlacement.includes("footprintCenterY + footprintRadiusY")) {
+  throw new Error("Công trình chưa dùng placement isometric theo điểm chân và depth key");
+}
+if (!source.includes("constructionSkinId")
+  || !source.includes("constructionAnchor.y")
+  || !source.includes("depthSortedCandidates")) {
+  throw new Error("Công trình xây dựng/hoàn thành chưa đồng bộ skin, anchor và depth");
 }
 if (source.includes('const buildingLabel = isCapital')) {
   throw new Error("Bảng tên công trình vẫn còn hiển thị dòng loại công trình");

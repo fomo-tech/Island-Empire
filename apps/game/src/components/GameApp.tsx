@@ -61,7 +61,10 @@ import { WarReportListModal } from "./reports/WarReportListModal";
 import { BattleReportModal, type BattleReportData } from "./BattleReportModal";
 import { NationModal } from "./NationModal";
 import { RankingModal } from "./RankingModal";
-import { MinimapPanel } from "./MinimapPanel";
+import {
+  TacticalHud,
+  type BattlefieldActivityItem,
+} from "./hud/TacticalHud";
 import { RESOURCE_ORDER } from "./ResourceDisplay";
 import { AssetIcon, type IconAssetId } from "./AssetIcon";
 import { useGameStore } from "../store/gameStore";
@@ -1161,18 +1164,6 @@ type PrivateMailRecord = {
   read: boolean;
 };
 
-type BattlefieldActivityItem = {
-  id: string;
-  title: string;
-  meta: string;
-  icon: string;
-  tone: "danger" | "warning" | "active" | "building" | "calm";
-  priority: number;
-  territoryId?: number;
-  marchId?: string;
-  focus?: "territory" | "march";
-};
-
 function formatTimeLeft(iso?: string) {
   if (!iso) return "--";
   const ms = new Date(iso).getTime() - Date.now();
@@ -1791,12 +1782,49 @@ export function GameApp({
     "none",
   );
   const [mobileActionsExpanded, setMobileActionsExpanded] = useState(false);
+  const [mobileHudPanel, setMobileHudPanel] = useState<
+    "none" | "battlefield"
+  >("none");
+  const [mobileBattlefieldClosing, setMobileBattlefieldClosing] =
+    useState(false);
+  const mobileBattlefieldCloseTimerRef = useRef<number | null>(null);
+  const openMobileBattlefield = useCallback(() => {
+    if (mobileBattlefieldCloseTimerRef.current !== null) {
+      window.clearTimeout(mobileBattlefieldCloseTimerRef.current);
+      mobileBattlefieldCloseTimerRef.current = null;
+    }
+    setMobileBattlefieldClosing(false);
+    setMobileHudPanel("battlefield");
+  }, []);
+  const closeMobileBattlefield = useCallback(() => {
+    setMobileBattlefieldClosing(true);
+    if (mobileBattlefieldCloseTimerRef.current !== null) {
+      window.clearTimeout(mobileBattlefieldCloseTimerRef.current);
+    }
+    mobileBattlefieldCloseTimerRef.current = window.setTimeout(() => {
+      setMobileHudPanel("none");
+      setMobileBattlefieldClosing(false);
+      mobileBattlefieldCloseTimerRef.current = null;
+    }, 220);
+  }, []);
+  useEffect(
+    () => () => {
+      if (mobileBattlefieldCloseTimerRef.current !== null) {
+        window.clearTimeout(mobileBattlefieldCloseTimerRef.current);
+      }
+    },
+    [],
+  );
   const [leftTab, setLeftTab] = useState<"missions" | "kingdom">("missions");
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
   const [battlefieldCollapsed, setBattlefieldCollapsed] = useState<boolean>(
     () =>
       typeof window !== "undefined" &&
-      localStorage.getItem(BATTLEFIELD_COLLAPSED_KEY) === "true",
+      window.matchMedia(
+        "(max-width: 767px), (pointer: coarse) and (max-width: 1366px)",
+      ).matches
+        ? localStorage.getItem(BATTLEFIELD_COLLAPSED_KEY) === "true"
+        : false,
   );
   const toggleBattlefieldCollapsed = useCallback(() => {
     setBattlefieldCollapsed((previous) => {
@@ -1805,23 +1833,32 @@ export function GameApp({
       return next;
     });
   }, []);
-  // Keep the player's ROK-style minimap preference across orientation changes.
+  // Mobile always starts with the minimap tucked away so the world map has the
+  // full surface. Desktop may retain an explicitly collapsed preference.
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(() =>
     typeof window !== "undefined"
-      ? localStorage.getItem(MINIMAP_COLLAPSED_KEY) === "true" ||
-        (localStorage.getItem(MINIMAP_COLLAPSED_KEY) === null &&
-          window.matchMedia(
-            "(max-width: 767px), (min-width: 768px) and (max-width: 1199px), (pointer: coarse) and (min-width: 768px) and (max-width: 1366px)",
-          ).matches)
+      ? window.matchMedia(
+          "(max-width: 767px), (pointer: coarse) and (max-width: 1366px)",
+        ).matches
       : false,
   );
   const toggleMinimapCollapsed = useCallback(() => {
+    setMobileHudPanel("none");
     setMinimapCollapsed((previous) => {
       const next = !previous;
       localStorage.setItem(MINIMAP_COLLAPSED_KEY, String(next));
       return next;
     });
   }, []);
+
+  // A selected territory needs the entire mobile map surface. Floating panels
+  // therefore yield immediately instead of competing with its action sheet.
+  useEffect(() => {
+    if (selectedRegion || activeModal !== "none") {
+      setMobileHudPanel("none");
+      setMobileActionsExpanded(false);
+    }
+  }, [selectedRegion, activeModal]);
   const [socketOnline, setSocketOnline] = useState(false);
   const socketWasConnectedRef = useRef(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -3368,6 +3405,7 @@ export function GameApp({
 
   const openModal = useCallback((modalId: string) => {
     engineRef.current?.handleAction("setUiOverlayActive", { active: true });
+    setMobileHudPanel("none");
     setActiveModal(modalId);
   }, []);
 
@@ -4423,89 +4461,21 @@ export function GameApp({
             {/* LEFT PANELS - (Removed vertical side menu rail as requested) */}
             {!conquestMode && <div className="hud-left-command-cluster"></div>}
             {/* RIGHT PANELS - MINIMAP & SELECTED TOWN */}
-            <div className="hud-right-side hud-interactive">
-              <MinimapPanel
-                ref={minimapCanvasRef}
-                title={t("worldMap")}
-                collapsed={minimapCollapsed}
-                onToggle={toggleMinimapCollapsed}
-                onSearch={jumpToCoordinates}
-                searchTitle={t("search")}
-              />
-              <section
-                className={`hud-main-missions ${battlefieldCollapsed ? "is-collapsed" : ""}`}
-                aria-label={t("battlefieldSituation")}
-              >
-                <button
-                  type="button"
-                  className="hud-main-missions-header"
-                  onClick={toggleBattlefieldCollapsed}
-                  aria-expanded={!battlefieldCollapsed}
-                  aria-controls="battlefield-situation-list"
-                >
-                  <span className="hud-main-missions-header-title">
-                    <AssetIcon asset="battleVs" size={18} alt="" />
-                    <span className="hud-battlefield-full-label">
-                      {t("battlefieldSituation")}
-                    </span>
-                    <span className="hud-battlefield-compact-label">
-                      {t("battlefieldShort")}
-                    </span>
-                    {battlefieldActivities.length > 0 && (
-                      <em>{battlefieldActivities.length}</em>
-                    )}
-                  </span>
-                  <span className="hud-main-missions-toggle" aria-hidden="true">
-                    <img
-                      src="/assets/icons/icon_collapse_european.png"
-                      alt=""
-                    />
-                  </span>
-                </button>
-                {!battlefieldCollapsed && (
-                  <div
-                    className="hud-main-missions-list"
-                    id="battlefield-situation-list"
-                  >
-                    {visibleBattlefieldActivities.map((activity) => (
-                      <button
-                        type="button"
-                        className={`hud-main-mission battlefield-${activity.tone}`}
-                        key={activity.id}
-                        disabled={!activity.focus}
-                        onClick={() => focusBattlefieldActivity(activity)}
-                        title={
-                          activity.focus
-                            ? `Định vị ${activity.title.toLowerCase()}`
-                            : activity.meta
-                        }
-                      >
-                        <span className="hud-main-mission-icon">
-                          <img src={activity.icon} alt="" />
-                        </span>
-                        <span className="hud-main-mission-copy">
-                          <b>{activity.title}</b>
-                          <span className="hud-main-mission-meta">
-                            {activity.meta}
-                          </span>
-                        </span>
-                        {activity.focus && (
-                          <span
-                            className="hud-main-mission-locate"
-                            aria-hidden="true"
-                          >
-                            <img
-                              src="/assets/icons/icon_search_european.png"
-                              alt=""
-                            />
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </div>
+            <TacticalHud
+              minimapRef={minimapCanvasRef}
+              minimapTitle={t("worldMap")}
+              minimapCollapsed={minimapCollapsed}
+              onToggleMinimap={toggleMinimapCollapsed}
+              onSearchCoordinates={jumpToCoordinates}
+              searchTitle={t("search")}
+              battlefieldTitle={t("battlefieldSituation")}
+              battlefieldShortTitle={t("battlefieldShort")}
+              battlefieldCollapsed={battlefieldCollapsed}
+              onToggleBattlefield={toggleBattlefieldCollapsed}
+              activities={visibleBattlefieldActivities}
+              activityCount={battlefieldActivities.length}
+              onFocusActivity={focusBattlefieldActivity}
+            />
           </div>
 
           {/* HORIZONTAL EMPIRE ACTION DOCK (Redesigned Centered Curved Dock) */}
@@ -4531,34 +4501,125 @@ export function GameApp({
             </div>
           </div>
 
-          {!conquestMode && visibleBattlefieldActivities[0] && (
-            <button
-              type="button"
-              className={`mobile-battlefield-alert battlefield-${visibleBattlefieldActivities[0].tone} hud-interactive`}
-              onClick={() =>
-                focusBattlefieldActivity(visibleBattlefieldActivities[0])
-              }
-              disabled={!visibleBattlefieldActivities[0].focus}
-              aria-label={`Định vị ${visibleBattlefieldActivities[0].title.toLowerCase()}`}
+          {!conquestMode && (
+            <div className="mobile-utility-stack hud-interactive">
+              <button
+                type="button"
+                className={`mobile-minimap-trigger ${minimapCollapsed ? "" : "is-open"}`}
+                onClick={() => {
+                  setMobileHudPanel("none");
+                  setMobileActionsExpanded(false);
+                  toggleMinimapCollapsed();
+                }}
+                aria-expanded={!minimapCollapsed}
+                aria-label={minimapCollapsed ? t("expandMap") : t("collapseMap")}
+              >
+                <img src="/assets/icons/menu/minimap.png" alt="" />
+                <span>
+                  <b>{t("map")}</b>
+                  <small>
+                    {minimapCollapsed ? t("expandMap") : t("collapseMap")}
+                  </small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`mobile-battlefield-alert battlefield-${visibleBattlefieldActivities[0].tone}`}
+                onClick={() => {
+                  setMinimapCollapsed(true);
+                  openMobileBattlefield();
+                }}
+                aria-expanded={mobileHudPanel === "battlefield"}
+                aria-controls="mobile-battlefield-sheet"
+                aria-label={`${t("battlefieldSituation")}: ${battlefieldActivities.length} hoạt động`}
+              >
+                <img src="/assets/icons/menu/battlefield.png" alt="" />
+                <span>
+                  <b>{t("battlefieldShort")}</b>
+                  <small>{visibleBattlefieldActivities[0].title}</small>
+                </span>
+                <img
+                  className="mobile-battlefield-locate"
+                  src="/assets/icons/icon_search_european.png"
+                  alt=""
+                />
+              </button>
+            </div>
+          )}
+
+          {!conquestMode && mobileHudPanel === "battlefield" && (
+            <div
+              className={`mobile-battlefield-sheet-backdrop hud-interactive ${mobileBattlefieldClosing ? "is-closing" : "is-opening"}`}
+              onClick={closeMobileBattlefield}
             >
-              <img src={visibleBattlefieldActivities[0].icon} alt="" />
-              <span>
-                <b>{visibleBattlefieldActivities[0].title}</b>
-                <small>{visibleBattlefieldActivities[0].meta}</small>
-              </span>
-              <img
-                className="mobile-battlefield-locate"
-                src="/assets/icons/icon_search_european.png"
-                alt=""
-              />
-            </button>
+              <section
+                id="mobile-battlefield-sheet"
+                className="mobile-battlefield-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("battlefieldSituation")}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mobile-battlefield-sheet-handle" aria-hidden="true" />
+                <header className="mobile-battlefield-sheet-header">
+                  <span>
+                    <AssetIcon asset="battleVs" size={22} alt="" />
+                    <strong>{t("battlefieldSituation")}</strong>
+                    <em>{battlefieldActivities.length}</em>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={closeMobileBattlefield}
+                    aria-label={t("close")}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className="mobile-battlefield-sheet-list">
+                  {visibleBattlefieldActivities.map((activity) => (
+                    <button
+                      type="button"
+                      className={`mobile-battlefield-sheet-item battlefield-${activity.tone}`}
+                      key={activity.id}
+                      disabled={!activity.focus}
+                      onClick={() => {
+                        focusBattlefieldActivity(activity);
+                        closeMobileBattlefield();
+                      }}
+                    >
+                      <img src={activity.icon} alt="" />
+                      <span>
+                        <b>{activity.title}</b>
+                        <small>{activity.meta}</small>
+                      </span>
+                      {activity.focus && (
+                        <img
+                          className="mobile-battlefield-sheet-locate"
+                          src="/assets/icons/icon_search_european.png"
+                          alt=""
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
           )}
 
           {!conquestMode && (
             <nav
-              className={`hud-command-dock hud-interactive ${mobileActionsExpanded ? "is-expanded" : ""}`}
+              className="hud-command-dock hud-interactive mobile-compact-dock"
               aria-label={t("quickCommands")}
             >
+              <button
+                type="button"
+                className="hud-command-button mobile-main-action mobile-town-action"
+                onClick={() => openModal("kingdom")}
+              >
+                <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
+                <span>{t("castle")}</span>
+              </button>
               <button
                 type="button"
                 className="hud-command-button mobile-main-action mobile-army-action"
@@ -4569,24 +4630,6 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className="hud-command-button mobile-main-action mobile-town-action"
-                onClick={() => openModal("kingdom")}
-              >
-                <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
-                <span>{t("castle")}</span>
-              </button>
-              {mobileActionsExpanded && (
-              <button
-                type="button"
-                className="hud-command-button mobile-secondary-action"
-                onClick={() => openModal("treasure")}
-              >
-                <img src="/assets/icons/menu/store.png" alt="" />
-                <span>{t("treasure")}</span>
-              </button>
-              )}
-              <button
-                type="button"
                 className="hud-command-button mobile-main-action mobile-map-action"
                 onClick={() => {
                   toggleMinimapCollapsed();
@@ -4594,22 +4637,12 @@ export function GameApp({
                   handleAction("map");
                 }}
               >
-                <img src="/assets/icons/menu/ peaceful_borders.png" alt="" />
+                <img src="/assets/icons/icon_map.png" alt="" />
                 <span>{t("map")}</span>
               </button>
               <button
                 type="button"
-                className="hud-command-button mobile-main-action mobile-conquest-action"
-                onClick={onOpenConquest}
-              >
-                <img src="/assets/icons/menu/troop.png" alt="" />
-                <span>{t("conquest")}</span>
-              </button>
-              {mobileActionsExpanded && (
-                <>
-              <button
-                type="button"
-                className={`hud-command-button mobile-secondary-action ${activeModal === "warReport" ? "active" : ""}`}
+                className={`hud-command-button mobile-main-action mobile-report-action ${activeModal === "warReport" ? "active" : ""}`}
                 onClick={() => openModal("warReport")}
               >
                 <img src="/assets/icons/menu/report.png" alt="" />
@@ -4622,51 +4655,12 @@ export function GameApp({
               </button>
               <button
                 type="button"
-                className={`hud-command-button mobile-secondary-action ${activeModal === "mail" ? "active" : ""}`}
-                onClick={() => openModal("mail")}
+                className="hud-command-button desktop-conquest-action"
+                onClick={onOpenConquest}
               >
-                <img src="/assets/icons/menu/letter.png" alt="" />
-                <span>{t("personalMailShort")}</span>
-                {unreadMailCount > 0 && (
-                  <b className="hud-command-badge">
-                    {Math.min(99, unreadMailCount)}
-                  </b>
-                )}
+                <img src="/assets/icons/menu/troop.png" alt="" />
+                <span>{t("conquest")}</span>
               </button>
-              <button
-                type="button"
-                className="hud-command-button mobile-secondary-action"
-                onClick={() => openModal("treasure")}
-              >
-                <img src="/assets/icons/menu/envent.png" alt="" />
-                <span>{t("events")}</span>
-              </button>
-              <button
-                type="button"
-                className={`hud-command-button mobile-secondary-action ${activeModal === "shop" ? "active" : ""}`}
-                onClick={openShop}
-              >
-                <img src="/assets/icons/menu/store.png" alt="" />
-                <span>{t("shop")}</span>
-              </button>
-              <button
-                type="button"
-                className={`hud-command-button mobile-secondary-action ${activeModal === "ranking" ? "active" : ""}`}
-                onClick={() => openModal("ranking")}
-              >
-                <img src="/assets/icons/menu/rank.png" alt="" />
-                <span>{t("ranking")}</span>
-              </button>
-              <button
-                type="button"
-                className={`hud-command-button mobile-secondary-action ${activeModal === "settings" ? "active" : ""}`}
-                onClick={() => openModal("settings")}
-              >
-                <img src="/assets/icons/menu/setting.png" alt="" />
-                <span>{t("settings")}</span>
-              </button>
-                </>
-              )}
               <ChatPanel
                 messages={chatMessages}
                 currentUserId={playerId ?? undefined}
@@ -4675,7 +4669,6 @@ export function GameApp({
                 currentNameFrameId={shopInventory.equippedNameFrameId}
                 currentVipLevel={vipLevel}
                 online={socketOnline}
-                mobileActionsExpanded={mobileActionsExpanded}
                 onSend={(message) => {
                   const sent = sendWorldChat(message);
                   if (!sent)
@@ -4685,9 +4678,14 @@ export function GameApp({
               />
               <button
                 type="button"
-                className={`hud-command-button mobile-main-action mobile-more-action ${mobileActionsExpanded ? "active" : ""}`}
+                className={`hud-command-button mobile-main-action mobile-more-action mobile-menu-trigger ${mobileActionsExpanded ? "active" : ""}`}
                 aria-expanded={mobileActionsExpanded}
-                onClick={() => setMobileActionsExpanded((value) => !value)}
+                aria-controls="mobile-more-sheet"
+                onClick={() => {
+                  setMobileHudPanel("none");
+                  setMinimapCollapsed(true);
+                  setMobileActionsExpanded((value) => !value);
+                }}
               >
                 <img
                   src={`/assets/icons/menu/${mobileActionsExpanded ? "close" : "more"}.png`}
@@ -4696,6 +4694,53 @@ export function GameApp({
                 <span>{mobileActionsExpanded ? t("collapse") : t("more")}</span>
               </button>
             </nav>
+          )}
+
+          {!conquestMode && mobileActionsExpanded && (
+            <div
+              className="mobile-more-sheet-backdrop hud-interactive"
+              onClick={() => setMobileActionsExpanded(false)}
+            >
+              <section
+                id="mobile-more-sheet"
+                className="mobile-more-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("more")}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mobile-more-sheet-handle" aria-hidden="true" />
+                <header>
+                  <strong>{t("more")}</strong>
+                  <button
+                    type="button"
+                    onClick={() => setMobileActionsExpanded(false)}
+                    aria-label={t("close")}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className="mobile-more-grid">
+                  <button type="button" onClick={() => { setMobileActionsExpanded(false); openShop(); }}>
+                    <img src="/assets/icons/menu/store.png" alt="" />
+                    <span>{t("shop")}</span>
+                  </button>
+                  <button type="button" onClick={() => { setMobileActionsExpanded(false); openModal("ranking"); }}>
+                    <img src="/assets/icons/menu/rank.png" alt="" />
+                    <span>{t("ranking")}</span>
+                  </button>
+                  <button type="button" onClick={() => { setMobileActionsExpanded(false); openModal("mail"); }}>
+                    <img src="/assets/icons/menu/letter.png" alt="" />
+                    <span>{t("personalMailShort")}</span>
+                    {unreadMailCount > 0 && <b>{Math.min(99, unreadMailCount)}</b>}
+                  </button>
+                  <button type="button" onClick={() => { setMobileActionsExpanded(false); openModal("settings"); }}>
+                    <img src="/assets/icons/menu/setting.png" alt="" />
+                    <span>{t("settings")}</span>
+                  </button>
+                </div>
+              </section>
+            </div>
           )}
 
           {!conquestMode && (

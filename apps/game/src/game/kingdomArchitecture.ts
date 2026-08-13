@@ -134,6 +134,55 @@ const DEFAULT_BUILDING_METRICS: Record<KingdomBuildingType, KingdomBuildingVisua
   construction: { footX: 0.5, footY: 0.96, roofX: 0.5, roofY: 0.1, footprintWidth: 0.76, footprintHeight: 0.17 },
 };
 
+// Alpha bounds measured from nations_8_buildings.webp. Later rows contain
+// substantially more transparent space below the artwork, so a shared 0.96
+// footY makes French/Roman buildings float far above their ground anchor.
+const NATION_BUILDING_VERTICAL_BOUNDS = {
+  capital: [
+    [0.1172, 0.9766],
+    [0.1367, 0.9844],
+    [0.0352, 0.959],
+    [0.0195, 1],
+    [0.0332, 1],
+    [0, 1],
+    [0, 0.8613],
+    [0, 0.8516],
+  ],
+  district: [
+    [0.1973, 0.9551],
+    [0.2188, 0.9805],
+    [0.207, 0.9492],
+    [0.1797, 0.9531],
+    [0.1172, 0.9023],
+    [0.1309, 0.8965],
+    [0.0195, 0.8418],
+    [0.0938, 0.8789],
+  ],
+} as const;
+
+function nationBuildingMetrics(
+  architectureId: string | null | undefined,
+  buildingType: KingdomBuildingType,
+) {
+  const index = kingdomArchitectureIndex(architectureId);
+  const metricType = buildingType === "capital" ? "capital" : "district";
+  const [roofY, footY] =
+    NATION_BUILDING_VERTICAL_BOUNDS[metricType][index] ||
+    NATION_BUILDING_VERTICAL_BOUNDS[metricType][0];
+  const [footX] =
+    metricType === "capital"
+      ? BUILDING_VISUAL_CENTERS.capital[index]
+      : BUILDING_VISUAL_CENTERS.district[index];
+  const defaults = DEFAULT_BUILDING_METRICS[buildingType];
+  return {
+    ...defaults,
+    footX,
+    footY,
+    roofX: footX,
+    roofY,
+  };
+}
+
 export const KINGDOM_ARCHITECTURES: Array<{
   id: KingdomArchitectureId;
   name: string;
@@ -213,6 +262,14 @@ export function kingdomBuildingVisualMetrics(
       buildingType === "flag")
   ) {
     return PREMIUM_BUILDING_METRICS[buildingType];
+  }
+  if (
+    buildingType === "capital" ||
+    buildingType === "district" ||
+    buildingType === "fortress" ||
+    buildingType === "construction"
+  ) {
+    return nationBuildingMetrics(architectureId, buildingType);
   }
   return DEFAULT_BUILDING_METRICS[buildingType];
 }

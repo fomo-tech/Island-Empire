@@ -28,11 +28,13 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
       <div
         className={`hud-minimap-card premium-framed ${collapsed ? "collapsed" : ""}`}
         data-minimap-state={collapsed ? "collapsed" : "expanded"}
+        data-menu-label={t("map")}
+        data-compact-label={t("map")}
       >
         <div className="hud-minimap-header">
           <span className="hud-minimap-title">
             <span className="hud-minimap-svg-icon">
-              <img src="/assets/icons/icon_map.png" alt="" />
+              <img src="/assets/icons/menu/minimap.png" alt="" />
             </span>
             <span className="hud-minimap-title-copy">
               <strong>{title}</strong>
@@ -43,7 +45,6 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
           <button
             type="button"
             className="hud-mini-icon-btn-plus"
-            title={collapsed ? t("expandMap") : t("collapseMap")}
             aria-label={collapsed ? t("expandMap") : t("collapseMap")}
             aria-expanded={!collapsed}
             onPointerDown={(event) => event.stopPropagation()}
@@ -53,8 +54,12 @@ export const MinimapPanel = forwardRef<HTMLCanvasElement, MinimapPanelProps>(
             }}
           >
             <img
-              className={collapsed ? "is-collapsed" : ""}
-              src="/assets/icons/icon_collapse_european.png"
+              className="minimap-toggle-icon"
+              src={
+                collapsed
+                  ? "/assets/icons/menu/minimap.png"
+                  : "/assets/icons/icon_collapse_european.png"
+              }
               alt=""
             />
           </button>

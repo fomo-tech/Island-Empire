@@ -5,7 +5,6 @@ import {
 } from "@island/shared";
 import {
   kingdomArchitectureFromEmblem,
-  kingdomBuildingVisualCenter,
   kingdomBuildingSprite,
   KINGDOM_BUILDING_LAYOUT,
   normalizeKingdomArchitecture,
@@ -26,6 +25,7 @@ import { unitAttackPhase } from "./engine/unitAnimator";
 import {
   standardTerritoryBuildingSize,
 } from "./engine/buildingSizing";
+import { resolveIsometricBuildingPlacementOnSurface } from "./engine/isometricBuildingPlacement";
 import {
   BASE_ZOOM,
   FIXED_FAR_ZOOM,
@@ -840,6 +840,9 @@ export function createIslandEmpireGame(
   >();
 
   let hideTerritoryAssets = false;
+  let showBuildingPlacementDebug =
+    import.meta.env.DEV &&
+    localStorage.getItem("island_empire_building_placement_debug") === "true";
 
   function toggleHideTerritoryAssets(forceValue?: boolean) {
     hideTerritoryAssets =
@@ -858,6 +861,15 @@ export function createIslandEmpireGame(
   (window as any).toggleHideTerritoryAssets = toggleHideTerritoryAssets;
   (window as any).setHideTerritoryAssets = (hide: boolean) =>
     toggleHideTerritoryAssets(hide);
+  (window as any).toggleBuildingPlacementDebug = (forceValue?: boolean) => {
+    showBuildingPlacementDebug =
+      forceValue !== undefined ? forceValue : !showBuildingPlacementDebug;
+    localStorage.setItem(
+      "island_empire_building_placement_debug",
+      String(showBuildingPlacementDebug),
+    );
+    return showBuildingPlacementDebug;
+  };
 
   regions.forEach((r: any) => {
     const continent = nearestContinent(r);
@@ -1594,27 +1606,76 @@ export function createIslandEmpireGame(
     size: number,
     skinId: string | null = null,
   ) {
-    const layout = KINGDOM_BUILDING_LAYOUT[buildingType];
-    const visualCenter = kingdomBuildingVisualCenter(
+    const placement = resolveIsometricBuildingPlacementOnSurface(
       architectureId,
       buildingType,
+      centerX,
+      centerY,
+      size,
       skinId,
     );
-    const frame = kingdomBuildingSprite(architectureId, buildingType, skinId);
-    const drawWidth =
-      buildingType === "flag"
-        ? frame.premium
-          ? size * 1.12
-          : size * (frame.sw / frame.sh)
-        : size;
     return {
-      // The atlas cells include tall roofs, shadows and transparent margins.
-      // Aligning the footprint to the territory centre therefore makes the
-      // actual building look visibly high or low. Each nation has a measured
-      // visual centre; put that point at the displayed territory centroid.
-      x: centerX + drawWidth * (layout.pivotX - visualCenter.x),
-      y: centerY + size * (layout.pivotY - visualCenter.y),
+      x: placement.anchorX,
+      y: placement.anchorY,
     };
+  }
+
+  function drawBuildingPlacementDebug(
+    architectureId: string,
+    buildingType: KingdomBuildingType,
+    anchorX: number,
+    anchorY: number,
+    size: number,
+    skinId: string | null = null,
+  ) {
+    if (!showBuildingPlacementDebug) return;
+    const geometry = buildingOverlayGeometry(
+      architectureId,
+      buildingType,
+      anchorX,
+      anchorY,
+      size,
+      skinId,
+    );
+    const rx = geometry.radiusX;
+    const ry = geometry.radiusY;
+    const cx = geometry.groundX;
+    const cy = geometry.footprintCenterY;
+
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.lineWidth = Math.max(1, 1.5 / Math.max(state.zoom, 0.25));
+    ctx.strokeStyle = "#20f7d2";
+    ctx.fillStyle = "rgba(32, 247, 210, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - ry);
+    ctx.lineTo(cx + rx, cy);
+    ctx.lineTo(cx, cy + ry);
+    ctx.lineTo(cx - rx, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = "#ffe66d";
+    ctx.beginPath();
+    ctx.moveTo(geometry.groundX - 5, geometry.groundY);
+    ctx.lineTo(geometry.groundX + 5, geometry.groundY);
+    ctx.moveTo(geometry.groundX, geometry.groundY - 5);
+    ctx.lineTo(geometry.groundX, geometry.groundY + 5);
+    ctx.moveTo(geometry.groundX, geometry.groundY);
+    ctx.lineTo(geometry.roofX, geometry.roofY);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${Math.max(7, 9 / Math.max(state.zoom, 0.55))}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(
+      buildingType,
+      geometry.groundX,
+      geometry.groundY + ry + 14 / Math.max(state.zoom, 0.55),
+    );
+    ctx.restore();
   }
 
   // Start decoding before the first map frame. Missing atlases never fall back to pixel art.
@@ -7862,35 +7923,6 @@ export function createIslandEmpireGame(
       t.owner === 0 ||
       (state.localPlayerId && t.ownerId === state.localPlayerId);
     const sel = t.id === state.selected;
-    if (sel) {
-      ctx.save();
-      ctx.shadowColor = "#ffe85a";
-      ctx.shadowBlur = isUserTown ? 22 : 12;
-      ctx.fillStyle = "rgba(255, 230, 90, 0.35)";
-      ctx.beginPath();
-      ctx.ellipse(
-        drawX,
-        drawY + (isUserTown ? 68 : 38),
-        isUserTown ? 130 : 72,
-        isUserTown ? 42 : 24,
-        0,
-        0,
-        TAU,
-      );
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#ffe24a";
-      ctx.lineWidth = isUserTown ? 4.0 : 2.5;
-      ctx.stroke();
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2.0;
-      ctx.setLineDash([6, 4]);
-      ctx.lineDashOffset = -state.tick * 15;
-      ctx.stroke();
-      ctx.restore();
-    }
     const regionId = castleRegionId;
     const settlement = classifySettlement({
       isIslet,
@@ -7967,6 +7999,14 @@ export function createIslandEmpireGame(
       equippedSkin,
     );
     drawKingdomBuildingSprite(
+      architectureId,
+      buildingType,
+      buildingAnchor.x,
+      buildingAnchor.y,
+      size,
+      equippedSkin,
+    );
+    drawBuildingPlacementDebug(
       architectureId,
       buildingType,
       buildingAnchor.x,
@@ -10100,6 +10140,8 @@ export function createIslandEmpireGame(
     hasArtillery: boolean,
     color: string,
   ) {
+    ctx.save();
+    ctx.scale(0.78, 0.78);
     drawTroopFootRing(0, 0, color);
     ctx.fillStyle = "rgba(8, 15, 21, 0.94)";
     ctx.strokeStyle = "#e4bd5e";
@@ -10149,6 +10191,7 @@ export function createIslandEmpireGame(
       ctx.arc(9, -12, 3, 0, TAU);
       ctx.fill();
     }
+    ctx.restore();
   }
 
   function renderTroopSprites(
@@ -10220,7 +10263,7 @@ export function createIslandEmpireGame(
       Number(Boolean(hasCavalry)) +
       Number(Boolean(hasArtillery));
     const formationScale =
-      visibleKinds >= 3 ? 0.9 : visibleKinds === 2 ? 0.98 : 1.06;
+      visibleKinds >= 3 ? 0.82 : visibleKinds === 2 ? 0.86 : 0.9;
     const pulse = farSceneryRenderMode
       ? Math.min(8, Math.max(1, 0.42 / Math.max(0.05, state.zoom)))
       : useLowDetail
@@ -10236,157 +10279,55 @@ export function createIslandEmpireGame(
         Boolean(hasArtillery),
         troopColor,
       );
-    } else if (hasInfantry && hasCavalry && hasArtillery) {
-      drawMedievalUnitSprite(
-        "cavalry",
-        -12,
-        -3,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.cavalry,
-        direction,
-        architectureId,
-      );
-      drawMedievalUnitSprite(
-        "infantry",
-        11,
-        -1,
-        42,
-        troopColor,
-        marchFrame,
-        motionCycles.infantry,
-        direction,
-        architectureId,
-      );
-      drawMedievalUnitSprite(
-        "artillery",
-        0,
-        10,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.artillery,
-        direction,
-        architectureId,
-      );
-    } else if (hasInfantry && hasCavalry) {
-      drawMedievalUnitSprite(
-        "cavalry",
-        -10,
-        -3,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.cavalry,
-        direction,
-        architectureId,
-      );
-      drawMedievalUnitSprite(
-        "infantry",
-        10,
-        0,
-        42,
-        troopColor,
-        marchFrame,
-        motionCycles.infantry,
-        direction,
-        architectureId,
-      );
-    } else if (hasInfantry && hasArtillery) {
-      drawMedievalUnitSprite(
-        "infantry",
-        -10,
-        -1,
-        42,
-        troopColor,
-        marchFrame,
-        motionCycles.infantry,
-        direction,
-        architectureId,
-      );
-      drawMedievalUnitSprite(
-        "artillery",
-        10,
-        8,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.artillery,
-        direction,
-        architectureId,
-      );
-    } else if (hasCavalry && hasArtillery) {
-      drawMedievalUnitSprite(
-        "cavalry",
-        -10,
-        -3,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.cavalry,
-        direction,
-        architectureId,
-      );
-      drawMedievalUnitSprite(
-        "artillery",
-        10,
-        8,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.artillery,
-        direction,
-        architectureId,
-      );
-    } else if (hasInfantry) {
-      drawMedievalUnitSprite(
-        "infantry",
-        0,
-        0,
-        42,
-        troopColor,
-        marchFrame,
-        motionCycles.infantry,
-        direction,
-        architectureId,
-      );
-    } else if (hasCavalry) {
-      drawMedievalUnitSprite(
-        "cavalry",
-        0,
-        0,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.cavalry,
-        direction,
-        architectureId,
-      );
-    } else if (hasArtillery) {
-      drawMedievalUnitSprite(
-        "artillery",
-        0,
-        0,
-        46,
-        troopColor,
-        marchFrame,
-        motionCycles.artillery,
-        direction,
-        architectureId,
-      );
     } else {
-      drawMedievalUnitSprite(
-        "infantry",
-        0,
-        0,
-        42,
-        troopColor,
-        marchFrame,
-        motionCycles.infantry,
-        direction,
-        architectureId,
-      );
+      type FormationKind = "infantry" | "cavalry" | "artillery";
+      const availableKinds: FormationKind[] = [];
+      if (hasInfantry) availableKinds.push("infantry");
+      if (hasCavalry) availableKinds.push("cavalry");
+      if (hasArtillery) availableKinds.push("artillery");
+      if (availableKinds.length === 0) availableKinds.push("infantry");
+
+      const formation: Array<{
+        kind: FormationKind;
+        x: number;
+        y: number;
+        phaseOffset: number;
+      }> = availableKinds.length === 1
+        ? [
+            { kind: availableKinds[0], x: 0, y: -8, phaseOffset: 0 },
+            { kind: availableKinds[0], x: -10, y: 4, phaseOffset: 0.24 },
+            { kind: availableKinds[0], x: 10, y: 4, phaseOffset: 0.48 },
+          ]
+        : availableKinds.length === 2
+          ? [
+              { kind: availableKinds[0], x: -8, y: -7, phaseOffset: 0 },
+              { kind: availableKinds[1], x: 8, y: -7, phaseOffset: 0.2 },
+              { kind: availableKinds[0], x: -8, y: 6, phaseOffset: 0.4 },
+              { kind: availableKinds[1], x: 8, y: 6, phaseOffset: 0.6 },
+            ]
+          : [
+              { kind: "cavalry", x: 0, y: -8, phaseOffset: 0 },
+              { kind: "infantry", x: -10, y: 5, phaseOffset: 0.28 },
+              { kind: "artillery", x: 10, y: 6, phaseOffset: 0.54 },
+            ];
+
+      formation
+        .slice()
+        .sort((a, b) => a.y - b.y)
+        .forEach((unit) => {
+          const unitSize = unit.kind === "infantry" ? 27 : 30;
+          drawMedievalUnitSprite(
+            unit.kind,
+            unit.x,
+            unit.y,
+            unitSize,
+            troopColor,
+            marchFrame,
+            motionCycles[unit.kind] + unit.phaseOffset,
+            direction,
+            architectureId,
+          );
+        });
     }
 
     ctx.restore();
@@ -11446,6 +11387,14 @@ export function createIslandEmpireGame(
         constructionType,
         Boolean(r.isIslet),
       );
+      const constructionSkinId =
+        constructionType === "district"
+          ? isMine
+            ? state.equippedDistrictSkin
+            : state.regionOwnerDistrictSkins[regionId]
+          : isMine
+            ? state.equippedCapitalSkin
+            : state.regionOwnerCapitalSkins[regionId];
       ctx.save();
       ctx.globalAlpha = 0.42 + buildP * 0.58;
       if (lightweightAssetRenderMode) {
@@ -11472,6 +11421,7 @@ export function createIslandEmpireGame(
           constructionArchitecture,
           constructionType,
           constructionSize,
+          constructionSkinId,
         );
         drawKingdomBuildingSprite(
           constructionArchitecture,
@@ -11479,6 +11429,15 @@ export function createIslandEmpireGame(
           constructionAnchor.x,
           constructionAnchor.y,
           constructionSize,
+          constructionSkinId,
+        );
+        drawBuildingPlacementDebug(
+          constructionArchitecture,
+          constructionType,
+          constructionAnchor.x,
+          constructionAnchor.y,
+          constructionSize,
+          constructionSkinId,
         );
       }
       ctx.restore();
@@ -12181,6 +12140,14 @@ export function createIslandEmpireGame(
       castleSize,
       equippedSkin,
     );
+    drawBuildingPlacementDebug(
+      architectureId,
+      buildingType,
+      buildingAnchor.x,
+      buildingAnchor.y,
+      castleSize,
+      equippedSkin,
+    );
     const isolatedUntil = state.regionIsolatedUntil[regionId];
     if (isolatedUntil && state.zoom >= 0.45) {
       const hoursLeft = Math.max(
@@ -12258,7 +12225,82 @@ export function createIslandEmpireGame(
       Object.keys(state.regionOwnership).map(
         (key) => [landById(Number(key)), Number(key)] as [any, number],
       );
-    candidates.forEach(([land, regionId]) => {
+    // Back-to-front ground sorting is required for isometric artwork. Source
+    // territory order is data order and can place a northern building over a
+    // southern one even though its footprint is farther from the camera.
+    const depthSortedCandidates = candidates
+      .filter(([land]) => Boolean(land))
+      .map(([land, regionId]) => ({
+        land,
+        regionId,
+        center: territoryVisualCenter(regionId, {
+          x: land.x,
+          y: land.y,
+        }),
+      }))
+      .map((candidate) => {
+        const { land, regionId, center } = candidate;
+        const ownerCode = derivedRegionOwnership(regionId);
+        const playerTown =
+          frameTownByRegion.get(regionId) ||
+          towns.find(
+            (town: any) =>
+              town.regionId === regionId || town.territoryId === regionId,
+          );
+        const isIslet = Boolean(land.isIslet);
+        const settlement = classifySettlement({
+          isIslet,
+          settlementKind: state.regionSettlementKinds[regionId],
+          connectionType: state.regionConnectionTypes[regionId],
+          capitalTerritoryConfirmed: state.capitalTerritoryIds.has(regionId),
+          capitalTownConfirmed:
+            playerTown && state.capitalTownIds.has(Number(playerTown.id)),
+        });
+        const rawEmblem =
+          ownerCode === 1
+            ? state.newbieEmblem
+            : state.regionOwnerEmblems[regionId];
+        const architectureId =
+          ownerCode === 1
+            ? normalizeKingdomArchitecture(state.newbieArchitectureId)
+            : state.regionOwnerArchitectureIds[regionId]
+              ? normalizeKingdomArchitecture(
+                  state.regionOwnerArchitectureIds[regionId],
+                )
+              : kingdomArchitectureFromEmblem(rawEmblem);
+        const skinId =
+          ownerCode === 1
+            ? settlement.isMilitaryDistrict
+              ? state.equippedDistrictSkin
+              : state.equippedCapitalSkin
+            : settlement.isMilitaryDistrict
+              ? state.regionOwnerDistrictSkins[regionId]
+              : state.regionOwnerCapitalSkins[regionId];
+        const size = standardTerritoryBuildingSize(
+          land,
+          settlement.buildingType,
+          isIslet,
+        );
+        const placement = resolveIsometricBuildingPlacementOnSurface(
+          architectureId,
+          settlement.buildingType,
+          center.x,
+          center.y,
+          size,
+          skinId,
+        );
+        return {
+          ...candidate,
+          depthKey: placement.depthKey,
+        };
+      })
+      .sort(
+        (left, right) =>
+          left.depthKey - right.depthKey ||
+          left.center.x - right.center.x ||
+          left.regionId - right.regionId,
+      );
+    depthSortedCandidates.forEach(({ land, regionId }) => {
       const ownerCode = derivedRegionOwnership(regionId);
       if (!ownerCode) return;
       if (land && vp && !isPointInViewport(land.x, land.y, vp, 350)) return;

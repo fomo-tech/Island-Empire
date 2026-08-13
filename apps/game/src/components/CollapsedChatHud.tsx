@@ -34,6 +34,11 @@ export function CollapsedChatHud({
         <span className="collapsed-chat__badge-ring">
           <img src="/assets/icons/menu/icon_chat.png" alt="" />
         </span>
+        {unreadCount && unreadCount > 0 ? (
+          <b className="collapsed-chat__unread">
+            {Math.min(99, unreadCount)}
+          </b>
+        ) : null}
       </button>
 
       <button

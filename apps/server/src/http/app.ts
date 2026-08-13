@@ -849,8 +849,10 @@ function resolvePlayerAttackRoute(_claims, source, target) {
     };
   }
   return {
-    ...resolveAttackRoute(source, target),
+    valid: false,
+    routeType: null,
     frontierTerritoryId: source.id,
+    reason: "Lãnh thổ xuất quân không giáp biên giới trực tiếp với mục tiêu",
   };
 }
 async function playersShareAlliance(alliances: any, firstId?: string, secondId?: string) {
@@ -9127,21 +9129,6 @@ export function createApp() {
           message:
             "Đất hoang phải được khai phá bằng đội công binh, không thể chiếm tức thì bằng quân đội",
         });
-      }
-      if (
-        parsed.data.kind === "attack" &&
-        targetClaim?.lastAttackedAt &&
-        gameSettings.attackCooldownSeconds > 0
-      ) {
-        const nextAttackAt =
-          new Date(targetClaim.lastAttackedAt).getTime() +
-          gameSettings.attackCooldownSeconds * 1000;
-        if (nextAttackAt > now.getTime()) {
-          return res.status(429).json({
-            error: "territory_attack_cooldown",
-            message: `Lãnh thổ vừa kết thúc giao tranh. Có thể tấn công lại sau ${Math.ceil((nextAttackAt - now.getTime()) / 1000)} giây`,
-          });
-        }
       }
       if (
         parsed.data.kind === "attack" &&

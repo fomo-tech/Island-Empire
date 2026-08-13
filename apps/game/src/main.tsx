@@ -29,6 +29,9 @@ import "./styles/onboarding-v2.css";
 import "./styles/founding-v3.css";
 import "./styles/onboarding-v3.css";
 import "./styles/army-v2.css";
+import "./styles/mobile-accessibility.css";
+import "./styles/royal-events.css";
+import "./styles/tactical-hud.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element is missing");
